@@ -16,6 +16,23 @@ The ``reason`` can echo text from a web page or a file. A rule label keeps
 only ASCII letters, digits, spaces, ``-``, ``_`` and ``/``, and every quote
 form PowerShell reads as a single quote is doubled where text enters a
 single-quoted literal.
+
+When ``CLAUDE_AUTO_MODE_RULE_PLAYBOOK`` names an existing file, the hook also
+keeps the refusal ledger::
+
+    labelled refusal  -> one ledger entry per distinct step, the group's
+                         question record, and the exact question appended
+                         to the agent's context
+    anything else     -> today's output and no ledger file
+
+It first reads the user's answers from ``transcript_path``. It writes no
+entry for a reason with no rule label, or for one of the rule flow's own
+steps, which ``auto_mode_rule_steps.py`` names: a Bash command that runs
+``setup/add_auto_mode_rule.py``, or, once the session holds an allowed entry,
+a Bash ``git commit`` or ``git push`` of a ``claude/auto-mode-rule-`` branch
+in the playbook's repository or one of its worktrees. Any ledger or
+transcript error, and a playbook with no repository folder above it, gives
+today's output.
 """
 
 from __future__ import annotations
@@ -31,6 +48,7 @@ _hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if _hooks_root_directory not in sys.path:
     sys.path.insert(0, _hooks_root_directory)
 
+import auto_mode_refusal_ledger
 from hooks_constants.auto_mode_denial_quick_fix_constants import (
     ALL_COMMAND_INPUT_KEYS,
     ALL_NO_VERDICT_REASON_PREFIXES,
@@ -38,6 +56,8 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     ALLOW_ENTRY_TEMPLATE,
     BARE_LABEL_PATTERN,
     BRACKETED_LABEL_PATTERN,
+    CLASSIFIER_REASON_PREFIX_PATTERN,
+    DEFAULT_TOOL_NAME,
     HOOK_EVENT_NAME,
     LABELLED_RULE_WORDING_COMMAND_TEMPLATE,
     LABELLED_RULE_WORDING_LINE_TEMPLATE,
@@ -45,6 +65,7 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     MAXIMUM_PROSE_RULE_NAME_CHARACTERS,
     NO_VERDICT_CONTEXT_TEMPLATE,
     POWERSHELL_BLOCK_TEMPLATE,
+    QUESTION_CONTEXT_TEMPLATE,
     RULE_LABEL_DISALLOWED_CHARACTER_PATTERN,
     SENTENCE_END_PATTERN,
     SUMMARY_WORD_SEPARATOR,
@@ -96,8 +117,12 @@ def parse_denial_reason(reason: str) -> DenialReason:
         "Unauthorized Persistence, because" -> label "Unauthorized Persistence", verdict
         "the command cancels runs."         -> no label, verdict
         "Classifier unavailable"            -> no label, no verdict
+        "Reason: [Git Destructive] force"   -> label "Git Destructive", verdict
 
-    A bracketed label counts only at the start of the text. A bare label is
+    A leading ``Reason:``, and the classifier sentence ``Permission for this
+    action was denied by the Claude Code auto mode classifier.`` before it,
+    are dropped first. A bracketed label counts only at the start of the
+    remaining text. A bare label is
     two or more capitalised words that end at a comma, colon, semicolon,
     period, spaced dash, or the end of the text. A label keeps only ASCII
     letters, digits, spaces, ``-``, ``_`` and ``/``, with whitespace
@@ -112,7 +137,7 @@ def parse_denial_reason(reason: str) -> DenialReason:
     Returns:
         The label or None, whether a verdict exists, and the prose.
     """
-    stripped_reason = reason.strip()
+    stripped_reason = re.sub(CLASSIFIER_REASON_PREFIX_PATTERN, "", reason, count=1).strip()
     if not stripped_reason or stripped_reason.lower().startswith(ALL_NO_VERDICT_REASON_PREFIXES):
         return DenialReason(rule_label=None, has_verdict=False, prose=stripped_reason)
     for each_label_pattern in (BRACKETED_LABEL_PATTERN, BARE_LABEL_PATTERN):
@@ -254,7 +279,7 @@ def build_hook_output(all_denial_fields: dict[str, object]) -> dict[str, object]
         text has no verdict, and the reason is shown on one line with
         control characters removed.
     """
-    tool_name = str(all_denial_fields.get("tool_name") or "tool")
+    tool_name = str(all_denial_fields.get("tool_name") or DEFAULT_TOOL_NAME)
     raw_reason = all_denial_fields.get("reason")
     denial_reason = _one_display_line(raw_reason) if isinstance(raw_reason, str) else ""
     action_summary = action_summary_from(all_denial_fields.get("tool_input"))
@@ -279,6 +304,73 @@ def build_hook_output(all_denial_fields: dict[str, object]) -> dict[str, object]
     }
 
 
+def _refused_step_from(
+    all_denial_fields: dict[str, object],
+) -> auto_mode_refusal_ledger.RefusedStep | None:
+    session_id = all_denial_fields.get("session_id")
+    if not isinstance(session_id, str) or not session_id:
+        return None
+    raw_transcript_path = all_denial_fields.get("transcript_path")
+    raw_working_folder = all_denial_fields.get("cwd")
+    raw_reason = all_denial_fields.get("reason")
+    denial_reason = _one_display_line(raw_reason) if isinstance(raw_reason, str) else ""
+    tool_input = all_denial_fields.get("tool_input")
+    return auto_mode_refusal_ledger.RefusedStep(
+        session_id=session_id,
+        transcript_path=Path(raw_transcript_path) if isinstance(raw_transcript_path, str) else None,
+        tool_name=str(all_denial_fields.get("tool_name") or DEFAULT_TOOL_NAME),
+        tool_input=tool_input,
+        working_folder=raw_working_folder if isinstance(raw_working_folder, str) else None,
+        rule_label=parse_denial_reason(denial_reason).rule_label,
+        reason=denial_reason,
+        action_summary=action_summary_from(tool_input),
+    )
+
+
+def _question_context_for(all_denial_fields: dict[str, object]) -> str | None:
+    playbook_path = auto_mode_refusal_ledger.playbook_path_from_environment()
+    if playbook_path is None:
+        return None
+    repository_root = auto_mode_refusal_ledger.rule_repository_root(playbook_path)
+    refused_step = _refused_step_from(all_denial_fields)
+    if repository_root is None or refused_step is None:
+        return None
+    question = auto_mode_refusal_ledger.record_refusal(refused_step, repository_root)
+    if question is None:
+        return None
+    return QUESTION_CONTEXT_TEMPLATE.format(question=question, playbook_path=playbook_path)
+
+
+def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, object]:
+    """Return the hook output, with the ledger kept when the flow is on.
+
+    ::
+
+        flow off or playbook missing      -> build_hook_output, byte for byte
+        playbook with no repository above -> build_hook_output
+        flow on, question returned        -> same, plus the AUTO MODE QUESTION block
+        any ledger or transcript error    -> build_hook_output
+
+    Args:
+        all_denial_fields: The hook input JSON.
+
+    Returns:
+        The PermissionDenied hook output.
+    """
+    hook_output = build_hook_output(all_denial_fields)
+    try:
+        question_context = _question_context_for(all_denial_fields)
+    except Exception:
+        return hook_output
+    if question_context is None:
+        return hook_output
+    hook_specific_output = dict(hook_output["hookSpecificOutput"])
+    hook_specific_output["additionalContext"] = (
+        str(hook_specific_output["additionalContext"]) + question_context
+    )
+    return {**hook_output, "hookSpecificOutput": hook_specific_output}
+
+
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
@@ -286,7 +378,7 @@ def main() -> int:
         return 0
     if not isinstance(payload, dict):
         return 0
-    sys.stdout.write(json.dumps(build_hook_output(payload)))
+    sys.stdout.write(json.dumps(hook_output_with_ledger(payload)))
     sys.stdout.flush()
     return 0
 

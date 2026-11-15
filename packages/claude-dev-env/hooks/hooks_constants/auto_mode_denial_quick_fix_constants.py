@@ -31,9 +31,13 @@ __all__ = [
     "VERDICT_CONTEXT_TEMPLATE",
     "NO_VERDICT_CONTEXT_TEMPLATE",
     "USER_MESSAGE_TEMPLATE",
+    "CLASSIFIER_REASON_PREFIX_PATTERN",
+    "QUESTION_CONTEXT_TEMPLATE",
+    "DEFAULT_TOOL_NAME",
 ]
 
 HOOK_EVENT_NAME = "PermissionDenied"
+DEFAULT_TOOL_NAME = "tool"
 ALL_NO_VERDICT_REASON_PREFIXES = (
     "auto mode could not evaluate this action",
     "classifier unavailable",
@@ -103,3 +107,15 @@ An autoMode.allow entry cannot clear a denial with no verdict. Tell the user the
 USER_MESSAGE_TEMPLATE = (
     "Auto mode blocked {tool_name} [{rule_label}]. Claude will propose a quick fix."
 )
+
+CLASSIFIER_REASON_PREFIX_PATTERN = (
+    r"^\s*(?:Permission for this action was denied by the Claude Code auto mode classifier\.\s*)?"
+    r"(?:Reason:\s*)?"
+)
+
+QUESTION_CONTEXT_TEMPLATE = """
+
+=== AUTO MODE QUESTION ===
+Before you end the turn, ask the user this question with one AskUserQuestion call. Copy the question word for word, use the header `Auto mode`, and give the options `Keep refusing` and `Allow it`:
+{question}
+On Allow it, follow {playbook_path}: retry the step once and add one allow rule for this kind of step. On Keep refusing, go on with other work."""

@@ -1,0 +1,3326 @@
+{
+  "about": "Auto mode refusal flow cases for claude-dev-env. Each case is a list of hook events played in a scratch home; expectations read only hook output and the ledger's answer field. Run auto_mode_rule_flow_runner.py beside this file.",
+  "today_outputs_source": "stdout of hooks/advisory/auto_mode_denial_quick_fix.py at commit b90b0dc",
+  "today_outputs": {
+    "git_destructive": "{\"hookSpecificOutput\": {\"hookEventName\": \"PermissionDenied\", \"additionalContext\": \"=== AUTO MODE DENIAL QUICK FIX ===\\nAuto mode denied Bash under rule [Git Destructive].\\nDenial reason: [Git Destructive] force push to a shared branch\\nDenied action: git push --force-with-lease origin claude/x\\n\\nIn your next message to the user, propose these two fixes. Do not retry and do not run the block yourself.\\n1. One-off: the user replies with a message that names this exact action and its target; then you retry once.\\n2. Lasting: the user runs this PowerShell 7 block on their machine. It adds one autoMode.allow entry to ~/.claude/settings.json and keeps \\\"$defaults\\\". Narrow the entry text to this action before you send it.\\n\\n```powershell\\n$settingsPath = Join-Path $HOME '.claude/settings.json'\\nNew-Item -ItemType Directory -Force -Path (Split-Path $settingsPath) | Out-Null\\n$settings = if (Test-Path $settingsPath) { Get-Content -Raw $settingsPath | ConvertFrom-Json -AsHashtable } else { @{} }\\nif (-not $settings.ContainsKey('autoMode')) { $settings['autoMode'] = @{} }\\n$allowList = [System.Collections.Generic.List[string]]::new()\\nif ($settings['autoMode'].ContainsKey('allow')) { $allowList.AddRange([string[]]@($settings['autoMode']['allow'])) } else { $allowList.Add('$defaults') }\\n$entry = 'Git Destructive exception: Bash calls like `git push --force-with-lease origin claude/x` are allowed when they serve the task the user gave.'\\nif ($allowList -notcontains $entry) { $allowList.Add($entry) }\\n$settings['autoMode']['allow'] = $allowList.ToArray()\\n$settings | ConvertTo-Json -Depth 32 | Set-Content -Encoding utf8NoBOM $settingsPath\\nclaude auto-mode config\\n```\\n\\nFor cloud sessions, the same entry must land in the ~/.claude/settings.json that the session's setup installs.\\nRead the rule wording with: claude auto-mode defaults --label 'Git Destructive'\"}, \"systemMessage\": \"Auto mode blocked Bash [Git Destructive]. Claude will propose a quick fix.\"}",
+    "prose_reason": "{\"hookSpecificOutput\": {\"hookEventName\": \"PermissionDenied\", \"additionalContext\": \"=== AUTO MODE DENIAL QUICK FIX ===\\nAuto mode denied Bash under rule [the command cancels workflow runs on a shared branch].\\nDenial reason: the command cancels workflow runs on a shared branch.\\nDenied action: gh run cancel 12345\\n\\nIn your next message to the user, propose these two fixes. Do not retry and do not run the block yourself.\\n1. One-off: the user replies with a message that names this exact action and its target; then you retry once.\\n2. Lasting: the user runs this PowerShell 7 block on their machine. It adds one autoMode.allow entry to ~/.claude/settings.json and keeps \\\"$defaults\\\". Narrow the entry text to this action before you send it.\\n\\n```powershell\\n$settingsPath = Join-Path $HOME '.claude/settings.json'\\nNew-Item -ItemType Directory -Force -Path (Split-Path $settingsPath) | Out-Null\\n$settings = if (Test-Path $settingsPath) { Get-Content -Raw $settingsPath | ConvertFrom-Json -AsHashtable } else { @{} }\\nif (-not $settings.ContainsKey('autoMode')) { $settings['autoMode'] = @{} }\\n$allowList = [System.Collections.Generic.List[string]]::new()\\nif ($settings['autoMode'].ContainsKey('allow')) { $allowList.AddRange([string[]]@($settings['autoMode']['allow'])) } else { $allowList.Add('$defaults') }\\n$entry = 'the command cancels workflow runs on a shared branch exception: Bash calls like `gh run cancel 12345` are allowed when they serve the task the user gave.'\\nif ($allowList -notcontains $entry) { $allowList.Add($entry) }\\n$settings['autoMode']['allow'] = $allowList.ToArray()\\n$settings | ConvertTo-Json -Depth 32 | Set-Content -Encoding utf8NoBOM $settingsPath\\nclaude auto-mode config\\n```\\n\\nFor cloud sessions, the same entry must land in the ~/.claude/settings.json that the session's setup installs.\\nFind the matching rule with: claude auto-mode defaults\"}, \"systemMessage\": \"Auto mode blocked Bash [the command cancels workflow runs on a shared branch]. Claude will propose a quick fix.\"}"
+  },
+  "cases": [
+    {
+      "id": "R1",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Flow on, one force push refusal: one pending entry, the quick-fix block stays, the question text reaches the agent.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1,
+            "answers": {
+              "a": null
+            },
+            "context_contains": [
+              "=== AUTO MODE DENIAL QUICK FIX ===",
+              "```powershell",
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R2",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "The same refusal twice: still one entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 1,
+            "answers": {
+              "a": null
+            },
+            "context_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R3",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Two different commands under one label: two entries.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git reset --hard origin/main",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "b",
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": null,
+              "b": null
+            },
+            "context_contains": [
+              "Auto mode refused 2 Bash steps under the Git Destructive rule. Should auto mode have refused them?"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R4",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "A WebFetch refusal: one entry, the URL is the action.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "WebFetch",
+            "tool_input": {
+              "url": "https://upload.example.com/collect?source=repo",
+              "prompt": "Summarize the page"
+            },
+            "reason": "[Data Exfiltration] sends repository text to an outside host"
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1,
+            "answers": {
+              "a": null
+            },
+            "context_contains": [
+              "https://upload.example.com/collect?source=repo",
+              "Auto mode refused 1 WebFetch step under the Data Exfiltration rule. Should auto mode have refused it?"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R5",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "A label with quote and shell characters is cleaned to letters, digits, spaces, _, / and -.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "rm -rf build-out",
+              "description": "Run a step"
+            },
+            "reason": "[Label'; rm -rf x #] removes a folder"
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1,
+            "context_contains": [
+              "Auto mode refused 1 Bash step under the Label rm -rf x rule. Should auto mode have refused it?"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R6",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "A bracketed label with only a period after it.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "rm -rf build-out",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions]."
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1,
+            "context_contains": [
+              "Auto mode refused 1 Bash step under the Destructive or Unwanted Actions rule. Should auto mode have refused it?"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R7",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "The full classifier sentence quoted in agent-channels pull request 95.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git commit -q -F /tmp/message.txt",
+              "description": "Run a step"
+            },
+            "reason": "Permission for this action was denied by the Claude Code auto mode classifier. Reason: [Destructive or Unwanted Actions]."
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1,
+            "context_contains": [
+              "Auto mode refused 1 Bash step under the Destructive or Unwanted Actions rule. Should auto mode have refused it?"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R8",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "Classifier unavailable: no entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "Classifier unavailable"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "R9",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "Server-side classifier timed out: no entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "The server-side auto mode classifier gave no verdict (timed out)"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "R10",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "A hook changed the input after review: no entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "a hook changed this call's input after auto mode reviewed it"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "R11",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "Prose reason with no label: no entry, output equal to today's.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "gh run cancel 12345",
+              "description": "Run a step"
+            },
+            "reason": "the command cancels workflow runs on a shared branch."
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 0,
+            "stdout_equals_today": "prose_reason"
+          }
+        }
+      ]
+    },
+    {
+      "id": "R12",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "A reason that is a number: no entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": 42
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "R13",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "Flow off: no entry, output equal to today's byte for byte.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 0,
+            "stdout_equals_today": "git_destructive"
+          },
+          "flow": "off"
+        }
+      ]
+    },
+    {
+      "id": "R14",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "The switch names a file that does not exist: same as R13.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 0,
+            "stdout_equals_today": "git_destructive"
+          },
+          "flow": "missing"
+        }
+      ]
+    },
+    {
+      "id": "R15",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "The refused command runs add_auto_mode_rule.py from the agent-channels root: no entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "python3 setup/add_auto_mode_rule.py add --label \"Own branch force push\" --rule-file /tmp/rule.txt",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] edits the rules folder",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "R16",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "The session holds an allowed entry; a push in agent-channels of a claude/auto-mode-rule- branch adds no entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push -u origin claude/auto-mode-rule-own-branch-force-push",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] pushes a branch",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "R17",
+      "kind": "should act",
+      "source": "added by the ledger unit from the plan check 5 Notes",
+      "summary": "Two Edit refusals of one file with different tool_input: two entries, because the id uses the full tool_input.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Edit",
+            "tool_input": {
+              "file_path": "@@scratch@@/settings.json",
+              "old_string": "\"allow\": []",
+              "new_string": "\"allow\": [\"Bash(*)\"]"
+            },
+            "reason": "[Self-Modification] edits the agent's own permission settings"
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Edit",
+            "tool_input": {
+              "file_path": "@@scratch@@/settings.json",
+              "old_string": "\"deny\": [\"Bash(rm *)\"]",
+              "new_string": "\"deny\": []"
+            },
+            "reason": "[Self-Modification] edits the agent's own permission settings"
+          },
+          "name": "b",
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": null,
+              "b": null
+            },
+            "context_contains": [
+              "Auto mode refused 2 Edit steps under the Self-Modification rule. Should auto mode have refused them?"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R18",
+      "kind": "should act",
+      "source": "added by the ledger unit from the plan check 5 Notes",
+      "summary": "A reason that starts with Reason: reads the same label as one without it: both steps share one question.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git reset --hard origin/main",
+              "description": "Run a step"
+            },
+            "reason": "Reason: [Git Destructive] discards local commits"
+          },
+          "name": "b",
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": null,
+              "b": null
+            },
+            "context_contains": [
+              "Auto mode refused 2 Bash steps under the Git Destructive rule. Should auto mode have refused them?"
+            ],
+            "context_excludes": [
+              "Reason: Git Destructive",
+              "under the Reason rule"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "R19",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The session holds an allowed entry; an Edit of a settings file with its working folder in agent-channels is not a rule step, so it adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Edit",
+            "tool_input": {
+              "file_path": "@@scratch@@/settings.json",
+              "old_string": "\"allow\": []",
+              "new_string": "\"allow\": [\"Bash(*)\"]"
+            },
+            "reason": "[Self-Modification] edits the agent's own permission settings",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R20",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The session holds an allowed entry; a command on a folder whose name only starts with agent-channels is outside agent-channels, so it adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "rm -rf ~/agent-channels-old/build",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] deletes a folder"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R21",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The session holds an allowed entry; a push in agent-channels of a branch that is not a claude/auto-mode-rule- branch adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push origin claude/project-thread-rule",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] pushes a branch",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R22",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "An Edit of add_auto_mode_rule.py names the rule tool and does not run it, so it adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Edit",
+            "tool_input": {
+              "file_path": "@@scratch@@/agent-channels/setup/add_auto_mode_rule.py",
+              "old_string": "PROTECTED_TARGET_PATTERNS = (",
+              "new_string": "PROTECTED_TARGET_PATTERNS = () and ("
+            },
+            "reason": "[Self-Modification] edits the rule tool's protected targets"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "R23",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "A cd and then python3 setup/add_auto_mode_rule.py in one command is outside the accepted shapes, so it adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "cd @@scratch@@/agent-channels-rule && python3 setup/add_auto_mode_rule.py validate --base origin/main",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] runs a rules tool"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "R23b",
+      "kind": "should stay quiet",
+      "source": "added from the build check",
+      "summary": "The playbook's new form, python3 setup/add_auto_mode_rule.py run alone from the rule worktree, adds no entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "python3 setup/add_auto_mode_rule.py validate --base origin/main",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] runs a rules tool",
+            "cwd": "@@scratch@@/agent-channels-rule"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 0
+          }
+        }
+      ]
+    },
+    {
+      "id": "R24",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The session holds an allowed entry; a pull request merge that names agent-channels is not a rule step, so it adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "gh pr merge 12 --repo owner/agent-channels --squash",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] merges a pull request"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R25",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "A cd .. before the rule tool runs another folder's copy of it, so it adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "cd .. && python3 setup/add_auto_mode_rule.py add --label X --rule-file r.txt",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] writes outside the rule flow",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "R26",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "A cd to a folder named by a variable before the rule tool adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "cd \"$OTHER_REPO\" && python3 setup/add_auto_mode_rule.py add --label X --rule-file r.txt",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] writes outside the rule flow",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "R27",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "A cd - before the rule tool adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "cd - && python3 setup/add_auto_mode_rule.py add --label X --rule-file r.txt",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] writes outside the rule flow",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "R28",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The session holds an allowed entry; a push of every branch adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --all origin",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] writes outside the rule flow",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R29",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The session holds an allowed entry; a mirror push adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --mirror origin",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] writes outside the rule flow",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R30",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The session holds an allowed entry; a push of every tag adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --tags origin",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] writes outside the rule flow",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R31",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The session holds an allowed entry; a push of a rule branch to another repository's URL adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push https://github.com/other-owner/other-repo.git claude/auto-mode-rule-own-branch-force-push",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] writes outside the rule flow",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R32",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The session holds an allowed entry; a push with a git -c option adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git -c core.sshCommand=/tmp/other-ssh push -u origin claude/auto-mode-rule-own-branch-force-push",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] writes outside the rule flow",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R33",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The session holds an allowed entry; a push that deletes a rule branch adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --delete origin claude/auto-mode-rule-own-branch-force-push",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] writes outside the rule flow",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "R34",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "A rule tool path outside agent-channels adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "python3 /tmp/other-checkout/setup/add_auto_mode_rule.py add --label X --rule-file r.txt",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] writes outside the rule flow",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "R35",
+      "kind": "should act",
+      "source": "added from the build check",
+      "summary": "The rule tool run with an accepted shape from a folder outside agent-channels adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "python3 setup/add_auto_mode_rule.py add --label \"Own branch force push\" --rule-file /tmp/rule.txt",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] edits the rules folder"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q1",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "One pending entry, no question yet: held with the exact question, header, labels and command.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "Auto mode",
+              "Keep refusing",
+              "Allow it",
+              "git push --force-with-lease origin claude/x"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q2",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Three entries in one group: the 3 Bash steps question and three commands.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/q-1",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/q-2",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/q-3",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 3 Bash steps under the Git Destructive rule. Should auto mode have refused them?",
+              "git push --force-with-lease origin claude/q-1",
+              "git push --force-with-lease origin claude/q-2",
+              "git push --force-with-lease origin claude/q-3"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q3",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Six entries in one group: the 5 Bash steps question and the five oldest commands.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/q-1",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/q-2",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/q-3",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/q-4",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/q-5",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/q-6",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 5 Bash steps under the Git Destructive rule. Should auto mode have refused them?",
+              "git push --force-with-lease origin claude/q-1",
+              "git push --force-with-lease origin claude/q-2",
+              "git push --force-with-lease origin claude/q-3",
+              "git push --force-with-lease origin claude/q-4",
+              "git push --force-with-lease origin claude/q-5"
+            ],
+            "reason_excludes": [
+              "git push --force-with-lease origin claude/q-6"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q4",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Two groups: both questions.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "WebFetch",
+            "tool_input": {
+              "url": "https://upload.example.com/collect?source=repo",
+              "prompt": "Summarize the page"
+            },
+            "reason": "[Data Exfiltration] sends repository text to an outside host"
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "Auto mode refused 1 WebFetch step under the Data Exfiltration rule. Should auto mode have refused it?"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q5",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Five groups: four questions.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "step-1",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] refused step"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "step-2",
+              "description": "Run a step"
+            },
+            "reason": "[Data Exfiltration] refused step"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "step-3",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] refused step"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "step-4",
+              "description": "Run a step"
+            },
+            "reason": "[Undermining Oversight] refused step"
+          }
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "step-5",
+              "description": "Run a step"
+            },
+            "reason": "[Security Weaken] refused step"
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_holds_count_of": {
+              "texts": [
+                "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+                "Auto mode refused 1 Bash step under the Data Exfiltration rule. Should auto mode have refused it?",
+                "Auto mode refused 1 Bash step under the Destructive or Unwanted Actions rule. Should auto mode have refused it?",
+                "Auto mode refused 1 Bash step under the Undermining Oversight rule. Should auto mode have refused it?",
+                "Auto mode refused 1 Bash step under the Security Weaken rule. Should auto mode have refused it?"
+              ],
+              "count": 4
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q6",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "An Auto mode question with the same text was answered before the refusal: still held.",
+      "events": [
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Keep refusing"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ],
+            "answers": {
+              "a": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q7",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "The Auto mode question call ended in an error: held.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ],
+          "error": true
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ],
+            "answers": {
+              "a": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q8",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "The payload says a Stop hook already held this turn: held.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {
+            "stop_hook_active": true
+          },
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q9",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "The question follows the entry, answered Keep refusing: turn ends, entry kept.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Keep refusing"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false,
+            "answers": {
+              "a": "kept"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q10",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "An entry already held twice: the third Stop ends the turn.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false,
+            "answers": {
+              "a": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q11",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "No entries: turn ends, no output.",
+      "events": [
+        {
+          "stop": {},
+          "expect": {
+            "held": false,
+            "stdout_empty": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q12",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "Flow off at Stop with one pending entry on disk: turn ends.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false
+          },
+          "flow": "off"
+        }
+      ]
+    },
+    {
+      "id": "Q13",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "Print-mode run (entrypoint sdk-cli): turn ends.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a",
+          "env": {
+            "CLAUDE_CODE_ENTRYPOINT": "sdk-cli"
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false
+          },
+          "env": {
+            "CLAUDE_CODE_ENTRYPOINT": "sdk-cli"
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q14",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "A decision card call that holds auto mode follows the entry: turn ends.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "transcript": "card",
+          "tool": "mcp__hearthbot__ask_decision",
+          "question": "Should auto mode have refused this Bash step?"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "Q15",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "The pending entry belongs to another session: turn ends.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch",
+            "session_id": "session-other"
+          },
+          "name": "other",
+          "expect": {
+            "creates_entry": true
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false
+          }
+        }
+      ]
+    },
+    {
+      "id": "A1",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Allow it: entry allowed, one hold names the playbook and the ledger file.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "@@playbook@@",
+              "@@ledger:a@@"
+            ],
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A2",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Allow it (Recommended): same as A1.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it (Recommended)"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "@@playbook@@",
+              "@@ledger:a@@"
+            ],
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A3",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Two allowed entries: one hold names both ledger files.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git reset --hard origin/main",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "b"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 2 Bash steps under the Git Destructive rule. Should auto mode have refused them?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "@@ledger:a@@",
+              "@@ledger:b@@"
+            ],
+            "answers": {
+              "a": "allowed",
+              "b": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A4",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Allow it on a 2-step question; a third refusal arrives after the answer: it stays pending and gets its own question.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git reset --hard origin/main",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "b"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 2 Bash steps under the Git Destructive rule. Should auto mode have refused them?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/late",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "c"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ],
+            "answers": {
+              "a": "allowed",
+              "b": "allowed",
+              "c": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A5",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Groups Git and Git Destructive pending; only the Git Destructive question is answered Allow it.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git commit --amend --no-edit",
+              "description": "Run a step"
+            },
+            "reason": "[Git] rewrites a commit"
+          },
+          "name": "g"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "d"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "answers": {
+              "d": "allowed",
+              "g": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A6",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "Seven entries, the 5 Bash steps question answered Allow it: five oldest allowed, two newest held with a 2 Bash steps question.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/a-1",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "e1"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/a-2",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "e2"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/a-3",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "e3"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/a-4",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "e4"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/a-5",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "e5"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/a-6",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "e6"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/a-7",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "e7"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 5 Bash steps under the Git Destructive rule. Should auto mode have refused them?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 2 Bash steps under the Git Destructive rule. Should auto mode have refused them?"
+            ],
+            "answers": {
+              "e1": "allowed",
+              "e2": "allowed",
+              "e3": "allowed",
+              "e4": "allowed",
+              "e5": "allowed",
+              "e6": null,
+              "e7": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A7",
+      "kind": "should act",
+      "source": "eval inputs",
+      "summary": "The agent reworded the question and the answer is Allow it: no entry changes, held again with the exact question.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Should auto mode have refused the Bash git push to claude/x?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ],
+            "answers": {
+              "a": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A8",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "Keep refusing: entry kept, turn ends.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Keep refusing"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false,
+            "answers": {
+              "a": "kept"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A9",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "Answer typed as other text: entry stays pending, turn ends because the exact question was asked.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Let me look at the command first"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false,
+            "answers": {
+              "a": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A10",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "Allowed entry, then a Bash call ran add_auto_mode_rule.py add naming its ledger file: turn ends.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "bash",
+          "command": "python3 setup/add_auto_mode_rule.py add --label \"Own branch force push\" --rule-file /tmp/rule.txt --ledger @@ledger:a@@"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A11",
+      "kind": "should stay quiet",
+      "source": "eval inputs",
+      "summary": "Allowed entry whose rule hold fired twice: turn ends.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N1a",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N1: the Git question answered Allow it leaves the Git Destructive entry pending (A5 is the other direction).",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git commit --amend --no-edit",
+              "description": "Run a step"
+            },
+            "reason": "[Git] rewrites a commit"
+          },
+          "name": "g"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "d"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "answers": {
+              "g": "allowed",
+              "d": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N1b",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N1: the Bash question answered Allow it leaves the BashOutput entry pending.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "rm -rf build-out",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] changes files outside the task"
+          },
+          "name": "bash"
+        },
+        {
+          "refusal": {
+            "tool_name": "BashOutput",
+            "tool_input": {
+              "bash_id": "shell_7"
+            },
+            "reason": "[Destructive or Unwanted Actions] changes files outside the task"
+          },
+          "name": "output"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Destructive or Unwanted Actions rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "answers": {
+              "bash": "allowed",
+              "output": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N1c",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N1: the BashOutput question answered Allow it leaves the Bash entry pending.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "rm -rf build-out",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] changes files outside the task"
+          },
+          "name": "bash"
+        },
+        {
+          "refusal": {
+            "tool_name": "BashOutput",
+            "tool_input": {
+              "bash_id": "shell_7"
+            },
+            "reason": "[Destructive or Unwanted Actions] changes files outside the task"
+          },
+          "name": "output"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 BashOutput step under the Destructive or Unwanted Actions rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "answers": {
+              "bash": null,
+              "output": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N1d",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N1: the Edit question answered Allow it leaves the NotebookEdit entry pending.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Edit",
+            "tool_input": {
+              "file_path": "/work/app/settings.py",
+              "old_string": "A = 1",
+              "new_string": "A = 2"
+            },
+            "reason": "[Destructive or Unwanted Actions] changes files outside the task"
+          },
+          "name": "edit"
+        },
+        {
+          "refusal": {
+            "tool_name": "NotebookEdit",
+            "tool_input": {
+              "notebook_path": "/work/app/report.ipynb",
+              "new_source": "print(1)"
+            },
+            "reason": "[Destructive or Unwanted Actions] changes files outside the task"
+          },
+          "name": "notebook"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Edit step under the Destructive or Unwanted Actions rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "answers": {
+              "edit": "allowed",
+              "notebook": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N1e",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N1: the NotebookEdit question answered Allow it leaves the Edit entry pending.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Edit",
+            "tool_input": {
+              "file_path": "/work/app/settings.py",
+              "old_string": "A = 1",
+              "new_string": "A = 2"
+            },
+            "reason": "[Destructive or Unwanted Actions] changes files outside the task"
+          },
+          "name": "edit"
+        },
+        {
+          "refusal": {
+            "tool_name": "NotebookEdit",
+            "tool_input": {
+              "notebook_path": "/work/app/report.ipynb",
+              "new_source": "print(1)"
+            },
+            "reason": "[Destructive or Unwanted Actions] changes files outside the task"
+          },
+          "name": "notebook"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 NotebookEdit step under the Destructive or Unwanted Actions rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "answers": {
+              "edit": null,
+              "notebook": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N2a",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N2: two groups, only one asked and answered: the other group is still held.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "refusal": {
+            "tool_name": "WebFetch",
+            "tool_input": {
+              "url": "https://upload.example.com/collect?source=repo",
+              "prompt": "Summarize the page"
+            },
+            "reason": "[Data Exfiltration] sends repository text to an outside host"
+          },
+          "name": "b"
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Keep refusing"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 WebFetch step under the Data Exfiltration rule. Should auto mode have refused it?"
+            ],
+            "reason_excludes": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ],
+            "answers": {
+              "a": "kept",
+              "b": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N2b",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N2: two allowed entries in two groups, one add call names one ledger file: the other is still held.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "refusal": {
+            "tool_name": "WebFetch",
+            "tool_input": {
+              "url": "https://upload.example.com/collect?source=repo",
+              "prompt": "Summarize the page"
+            },
+            "reason": "[Data Exfiltration] sends repository text to an outside host"
+          },
+          "name": "b"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            },
+            {
+              "question": "Auto mode refused 1 WebFetch step under the Data Exfiltration rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "answers": {
+              "a": "allowed",
+              "b": "allowed"
+            }
+          }
+        },
+        {
+          "transcript": "bash",
+          "command": "python3 setup/add_auto_mode_rule.py add --label \"Own branch force push\" --rule-file /tmp/rule.txt --ledger @@ledger:a@@"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "@@ledger:b@@"
+            ],
+            "reason_excludes": [
+              "@@ledger:a@@"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "N3a",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N3: Allow it answered, no Stop yet, then the flow's own push of its claude/auto-mode-rule- branch in agent-channels is refused: the entry is already allowed and no entry is added.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push -u origin claude/auto-mode-rule-own-branch-force-push",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] pushes a branch",
+            "cwd": "@@scratch@@/agent-channels"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 1,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N3b",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N3: Allow it answered, no Stop yet, then the flow's own push run with git -C agent-channels from another folder is refused: git -C is outside the accepted shapes, so it adds an entry.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git -C @@scratch@@/agent-channels push -u origin claude/auto-mode-rule-own-branch-force-push",
+              "description": "Run a step"
+            },
+            "reason": "[Destructive or Unwanted Actions] pushes a branch"
+          },
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 2,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N7a",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N7: A4 with no timestamps in the transcript: same result.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git reset --hard origin/main",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "b"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 2 Bash steps under the Git Destructive rule. Should auto mode have refused them?",
+              "answer": "Allow it"
+            }
+          ],
+          "timestamp": null
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/late",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "c"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ],
+            "answers": {
+              "a": "allowed",
+              "b": "allowed",
+              "c": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N7b",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N7: A4 with the answer stamped far in the past: same result.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git reset --hard origin/main",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "b"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 2 Bash steps under the Git Destructive rule. Should auto mode have refused them?",
+              "answer": "Allow it"
+            }
+          ],
+          "timestamp": "2000-01-01T00:00:00.000Z"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/late",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "c"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ],
+            "answers": {
+              "a": "allowed",
+              "b": "allowed",
+              "c": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N7c",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N7: A4 with the answer stamped far in the future: the late refusal still stays pending.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git reset --hard origin/main",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "b"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 2 Bash steps under the Git Destructive rule. Should auto mode have refused them?",
+              "answer": "Allow it"
+            }
+          ],
+          "timestamp": "2099-01-01T00:00:00.000Z"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/late",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "c"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ],
+            "answers": {
+              "a": "allowed",
+              "b": "allowed",
+              "c": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N7d",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N7: Q6 with no timestamps: still held.",
+      "events": [
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Keep refusing"
+            }
+          ],
+          "timestamp": null
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ],
+            "answers": {
+              "a": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "N7e",
+      "kind": "should act",
+      "source": "plan check 5 findings",
+      "summary": "N7: Q6 with the earlier answer stamped far in the future: still held.",
+      "events": [
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Keep refusing"
+            }
+          ],
+          "timestamp": "2099-01-01T00:00:00.000Z"
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
+            ],
+            "answers": {
+              "a": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A12",
+      "kind": "should stay quiet",
+      "source": "added from the plan check 5 Notes",
+      "summary": "Answer 'Allow it (recommended)' is not an exact option label: entry stays pending, turn ends.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow it (recommended)"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false,
+            "answers": {
+              "a": null
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "A13",
+      "kind": "should stay quiet",
+      "source": "added from the plan check 5 Notes",
+      "summary": "Answer 'Allow  it' is not an exact option label: entry stays pending, turn ends.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "git push --force-with-lease origin claude/x",
+              "description": "Run a step"
+            },
+            "reason": "[Git Destructive] force push to a shared branch"
+          },
+          "name": "a"
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?",
+              "answer": "Allow  it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": false,
+            "answers": {
+              "a": null
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

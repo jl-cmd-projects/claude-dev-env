@@ -120,6 +120,102 @@ def test_should_parse_a_bare_label_with_its_prose() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    "reason",
+    [
+        "Reason: [Git Destructive] force push",
+        "Permission for this action was denied by the Claude Code auto mode classifier. "
+        "Reason: [Git Destructive] force push",
+    ],
+)
+def test_should_read_the_same_label_after_a_leading_reason_marker(reason: str) -> None:
+    assert auto_mode_denial_quick_fix.parse_denial_reason(reason) == (
+        auto_mode_denial_quick_fix.DenialReason(
+            rule_label="Git Destructive", has_verdict=True, prose="force push"
+        )
+    )
+
+
+def _flow_on(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    playbook_path = tmp_path / "agent-channels" / "docs" / "auto-mode-rule.md"
+    playbook_path.parent.mkdir(parents=True)
+    playbook_path.write_text("# Playbook\n", encoding="utf-8")
+    repository_root = playbook_path.parent.parent
+    (repository_root / ".git").mkdir()
+    (repository_root / "setup").mkdir()
+    (repository_root / "setup" / "add_auto_mode_rule.py").write_text("", encoding="utf-8")
+    monkeypatch.setenv("CLAUDE_AUTO_MODE_RULE_PLAYBOOK", str(playbook_path))
+    return playbook_path
+
+
+def _ledger_payload(tmp_path: Path, **overrides: object) -> dict[str, object]:
+    all_fields: dict[str, object] = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "git push -f origin claude/x"},
+        "reason": "[Git Destructive] force push",
+        "transcript_path": str(tmp_path / "transcript.jsonl"),
+    }
+    all_fields.update(overrides)
+    return _denial_payload(**all_fields)
+
+
+def test_should_record_one_entry_and_return_its_question(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scratch_config_directory: Path
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    expected_question = (
+        "Auto mode refused 1 Bash step under the Git Destructive rule. "
+        "Should auto mode have refused it?"
+    )
+    for _ in range(2):
+        context_text = auto_mode_denial_quick_fix.hook_output_with_ledger(
+            _ledger_payload(tmp_path)
+        )["hookSpecificOutput"]["additionalContext"]
+        assert expected_question in context_text
+    ledger_directory = scratch_config_directory / "state" / "auto-mode-refusals" / "session-1"
+    all_entry_files = [
+        each_path
+        for each_path in ledger_directory.glob("*.json")
+        if not each_path.name.startswith("question-")
+    ]
+    assert len(all_entry_files) == 1
+    assert json.loads(all_entry_files[0].read_text(encoding="utf-8"))["answer"] is None
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"reason": "the command cancels runs."},
+        {"tool_input": {"command": "python3 setup/add_auto_mode_rule.py add --rule-file r.txt"}},
+    ],
+)
+def test_should_record_nothing_for_prose_or_the_rule_tool(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, overrides: dict[str, object]
+) -> None:
+    playbook_path = _flow_on(tmp_path, monkeypatch)
+    payload = _ledger_payload(tmp_path, cwd=str(playbook_path.parent.parent), **overrides)
+    assert auto_mode_denial_quick_fix.hook_output_with_ledger(
+        payload
+    ) == auto_mode_denial_quick_fix.build_hook_output(payload)
+
+
+def test_should_append_the_question_only_when_the_flow_is_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    payload = _ledger_payload(tmp_path)
+    assert auto_mode_denial_quick_fix.hook_output_with_ledger(
+        payload
+    ) == auto_mode_denial_quick_fix.build_hook_output(payload)
+    _flow_on(tmp_path, monkeypatch)
+    context_text = auto_mode_denial_quick_fix.hook_output_with_ledger(payload)[
+        "hookSpecificOutput"
+    ]["additionalContext"]
+    assert context_text.startswith("=== AUTO MODE DENIAL QUICK FIX ===")
+    assert "```powershell" in context_text
+    assert "=== AUTO MODE QUESTION ===" in context_text
+    assert "Auto mode refused 1 Bash step under the Git Destructive rule." in context_text
+
+
 def test_should_parse_a_missing_reason_as_no_verdict() -> None:
     assert auto_mode_denial_quick_fix.parse_denial_reason("") == (
         auto_mode_denial_quick_fix.DenialReason(rule_label=None, has_verdict=False, prose="")
@@ -309,3 +405,175 @@ def test_should_write_the_entry_with_defaults_when_powershell_runs(tmp_path: Pat
         (tmp_path / ".claude" / "settings.json").read_text(encoding="utf-8")
     )
     assert written_settings["autoMode"]["allow"] == ["$defaults", "it's allowed"]
+
+
+def _allowed_ledger_entry(scratch_config_directory: Path) -> Path:
+    ledger_directory = scratch_config_directory / "state" / "auto-mode-refusals" / "session-1"
+    ledger_directory.mkdir(parents=True, exist_ok=True)
+    allowed_input = {"command": "git push -f origin claude/allowed"}
+    (ledger_directory / "allowed.json").write_text(
+        json.dumps(
+            {
+                "id": "allowed",
+                "tool_name": "Bash",
+                "tool_input": allowed_input,
+                "rule_label": "Git Destructive",
+                "action_summary": allowed_input["command"],
+                "sequence": 1,
+                "answer": "allowed",
+            }
+        ),
+        encoding="utf-8",
+    )
+    return ledger_directory
+
+
+def _entry_file_count(ledger_directory: Path) -> int:
+    return sum(
+        1
+        for each_path in ledger_directory.glob("*.json")
+        if not each_path.name.startswith("question-")
+    )
+
+
+@pytest.mark.parametrize(
+    ("file_name", "file_fields"),
+    [
+        ("no-id.json", {"answer": None, "tool_name": "Bash", "rule_label": "Git Destructive"}),
+        (
+            "bad-sequence.json",
+            {
+                "id": "bad-sequence",
+                "tool_name": "Bash",
+                "rule_label": "Git Destructive",
+                "sequence": "first",
+                "answer": None,
+            },
+        ),
+        (
+            "question-bad-offset.json",
+            {
+                "record": "question",
+                "question": "Q?",
+                "entry_ids": ["x"],
+                "transcript_offset": "late",
+            },
+        ),
+    ],
+)
+def test_should_skip_a_ledger_file_that_does_not_parse_and_still_ask(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    scratch_config_directory: Path,
+    file_name: str,
+    file_fields: dict[str, object],
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    ledger_directory = scratch_config_directory / "state" / "auto-mode-refusals" / "session-1"
+    ledger_directory.mkdir(parents=True)
+    (ledger_directory / file_name).write_text(json.dumps(file_fields), encoding="utf-8")
+    payload = _ledger_payload(tmp_path)
+    context_text = _hook_output_from_stdin(payload, monkeypatch, capsys)["hookSpecificOutput"][
+        "additionalContext"
+    ]
+    today_context = auto_mode_denial_quick_fix.build_hook_output(payload)["hookSpecificOutput"][
+        "additionalContext"
+    ]
+    assert context_text.startswith(today_context)
+    assert "Auto mode refused 1 Bash step under the Git Destructive rule." in context_text
+
+
+def test_should_fall_back_to_todays_output_on_any_ledger_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+
+    def raise_lookup_error(*_: object) -> None:
+        raise LookupError("ledger broke")
+
+    monkeypatch.setattr(
+        auto_mode_denial_quick_fix.auto_mode_refusal_ledger,
+        "apply_transcript_answers",
+        raise_lookup_error,
+    )
+    payload = _ledger_payload(tmp_path)
+    assert _hook_output_from_stdin(
+        payload, monkeypatch, capsys
+    ) == auto_mode_denial_quick_fix.build_hook_output(payload)
+
+
+def test_should_fall_back_to_todays_output_for_a_playbook_at_the_filesystem_root(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    scratch_config_directory: Path,
+) -> None:
+    ledger_directory = _allowed_ledger_entry(scratch_config_directory)
+    monkeypatch.setattr(
+        auto_mode_denial_quick_fix.auto_mode_refusal_ledger,
+        "playbook_path_from_environment",
+        lambda: Path("/auto-mode-rule.md"),
+    )
+    payload = _ledger_payload(tmp_path)
+    assert _hook_output_from_stdin(
+        payload, monkeypatch, capsys
+    ) == auto_mode_denial_quick_fix.build_hook_output(payload)
+    assert _entry_file_count(ledger_directory) == 1
+
+
+def _rule_worktree(tmp_path: Path, branch_name: str) -> Path:
+    repository_git_directory = tmp_path / "agent-channels" / ".git"
+    worktree_git_directory = repository_git_directory / "worktrees" / "agent-channels-rule"
+    worktree_git_directory.mkdir(parents=True)
+    (worktree_git_directory / "HEAD").write_text(
+        f"ref: refs/heads/{branch_name}\n", encoding="utf-8"
+    )
+    (worktree_git_directory / "commondir").write_text("../..\n", encoding="utf-8")
+    worktree_directory = tmp_path / "scratch" / "agent-channels-rule"
+    worktree_directory.mkdir(parents=True)
+    (worktree_directory / ".git").write_text(
+        f"gitdir: {worktree_git_directory}\n", encoding="utf-8"
+    )
+    (worktree_git_directory / "gitdir").write_text(
+        f"{worktree_directory / '.git'}\n", encoding="utf-8"
+    )
+    return worktree_directory
+
+
+@pytest.mark.parametrize(
+    ("branch_name", "command", "is_entry_expected"),
+    [
+        (
+            "claude/auto-mode-rule-own-push",
+            'git commit -m "Add the Own push auto mode rule"',
+            False,
+        ),
+        (
+            "claude/auto-mode-rule-own-push",
+            "git push -u origin claude/auto-mode-rule-own-push",
+            False,
+        ),
+        ("claude/project-thread-rule", 'git commit -m "Add a rule"', True),
+        ("claude/auto-mode-rule-own-push", "git push -u origin claude/project-thread-rule", True),
+    ],
+)
+def test_should_skip_only_a_rule_branch_commit_or_push_in_a_rule_worktree(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    scratch_config_directory: Path,
+    branch_name: str,
+    command: str,
+    is_entry_expected: bool,
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    ledger_directory = _allowed_ledger_entry(scratch_config_directory)
+    worktree_directory = _rule_worktree(tmp_path, branch_name)
+    payload = _ledger_payload(
+        tmp_path,
+        tool_input={"command": command},
+        reason="[Destructive or Unwanted Actions] writes a branch",
+        cwd=str(worktree_directory),
+    )
+    auto_mode_denial_quick_fix.hook_output_with_ledger(payload)
+    assert _entry_file_count(ledger_directory) == (2 if is_entry_expected else 1)
