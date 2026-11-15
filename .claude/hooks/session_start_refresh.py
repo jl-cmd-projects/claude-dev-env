@@ -16,16 +16,30 @@ hooks start in the project directory, and inside the repository that develops
 this very package, npx resolves the package name to the local workspace
 instead of the registry. Local sessions exit at the remote guard. A probe
 response that is not a bare semver string (an npmrc ``json=true`` wraps the
-version in quotes) reads as a failed probe. Every failure path — registry
-outage, probe timeout, missing npm — exits 0, so the hook never blocks a
-session from starting.
+version in quotes) reads as a failed probe. Once the module loads, every path exits 0,
+so the hook never blocks a session from starting.
 
-An install that exits with a code above 0 prints one ``systemMessage`` for
-the user and records the version beside the manifest. A later start that
-finds the same registry version skips the install and prints a message with
-the command that retries it. The next release installs as usual. An install
-that times out or ends on a signal may have stopped part way through its
-writes, so it leaves no record and the next start runs it again.
+A remote start ends silent only when the install is known to be current: the
+manifest already matches the registry, or the install exits 0 and the
+manifest then matches. Every other end prints one ``systemMessage`` for the
+user, named by a ``RefreshOutcome`` member, with the command to run by hand::
+
+    no registry version          -> LOOKUP_FAILED, names @latest
+    failed record matches        -> SKIPPED_FAILED_VERSION
+    npx missing or not started   -> INSTALLER_DID_NOT_START
+    install past the time limit  -> INSTALL_TIMED_OUT
+    install exits above 0        -> INSTALL_EXITED, writes the failed record
+    install ends on a signal     -> INSTALL_SIGNALLED
+    exit 0, manifest still old   -> INSTALL_LEFT_OLD_VERSION
+    an exception in the hook     -> HOOK_ERROR
+
+The failed record makes later starts skip that version until the registry
+moves to another one. Every other failed end leaves no failed record, so the
+next start runs the install again. Before the install starts, the hook writes
+the version to an in-progress record, and it removes the record when the
+install call returns. A hook killed from outside leaves the record behind. The
+next start reads and removes it, and when the manifest then shows another
+version it adds ``LAST_REFRESH_UNFINISHED`` to the message.
 """
 
 from __future__ import annotations
@@ -43,16 +57,19 @@ try:
     from config.session_start_refresh_constants import (
         CLAUDE_HOME_DIRECTORY_NAME,
         CONFIG_DIR_OVERRIDE_VARIABLE_NAME,
-        FAILED_INSTALL_MESSAGE_TEMPLATE,
         FAILED_INSTALL_RECORD_FILE_NAME,
+        IN_PROGRESS_INSTALL_RECORD_FILE_NAME,
         INSTALL_TIMEOUT_SECONDS,
+        LATEST_INSTALL_COMMAND,
         MANIFEST_FILE_NAME,
+        MESSAGE_LINE_SEPARATOR,
+        NO_INSTALLED_VERSION_TEXT,
         PACKAGE_NAME,
         REGISTRY_PROBE_TIMEOUT_SECONDS,
         REGISTRY_VERSION_PATTERN,
         REMOTE_SESSION_ACTIVE_VALUE,
         REMOTE_SESSION_VARIABLE_NAME,
-        SKIPPED_INSTALL_MESSAGE_TEMPLATE,
+        RefreshOutcome,
     )
 except ImportError:
     sys.modules.pop("config", None)
@@ -60,16 +77,19 @@ except ImportError:
     from config.session_start_refresh_constants import (
         CLAUDE_HOME_DIRECTORY_NAME,
         CONFIG_DIR_OVERRIDE_VARIABLE_NAME,
-        FAILED_INSTALL_MESSAGE_TEMPLATE,
         FAILED_INSTALL_RECORD_FILE_NAME,
+        IN_PROGRESS_INSTALL_RECORD_FILE_NAME,
         INSTALL_TIMEOUT_SECONDS,
+        LATEST_INSTALL_COMMAND,
         MANIFEST_FILE_NAME,
+        MESSAGE_LINE_SEPARATOR,
+        NO_INSTALLED_VERSION_TEXT,
         PACKAGE_NAME,
         REGISTRY_PROBE_TIMEOUT_SECONDS,
         REGISTRY_VERSION_PATTERN,
         REMOTE_SESSION_ACTIVE_VALUE,
         REMOTE_SESSION_VARIABLE_NAME,
-        SKIPPED_INSTALL_MESSAGE_TEMPLATE,
+        RefreshOutcome,
     )
 
 _registry_version_matcher = re.compile(REGISTRY_VERSION_PATTERN)
@@ -145,53 +165,150 @@ def _run_tool_from_home(
         stdout, stderr = process.communicate(timeout=timeout_seconds)
     except subprocess.TimeoutExpired:
         _terminate_process_tree(process)
-        return None
-    return subprocess.CompletedProcess(
-        process.args, process.returncode, stdout, stderr
-    )
+        raise
+    return subprocess.CompletedProcess(process.args, process.returncode, stdout, stderr)
 
 
 def read_registry_version() -> str:
-    completed = _run_tool_from_home(
-        "npm",
-        ["view", PACKAGE_NAME, "version"],
-        REGISTRY_PROBE_TIMEOUT_SECONDS,
-        capture=True,
-        all_environment_variables=None,
-    )
+    try:
+        completed = _run_tool_from_home(
+            "npm",
+            ["view", PACKAGE_NAME, "version"],
+            REGISTRY_PROBE_TIMEOUT_SECONDS,
+            capture=True,
+            all_environment_variables=None,
+        )
+    except subprocess.TimeoutExpired:
+        return ""
     if completed is None or completed.returncode != 0:
         return ""
     version = completed.stdout.strip()
     return version if _registry_version_matcher.fullmatch(version) else ""
 
 
-def reinstall(registry_version: str) -> int | None:
+def reinstall(registry_version: str) -> subprocess.CompletedProcess[str] | None:
     environment = os.environ.copy()
     if environment.get(CONFIG_DIR_OVERRIDE_VARIABLE_NAME, "").strip():
         environment[CONFIG_DIR_OVERRIDE_VARIABLE_NAME] = str(claude_config_directory())
-    completed = _run_tool_from_home(
+    return _run_tool_from_home(
         "npx",
         ["-y", _package_at(registry_version)],
         INSTALL_TIMEOUT_SECONDS,
         capture=False,
         all_environment_variables=environment,
     )
-    return None if completed is None else completed.returncode
 
 
 def _package_at(registry_version: str) -> str:
     return PACKAGE_NAME + "@" + registry_version
 
 
-def _failed_install_record_path() -> Path:
-    return claude_config_directory() / FAILED_INSTALL_RECORD_FILE_NAME
+def _install_command(version: str) -> str:
+    return "npx -y " + _package_at(version)
 
 
-def _read_failed_install_version() -> str:
+def _record_path(record_file_name: str) -> Path:
+    return claude_config_directory() / record_file_name
+
+
+def _read_record(record_file_name: str) -> str:
     try:
-        return _failed_install_record_path().read_text(encoding="utf-8").strip()
+        return _record_path(record_file_name).read_text(encoding="utf-8").strip()
     except OSError:
         return ""
+
+
+def _write_record(record_file_name: str, version: str) -> None:
+    record_path = _record_path(record_file_name)
+    record_path.parent.mkdir(parents=True, exist_ok=True)
+    record_path.write_text(version, encoding="utf-8")
+
+
+def _remove_record(record_file_name: str) -> None:
+    _record_path(record_file_name).unlink(missing_ok=True)
+
+
+def _installed_version_text() -> str:
+    return read_installed_version() or NO_INSTALLED_VERSION_TEXT
+
+
+def render_message(outcome: RefreshOutcome, **all_fields: object) -> str:
+    """Return the line the user sees for one refresh outcome.
+
+    The member's value is the template. Fields a template does not name are
+    ignored, so every caller passes the fields it knows::
+
+        render_message(RefreshOutcome.LOOKUP_FAILED)
+        -> "claude-dev-env refresh: `npm view claude-dev-env version` gave no
+            version, ... run `npx -y claude-dev-env@latest` ..."
+
+    Args:
+        outcome: The refresh outcome to describe.
+        **all_fields: Values for the template's named fields.
+
+    Returns:
+        The formatted message.
+    """
+    return outcome.value.format(
+        latest_install_command=LATEST_INSTALL_COMMAND,
+        timeout_seconds=INSTALL_TIMEOUT_SECONDS,
+        **all_fields,
+    )
+
+
+def _install_outcome(
+    registry_version: str,
+) -> tuple[RefreshOutcome | None, dict[str, object]]:
+    _write_record(IN_PROGRESS_INSTALL_RECORD_FILE_NAME, registry_version)
+    try:
+        completed = reinstall(registry_version)
+    except subprocess.TimeoutExpired:
+        return RefreshOutcome.INSTALL_TIMED_OUT, {}
+    finally:
+        _remove_record(IN_PROGRESS_INSTALL_RECORD_FILE_NAME)
+    if completed is None:
+        return RefreshOutcome.INSTALLER_DID_NOT_START, {}
+    if completed.returncode > 0:
+        _write_record(FAILED_INSTALL_RECORD_FILE_NAME, registry_version)
+        return RefreshOutcome.INSTALL_EXITED, {"exit_code": completed.returncode}
+    if completed.returncode < 0:
+        return RefreshOutcome.INSTALL_SIGNALLED, {
+            "signal_number": -completed.returncode
+        }
+    if read_installed_version() != registry_version:
+        return RefreshOutcome.INSTALL_LEFT_OLD_VERSION, {
+            "installed_version": _installed_version_text()
+        }
+    return None, {}
+
+
+def _refresh_message() -> str:
+    registry_version = read_registry_version()
+    if not registry_version:
+        return render_message(RefreshOutcome.LOOKUP_FAILED)
+    if read_installed_version() == registry_version:
+        return ""
+    version_fields = {
+        "version": registry_version,
+        "install_command": _install_command(registry_version),
+    }
+    if _read_record(FAILED_INSTALL_RECORD_FILE_NAME) == registry_version:
+        return render_message(RefreshOutcome.SKIPPED_FAILED_VERSION, **version_fields)
+    outcome, outcome_fields = _install_outcome(registry_version)
+    if outcome is None:
+        return ""
+    return render_message(outcome, **version_fields, **outcome_fields)
+
+
+def _unfinished_refresh_message(unfinished_version: str) -> str:
+    if not unfinished_version or read_installed_version() == unfinished_version:
+        return ""
+    return render_message(
+        RefreshOutcome.LAST_REFRESH_UNFINISHED,
+        version=unfinished_version,
+        install_command=_install_command(unfinished_version),
+        installed_version=_installed_version_text(),
+    )
 
 
 def _tell_the_user(message: str) -> None:
@@ -202,37 +319,25 @@ def _tell_the_user(message: str) -> None:
 def main() -> None:
     if os.environ.get(REMOTE_SESSION_VARIABLE_NAME) != REMOTE_SESSION_ACTIVE_VALUE:
         return
-    registry_version = read_registry_version()
-    if not registry_version:
-        return
-    if read_installed_version() == registry_version:
-        return
-    install_command = "npx -y " + _package_at(registry_version)
-    if _read_failed_install_version() == registry_version:
-        _tell_the_user(
-            SKIPPED_INSTALL_MESSAGE_TEMPLATE.format(
-                registry_version=registry_version, install_command=install_command
-            )
+    unfinished_version = _read_record(IN_PROGRESS_INSTALL_RECORD_FILE_NAME)
+    _remove_record(IN_PROGRESS_INSTALL_RECORD_FILE_NAME)
+    this_start_message = _refresh_message()
+    all_messages = [
+        message
+        for message in (
+            _unfinished_refresh_message(unfinished_version),
+            this_start_message,
         )
-        return
-    exit_code = reinstall(registry_version)
-    installer_reported_failure = exit_code is not None and exit_code > 0
-    if not installer_reported_failure:
-        return
-    _tell_the_user(
-        FAILED_INSTALL_MESSAGE_TEMPLATE.format(
-            install_command=install_command,
-            exit_code=exit_code,
-            registry_version=registry_version,
-        )
-    )
-    record_path = _failed_install_record_path()
-    record_path.parent.mkdir(parents=True, exist_ok=True)
-    record_path.write_text(registry_version, encoding="utf-8")
+        if message
+    ]
+    if all_messages:
+        _tell_the_user(MESSAGE_LINE_SEPARATOR.join(all_messages))
 
 
 if __name__ == "__main__":
     try:
         main()
-    except Exception:
-        pass
+    except Exception as error:
+        _tell_the_user(
+            render_message(RefreshOutcome.HOOK_ERROR, error=type(error).__name__)
+        )

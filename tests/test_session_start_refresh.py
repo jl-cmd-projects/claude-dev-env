@@ -1,10 +1,14 @@
 """Behavior checks for the cloud SessionStart refresh hook.
 
-The behavior checks run `.claude/hooks/session_start_refresh.py` as a real
+The behavior checks run `.claude/hooks/session_start_refresh.py` as a
 subprocess against a sandbox home directory, with fake `npm` and `npx`
-executables on `PATH` that record their arguments to a log file. The
-assertions read that log: a refresh run shows an `npx -y
-claude-dev-env@<version>` line, a quiet run shows none. Two static checks
+executables on `PATH` that record their arguments to a log file. The fake
+`npx` writes the manifest for the version it was asked for when it exits 0,
+as the installer does. Environment switches make it sleep, end on a signal,
+exit above 0, or leave the manifest alone. The assertions read that log, the
+JSON `systemMessage` on stdout, and the records beside the manifest: a
+refresh run shows an `npx -y claude-dev-env@<version>` line, a quiet run
+shows none. Two static checks
 bind the `.claude/settings.json` registration to the hook: the registered
 command names the script on disk, and the probe and install budgets stay
 inside the registered timeout.
@@ -13,11 +17,16 @@ inside the registered timeout.
 import importlib.util
 import json
 import os
+import shutil
+import signal
 import stat
 import subprocess
 import sys
+import time
 from pathlib import Path
 from types import ModuleType
+
+import pytest
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 HOOK_SCRIPT = REPOSITORY_ROOT / ".claude" / "hooks" / "session_start_refresh.py"
@@ -128,6 +137,18 @@ printf '%s\\n' "$FAKE_NPM_VERSION"
 
 POSIX_NPX_SHIM = """#!/bin/bash
 printf 'npx %s cfg=%s cwd=%s\\n' "$*" "$CLAUDE_CONFIG_DIR" "$PWD" >> "$FAKE_TOOL_LOG"
+if [ -n "${FAKE_NPX_SLEEP:-}" ]; then
+  printf '%s' "$$" > "$FAKE_TOOL_LOG.npx-pid"
+  exec sleep "$FAKE_NPX_SLEEP"
+fi
+if [ -n "${FAKE_NPX_SIGNAL:-}" ]; then
+  kill -KILL $$
+fi
+if [ "${FAKE_NPX_EXIT:-0}" = 0 ] && [ -z "${FAKE_NPX_LEAVES_MANIFEST:-}" ]; then
+  config_directory="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+  mkdir -p "$config_directory"
+  printf '{"version": "%s"}' "${2#claude-dev-env@}" > "$config_directory/.claude-dev-env-manifest.json"
+fi
 exit "${FAKE_NPX_EXIT:-0}"
 """
 
@@ -140,6 +161,11 @@ echo %FAKE_NPM_VERSION%
 WINDOWS_NPX_SHIM = """@echo off
 echo npx %* cfg=%CLAUDE_CONFIG_DIR% cwd=%CD% >> "%FAKE_TOOL_LOG%"
 if defined FAKE_NPX_EXIT exit /b %FAKE_NPX_EXIT%
+set "package=%2"
+set "config_directory=%CLAUDE_CONFIG_DIR%"
+if not defined config_directory set "config_directory=%USERPROFILE%\\.claude"
+if not exist "%config_directory%" mkdir "%config_directory%"
+echo {"version": "%package:claude-dev-env@=%"}> "%config_directory%\\.claude-dev-env-manifest.json"
 """
 
 
@@ -454,3 +480,211 @@ def should_skip_a_failed_version_when_the_config_dir_does_not_exist_yet(
     tool_log = (tmp_path / "tool-log.txt").read_text(encoding="utf-8")
     assert tool_log.count("npx -y claude-dev-env@2.12.0") == 1, tool_log
     assert "skipped 2.12.0" in _user_message(second_start)
+IN_PROGRESS_RECORD_NAME = ".claude-dev-env-refresh-in-progress"
+FAILED_RECORD_NAME = ".claude-dev-env-refresh-failed-version"
+POSIX_ONLY = pytest.mark.skipif(os.name == "nt", reason="the stub npx is a bash script")
+
+
+def _stale_install_environment(sandbox: Path) -> dict[str, str]:
+    _seed_sandbox(sandbox, "2.9.0", None)
+    return _hook_environment(
+        sandbox,
+        remote=True,
+        registry_version="2.12.0",
+        registry_failure=False,
+        config_dir_version=None,
+    )
+
+
+def _config_directory(sandbox: Path) -> Path:
+    return sandbox / "home" / ".claude"
+
+
+def _hook_copy_with_install_limit(sandbox: Path, limit_seconds: int) -> Path:
+    hooks_copy = sandbox / "hooks-copy"
+    shutil.copytree(
+        HOOK_SCRIPT.parent,
+        hooks_copy,
+        ignore=shutil.ignore_patterns("__pycache__"),
+    )
+    constants_path = hooks_copy / "config" / "session_start_refresh_constants.py"
+    constants_text = constants_path.read_text(encoding="utf-8")
+    lowered_text = constants_text.replace(
+        "INSTALL_TIMEOUT_SECONDS = 570",
+        f"INSTALL_TIMEOUT_SECONDS = {limit_seconds}",
+    )
+    assert lowered_text != constants_text
+    constants_path.write_text(lowered_text, encoding="utf-8")
+    return hooks_copy / HOOK_SCRIPT.name
+
+
+def _process_is_gone(process_id: int) -> bool:
+    try:
+        os.kill(process_id, 0)
+    except ProcessLookupError:
+        return True
+    return False
+
+
+def should_tell_the_user_when_the_version_lookup_fails(tmp_path: Path) -> None:
+    environment = _stale_install_environment(tmp_path)
+    environment["FAKE_NPM_FAILURE"] = "1"
+    message = _user_message(_run_hook_process(environment))
+    assert "gave no version" in message
+    assert "npx -y claude-dev-env@latest" in message
+
+
+@POSIX_ONLY
+def should_tell_the_user_when_npx_cannot_be_found(tmp_path: Path) -> None:
+    environment = _stale_install_environment(tmp_path)
+    npm_only_directory = tmp_path / "bin-npm-only"
+    npm_only_directory.mkdir()
+    shutil.copy2(tmp_path / "bin" / "npm", npm_only_directory / "npm")
+    environment["PATH"] = str(npm_only_directory)
+    message = _user_message(_run_hook_process(environment))
+    assert "npx was not found on PATH or could not start" in message
+    assert "npx -y claude-dev-env@2.12.0" in message
+    assert not (_config_directory(tmp_path) / FAILED_RECORD_NAME).exists()
+
+
+@POSIX_ONLY
+def should_tell_the_user_when_the_install_runs_past_the_time_limit(
+    tmp_path: Path,
+) -> None:
+    environment = _stale_install_environment(tmp_path)
+    environment["FAKE_NPX_SLEEP"] = "30"
+    hook_copy = _hook_copy_with_install_limit(tmp_path, 1)
+    completed = subprocess.run(
+        [sys.executable, str(hook_copy)],
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=20,
+    )
+    assert completed.returncode == 0, completed.stderr
+    message = _user_message(completed)
+    assert "ran past 1 seconds and was stopped" in message
+    assert "npx -y claude-dev-env@2.12.0" in message
+    npx_process_id = int((tmp_path / "tool-log.txt.npx-pid").read_text())
+    assert _process_is_gone(npx_process_id)
+    assert not (_config_directory(tmp_path) / IN_PROGRESS_RECORD_NAME).exists()
+    assert not (_config_directory(tmp_path) / FAILED_RECORD_NAME).exists()
+
+
+@POSIX_ONLY
+def should_tell_the_user_when_the_install_ends_on_a_signal(tmp_path: Path) -> None:
+    environment = _stale_install_environment(tmp_path)
+    environment["FAKE_NPX_SIGNAL"] = "1"
+    message = _user_message(_run_hook_process(environment))
+    assert "stopped by signal 9" in message
+    assert "npx -y claude-dev-env@2.12.0" in message
+
+
+def should_tell_the_user_when_the_install_exits_zero_and_leaves_the_old_version(
+    tmp_path: Path,
+) -> None:
+    environment = _stale_install_environment(tmp_path)
+    environment["FAKE_NPX_LEAVES_MANIFEST"] = "1"
+    message = _user_message(_run_hook_process(environment))
+    assert "exited 0, but the manifest shows 2.9.0 instead of 2.12.0" in message
+
+
+@POSIX_ONLY
+def should_tell_the_user_at_the_next_start_when_the_last_refresh_did_not_finish(
+    tmp_path: Path,
+) -> None:
+    environment = _stale_install_environment(tmp_path)
+    environment["FAKE_NPX_SLEEP"] = "30"
+    npx_pid_path = tmp_path / "tool-log.txt.npx-pid"
+    first_start = subprocess.Popen(
+        [sys.executable, str(HOOK_SCRIPT)],
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    deadline = time.monotonic() + 10
+    while not (npx_pid_path.exists() and npx_pid_path.read_text()):
+        assert time.monotonic() < deadline, "the stub npx never started"
+        time.sleep(0.05)
+    first_start.kill()
+    first_stdout, _ = first_start.communicate(timeout=10)
+    os.killpg(int(npx_pid_path.read_text()), signal.SIGKILL)
+    assert first_stdout == ""
+    in_progress_record = _config_directory(tmp_path) / IN_PROGRESS_RECORD_NAME
+    assert in_progress_record.read_text(encoding="utf-8") == "2.12.0"
+    environment.pop("FAKE_NPX_SLEEP")
+    environment["FAKE_NPM_FAILURE"] = "1"
+    message = _user_message(_run_hook_process(environment))
+    unfinished_line, lookup_line = message.splitlines()
+    assert "stopped at an earlier session start before its install of 2.12.0" in (
+        unfinished_line
+    )
+    assert "manifest shows 2.9.0" in unfinished_line
+    assert "npx -y claude-dev-env@2.12.0" in unfinished_line
+    assert "gave no version" in lookup_line
+    assert not in_progress_record.exists()
+
+
+def should_stay_quiet_when_an_install_left_by_a_stopped_hook_finished(
+    tmp_path: Path,
+) -> None:
+    _seed_sandbox(tmp_path, "2.12.0", None)
+    in_progress_record = _config_directory(tmp_path) / IN_PROGRESS_RECORD_NAME
+    in_progress_record.write_text("2.12.0", encoding="utf-8")
+    environment = _hook_environment(
+        tmp_path,
+        remote=True,
+        registry_version="2.12.0",
+        registry_failure=False,
+        config_dir_version=None,
+    )
+    completed = _run_hook_process(environment)
+    assert completed.stdout == ""
+    assert not in_progress_record.exists()
+
+
+def should_tell_the_user_when_the_hook_stops_on_an_error(tmp_path: Path) -> None:
+    environment = _stale_install_environment(tmp_path)
+    config_file = tmp_path / "config-is-a-file"
+    config_file.write_text("", encoding="utf-8")
+    environment["CLAUDE_CONFIG_DIR"] = str(config_file)
+    message = _user_message(_run_hook_process(environment))
+    assert "the refresh hook stopped on NotADirectoryError" in message
+    assert "npx -y claude-dev-env@latest" in message
+
+
+def _refresh_hook_module() -> ModuleType:
+    sys.path.insert(0, str(HOOK_SCRIPT.parent))
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "session_start_refresh_under_test", HOOK_SCRIPT
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.remove(str(HOOK_SCRIPT.parent))
+    return module
+
+
+def should_render_every_refresh_outcome_with_a_command_to_run() -> None:
+    hook = _refresh_hook_module()
+    all_rendered = {
+        outcome.name: hook.render_message(
+            outcome,
+            version="2.12.0",
+            install_command="npx -y claude-dev-env@2.12.0",
+            exit_code=1,
+            signal_number=9,
+            installed_version="2.9.0",
+            error="OSError",
+        )
+        for outcome in hook.RefreshOutcome
+    }
+    assert len(all_rendered) == 9
+    for outcome_name, message in all_rendered.items():
+        assert message.startswith("claude-dev-env refresh: "), outcome_name
+        assert "run `npx -y claude-dev-env@" in message, outcome_name
+        assert "{" not in message, outcome_name
