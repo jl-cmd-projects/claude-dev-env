@@ -70,6 +70,7 @@ ALL_HTML_INLINE_TAGS = frozenset(
     }
 )
 HTML_LINE_BREAK_TAG = "br"
+ALL_HTML_HEADING_TAGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6"})
 HTML_SOURCE_SPACE_PATTERN = re.compile(r"[ \t\r\n\f]+")
 HTML_SOURCE_SPACE = " "
 HTML_BLOCK_SEPARATOR = "\n\n"
