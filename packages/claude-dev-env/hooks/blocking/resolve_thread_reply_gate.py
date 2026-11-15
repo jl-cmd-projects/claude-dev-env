@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 import sys
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -15,20 +16,27 @@ from blocking.pr_lifecycle_skill_gate import deny_decision, transcript_paths
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 from hooks_constants.resolve_thread_reply_gate_constants import (
+    ALL_REPLY_SCRIPT_HELP_OPTIONS,
     ALL_REPLY_TOOL_NAME_SUFFIXES,
     ALL_THREAD_ID_INPUT_KEYS,
     COMMENT_ANCHOR_PATTERN,
     COMMENT_ID_INPUT_KEY,
     MISSING_REPLY_REASON,
+    REPLY_SCRIPT_COMMENT_ID_OPTION,
+    REPLY_SCRIPT_FILE_NAME,
+    REPLY_SCRIPT_INTERPRETER_PATTERN,
+    REPLY_SCRIPT_REQUEST_SUBCOMMAND,
+    REPLY_SCRIPT_THREAD_ID_OPTION,
     RESOLVE_TOOL_NAME_PATTERN,
     RESOLVE_THREAD_METHOD,
     REVIEW_WRITE_METHOD_KEY,
     REVIEW_WRITE_TOOL_NAME_PATTERN,
     SHELL_COMMAND_KEY,
+    SHELL_CONTROL_CHARACTER_PATTERN,
+    SHELL_OPTION_VALUE_SEPARATOR,
+    SHELL_PATH_SEPARATOR,
     SHELL_REPLY_COMMAND_PATTERN,
     SHELL_REPLY_COMMENT_ID_PATTERN,
-    SHELL_REPLY_SCRIPT_COMMAND_PATTERN,
-    SHELL_REPLY_SCRIPT_COMMENT_ID_PATTERN,
     SHELL_RESOLVE_COMMAND_PATTERN,
     SHELL_RESOLVE_COMMENT_ID_PATTERN,
     TEXT_BLOCK_TYPE,
@@ -106,8 +114,9 @@ def is_reply_call(tool_call: TranscriptToolCall) -> bool:
         Bash "python review_reply_post.py post --request r.json"       -> False
         mcp__github__add_issue_comment                                -> False
 
-    The reply script exits 0 only once its reply is on the thread, so the
-    call counts when its result, or its background task notice, shows no error.
+    The reply script exits 0 only once its reply is on the thread, so one
+    plain call of it counts when its result, or its background task notice,
+    shows no error. ``reply_script_targets`` gives the forms that count.
 
     Args:
         tool_call: One tool call read from the transcript.
@@ -116,12 +125,73 @@ def is_reply_call(tool_call: TranscriptToolCall) -> bool:
         return True
     command = _shell_command(tool_call.name, tool_call.tool_input)
     return command is not None and (
-        SHELL_REPLY_COMMAND_PATTERN.search(command) is not None or _is_reply_script_command(command)
+        SHELL_REPLY_COMMAND_PATTERN.search(command) is not None or reply_script_targets(command) is not None
     )
 
 
-def _is_reply_script_command(command: str) -> bool:
-    return SHELL_REPLY_SCRIPT_COMMAND_PATTERN.search(command) is not None
+def _option_value(all_arguments: list[str], option: str) -> str | None:
+    last_value: str | None = None
+    for each_index, each_argument in enumerate(all_arguments):
+        name, separator, attached_value = each_argument.partition(SHELL_OPTION_VALUE_SEPARATOR)
+        if name != option:
+            continue
+        if separator:
+            last_value = attached_value
+        else:
+            last_value = all_arguments[each_index + 1] if each_index + 1 < len(all_arguments) else ""
+    return last_value
+
+
+def _reply_script_arguments(command: str) -> list[str] | None:
+    if SHELL_CONTROL_CHARACTER_PATTERN.search(command) is not None:
+        return None
+    try:
+        all_words = shlex.split(command)
+    except ValueError:
+        return None
+    if all_words and REPLY_SCRIPT_INTERPRETER_PATTERN.fullmatch(all_words[0].rpartition(SHELL_PATH_SEPARATOR)[2]):
+        all_words = all_words[1:]
+    if not all_words or all_words[0].rpartition(SHELL_PATH_SEPARATOR)[2] != REPLY_SCRIPT_FILE_NAME:
+        return None
+    all_script_words = all_words[1:]
+    if not all_script_words or all_script_words[0] != REPLY_SCRIPT_REQUEST_SUBCOMMAND:
+        return None
+    all_arguments = all_script_words[1:]
+    return None if any(each_option in all_arguments for each_option in ALL_REPLY_SCRIPT_HELP_OPTIONS) else all_arguments
+
+
+def reply_script_targets(command: str) -> tuple[frozenset[str], frozenset[str]] | None:
+    """Return the thread ids and comment ids one reply script call answers, or None for any other command.
+
+    ::
+
+        python ci/review_reply_post.py request --pull 7 --comment-id 9 --thread-id PRRT_a  -> ({"PRRT_a"}, {"9"})
+        review_reply_post.py request --comment-id=9                                        -> ({}, {"9"})
+        python review_reply_post.py request --comment-id 9 || true                         -> None
+        python review_reply_post.py request --comment-id 9 --help                          -> None
+        python review_reply_post.py request --comment-id 9 # PRRT_b                        -> None
+        python review_reply_post.py post --request r.json                                  -> None
+        echo review_reply_post.py request --comment-id 9                                   -> None
+
+    The command must be one plain call: an optional ``python`` or ``py``
+    launcher, the script, then ``request``. A command with ``;``, ``&``, ``|``,
+    a redirect, a subshell, a substitution, a variable, a ``#`` or a line break is no
+    reply, since its exit code is not the script's own. The ids come only from
+    the script's own ``--comment-id`` and ``--thread-id`` values, the last of
+    each as the script reads them.
+
+    Args:
+        command: The shell command text.
+    """
+    all_arguments = _reply_script_arguments(command)
+    if all_arguments is None:
+        return None
+    comment_id = _option_value(all_arguments, REPLY_SCRIPT_COMMENT_ID_OPTION)
+    if comment_id is None or not (comment_id.isascii() and comment_id.isdigit()):
+        return None
+    thread_id = _option_value(all_arguments, REPLY_SCRIPT_THREAD_ID_OPTION)
+    all_thread_ids = frozenset({thread_id}) if thread_id and THREAD_ID_PATTERN.fullmatch(thread_id) else frozenset()
+    return all_thread_ids, frozenset({comment_id})
 
 
 def _reply_comment_ids(all_tool_input_fields: dict[str, object]) -> frozenset[str]:
@@ -137,13 +207,10 @@ def _reply_targets(tool_call: TranscriptToolCall) -> tuple[frozenset[str], froze
     command = _shell_command(tool_call.name, tool_call.tool_input)
     if command is None:
         return frozenset(), _reply_comment_ids(tool_call.tool_input)
-    all_script_comment_ids = (
-        SHELL_REPLY_SCRIPT_COMMENT_ID_PATTERN.findall(command) if _is_reply_script_command(command) else []
-    )
-    return (
-        frozenset(THREAD_ID_PATTERN.findall(command)),
-        frozenset(SHELL_REPLY_COMMENT_ID_PATTERN.findall(command)) | frozenset(all_script_comment_ids),
-    )
+    script_targets = reply_script_targets(command)
+    if script_targets is not None:
+        return script_targets
+    return frozenset(THREAD_ID_PATTERN.findall(command)), frozenset(SHELL_REPLY_COMMENT_ID_PATTERN.findall(command))
 
 
 def _result_content_texts(result_content: object) -> list[str]:

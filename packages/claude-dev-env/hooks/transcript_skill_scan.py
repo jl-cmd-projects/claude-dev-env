@@ -29,7 +29,12 @@ from hooks_constants.transcript_skill_scan_constants import (
     RUN_IN_BACKGROUND_INPUT_KEY,
     SKILL_TOOL_NAME,
     TASK_NOTIFICATION_ORIGIN_KIND,
-    TASK_NOTIFICATION_SUCCESS_PATTERN,
+    TASK_NOTIFICATION_ANY_STATUS_PATTERN,
+    TASK_NOTIFICATION_CLOSING_TAG,
+    TASK_NOTIFICATION_COMPLETED_STATUS_PATTERN,
+    TASK_NOTIFICATION_EXIT_ZERO_ENDING_PATTERN,
+    TASK_NOTIFICATION_OPENING_TAG,
+    TASK_NOTIFICATION_SUMMARY_OPENING_TAG,
     TASK_NOTIFICATION_TOOL_USE_ID_PATTERN,
     TOOL_RESULT_BLOCK_TYPE,
     TRANSCRIPT_BLOCK_BYTES,
@@ -537,9 +542,36 @@ def _task_notification_text(all_entry_fields: dict[str, object]) -> str | None:
 
 
 def _background_ids_finished_without_error(notification_text: str) -> set[object]:
-    if re.search(TASK_NOTIFICATION_SUCCESS_PATTERN, notification_text) is None:
+    """Return the tool use id of a notice that reports exit code 0, as a set of one, else an empty set.
+
+    ::
+
+        one notice, status completed, summary ends "(exit code 0)"   -> {its id}
+        one notice, status failed, summary ends "(exit code 3)"      -> {}
+        two notices in one text, either outcome                      -> {}
+        a failed notice whose summary quotes "(exit code 0)"         -> {}
+        a failed notice whose summary quotes a whole passing notice  -> {}
+
+    The harness writes the id and the status before the summary, and the exit
+    code as the last words of the summary. The summary also quotes the
+    command's description, which the agent wrote, so only the text before the
+    summary and the very end of the notice are read.
+    """
+    if (
+        notification_text.count(TASK_NOTIFICATION_OPENING_TAG) != 1
+        or notification_text.count(TASK_NOTIFICATION_CLOSING_TAG) != 1
+    ):
         return set()
-    return set(re.findall(TASK_NOTIFICATION_TOOL_USE_ID_PATTERN, notification_text))
+    harness_header = notification_text.partition(TASK_NOTIFICATION_SUMMARY_OPENING_TAG)[0]
+    all_tool_use_ids = re.findall(TASK_NOTIFICATION_TOOL_USE_ID_PATTERN, harness_header)
+    if (
+        len(all_tool_use_ids) != 1
+        or len(re.findall(TASK_NOTIFICATION_ANY_STATUS_PATTERN, harness_header)) != 1
+        or re.search(TASK_NOTIFICATION_COMPLETED_STATUS_PATTERN, harness_header) is None
+        or re.search(TASK_NOTIFICATION_EXIT_ZERO_ENDING_PATTERN, notification_text) is None
+    ):
+        return set()
+    return set(all_tool_use_ids)
 
 
 def tool_calls_since_last_prompt(all_transcript_lines: Iterable[str]) -> list[TranscriptToolCall]:
