@@ -100,6 +100,7 @@ export const EVER_REGISTERED_HOOK_RELATIVE_PATHS = new Set([
     'blocking/subagent_model_routing.mjs',
     'blocking/subprocess_budget_completeness.py',
     'blocking/task_subject_length_gate.py',
+    'blocking/task_subject_outcome_gate.py',
     'blocking/tdd-enforcer.py',
     'blocking/tdd_enforcer.py',
     'blocking/test-preflight-check.py',

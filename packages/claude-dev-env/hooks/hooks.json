@@ -236,6 +236,11 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/task_subject_length_gate.py",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/task_subject_outcome_gate.py",
+            "timeout": 10
           }
         ]
       },
