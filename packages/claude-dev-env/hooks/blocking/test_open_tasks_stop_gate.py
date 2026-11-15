@@ -1,18 +1,35 @@
+from __future__ import annotations
+
 import io
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
+import closing_reply_judge
 import open_tasks_stop_gate
 from open_tasks_transcript import TaskItem, replayed_transcript
+
+if TYPE_CHECKING:
+    from conftest import JudgeStub
 
 GATE_PATH = Path(open_tasks_stop_gate.__file__)
 SESSION_ID = "s-123"
 WORK_PROMPT = "Export the APKs and submit them"
+
+
+UNPINNED_WHICH = shutil.which
+
+
+def _which_without_claude(command_name: str, *all_arguments: object, **all_options: object) -> str | None:
+    if command_name == "claude":
+        return None
+    return UNPINNED_WHICH(command_name, *all_arguments, **all_options)
 
 
 @pytest.fixture(autouse=True)
@@ -24,6 +41,8 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_TASK_LIST_ID", raising=False)
+    monkeypatch.delenv("CLAUDE_TURN_REVIEW_CHILD", raising=False)
+    monkeypatch.setattr(shutil, "which", _which_without_claude)
 
 
 def user_prompt_record(prompt_text: str) -> dict[str, object]:
@@ -58,12 +77,14 @@ def run_gate(
     is_stop_hook_active: bool = False,
     reply_text: str = "Done.",
     working_directory: Path | None = None,
+    all_extra_fields: dict[str, object] | None = None,
 ) -> dict[str, str]:
     hook_input: dict[str, object] = {
         "hook_event_name": "Stop",
         "session_id": SESSION_ID,
         "stop_hook_active": is_stop_hook_active,
         "last_assistant_message": reply_text,
+        **(all_extra_fields or {}),
     }
     if working_directory is not None:
         hook_input["cwd"] = str(working_directory)
@@ -919,3 +940,184 @@ def test_should_leave_the_tracker_reasons_off_a_held_stop(
         "reason"
     ]
     assert "left the task list unchanged" not in block_reason
+
+
+JUDGE_ONLY_PROMISE = "Once the soak test settles, the numbers go in this thread."
+JUDGE_ONLY_PROMISE_REPLY = f"Both soak runs are armed. {JUDGE_ONLY_PROMISE}"
+JUDGE_ONLY_LIST_LEAD = "Three calls are yours:"
+JUDGE_ONLY_LIST_REPLY = f"{JUDGE_ONLY_LIST_LEAD}\n\n{THREE_BULLETS}"
+JUDGE_LOG_NAME = Path(".claude") / "logs" / "closing-reply-judge.log"
+
+
+def judge_answer(promise_span: str = "", list_span: str = "") -> dict[str, object]:
+    return {
+        "promised_report": bool(promise_span),
+        "promise_span": promise_span,
+        "decisions_as_list": bool(list_span),
+        "list_span": list_span,
+    }
+
+
+def judged_turn(prompt_text: str = BED_PROMPT) -> list[dict[str, object]]:
+    return [keyed_prompt_record(prompt_text, "prompt-1"), TRACKER_CALL, WAKE_CALL]
+
+
+def assistant_text_record(reply_text: str) -> dict[str, object]:
+    return {
+        "type": "assistant",
+        "message": {"id": "reply-1", "role": "assistant", "content": [{"type": "text", "text": reply_text}]},
+    }
+
+
+def test_should_hold_when_judge_reports_a_promised_report(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY)["reason"]
+    assert block_reason.startswith(PROMISE_REASON_START)
+    assert f'("{JUDGE_ONLY_PROMISE}")' in block_reason
+    assert block_reason.endswith(PROMISE_KEEP_CONDITION)
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_hold_when_judge_reports_decisions_as_a_list(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(list_span=JUDGE_ONLY_LIST_LEAD))
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn("Clean up the release branch"))
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_LIST_REPLY)["reason"]
+    assert block_reason.startswith(f'The closing reply lists 3 items under "{JUDGE_ONLY_LIST_LEAD}"')
+    assert SHORT_REPLY_INSTRUCTION in block_reason
+
+
+def test_should_allow_the_stop_when_the_judge_times_out(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    judge_stub.sleep(5)
+    monkeypatch.setattr(closing_reply_judge, "JUDGE_TIMEOUT_SECONDS", 0.5)
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+    assert "the child timed out" in (tmp_path / JUDGE_LOG_NAME).read_text()
+
+
+def test_should_allow_the_stop_when_the_judge_answer_is_not_the_verdict_shape(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(result="The reply promises a report.")
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_allow_the_stop_when_the_span_is_not_in_the_reply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span="The numbers go in this thread tomorrow."))
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+
+
+def test_should_use_the_phrase_checks_when_claude_is_missing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["reason"].startswith(
+        PROMISE_REASON_START
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+
+
+def test_should_not_hold_on_phrases_when_the_judge_gives_no_verdict(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.exit_code(1)
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY) == {}
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_hold_once_per_turn_when_the_judge_holds_twice(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    transcript_path = write_records(tmp_path / "s.jsonl", [*judged_turn(), OTHER_HOOK_FEEDBACK])
+    all_outputs = [
+        run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=JUDGE_ONLY_PROMISE_REPLY)
+        for _ in range(3)
+    ]
+    assert all_outputs[0]["reason"].startswith(PROMISE_REASON_START)
+    assert all_outputs[1:] == [{}, {}]
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_not_call_the_judge_after_this_turn_was_held(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY)["decision"] == "block"
+    held_stop = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=JUDGE_ONLY_PROMISE_REPLY)
+    assert held_stop == {}
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_allow_the_stop_inside_a_judge_or_review_child(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    monkeypatch.setenv("CLAUDE_TURN_REVIEW_CHILD", "1")
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [keyed_prompt_record(WORK_PROMPT, "prompt-1"), tool_call_record("Bash")]
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+    assert judge_stub.calls() == []
+
+
+def test_should_not_call_the_judge_on_codex_or_cursor_payloads(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    plan_arguments = json.dumps({"plan": [{"step": "Report the run", "status": "in_progress"}]})
+    plan_call = codex_record({"type": "function_call", "name": "update_plan", "arguments": plan_arguments})
+    rollout_path = write_records(tmp_path / "rollout.jsonl", [codex_prompt(BED_PROMPT), plan_call])
+    codex_output = run_gate(
+        monkeypatch, capsys, rollout_path, reply_text=PROMISE_REPLY, all_extra_fields={"turn_id": "turn-1"}
+    )
+    assert codex_output["reason"].startswith(PROMISE_REASON_START)
+    assert run_gate(monkeypatch, capsys, rollout_path, reply_text=PROMISE_REPLY)["reason"].startswith(
+        PROMISE_REASON_START
+    )
+    cursor_path = write_records(tmp_path / "cursor.jsonl", judged_turn())
+    cursor_output = run_gate(
+        monkeypatch,
+        capsys,
+        cursor_path,
+        reply_text=JUDGE_ONLY_PROMISE_REPLY,
+        all_extra_fields={"conversation_id": "c-1", "status": "completed", "loop_count": 0},
+    )
+    assert cursor_output == {}
+    assert judge_stub.calls() == []
+
+
+def test_should_make_no_judge_call_when_the_transcript_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    assert run_gate(monkeypatch, capsys, tmp_path / "absent.jsonl", reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+    assert judge_stub.calls() == []
+    assert "the transcript cannot be read" in (tmp_path / JUDGE_LOG_NAME).read_text()
+
+
+def test_should_read_the_reply_from_the_transcript_when_the_payload_has_none(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [*judged_turn(), assistant_text_record(JUDGE_ONLY_PROMISE_REPLY)]
+    )
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text="")["reason"]
+    assert block_reason.startswith(PROMISE_REASON_START)
+    [judge_call] = judge_stub.calls()
+    assert json.dumps(JUDGE_ONLY_PROMISE_REPLY) in judge_call["stdin"]

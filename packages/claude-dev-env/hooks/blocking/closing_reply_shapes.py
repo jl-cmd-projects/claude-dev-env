@@ -300,6 +300,37 @@ def _is_open_item_lead(lead: str) -> bool:
     )
 
 
+def _next_filled_line_index(all_lines: list[str], line_index: int) -> int | None:
+    return next(
+        (each_next for each_next in range(line_index + 1, len(all_lines)) if all_lines[each_next].strip()),
+        None,
+    )
+
+
+def item_count_under(reply_text: str, lead: str) -> int:
+    """Return how many items the run under the lead line holds, or every item line in the reply when no run follows it.
+
+    ::
+
+        "Open calls:" over 3 bullets, then 2 more bullets elsewhere   -> 3
+        a lead the reply holds on no line above a run                  -> 5
+
+    The lead matches the first line that holds its first line of text.
+    Fences, HTML blocks, and quoted lines are left out, as in ``open_item_list``.
+    """
+    all_lines = _reply_lines(reply_text)
+    all_lead_lines = lead.strip().splitlines()
+    lead_line = all_lead_lines[0].strip() if all_lead_lines else ""
+    for each_index, each_line in enumerate(all_lines):
+        if not lead_line or lead_line not in each_line:
+            continue
+        run_start = _next_filled_line_index(all_lines, each_index)
+        if run_start is not None and _is_run_line(all_lines[run_start], _line_after(all_lines, run_start)):
+            return _item_run_at(all_lines, run_start)[1]
+        break
+    return sum(_is_item_at(all_lines, each_index) for each_index in range(len(all_lines)))
+
+
 def open_item_list(reply_text: str, prompt_text: str) -> OpenItemList | None:
     """Return the first run of 3 or more open items under an open-item lead in the closing reply, or None.
 

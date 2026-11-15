@@ -473,7 +473,7 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/open_tasks_stop_gate.py",
-            "timeout": 10
+            "timeout": 45
           },
           {
             "type": "command",

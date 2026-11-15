@@ -36,6 +36,7 @@ The replay also notes what the current turn did::
                              record with no ``uuid``
     turn_stop_feedback_texts the text of each ``Stop hook feedback`` record
                              the turn holds
+    is_codex_turn            a Codex ``response_item`` user message started the turn
 
 A turn starts at the last user prompt record. A tool result, a record flagged
 ``isMeta``, ``isSidechain`` or ``isCompactSummary``, and a ``Stop hook feedback``
@@ -249,6 +250,7 @@ class TranscriptReplay:
         self.turn_sent_file_paths: list[str] = []
         self.turn_key: str | None = None
         self.turn_stop_feedback_texts: list[str] = []
+        self.is_codex_turn = False
 
     def start_turn(self, prompt_text: str) -> None:
         self.turn_prompt_text = prompt_text
@@ -259,11 +261,13 @@ class TranscriptReplay:
         self.turn_sent_file_paths = []
         self.turn_key = None
         self.turn_stop_feedback_texts = []
+        self.is_codex_turn = False
 
     def apply_record(self, all_record_fields: dict[str, object]) -> None:
         prompt_text = codex_prompt_text(all_record_fields)
         if prompt_text is not None:
             self.start_turn(prompt_text)
+            self.is_codex_turn = True
             return
         prompt_text = claude_prompt_text(all_record_fields)
         if prompt_text is not None:

@@ -51,8 +51,14 @@ gate checks that a read ran, and leaves which item it read to the agent. Each
 such hold tells the agent to read the live state of every item it shows as
 open, and to end the turn when the wording hands the user no step.
 
-The closing reply also gets two checks of its own, which
-``closing_reply_shapes.py`` describes. The gate holds the turn once::
+The closing reply also gets two checks of its own: a promised later report,
+and open items sent as a list. On a Claude Code stop with ``claude`` on PATH,
+one model call in ``closing_reply_judge.py`` reads the reply; Codex and Cursor
+stops, and a host with no ``claude``, use the phrase checks that
+``closing_reply_shapes.py`` describes. A judge that times out or gives no
+usable verdict lets the stop go ahead. A stop inside a judge or review child
+(``CLAUDE_TURN_REVIEW_CHILD=1``) goes ahead at once. The gate holds the turn
+once::
 
     block: "The benchmark table will be posted when you get back."  no typed prompt asked for a report
     block: "What I deferred:" over 3 or more items             no question tool call this turn
@@ -77,7 +83,8 @@ at most once per turn::
 
 The marker is a file in the temp folder named for the session and the ``uuid``
 of the prompt record that started the turn. A hold on the first stop writes it
-too, so the gate costs at most one extra step per turn.
+too, so the gate costs at most one extra step per turn. The judge runs only
+while the turn has no marker, so a stop after the hold makes no second call.
 
 A hold exits with code 2 and writes the reason to stdout and stderr. Claude
 Code marks a held stop with ``stop_hook_active``. Codex turns the reason into
@@ -108,11 +115,20 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.once_per_session_constants import SESSION_ID_KEY
 from hooks_constants.stop_hook_hold import hold_stop
-from once_per_session import claim_turn_showing
+from once_per_session import claim_turn_showing, is_turn_claimed
 from open_task_asks import claude_home, is_ask
 from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
 from user_step_wording import file_waiting_phrase, waiting_phrase
-from closing_reply_shapes import open_item_list, promised_report_phrase
+from closing_reply_shapes import item_count_under, open_item_list, promised_report_phrase
+from closing_reply_judge import JudgeVerdict, is_judge_available, judged_verdict, log_no_verdict
+from turn_review_transcript import _last_assistant_message_text, _ReversedTranscript
+from hooks_constants.closing_reply_judge_constants import (
+    MARKER_UNREADABLE_REASON,
+    NO_TURN_KEY_REASON,
+    TRANSCRIPT_UNREADABLE_REASON,
+)
+from hooks_constants.spawn_readiness_hook_constants import CODEX_TURN_ID_KEY
+from hooks_constants.turn_review_gate_constants import REVIEW_CHILD_ENVIRONMENT_VARIABLE, REVIEW_CHILD_MARKER
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_OWN_REASON_OPENINGS,
     ALLOW_EXIT_CODE,
@@ -294,6 +310,69 @@ class ClosingReplyFinding(NamedTuple):
     keep_condition: str
 
 
+def _promise_finding(promise_phrase: str) -> ClosingReplyFinding:
+    return ClosingReplyFinding(
+        PROMISED_REPORT_REASON_TEMPLATE.format(phrase=promise_phrase),
+        REWORKED_REPLY_INSTRUCTION,
+        PROMISED_REPORT_KEEP_CONDITION,
+    )
+
+
+def _list_finding(lead: str, item_count: int) -> ClosingReplyFinding:
+    return ClosingReplyFinding(
+        OPEN_ITEM_LIST_REASON_TEMPLATE.format(count=item_count, lead=lead),
+        SHORT_REPLY_INSTRUCTION,
+        OPEN_ITEM_LIST_KEEP_CONDITION,
+    )
+
+
+def is_judged_payload(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> bool:
+    """Return True for a Claude Code stop on a host with ``claude`` on PATH, and False for Codex and Cursor stops.
+
+    A Codex stop is one whose payload carries ``turn_id`` or whose turn a Codex rollout record started.
+    """
+    if all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY) or all_hook_input_fields.get(CODEX_TURN_ID_KEY):
+        return False
+    if replay.is_codex_turn:
+        return False
+    return is_judge_available()
+
+
+def _judged_reply_text(all_hook_input_fields: dict[str, object]) -> str:
+    payload_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
+    if isinstance(payload_reply, str) and payload_reply.strip():
+        return payload_reply
+    return _last_assistant_message_text(_ReversedTranscript(all_hook_input_fields))
+
+
+def _verdict_findings(verdict: JudgeVerdict, reply_text: str) -> list[ClosingReplyFinding]:
+    all_findings: list[ClosingReplyFinding] = []
+    if verdict.promise_span:
+        all_findings.append(_promise_finding(verdict.promise_span))
+    if verdict.list_span:
+        all_findings.append(_list_finding(verdict.list_span, item_count_under(reply_text, verdict.list_span)))
+    return all_findings
+
+
+def _judged_findings(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> list[ClosingReplyFinding]:
+    if not _has_readable_transcript(all_hook_input_fields):
+        log_no_verdict(TRANSCRIPT_UNREADABLE_REASON)
+        return []
+    if replay.turn_key is None:
+        log_no_verdict(NO_TURN_KEY_REASON)
+        return []
+    is_claimed = is_turn_claimed(CLOSING_REPLY_HOLD_MARKER_NAME, all_hook_input_fields, replay.turn_key)
+    if is_claimed is None:
+        log_no_verdict(MARKER_UNREADABLE_REASON)
+    if is_claimed is not False:
+        return []
+    reply_text = _judged_reply_text(all_hook_input_fields)
+    if not reply_text:
+        return []
+    verdict = judged_verdict(replay.turn_prompt_text, reply_text, replay.has_turn_question_tool)
+    return [] if verdict is None else _verdict_findings(verdict, reply_text)
+
+
 def closing_reply_findings(
     all_hook_input_fields: dict[str, object], replay: TranscriptReplay
 ) -> list[ClosingReplyFinding]:
@@ -305,30 +384,26 @@ def closing_reply_findings(
         "What I deferred:" over 5 items, no question call    -> the open item list finding
         the same list after an AskUserQuestion call          -> []
 
-    A session whose transcript cannot be read gives no finding.
+    A Claude Code stop on a host with ``claude`` on PATH asks the judge in
+    ``closing_reply_judge.py`` once, and only while this turn holds no
+    closing-reply hold yet. Its reply is ``last_assistant_message``, or the
+    transcript's last assistant text when that field is empty. A judge that
+    gives no verdict gives no finding. Codex and Cursor stops, and a host with
+    no ``claude``, use the phrase checks in ``closing_reply_shapes.py``. A
+    session whose transcript cannot be read gives no finding.
     """
+    if is_judged_payload(all_hook_input_fields, replay):
+        return _judged_findings(all_hook_input_fields, replay)
     reply_text = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(reply_text, str) or not _has_readable_transcript(all_hook_input_fields):
         return []
     all_findings: list[ClosingReplyFinding] = []
     promise_phrase = promised_report_phrase(reply_text, replay.turn_prompt_text)
     if promise_phrase is not None:
-        all_findings.append(
-            ClosingReplyFinding(
-                PROMISED_REPORT_REASON_TEMPLATE.format(phrase=promise_phrase),
-                REWORKED_REPLY_INSTRUCTION,
-                PROMISED_REPORT_KEEP_CONDITION,
-            )
-        )
+        all_findings.append(_promise_finding(promise_phrase))
     item_list = None if replay.has_turn_question_tool else open_item_list(reply_text, replay.turn_prompt_text)
     if item_list is not None:
-        all_findings.append(
-            ClosingReplyFinding(
-                OPEN_ITEM_LIST_REASON_TEMPLATE.format(count=item_list.count, lead=item_list.lead),
-                SHORT_REPLY_INSTRUCTION,
-                OPEN_ITEM_LIST_KEEP_CONDITION,
-            )
-        )
+        all_findings.append(_list_finding(item_list.lead, item_list.count))
     return all_findings
 
 
@@ -416,6 +491,8 @@ def is_held_stop(all_hook_input_fields: dict[str, object]) -> bool:
 
 
 def _stop_block_reason(all_hook_input_fields: dict[str, object]) -> str | None:
+    if os.environ.get(REVIEW_CHILD_ENVIRONMENT_VARIABLE) == REVIEW_CHILD_MARKER:
+        return None
     is_claude_held_stop = all_hook_input_fields.get(STOP_HOOK_ACTIVE_KEY) is True
     if is_held_stop(all_hook_input_fields) and not is_claude_held_stop:
         return None

@@ -1,6 +1,12 @@
 import pytest
 
-from closing_reply_shapes import OpenItemList, open_item_list, promised_report_phrase, prompt_asks_for_list
+from closing_reply_shapes import (
+    OpenItemList,
+    item_count_under,
+    open_item_list,
+    promised_report_phrase,
+    prompt_asks_for_list,
+)
 
 BED_PROMPT = "heading out now. handle whatever the nightly job returns"
 PROMISE_REPLY = (
@@ -224,3 +230,18 @@ def test_should_hold_a_promise_when_the_prompt_names_a_report_as_a_noun(prompt_t
 )
 def test_should_report_whether_the_prompt_asks_for_a_list(prompt_text: str, is_list_ask: bool) -> None:
     assert prompt_asks_for_list(prompt_text) is is_list_ask
+
+
+SPLIT_LIST_REPLY = (
+    "Open calls:\n\n- keep the cache\n- drop the flag\n- rename the job\n\n"
+    "Done this turn:\n\n- fixed the lint\n- merged the docs\n"
+)
+
+
+def test_should_count_the_items_in_the_run_under_the_lead() -> None:
+    assert item_count_under(SPLIT_LIST_REPLY, "Open calls:") == 3
+
+
+def test_should_count_every_item_line_when_no_run_follows_the_lead() -> None:
+    assert item_count_under(SPLIT_LIST_REPLY, "three calls still wait on you") == 5
+    assert item_count_under("Before.\n```\n- fenced\n```\n- one\n- two", "nothing here") == 2

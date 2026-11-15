@@ -414,6 +414,7 @@ def test_should_key_the_turn_by_its_prompt_uuid_and_keep_it_across_stop_feedback
     first_path = write_transcript(tmp_path / "first.jsonl", [first_prompt, feedback_record])
     first_replay = replayed_transcript(str(first_path))
     assert first_replay.turn_key == "prompt-1"
+    assert first_replay.is_codex_turn is False
     assert first_replay.turn_stop_feedback_texts == [feedback_text]
     second_replay = replayed_transcript(str(write_transcript(tmp_path / "second.jsonl", [first_prompt, feedback_record, second_prompt])))
     assert second_replay.turn_key == "prompt-2"
@@ -425,3 +426,4 @@ def test_should_give_a_codex_turn_no_turn_key(tmp_path: Path) -> None:
     replay = replayed_transcript(str(write_transcript(tmp_path / "rollout.jsonl", [codex_prompt])))
     assert replay.turn_prompt_text == "Export the APKs"
     assert replay.turn_key is None
+    assert replay.is_codex_turn is True

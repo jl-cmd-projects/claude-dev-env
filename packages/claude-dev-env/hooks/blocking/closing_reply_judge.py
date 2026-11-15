@@ -110,7 +110,8 @@ def _log(diagnostic_text: str) -> None:
         return
 
 
-def _no_verdict(reason: str) -> None:
+def log_no_verdict(reason: str) -> None:
+    """Write one line to the judge log that names why the judge gave no verdict."""
     _log(NO_VERDICT_LOG_TEMPLATE.format(reason=reason))
 
 
@@ -195,13 +196,13 @@ def _answer_result(stdout_text: str) -> str | None:
     try:
         answer = json.loads(stdout_text)
     except (ValueError, RecursionError):
-        _no_verdict(NOT_JSON_REASON)
+        log_no_verdict(NOT_JSON_REASON)
         return None
     if not isinstance(answer, dict) or not isinstance(answer.get(ANSWER_RESULT_KEY), str):
-        _no_verdict(NOT_JSON_REASON)
+        log_no_verdict(NOT_JSON_REASON)
         return None
     if answer.get(ANSWER_IS_ERROR_KEY) is True:
-        _no_verdict(ERROR_ANSWER_REASON)
+        log_no_verdict(ERROR_ANSWER_REASON)
         return None
     return answer[ANSWER_RESULT_KEY]
 
@@ -223,13 +224,13 @@ def _claude_result(claude_path: str, prompt: str, timeout_seconds: float) -> str
                 input=prompt,
             )
     except subprocess.TimeoutExpired:
-        _no_verdict(TIMEOUT_REASON)
+        log_no_verdict(TIMEOUT_REASON)
         return None
     except OSError:
-        _no_verdict(START_FAILURE_REASON)
+        log_no_verdict(START_FAILURE_REASON)
         return None
     if completed_process.returncode != 0:
-        _no_verdict(EXIT_CODE_REASON_TEMPLATE.format(exit_code=completed_process.returncode))
+        log_no_verdict(EXIT_CODE_REASON_TEMPLATE.format(exit_code=completed_process.returncode))
         return None
     return _answer_result(completed_process.stdout)
 
@@ -297,7 +298,7 @@ def judged_verdict(
     prompt_text: str,
     reply_text: str,
     has_question_tool_call: bool,
-    timeout_seconds: float = JUDGE_TIMEOUT_SECONDS,
+    timeout_seconds: float | None = None,
 ) -> JudgeVerdict | None:
     """Run the judge once on a closing reply and return its gated verdict, or None when it gave none.
 
@@ -311,19 +312,21 @@ def judged_verdict(
         prompt_text: The prompt that started the turn.
         reply_text: The closing reply the turn ends with.
         has_question_tool_call: Whether the turn called the question tool.
-        timeout_seconds: How long the child may run.
+        timeout_seconds: How long the child may run; ``JUDGE_TIMEOUT_SECONDS`` when None.
     """
     claude_path = shutil.which(CLAUDE_EXECUTABLE_NAME)
     if claude_path is None:
-        _no_verdict(START_FAILURE_REASON)
+        log_no_verdict(START_FAILURE_REASON)
         return None
     result_text = _claude_result(
-        claude_path, judge_prompt(prompt_text, reply_text, has_question_tool_call), timeout_seconds
+        claude_path,
+        judge_prompt(prompt_text, reply_text, has_question_tool_call),
+        JUDGE_TIMEOUT_SECONDS if timeout_seconds is None else timeout_seconds,
     )
     if result_text is None:
         return None
     verdict = parsed_verdict(result_text, reply_text)
     if verdict is None:
-        _no_verdict(VERDICT_SHAPE_REASON)
+        log_no_verdict(VERDICT_SHAPE_REASON)
         return None
     return gated_verdict(verdict, prompt_text, has_question_tool_call)
