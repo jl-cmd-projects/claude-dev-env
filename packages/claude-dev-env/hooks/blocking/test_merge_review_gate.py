@@ -1121,6 +1121,36 @@ def test_should_ask_for_an_origin_review_of_any_create_behind_a_gh_repo_prefix_w
     )
 
 
+ALL_ORIGIN_CREATES_BESIDE_AN_OTHER_REPOSITORY = [
+    "GH_REPO=acme/other sudo gh pr create --head feature",
+    "gh pr create --head feature --repo acme/other ; gh pr create --head feature --repo acme/tools",
+    "gh pr create --head feature --repo acme/other && gh pr create --head feature",
+    "gh pr create --head feature --repo acme/other ; gh pr create --head feature",
+]
+
+
+@pytest.mark.parametrize("command", ALL_ORIGIN_CREATES_BESIDE_AN_OTHER_REPOSITORY)
+def test_should_ask_for_an_origin_review_beside_an_exempt_other_repository(
+    branch_checkout: tuple[Path, str], monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    folder, head = branch_checkout
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_EXEMPT_REPOSITORIES", "acme/other")
+    assert f"acme/tools has no clean review for head {head}" in _deny_reason(
+        _bash_in(folder, command)
+    )
+
+
+@pytest.mark.parametrize("command", ALL_ORIGIN_CREATES_BESIDE_AN_OTHER_REPOSITORY)
+def test_should_ask_for_an_origin_review_beside_a_reviewed_other_repository(
+    branch_checkout: tuple[Path, str], command: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.main(["acme/other", "open", head, "0"], io.StringIO())
+    assert f"acme/tools has no clean review for head {head}" in _deny_reason(
+        _bash_in(folder, command)
+    )
+
+
 def test_should_tell_a_create_behind_a_gh_repo_prefix_to_name_its_repository_with_the_repo_flag(
     branch_checkout: tuple[Path, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:

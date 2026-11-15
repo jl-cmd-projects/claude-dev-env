@@ -553,8 +553,37 @@ def test_should_find_an_origin_duplicate_for_a_create_behind_a_gh_repo_prefix(
     all_asked_repositories: list[tuple[str, str]] = []
     payload = {"tool_name": "Bash", "cwd": str(checkout_path), "tool_input": {"command": command}}
     reader = _keyed_reader({("o", "r"): [], ("acme", "tools"): [open_followup]}, all_asked_repositories)
-    assert dedupe.duplicate_followup_reason(payload, reader) == _duplicate_reason(open_followup, 7)
+    reason = dedupe.duplicate_followup_reason(payload, reader)
+    assert reason is not None
+    assert reason.startswith(_duplicate_reason(open_followup, 7))
     assert ("acme", "tools") in all_asked_repositories
+
+
+def test_should_tell_a_create_behind_a_gh_repo_prefix_with_an_origin_duplicate_to_name_its_repository_with_the_repo_flag(
+    tmp_path: Path,
+) -> None:
+    checkout_path = _checkout_with_origin(tmp_path, "https://github.com/acme/tools.git")
+    command = 'GH_REPO=acme/other env -u GH_REPO gh pr create --title "fix: a" --body "Follow-up to #7"'
+    payload = {"tool_name": "Bash", "cwd": str(checkout_path), "tool_input": {"command": command}}
+    reader = _keyed_reader({("acme", "other"): [], ("acme", "tools"): [_open_followup(9, 7)]}, [])
+    reason = dedupe.duplicate_followup_reason(payload, reader)
+    assert reason is not None
+    assert "GH_REPO=" in reason
+    assert "--repo owner/name" in reason
+
+
+def test_should_allow_a_create_that_names_acme_other_with_its_own_repo_flag_when_only_origin_holds_the_followup(
+    tmp_path: Path,
+) -> None:
+    checkout_path = _checkout_with_origin(tmp_path, "https://github.com/acme/tools.git")
+    command = 'GH_REPO=acme/other gh pr create --repo acme/other --title "fix: a" --body "Follow-up to #7"'
+    payload = {"tool_name": "Bash", "cwd": str(checkout_path), "tool_input": {"command": command}}
+    all_asked_repositories: list[tuple[str, str]] = []
+    reader = _keyed_reader(
+        {("acme", "other"): [], ("acme", "tools"): [_open_followup(9, 7)]}, all_asked_repositories
+    )
+    assert dedupe.duplicate_followup_reason(payload, reader) is None
+    assert all_asked_repositories == [("acme", "other")]
 
 
 def test_should_allow_a_create_that_names_its_repository_with_its_own_repo_flag_when_origin_holds_a_duplicate(
