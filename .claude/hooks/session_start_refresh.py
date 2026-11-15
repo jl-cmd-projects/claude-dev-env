@@ -36,10 +36,16 @@ user, named by a ``RefreshOutcome`` member, with the command to run by hand::
 The failed record makes later starts skip that version until the registry
 moves to another one. Every other failed end leaves no failed record, so the
 next start runs the install again. Before the install starts, the hook writes
-the version to an in-progress record, and it removes the record when the
-install call returns. A hook killed from outside leaves the record behind. The
-next start reads and removes it, and when the manifest then shows another
-version it adds ``LAST_REFRESH_UNFINISHED`` to the message.
+an in-progress record of its own, named by its process id, and it removes that
+record when the install call returns. A hook killed from outside leaves its
+record behind. A later start reads every in-progress record and leaves alone
+the ones whose run still goes on::
+
+    process id alive, record younger than the run limit -> still running, left
+    process gone, or record older than the run limit    -> stopped, removed
+
+For each stopped run, the start adds ``LAST_REFRESH_UNFINISHED`` to the message,
+unless the manifest then shows that version or a later one.
 """
 
 from __future__ import annotations
@@ -51,7 +57,9 @@ import shutil
 import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
+from typing import NamedTuple
 
 try:
     from config.session_start_refresh_constants import (
@@ -59,6 +67,7 @@ try:
         CONFIG_DIR_OVERRIDE_VARIABLE_NAME,
         FAILED_INSTALL_RECORD_FILE_NAME,
         IN_PROGRESS_INSTALL_RECORD_FILE_NAME,
+        IN_PROGRESS_RECORD_LIFETIME_SECONDS,
         INSTALL_TIMEOUT_SECONDS,
         LATEST_INSTALL_COMMAND,
         MANIFEST_FILE_NAME,
@@ -69,6 +78,7 @@ try:
         REGISTRY_VERSION_PATTERN,
         REMOTE_SESSION_ACTIVE_VALUE,
         REMOTE_SESSION_VARIABLE_NAME,
+        VERSION_ORDER_PATTERN,
         RefreshOutcome,
     )
 except ImportError:
@@ -79,6 +89,7 @@ except ImportError:
         CONFIG_DIR_OVERRIDE_VARIABLE_NAME,
         FAILED_INSTALL_RECORD_FILE_NAME,
         IN_PROGRESS_INSTALL_RECORD_FILE_NAME,
+        IN_PROGRESS_RECORD_LIFETIME_SECONDS,
         INSTALL_TIMEOUT_SECONDS,
         LATEST_INSTALL_COMMAND,
         MANIFEST_FILE_NAME,
@@ -89,10 +100,12 @@ except ImportError:
         REGISTRY_VERSION_PATTERN,
         REMOTE_SESSION_ACTIVE_VALUE,
         REMOTE_SESSION_VARIABLE_NAME,
+        VERSION_ORDER_PATTERN,
         RefreshOutcome,
     )
 
 _registry_version_matcher = re.compile(REGISTRY_VERSION_PATTERN)
+_version_order_matcher = re.compile(VERSION_ORDER_PATTERN)
 
 
 def claude_config_directory() -> Path:
@@ -224,8 +237,112 @@ def _write_record(record_file_name: str, version: str) -> None:
     record_path.write_text(version, encoding="utf-8")
 
 
-def _remove_record(record_file_name: str) -> None:
-    _record_path(record_file_name).unlink(missing_ok=True)
+class InProgressRecord(NamedTuple):
+    """One refresh run's install, as its in-progress record file holds it.
+
+    Each run writes its own file, named by its process id::
+
+        .claude-dev-env-refresh-in-progress.4242
+        {"version": "9.0.0", "pid": 4242, "started_at": 1763200000.5}
+
+    A file that holds only a version reads as a run with no process id.
+    """
+
+    version: str
+    pid: int | None
+    started_at: float
+
+
+def _own_in_progress_record_path() -> Path:
+    return _record_path(f"{IN_PROGRESS_INSTALL_RECORD_FILE_NAME}.{os.getpid()}")
+
+
+def _write_in_progress_record(version: str) -> None:
+    record_path = _own_in_progress_record_path()
+    record_path.parent.mkdir(parents=True, exist_ok=True)
+    record_path.write_text(
+        json.dumps({"version": version, "pid": os.getpid(), "started_at": time.time()}),
+        encoding="utf-8",
+    )
+
+
+def _parse_in_progress_record(record_text: str) -> InProgressRecord | None:
+    try:
+        all_fields = json.loads(record_text)
+    except ValueError:
+        bare_version = record_text.strip()
+        if _registry_version_matcher.fullmatch(bare_version):
+            return InProgressRecord(bare_version, None, 0.0)
+        return None
+    if not isinstance(all_fields, dict) or not isinstance(all_fields.get("version"), str):
+        return None
+    pid = all_fields.get("pid")
+    started_at = all_fields.get("started_at")
+    return InProgressRecord(
+        all_fields["version"],
+        pid if type(pid) is int else None,
+        float(started_at) if type(started_at) in (int, float) else 0.0,
+    )
+
+
+def _process_is_running(process_id: int) -> bool:
+    """Say whether a process with this id runs on this machine now.
+
+    Only POSIX is checked. On Windows ``os.kill`` ends the process it names,
+    so every id reads as not running there, and the record reads as stopped.
+    """
+    if os.name != "posix" or process_id <= 0 or process_id == os.getpid():
+        return False
+    try:
+        os.kill(process_id, 0)
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
+def _is_still_running(record: InProgressRecord) -> bool:
+    if record.pid is None:
+        return False
+    if time.time() - record.started_at > IN_PROGRESS_RECORD_LIFETIME_SECONDS:
+        return False
+    return _process_is_running(record.pid)
+
+
+def _take_stopped_runs() -> list[InProgressRecord]:
+    all_stopped_runs = []
+    for each_record_path in sorted(
+        claude_config_directory().glob(IN_PROGRESS_INSTALL_RECORD_FILE_NAME + "*")
+    ):
+        try:
+            record = _parse_in_progress_record(each_record_path.read_text(encoding="utf-8"))
+        except OSError:
+            continue
+        if record is not None and _is_still_running(record):
+            continue
+        each_record_path.unlink(missing_ok=True)
+        if record is not None:
+            all_stopped_runs.append(record)
+    return all_stopped_runs
+
+
+def _version_order(version: str) -> tuple[int, int, int, int] | None:
+    matched = _version_order_matcher.match(version)
+    if matched is None:
+        return None
+    major, minor, patch, prerelease_mark = matched.groups()
+    return int(major), int(minor), int(patch), 0 if prerelease_mark else 1
+
+
+def _is_at_or_above(installed_version: str, version: str) -> bool:
+    if installed_version == version:
+        return True
+    installed_order = _version_order(installed_version)
+    version_order = _version_order(version)
+    if installed_order is None or version_order is None:
+        return False
+    return installed_order >= version_order
 
 
 def _installed_version_text() -> str:
@@ -259,13 +376,13 @@ def render_message(outcome: RefreshOutcome, **all_fields: object) -> str:
 def _install_outcome(
     registry_version: str,
 ) -> tuple[RefreshOutcome | None, dict[str, object]]:
-    _write_record(IN_PROGRESS_INSTALL_RECORD_FILE_NAME, registry_version)
+    _write_in_progress_record(registry_version)
     try:
         completed = reinstall(registry_version)
     except subprocess.TimeoutExpired:
         return RefreshOutcome.INSTALL_TIMED_OUT, {}
     finally:
-        _remove_record(IN_PROGRESS_INSTALL_RECORD_FILE_NAME)
+        _own_in_progress_record_path().unlink(missing_ok=True)
     if completed is None:
         return RefreshOutcome.INSTALLER_DID_NOT_START, {}
     if completed.returncode > 0:
@@ -300,15 +417,18 @@ def _refresh_message() -> str:
     return render_message(outcome, **version_fields, **outcome_fields)
 
 
-def _unfinished_refresh_message(unfinished_version: str) -> str:
-    if not unfinished_version or read_installed_version() == unfinished_version:
-        return ""
-    return render_message(
-        RefreshOutcome.LAST_REFRESH_UNFINISHED,
-        version=unfinished_version,
-        install_command=_install_command(unfinished_version),
-        installed_version=_installed_version_text(),
-    )
+def _unfinished_refresh_messages(all_stopped_runs: list[InProgressRecord]) -> list[str]:
+    installed_version = read_installed_version()
+    return [
+        render_message(
+            RefreshOutcome.LAST_REFRESH_UNFINISHED,
+            version=unfinished_version,
+            install_command=_install_command(unfinished_version),
+            installed_version=installed_version or NO_INSTALLED_VERSION_TEXT,
+        )
+        for unfinished_version in sorted({run.version for run in all_stopped_runs})
+        if not _is_at_or_above(installed_version, unfinished_version)
+    ]
 
 
 def _tell_the_user(message: str) -> None:
@@ -319,13 +439,12 @@ def _tell_the_user(message: str) -> None:
 def main() -> None:
     if os.environ.get(REMOTE_SESSION_VARIABLE_NAME) != REMOTE_SESSION_ACTIVE_VALUE:
         return
-    unfinished_version = _read_record(IN_PROGRESS_INSTALL_RECORD_FILE_NAME)
-    _remove_record(IN_PROGRESS_INSTALL_RECORD_FILE_NAME)
+    all_stopped_runs = _take_stopped_runs()
     this_start_message = _refresh_message()
     all_messages = [
         message
         for message in (
-            _unfinished_refresh_message(unfinished_version),
+            *_unfinished_refresh_messages(all_stopped_runs),
             this_start_message,
         )
         if message

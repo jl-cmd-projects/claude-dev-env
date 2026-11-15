@@ -568,7 +568,7 @@ def should_tell_the_user_when_the_install_runs_past_the_time_limit(
     assert "npx -y claude-dev-env@2.12.0" in message
     npx_process_id = int((tmp_path / "tool-log.txt.npx-pid").read_text())
     assert _process_is_gone(npx_process_id)
-    assert not (_config_directory(tmp_path) / IN_PROGRESS_RECORD_NAME).exists()
+    assert _all_in_progress_records(tmp_path) == []
     assert not (_config_directory(tmp_path) / FAILED_RECORD_NAME).exists()
 
 
@@ -590,16 +590,13 @@ def should_tell_the_user_when_the_install_exits_zero_and_leaves_the_old_version(
     assert "exited 0, but the manifest shows 2.9.0 instead of 2.12.0" in message
 
 
-@POSIX_ONLY
-def should_tell_the_user_at_the_next_start_when_the_last_refresh_did_not_finish(
-    tmp_path: Path,
-) -> None:
-    environment = _stale_install_environment(tmp_path)
-    environment["FAKE_NPX_SLEEP"] = "30"
-    npx_pid_path = tmp_path / "tool-log.txt.npx-pid"
-    first_start = subprocess.Popen(
+def _start_a_refresh_that_waits_in_its_install(
+    sandbox: Path, environment: dict[str, str]
+) -> subprocess.Popen[str]:
+    npx_pid_path = sandbox / "tool-log.txt.npx-pid"
+    running_start = subprocess.Popen(
         [sys.executable, str(HOOK_SCRIPT)],
-        env=environment,
+        env={**environment, "FAKE_NPX_SLEEP": "30"},
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
@@ -608,13 +605,31 @@ def should_tell_the_user_at_the_next_start_when_the_last_refresh_did_not_finish(
     while not (npx_pid_path.exists() and npx_pid_path.read_text()):
         assert time.monotonic() < deadline, "the stub npx never started"
         time.sleep(0.05)
-    first_start.kill()
-    first_stdout, _ = first_start.communicate(timeout=10)
-    os.killpg(int(npx_pid_path.read_text()), signal.SIGKILL)
-    assert first_stdout == ""
-    in_progress_record = _config_directory(tmp_path) / IN_PROGRESS_RECORD_NAME
-    assert in_progress_record.read_text(encoding="utf-8") == "2.12.0"
-    environment.pop("FAKE_NPX_SLEEP")
+    return running_start
+
+
+def _kill_the_refresh(sandbox: Path, running_start: subprocess.Popen[str]) -> str:
+    running_start.kill()
+    killed_stdout, _ = running_start.communicate(timeout=10)
+    os.killpg(int((sandbox / "tool-log.txt.npx-pid").read_text()), signal.SIGKILL)
+    return killed_stdout
+
+
+def _all_in_progress_records(sandbox: Path) -> list[Path]:
+    return sorted(_config_directory(sandbox).glob(IN_PROGRESS_RECORD_NAME + "*"))
+
+
+@POSIX_ONLY
+def should_tell_the_user_at_the_next_start_when_the_last_refresh_did_not_finish(
+    tmp_path: Path,
+) -> None:
+    environment = _stale_install_environment(tmp_path)
+    first_start = _start_a_refresh_that_waits_in_its_install(tmp_path, environment)
+    assert _kill_the_refresh(tmp_path, first_start) == ""
+    [in_progress_record] = _all_in_progress_records(tmp_path)
+    assert json.loads(in_progress_record.read_text(encoding="utf-8"))["version"] == (
+        "2.12.0"
+    )
     environment["FAKE_NPM_FAILURE"] = "1"
     message = _user_message(_run_hook_process(environment))
     unfinished_line, lookup_line = message.splitlines()
@@ -624,7 +639,69 @@ def should_tell_the_user_at_the_next_start_when_the_last_refresh_did_not_finish(
     assert "manifest shows 2.9.0" in unfinished_line
     assert "npx -y claude-dev-env@2.12.0" in unfinished_line
     assert "gave no version" in lookup_line
-    assert not in_progress_record.exists()
+    assert _all_in_progress_records(tmp_path) == []
+
+
+@POSIX_ONLY
+def should_stay_quiet_about_a_stopped_refresh_once_a_later_install_passes_its_version(
+    tmp_path: Path,
+) -> None:
+    environment = _stale_install_environment(tmp_path)
+    first_start = _start_a_refresh_that_waits_in_its_install(tmp_path, environment)
+    _kill_the_refresh(tmp_path, first_start)
+    environment["FAKE_NPM_VERSION"] = "2.13.0"
+    next_start = _run_hook_process(environment)
+    tool_log = (tmp_path / "tool-log.txt").read_text(encoding="utf-8")
+    assert "npx -y claude-dev-env@2.13.0" in tool_log
+    assert next_start.stdout == ""
+    assert _all_in_progress_records(tmp_path) == []
+
+
+@POSIX_ONLY
+def should_not_call_a_refresh_that_is_still_running_stopped(tmp_path: Path) -> None:
+    environment = _stale_install_environment(tmp_path)
+    running_start = _start_a_refresh_that_waits_in_its_install(tmp_path, environment)
+    try:
+        overlapping_start = _run_hook_process({**environment, "FAKE_NPM_FAILURE": "1"})
+    finally:
+        _kill_the_refresh(tmp_path, running_start)
+    [lookup_line] = _user_message(overlapping_start).splitlines()
+    assert "gave no version" in lookup_line
+
+
+@POSIX_ONLY
+def should_tell_the_user_about_a_refresh_stopped_after_an_overlapping_start_ended(
+    tmp_path: Path,
+) -> None:
+    environment = _stale_install_environment(tmp_path)
+    running_start = _start_a_refresh_that_waits_in_its_install(tmp_path, environment)
+    try:
+        overlapping_start = _run_hook_process({**environment, "FAKE_NPX_EXIT": "1"})
+    finally:
+        _kill_the_refresh(tmp_path, running_start)
+    assert "exit code 1" in _user_message(overlapping_start)
+    message = _user_message(_run_hook_process({**environment, "FAKE_NPM_FAILURE": "1"}))
+    assert "stopped at an earlier session start before its install of 2.12.0" in (
+        message
+    )
+
+
+def should_tell_the_user_about_a_record_older_than_any_refresh_run(
+    tmp_path: Path,
+) -> None:
+    environment = _stale_install_environment(tmp_path)
+    (_config_directory(tmp_path) / IN_PROGRESS_RECORD_NAME).write_text(
+        json.dumps(
+            {"version": "2.12.0", "pid": os.getpid(), "started_at": time.time() - 86400}
+        ),
+        encoding="utf-8",
+    )
+    environment["FAKE_NPM_FAILURE"] = "1"
+    message = _user_message(_run_hook_process(environment))
+    assert "stopped at an earlier session start before its install of 2.12.0 ended" in (
+        message
+    )
+    assert _all_in_progress_records(tmp_path) == []
 
 
 def should_stay_quiet_when_an_install_left_by_a_stopped_hook_finished(
@@ -651,7 +728,7 @@ def should_tell_the_user_when_the_hook_stops_on_an_error(tmp_path: Path) -> None
     config_file.write_text("", encoding="utf-8")
     environment["CLAUDE_CONFIG_DIR"] = str(config_file)
     message = _user_message(_run_hook_process(environment))
-    assert "the refresh hook stopped on NotADirectoryError" in message
+    assert "the refresh hook stopped on FileExistsError" in message
     assert "npx -y claude-dev-env@latest" in message
 
 
