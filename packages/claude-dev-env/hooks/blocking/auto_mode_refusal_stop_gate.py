@@ -221,8 +221,9 @@ def hold_reason_for(
 
     ::
 
-        one group, no rule entry -> header, "Question: ...", card question,
-                                    steps, the order after Allow it, ledger files
+        one group, no rule entry -> header with the card question form,
+                                    "Question: ...", steps, the order after
+                                    Allow it, ledger files
         no group, one rule entry -> the playbook path and the ledger file
 
     Args:
@@ -238,10 +239,7 @@ def hold_reason_for(
     if all_groups:
         question_text = QUESTION_SECTION_HEADER
         for each_group in all_groups:
-            question_text += QUESTION_BLOCK_TEMPLATE.format(
-                question=each_group.question,
-                card_question=CARD_QUESTION_TEMPLATE.format(tool_name=each_group.tool_name),
-            )
+            question_text += QUESTION_BLOCK_TEMPLATE.format(question=each_group.question)
             question_text += "".join(
                 LIST_LINE_TEMPLATE.format(text=each_summary)
                 for each_summary in each_group.all_action_summaries

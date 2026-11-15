@@ -124,12 +124,30 @@ def test_should_hold_with_the_question_labels_card_form_playbook_and_ledger_file
         "`Auto mode`",
         "`Keep refusing`",
         "`Allow it`",
-        "Should auto mode have refused this Bash step?",
+        "`Should auto mode have refused this <tool> step?`",
         "- git push -f",
         str(ledger_path),
         os.environ["CLAUDE_AUTO_MODE_RULE_PLAYBOOK"],
     ):
         assert each_needle in reason_text
+
+
+def test_should_give_ask_user_question_one_question_and_tie_the_card_question_to_card_tools(
+    tmp_path: Path,
+) -> None:
+    _refuse(tmp_path, "git push -f")
+    reason_text = _hold_reason(tmp_path)
+    assert reason_text is not None
+    question_block = reason_text.split("\n\nQuestion: ", 1)[1].split("\nSteps:", 1)[0]
+    assert question_block == GIT_QUESTION
+    all_card_lines = [
+        each_line
+        for each_line in reason_text.splitlines()
+        if "Should auto mode have refused this" in each_line
+    ]
+    assert len(all_card_lines) == 1
+    assert "`mcp__hearthbot__ask_decision`" in all_card_lines[0]
+    assert "AskUserQuestion takes only the Question line" in all_card_lines[0]
 
 
 def test_should_hold_each_pending_entry_for_its_question_twice_at_most(tmp_path: Path) -> None:
