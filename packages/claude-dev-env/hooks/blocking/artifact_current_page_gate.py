@@ -47,6 +47,8 @@ from hooks_constants.artifact_current_page_gate_constants import (
     LINK_RECORD_SUFFIX,
     LINK_RECORD_TITLE_KEY,
     LINK_RECORD_URL_KEY,
+    LINK_SOURCE_JOINER,
+    LINK_SOURCE_WITH_OTHER_LINK_TEMPLATE,
     META_CONTENT_ATTRIBUTE,
     META_NAME_ATTRIBUTE,
     META_TAG_PATTERN,
@@ -59,7 +61,6 @@ from hooks_constants.artifact_current_page_gate_constants import (
     REPEATED_ITEM_LINE_TEMPLATE,
     REPEATED_ITEM_RETRY_INSTRUCTION,
     REPUBLISH_NOTE,
-    LINK_SOURCE_JOINER,
     SECOND_LINK_REASON_TEMPLATE,
     TAG_ATTRIBUTE_PATTERN,
 )
@@ -179,32 +180,40 @@ def _meta_page_link(page_source: str) -> str:
     return ""
 
 
-def _record_link(record_path: Path) -> str:
-    recorded_link = _link_record(record_path).get(LINK_RECORD_URL_KEY, "")
+def _record_link(all_record_fields: dict[str, str]) -> str:
+    recorded_link = all_record_fields.get(LINK_RECORD_URL_KEY, "")
     return recorded_link if ARTIFACT_LINK_PATTERN.fullmatch(recorded_link) else ""
 
 
-def _renamed_page_record(page_path: Path, title: str) -> Path | None:
+def _renamed_page_records(page_path: Path, title: str) -> list[tuple[str, str]]:
     if not title:
-        return None
-    all_record_paths = sorted(page_path.parent.glob("*" + LINK_RECORD_SUFFIX))
-    page_path_by_record = {
-        each_record_path: page_path.parent / each_record_path.name.removesuffix(LINK_RECORD_SUFFIX)
-        for each_record_path in all_record_paths
-    }
+        return []
+    all_folder_records = []
+    for each_record_path in sorted(page_path.parent.glob("*" + LINK_RECORD_SUFFIX)):
+        each_page_path = page_path.parent / each_record_path.name.removesuffix(LINK_RECORD_SUFFIX)
+        each_record = _link_record(each_record_path)
+        all_folder_records.append(
+            (
+                str(each_record_path),
+                each_page_path,
+                each_page_path.exists(),
+                _record_link(each_record),
+                each_record.get(LINK_RECORD_TITLE_KEY),
+            )
+        )
     links_of_other_present_pages = {
-        _record_link(each_record_path)
-        for each_record_path, each_page_path in page_path_by_record.items()
-        if each_page_path.exists() and each_page_path != page_path
+        each_link
+        for _, each_page_path, each_page_exists, each_link, _ in all_folder_records
+        if each_page_exists and each_page_path != page_path
     }
-    for each_record_path, each_page_path in page_path_by_record.items():
-        if each_page_path.exists():
-            continue
-        each_link = _record_link(each_record_path)
-        is_same_title = _link_record(each_record_path).get(LINK_RECORD_TITLE_KEY) == title
-        if is_same_title and each_link and each_link not in links_of_other_present_pages:
-            return each_record_path
-    return None
+    return [
+        (each_link, each_source)
+        for each_source, _, each_page_exists, each_link, each_title in all_folder_records
+        if not each_page_exists
+        and each_title == title
+        and each_link
+        and each_link not in links_of_other_present_pages
+    ]
 
 
 def _page_link_and_source(page_path: Path, page_source: str) -> tuple[str, str]:
@@ -213,19 +222,18 @@ def _page_link_and_source(page_path: Path, page_source: str) -> tuple[str, str]:
     if meta_link:
         all_links_with_sources.append((meta_link, LINK_META_SOURCE))
     own_record_path = link_record_path(page_path)
-    own_link = _record_link(own_record_path)
+    own_link = _record_link(_link_record(own_record_path))
     if own_link:
         all_links_with_sources.append((own_link, str(own_record_path)))
-    renamed_record_path = _renamed_page_record(page_path, page_title(page_source))
-    if renamed_record_path is not None:
-        all_links_with_sources.append(
-            (_record_link(renamed_record_path), str(renamed_record_path))
-        )
+    all_links_with_sources.extend(_renamed_page_records(page_path, page_title(page_source)))
     if not all_links_with_sources:
         return "", ""
     first_link = all_links_with_sources[0][0]
     return first_link, LINK_SOURCE_JOINER.join(
-        each_source for _, each_source in all_links_with_sources
+        each_source
+        if each_link == first_link
+        else LINK_SOURCE_WITH_OTHER_LINK_TEMPLATE.format(source=each_source, link=each_link)
+        for each_link, each_source in all_links_with_sources
     )
 
 
@@ -242,7 +250,7 @@ def recorded_page_link(page_path: Path, page_source: str) -> str:
     counts in either attribute order. The third place catches a page renamed
     in its folder. A record whose page file is still there belongs to a
     separate page, even when the two titles match, so it is skipped. So is a
-    record whose link another page in the folder still holds.
+    record whose link the record of another page in the folder still holds.
 
     Args:
         page_path: The local page file.
@@ -359,7 +367,10 @@ def main() -> int:
         page_path.read_text(encoding="utf-8", errors="replace"),
         tool_input.get(ARTIFACT_EDITS_INPUT_KEY),
     )
-    has_link_in_call = bool(tool_input.get(ARTIFACT_URL_INPUT_KEY))
+    link_in_call = tool_input.get(ARTIFACT_URL_INPUT_KEY)
+    has_link_in_call = isinstance(link_in_call, str) and bool(
+        ARTIFACT_LINK_PATTERN.fullmatch(link_in_call)
+    )
     recorded_link, link_source = _page_link_and_source(page_path, page_source)
     if recorded_link and not has_link_in_call:
         return _block(

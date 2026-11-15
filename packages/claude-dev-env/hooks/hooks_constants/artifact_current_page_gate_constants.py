@@ -19,6 +19,7 @@ __all__ = [
     "LINK_RECORD_TITLE_KEY",
     "LINK_RECORD_URL_KEY",
     "LINK_SOURCE_JOINER",
+    "LINK_SOURCE_WITH_OTHER_LINK_TEMPLATE",
     "META_CONTENT_ATTRIBUTE",
     "META_NAME_ATTRIBUTE",
     "META_TAG_PATTERN",
@@ -48,12 +49,13 @@ REPEAT_ITEM_KEY = "item"
 REPEAT_TIMES_KEY = "times"
 ARTIFACT_LINK_PATTERN = re.compile(r"https://claude\.ai/(?:code/)?artifact/[A-Za-z0-9_-]+")
 META_TAG_PATTERN = re.compile(r"<meta\b[^>]*>", re.IGNORECASE)
-TAG_ATTRIBUTE_PATTERN = re.compile(r"""([A-Za-z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
+TAG_ATTRIBUTE_PATTERN = re.compile(r"""(?<=\s)([^\s=/>"']+)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
 META_NAME_ATTRIBUTE = "name"
 META_CONTENT_ATTRIBUTE = "content"
 LINK_META_NAME = "artifact-link"
 LINK_META_SOURCE = "the artifact-link meta tag from the page"
 LINK_SOURCE_JOINER = " and "
+LINK_SOURCE_WITH_OTHER_LINK_TEMPLATE = "{source}, which holds {link}"
 PAGE_TITLE_PATTERN = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 REPEAT_RENDERER_SCRIPT_PATH = BLOCKING_HOOKS_DIRECTORY / "artifact_repeated_item_render.cjs"
 REPEATED_ITEM_HEADER = "This page draws the same item more than once, so the reader cannot tell which entry is current.\n"

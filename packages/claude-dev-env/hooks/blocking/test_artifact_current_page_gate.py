@@ -138,6 +138,13 @@ def test_should_read_the_first_of_two_name_attributes_as_html_does(tmp_path: Pat
     assert recorded_page_link(tmp_path / "page.html", page_source) == PAGE_LINK
 
 
+def test_should_read_the_name_attribute_beside_a_prefixed_one(tmp_path: Path) -> None:
+    page_source = (
+        f'<meta og:name="site" name="artifact-link" content="{PAGE_LINK}">' + PAGE_WITH_ONE_SCREEN
+    )
+    assert recorded_page_link(tmp_path / "page.html", page_source) == PAGE_LINK
+
+
 def test_should_ignore_a_record_that_holds_no_artifact_link(tmp_path: Path) -> None:
     page_path = tmp_path / "page.html"
     link_record_path(page_path).write_text(json.dumps({"url": "<link>", "title": "Sample Run"}))
@@ -332,6 +339,41 @@ def test_should_name_every_place_that_keeps_the_link(tmp_path: Path) -> None:
     assert denied_run.returncode == BLOCK_EXIT_CODE
     assert "the artifact-link meta tag from the page and " in denied_run.stderr
     assert "page.html.artifact-link.json, then publish" in denied_run.stderr
+
+
+def test_should_name_each_old_name_record_of_a_page_renamed_twice(tmp_path: Path) -> None:
+    for each_old_name in ("first-name.html", "second-name.html"):
+        link_record_path(tmp_path / each_old_name).write_text(
+            json.dumps({"url": PAGE_LINK, "title": "Sample Run"})
+        )
+    page_path = tmp_path / "third-name.html"
+    page_path.write_text(PAGE_WITH_ONE_SCREEN, encoding="utf-8")
+    denied_run = _run_gate({"file_path": str(page_path)})
+    assert denied_run.returncode == BLOCK_EXIT_CODE
+    assert "first-name.html.artifact-link.json" in denied_run.stderr
+    assert "second-name.html.artifact-link.json" in denied_run.stderr
+
+
+def test_should_name_the_other_link_a_second_place_holds(tmp_path: Path) -> None:
+    other_link = "https://claude.ai/artifact/OtherPageLink02"
+    page_path = tmp_path / "page.html"
+    page_path.write_text(
+        f'<meta name="artifact-link" content="{PAGE_LINK}">' + PAGE_WITH_ONE_SCREEN,
+        encoding="utf-8",
+    )
+    link_record_path(page_path).write_text(json.dumps({"url": other_link, "title": "Sample Run"}))
+    denied_run = _run_gate({"file_path": str(page_path)})
+    assert f"This page already has a link: {PAGE_LINK}" in denied_run.stderr
+    assert f"page.html.artifact-link.json, which holds {other_link}" in denied_run.stderr
+
+
+def test_should_refuse_a_call_url_that_is_no_artifact_link(tmp_path: Path) -> None:
+    page_path = tmp_path / "page.html"
+    page_path.write_text(PAGE_WITH_ONE_SCREEN, encoding="utf-8")
+    link_record_path(page_path).write_text(json.dumps({"url": PAGE_LINK, "title": "Sample Run"}))
+    denied_run = _run_gate({"file_path": str(page_path), "url": "<link>"})
+    assert denied_run.returncode == BLOCK_EXIT_CODE
+    assert PAGE_LINK in denied_run.stderr
 
 
 @needs_renderer
