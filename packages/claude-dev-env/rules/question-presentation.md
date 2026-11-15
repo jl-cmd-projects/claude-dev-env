@@ -1,11 +1,13 @@
 # Present questions clearly
 
-Before every ask, repeats too, give a short chat brief with context, each choice's effect, and helpful visuals.
+Before every ask, repeats too, brief in chat: context, each choice's effect, visuals.
 
-Ask one short question per item, never a chat list, with two or three choices, each a short label and sentence. Reuse labels in brief, comparison, and picker. Keep the turn's chat text before a question to 450 words and 15 list or table items; a Claude hook refuses more.
+One question per item, no chat list: two or three choices, each a label and sentence. Reuse labels in brief, comparison, picker. Cap a turn's pre-question chat at 450 words and 15 list or table items; a Claude hook refuses more.
 
-Find the native question tool. Claude may use `AskUserQuestion`; Codex may use `request_user_input_async` or `request_user_input`. Honor mode rules. Put the question and choices in its fields. If unusable, ask in chat.
+Question tools: Claude `AskUserQuestion`, Codex `request_user_input_async` or `request_user_input`. Honor mode rules. Its fields hold question and choices; if unusable, ask in chat.
 
-To hand over a step, option cards, or a Codex visual comparison, read the full text first.
+End a user-started session with a card per open item or end on `Open items: none.`; a Claude hook holds the stop.
+
+Read the full text for a step handover, option cards, or Codex visual comparison.
 
 **Full text:** [`~/.claude/docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md).

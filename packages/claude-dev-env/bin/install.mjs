@@ -146,9 +146,9 @@ import {
 } from './install-transaction.mjs';
 import { findShadowingGlobalInstall, shadowingGlobalAdvice } from './global-install-shadow.mjs';
 import {
-    addOpenTasksGateToProfiles,
+    addStopGatesToProfiles,
     otherProfileSettingsPaths,
-    removeOpenTasksGateFromProfiles,
+    removeStopGatesFromProfiles,
     splitUnreadableProfileSettings,
     unparsedSettingsMayHoldGate,
 } from './profile-stop-gate.mjs';
@@ -2872,10 +2872,10 @@ function install(selectedGroups, options = {}) {
 }
 
 /**
- * List the profile settings paths that get the open-tasks Stop gate.
+ * List the profile settings paths that get the open tasks and closing question round Stop gates.
  *
- * Only an install into the main ~/.claude does this, because the gate entry
- * names the main home's hook script.
+ * Only an install into the main ~/.claude does this, because each gate entry
+ * names a hook script in the main home.
  *
  * @param {string} mainSettingsPath
  * @returns {string[]}
@@ -2897,7 +2897,7 @@ function readableProfileSettingsPathsForStopGate(mainSettingsPath) {
     );
     for (const { settingsPath, reason } of allUnreadable) {
         const actionLine = `Profile settings: ${settingsPath} was left unchanged because it is not valid JSON (${reason}).`
-            + ' Fix the file and run the install again to add the open-tasks Stop gate there.';
+            + ' Fix the file and run the install again to add the open tasks and closing question round Stop gates there.';
         console.warn(`  ${actionLine}`);
         allActionNeededLines.push(actionLine);
     }
@@ -2905,12 +2905,12 @@ function readableProfileSettingsPathsForStopGate(mainSettingsPath) {
 }
 
 /**
- * Return the profile settings the uninstall removes the gate from, or the reason it must stop first.
+ * Return the profile settings the uninstall removes the gates from, or the reason it must stop first.
  *
- * A profile file that does not parse and may still hold the gate stops the
+ * A profile file that does not parse and may still hold a gate stops the
  * uninstall before it changes anything. The manifest then stays, so running
- * --uninstall again after fixing the file removes the gate. A file that does
- * not parse and does not name the gate has nothing to remove and is left as
+ * --uninstall again after fixing the file removes the gates. A file that does
+ * not parse and names neither gate has nothing to remove and is left as
  * it is.
  *
  * @param {string} mainSettingsPath
@@ -2926,7 +2926,7 @@ function profileSettingsPathsForGateRemoval(mainSettingsPath) {
     if (allHoldingGate.length === 0) return { allReadablePaths, blockingReason: null };
     const fileLines = allHoldingGate.map(({ settingsPath, reason }) => `  ${settingsPath}: not valid JSON (${reason})`);
     const blockingReason = [
-        'ERROR: uninstall stopped before changing anything. These profile settings files still name the open-tasks Stop gate, and they are not valid JSON, so the gate cannot be removed from them:',
+        'ERROR: uninstall stopped before changing anything. These profile settings files still name the open tasks or closing question round Stop gate, and they are not valid JSON, so the gates cannot be removed from them:',
         ...fileLines,
         'Fix each file and run --uninstall again.',
     ].join('\n');
@@ -3431,14 +3431,14 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     for (const eachLine of describeProfileSettingsOutcome(mergeOutcome, false)) {
         console.log(`  Profile settings: ${eachLine}`);
     }
-    for (const eachOutcome of addOpenTasksGateToProfiles({
+    for (const eachOutcome of addStopGatesToProfiles({
         mainSettingsPath: join(CLAUDE_HOME, SETTINGS_FILE_NAME),
         claudeHome: CLAUDE_HOME,
         allProfileSettingsPaths: readableProfileSettingsPathsForStopGate(join(CLAUDE_HOME, SETTINGS_FILE_NAME)),
         homeDirectory: homedir(),
     })) {
         if (eachOutcome.additions.length > 0) {
-            console.log(`  Profile settings: open-tasks Stop gate added to ${eachOutcome.settingsPath}`);
+            console.log(`  Profile settings: Stop gates added to ${eachOutcome.settingsPath}`);
         }
     }
 
@@ -3728,11 +3728,11 @@ function executeUninstallPlan(plan, helpers = {}) {
             writeFileSync(plan.settingsPath, JSON.stringify(settings, null, 4) + '\n');
         }
     }
-    for (const eachChangedPath of removeOpenTasksGateFromProfiles({
+    for (const eachChangedPath of removeStopGatesFromProfiles({
         claudeHome: CLAUDE_HOME,
         allProfileSettingsPaths: helpers.allProfileSettingsPaths,
     })) {
-        console.log(`  Profile settings: open-tasks Stop gate removed from ${eachChangedPath}`);
+        console.log(`  Profile settings: Stop gates removed from ${eachChangedPath}`);
     }
     if (!codexRoutingHookExists()) {
         pruneManagedHooksFromHostConfiguration(CODEX_HOOKS_CONFIGURATION_PATH, 2);

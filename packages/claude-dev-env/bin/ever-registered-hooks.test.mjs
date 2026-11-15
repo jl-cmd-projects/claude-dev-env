@@ -24,6 +24,10 @@ test('EVER_REGISTERED_HOOK_RELATIVE_PATHS keeps the question brief gate', () => 
     assert.ok(EVER_REGISTERED_HOOK_RELATIVE_PATHS.has('blocking/question_brief_gate.py'));
 });
 
+test('EVER_REGISTERED_HOOK_RELATIVE_PATHS keeps the closing question round gate', () => {
+    assert.ok(EVER_REGISTERED_HOOK_RELATIVE_PATHS.has('blocking/closing_question_round_gate.py'));
+});
+
 test('EVER_REGISTERED_HOOK_RELATIVE_PATHS keeps the retired merge-over-review card gate', () => {
     assert.equal(
         EVER_REGISTERED_HOOK_RELATIVE_PATHS.has('blocking/merge_over_review_offer_gate.py'),

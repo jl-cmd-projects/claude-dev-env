@@ -3844,7 +3844,7 @@ test('install prints no Action needed block when every side step finished', (con
     assert.equal(result.stderr.includes('Action needed'), false, result.stderr);
 });
 
-test('install adds the open-tasks Stop gate to every profile with its own settings.json, and uninstall removes it', (context) => {
+test('install adds the open tasks and closing question round Stop gates to every profile with its own settings.json, and uninstall removes both', (context) => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-profile-gate-install-'));
     context.after(() => rmSync(homeDirectory, { recursive: true, force: true }));
     const profileSettingsPath = join(homeDirectory, '.claude-profiles', 'prefs-only', 'settings.json');
@@ -3877,7 +3877,11 @@ test('install adds the open-tasks Stop gate to every profile with its own settin
 
     const installation = runInstaller([]);
     assert.equal(installation.status, 0, installation.stderr);
-    assert.equal(profileStopCommands().filter((eachCommand) => eachCommand.includes('open_tasks_stop_gate.py')).length, 1);
+    assert.deepEqual(
+        profileStopCommands().map((eachCommand) => eachCommand.replace(/\\/g, '/').split('/').pop()),
+        ['open_tasks_stop_gate.py', 'closing_question_round_gate.py'],
+    );
+    assert.ok(installation.stdout.includes(`Profile settings: Stop gates added to ${profileSettingsPath}`), installation.stdout);
 
     const uninstallation = runInstaller(['--uninstall']);
     assert.equal(uninstallation.status, 0, uninstallation.stderr);
