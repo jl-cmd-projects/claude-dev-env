@@ -217,22 +217,39 @@ LEAD_NEGATOR_PATTERN = re.compile(r"\b(?:no|none|nothing|nobody|zero)\b", re.IGN
 QUOTED_REPLY_LINE_PATTERN = re.compile(r"^\s*>")
 ALL_INDENTED_LINE_PREFIXES = (" ", "\t")
 OPEN_ITEM_LIST_MINIMUM = 3
-USER_WORDS_ESCAPE_SENTENCE = (
-    "If the user's own words in this turn asked for this, leave the reply as it is and end the turn."
+LEAD_QUOTED_TEXT_PATTERN = re.compile(r'`[^`]*`|"[^"]*"|“[^”]*”')
+COMPLETION_WORD_PATTERN = re.compile(
+    rf"(?P<negator>\b(?:not|never|\w+n{APOSTROPHE_CLASS}t)\s+(?:yet\s+|been\s+)?)?"
+    r"\b(?:fixed|closed|resolved|removed|passed|passes|completed|merged|landed|addressed|finished|cleared"
+    r"|shipped|handled|done|covers)\b",
+    re.IGNORECASE,
+)
+COMPLETION_NEGATOR_GROUP = "negator"
+GOVERNANCE_BREAK_PATTERN = re.compile(
+    r"[,;:.!?()—–]|\b(?:and|or|but|while|after|before|besides|except|beyond|plus)\b", re.IGNORECASE
 )
 PROMISED_REPORT_REASON_TEMPLATE = (
     'The closing reply promises the user a later report ("{phrase}"), and no typed prompt in this turn asked'
     " for one. Drop the promise and carry the work to completion. If work is still open, do it now. If the"
-    " turn waits on a run or a wake you armed, say in one sentence what runs and what you do when it ends. "
-    + USER_WORDS_ESCAPE_SENTENCE
+    " turn waits on a run or a wake you armed, say in one sentence what runs and what you do when it ends."
+)
+PROMISED_REPORT_KEEP_CONDITION = (
+    "Leave the promise as it is only when the reply already says that in one sentence, or when the user's"
+    " typed words in this turn asked for a report later."
 )
 OPEN_ITEM_LIST_REASON_TEMPLATE = (
-    'The closing reply lists {count} open items under "{lead}", and this turn sent no question through the'
+    'The closing reply lists {count} items under "{lead}", and this turn sent no question through the'
     " native question tool. Read the live state of each item and drop the ones that are done. Act now on each"
     " item you can settle yourself. Put each item that needs the user's judgment in its own AskUserQuestion"
     " call (Codex: request_user_input), with the context in the question text and two or three options whose"
     " effects sit in their descriptions. The first question call after this hold can be refused once for the"
-    " length of the held reply; send the same call again. Then end the turn with a short reply that names what"
-    " you did. " + USER_WORDS_ESCAPE_SENTENCE
+    " length of the held reply; send the same call again."
 )
-REWORKED_REPLY_INSTRUCTION = "Then send the reworked closing reply and end the turn."
+OPEN_ITEM_LIST_KEEP_CONDITION = (
+    "Leave the list as it is only when every listed item is finished work or plain status that needs no"
+    " decision from the user, or when the user's typed words in this turn asked for the items as a list or a"
+    ' table in chat. A question such as "what did you defer?" asks for an answer, and the open decisions in'
+    " that answer still go out as question cards."
+)
+REWORKED_REPLY_INSTRUCTION = "Then send the reworked reply and end the turn."
+SHORT_REPLY_INSTRUCTION = "Then send a short reply that names what you did and end the turn."

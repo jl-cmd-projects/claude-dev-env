@@ -22,11 +22,26 @@ never, none, or nothing comes before it in its sentence.
 An open-item list is a run of item lines: bullets, numbered lines, and table
 body rows. A run goes on across blank lines, indented lines, and a table's
 header and separator rows. Its lead is the nearest non-blank line above it.
-The lead must name open work (deferred, sidestepped, remaining, outstanding,
-still open, open items, next steps, follow-ups, to-dos, pending, parked, and
-the like) and hold no no, none, nothing, nobody, or zero.
+The lead loses its code spans and its double-quoted text first. It must
+name open work (deferred, sidestepped, remaining, outstanding, still open,
+open items, next steps, follow-ups, to-dos, pending, parked, and the like)
+and hold no no, none, nothing, nobody, or zero. A lead whose every open-work
+word has a completion word in its clause names done work::
 
-Fences, HTML blocks, quoted lines, and code spans are left out of both checks.
+    flag: Remaining work after the merged fixes:   "after" ends the clause
+    flag: What I fixed and what I deferred:         "and" ends the clause
+    flag: Follow-ups not yet merged:                a negated completion word
+    ok:   I fixed the three follow-ups you flagged:
+    ok:   All pending checks passed:
+
+The completion words are fixed, closed, resolved, removed, passed, passes,
+completed, merged, landed, addressed, finished, cleared, shipped, handled,
+done, and covers. Not, never, or a word ending in n't before one, with an
+optional yet or been, negates it. A clause ends at punctuation, a dash, or
+and, or, but, while, after, before, besides, except, beyond, or plus.
+
+Fences, HTML blocks, quoted lines, and code spans are left out of both checks,
+and the list lead also loses its double-quoted text.
 
 The typed prompt can ask for either shape. Before the ask check, the prompt
 loses its ``<system-reminder>`` blocks, its ``>`` quoted lines, its code
@@ -70,7 +85,11 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     ASK_NEGATOR_PATTERN,
     BACKTICK_TEXT_PATTERN,
     ALL_INDENTED_LINE_PREFIXES,
+    COMPLETION_NEGATOR_GROUP,
+    COMPLETION_WORD_PATTERN,
+    GOVERNANCE_BREAK_PATTERN,
     LEAD_NEGATOR_PATTERN,
+    LEAD_QUOTED_TEXT_PATTERN,
     LIST_ASK_PATTERN,
     OPEN_ITEM_LEAD_PATTERN,
     OPEN_ITEM_LIST_MINIMUM,
@@ -138,17 +157,27 @@ def promised_report_phrase(reply_text: str, prompt_text: str) -> str | None:
     """
     if _prompt_asks_for(prompt_text, REPORT_ASK_PATTERN):
         return None
-    for each_paragraph in prose_paragraphs(reply_text):
-        for each_pattern in ALL_PROMISED_REPORT_PATTERNS:
-            for each_match in each_pattern.finditer(each_paragraph):
-                if (
-                    PROMISE_NEGATOR_PATTERN.search(
-                        _sentence_before(each_paragraph, each_match.start())
-                    )
-                    is None
-                ):
-                    return each_match.group()
-    return None
+    all_promises = (
+        _unnegated_promise(each_paragraph) for each_paragraph in prose_paragraphs(reply_text)
+    )
+    return next((each_promise for each_promise in all_promises if each_promise is not None), None)
+
+
+def _unnegated_promise(paragraph_text: str) -> str | None:
+    all_matches = (
+        each_match
+        for each_pattern in ALL_PROMISED_REPORT_PATTERNS
+        for each_match in each_pattern.finditer(paragraph_text)
+    )
+    return next(
+        (
+            each_match.group()
+            for each_match in all_matches
+            if PROMISE_NEGATOR_PATTERN.search(_sentence_before(paragraph_text, each_match.start()))
+            is None
+        ),
+        None,
+    )
 
 
 def _html_block_closer_for(opener: re.Match[str]) -> re.Pattern[str]:
@@ -167,16 +196,26 @@ def _is_run_continuation(line: str) -> bool:
     return not line.strip() or line.startswith(ALL_INDENTED_LINE_PREFIXES)
 
 
+def _line_after(all_lines: list[str], line_index: int) -> str:
+    return all_lines[line_index + 1] if line_index + 1 < len(all_lines) else ""
+
+
+def _is_item_at(all_lines: list[str], line_index: int) -> bool:
+    line = all_lines[line_index]
+    next_line = _line_after(all_lines, line_index)
+    return _is_run_line(line, next_line) and is_item_line(line, next_line)
+
+
+def _continues_run_at(all_lines: list[str], line_index: int) -> bool:
+    line = all_lines[line_index]
+    return _is_run_line(line, _line_after(all_lines, line_index)) or _is_run_continuation(line)
+
+
 def _item_run_at(all_lines: list[str], run_start: int) -> tuple[int, int]:
     item_count = 0
     line_index = run_start
-    while line_index < len(all_lines):
-        line = all_lines[line_index]
-        next_line = all_lines[line_index + 1] if line_index + 1 < len(all_lines) else ""
-        if _is_run_line(line, next_line):
-            item_count += is_item_line(line, next_line)
-        elif not _is_run_continuation(line):
-            break
+    while line_index < len(all_lines) and _continues_run_at(all_lines, line_index):
+        item_count += _is_item_at(all_lines, line_index)
         line_index += 1
     return line_index, item_count
 
@@ -195,10 +234,27 @@ def _reply_lines(reply_text: str) -> list[str]:
     )
 
 
+def _governs(lead: str, open_match: re.Match[str], completion_match: re.Match[str]) -> bool:
+    if completion_match.group(COMPLETION_NEGATOR_GROUP) is not None:
+        return False
+    if completion_match.start() < open_match.end() and open_match.start() < completion_match.end():
+        return False
+    gap_start = min(open_match.end(), completion_match.end())
+    gap_end = max(open_match.start(), completion_match.start())
+    return GOVERNANCE_BREAK_PATTERN.search(lead, gap_start, gap_end) is None
+
+
 def _is_open_item_lead(lead: str) -> bool:
-    return (
-        OPEN_ITEM_LEAD_PATTERN.search(lead) is not None
-        and LEAD_NEGATOR_PATTERN.search(lead) is None
+    unquoted_lead = LEAD_QUOTED_TEXT_PATTERN.sub(REMOVED_PROMPT_TEXT, lead)
+    if LEAD_NEGATOR_PATTERN.search(unquoted_lead) is not None:
+        return False
+    all_completion_matches = list(COMPLETION_WORD_PATTERN.finditer(unquoted_lead))
+    return any(
+        not any(
+            _governs(unquoted_lead, each_open_match, each_completion_match)
+            for each_completion_match in all_completion_matches
+        )
+        for each_open_match in OPEN_ITEM_LEAD_PATTERN.finditer(unquoted_lead)
     )
 
 
@@ -225,8 +281,7 @@ def open_item_list(reply_text: str, prompt_text: str) -> OpenItemList | None:
     all_lines = _reply_lines(reply_text)
     line_index = 0
     while line_index < len(all_lines):
-        next_line = all_lines[line_index + 1] if line_index + 1 < len(all_lines) else ""
-        if not _is_run_line(all_lines[line_index], next_line):
+        if not _is_run_line(all_lines[line_index], _line_after(all_lines, line_index)):
             line_index += 1
             continue
         run_end, item_count = _item_run_at(all_lines, line_index)

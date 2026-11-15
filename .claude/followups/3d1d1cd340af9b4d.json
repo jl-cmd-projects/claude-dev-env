@@ -1,0 +1,8 @@
+{
+  "rule_id": "test-pairing",
+  "file_path": "packages/claude-dev-env/hooks/hooks_constants/open_tasks_stop_gate_constants.py",
+  "message": "Changed production file has no changed matching test",
+  "check_id": "test-pairing",
+  "severity": "smell",
+  "origin_commit": "e03c73ad9fa486f6205cd3c145438d74ee12b8fe"
+}

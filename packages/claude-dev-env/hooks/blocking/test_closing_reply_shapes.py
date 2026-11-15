@@ -139,3 +139,53 @@ def test_should_pass_a_reply_with_no_unasked_open_item_list(
     reply_text: str, prompt_text: str
 ) -> None:
     assert open_item_list(reply_text, prompt_text) is None
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        "I fixed the three follow-ups you flagged:",
+        "All pending checks passed:",
+        "I closed the remaining review threads:",
+        "I removed the `deferred` flag from:",
+        'The test named "pending jobs" now covers:',
+        "The test named “pending jobs” now covers:",
+        "I resolved all outstanding comments:",
+        "Every remaining test now passes:",
+        "Merged the pending pull requests:",
+        "Completed to-dos:",
+        "Closed follow-ups:",
+    ],
+)
+def test_should_pass_a_list_of_finished_work_whose_lead_names_follow_ups(lead: str) -> None:
+    assert open_item_list(f"{lead}\n{THREE_BULLETS}", DEFERRED_PROMPT) is None
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        DEFERRED_LEAD,
+        "Open items:",
+        "Still open:",
+        "Not done yet:",
+        "Deferred:",
+        "Next steps:",
+        "Follow-ups:",
+        "What I fixed and what I deferred:",
+        "Remaining work after the merged fixes:",
+        "Follow-ups I did not get to:",
+        "Pending your decision:",
+        "Things I sidestepped:",
+        "Unresolved after this round:",
+        "Follow-ups not yet merged:",
+        "Follow-ups that aren't fixed:",
+    ],
+)
+def test_should_flag_a_list_whose_lead_names_open_work(lead: str) -> None:
+    assert open_item_list(f"{lead}\n{THREE_BULLETS}", DEFERRED_PROMPT) == OpenItemList(lead, 3)
+
+
+def test_should_flag_a_promise_to_report_once_a_running_agent_finishes() -> None:
+    reply_text = "The altitude agent is still running, and I'll report once it finishes."
+    prompt_text = "<task-notification>the reuse agent finished</task-notification>"
+    assert promised_report_phrase(reply_text, prompt_text) == "I'll report once"

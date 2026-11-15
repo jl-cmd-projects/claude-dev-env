@@ -60,8 +60,11 @@ The closing reply also gets two checks of its own, which
     allow: the same promise after the prompt "report back when the run ends"
     allow: any reply when the transcript cannot be read
 
-Such a hold ends with "Then send the reworked closing reply and end the
-turn." in place of the line that keeps the reply as it stands.
+Such a hold names what it found and the steps, then one line that ends the
+turn, then when the reply may stay as it is::
+
+    promise only   -> "Then send the reworked reply and end the turn. Leave the promise as it is only when ..."
+    list present   -> "Then send a short reply that names what you did and end the turn. Leave the list as it is only when ..."
 
 One reason carries every finding. A turn the gate already held ends on the next
 stop, so the gate costs at most one extra step per turn.
@@ -80,6 +83,7 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from typing import NamedTuple
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
@@ -110,9 +114,12 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     INCOMPLETE_STATUSES,
     KEEP_REPLY_INSTRUCTION,
     NO_STEP_INSTRUCTION,
+    OPEN_ITEM_LIST_KEEP_CONDITION,
     OPEN_ITEM_LIST_REASON_TEMPLATE,
+    PROMISED_REPORT_KEEP_CONDITION,
     PROMISED_REPORT_REASON_TEMPLATE,
     REWORKED_REPLY_INSTRUCTION,
+    SHORT_REPLY_INSTRUCTION,
     STOP_HOOK_ACTIVE_KEY,
     TASK_FILE_GLOB,
     TASK_ID_KEY,
@@ -266,46 +273,82 @@ def tracker_reasons(all_hook_input_fields: dict[str, object], replay: Transcript
     return all_reasons if stale_reason is None else [*all_reasons, stale_reason]
 
 
-def closing_reply_reasons(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> list[str]:
-    """Return a reason for a promised later report and one for open items sent as a list in the closing reply.
+class ClosingReplyFinding(NamedTuple):
+    """One closing-reply shape the gate found: what it found and the steps, the line that ends the turn, and when to keep the reply."""
+
+    reason: str
+    closing_instruction: str
+    keep_condition: str
+
+
+def closing_reply_findings(
+    all_hook_input_fields: dict[str, object], replay: TranscriptReplay
+) -> list[ClosingReplyFinding]:
+    """Return a finding for a promised later report and one for open items sent as a list in the closing reply.
 
     ::
 
-        "A full write-up will be here when you are back."   -> the promised report reason
-        "What I deferred:" over 5 items, no question call    -> the open item list reason
+        "A full write-up will be here when you are back."   -> the promised report finding
+        "What I deferred:" over 5 items, no question call    -> the open item list finding
         the same list after an AskUserQuestion call          -> []
 
-    A session whose transcript cannot be read gives no reason.
+    A session whose transcript cannot be read gives no finding.
     """
     reply_text = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(reply_text, str) or not _has_readable_transcript(all_hook_input_fields):
         return []
-    all_reasons: list[str] = []
+    all_findings: list[ClosingReplyFinding] = []
     promise_phrase = promised_report_phrase(reply_text, replay.turn_prompt_text)
     if promise_phrase is not None:
-        all_reasons.append(PROMISED_REPORT_REASON_TEMPLATE.format(phrase=promise_phrase))
+        all_findings.append(
+            ClosingReplyFinding(
+                PROMISED_REPORT_REASON_TEMPLATE.format(phrase=promise_phrase),
+                REWORKED_REPLY_INSTRUCTION,
+                PROMISED_REPORT_KEEP_CONDITION,
+            )
+        )
     item_list = None if replay.has_turn_question_tool else open_item_list(reply_text, replay.turn_prompt_text)
     if item_list is not None:
-        all_reasons.append(OPEN_ITEM_LIST_REASON_TEMPLATE.format(count=item_list.count, lead=item_list.lead))
-    return all_reasons
+        all_findings.append(
+            ClosingReplyFinding(
+                OPEN_ITEM_LIST_REASON_TEMPLATE.format(count=item_list.count, lead=item_list.lead),
+                SHORT_REPLY_INSTRUCTION,
+                OPEN_ITEM_LIST_KEEP_CONDITION,
+            )
+        )
+    return all_findings
 
 
-def _closing_instruction(has_step_reason: bool, has_reply_reason: bool) -> str:
-    if has_reply_reason:
-        return REWORKED_REPLY_INSTRUCTION
-    return NO_STEP_INSTRUCTION if has_step_reason else KEEP_REPLY_INSTRUCTION
+def _closing_lines(has_step_reason: bool, all_reply_findings: list[ClosingReplyFinding]) -> list[str]:
+    if all_reply_findings:
+        return [
+            all_reply_findings[-1].closing_instruction,
+            *(each_finding.keep_condition for each_finding in all_reply_findings),
+        ]
+    return [NO_STEP_INSTRUCTION if has_step_reason else KEEP_REPLY_INSTRUCTION]
 
 
 def turn_block_reason(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> str | None:
-    """Return one reason that carries every finding on the turn, or None when the turn may end."""
+    """Return one reason that carries every finding on the turn, or None when the turn may end.
+
+    ::
+
+        tracker finding only           -> the finding, then "Then end the turn. Leave the reply as it stands."
+        promise and list findings      -> both findings, the list's closing line, then both keep conditions
+
+    "end the turn" appears once in every reason.
+    """
     all_tracker_reasons = tracker_reasons(all_hook_input_fields, replay)
     all_step_reasons = user_step_reasons(all_hook_input_fields, replay)
-    all_reply_reasons = closing_reply_reasons(all_hook_input_fields, replay)
-    all_findings = [*all_tracker_reasons, *all_step_reasons, *all_reply_reasons]
-    if not all_findings:
+    all_reply_findings = closing_reply_findings(all_hook_input_fields, replay)
+    all_reasons = [
+        *all_tracker_reasons,
+        *all_step_reasons,
+        *(each_finding.reason for each_finding in all_reply_findings),
+    ]
+    if not all_reasons:
         return None
-    closing_line = _closing_instruction(bool(all_step_reasons), bool(all_reply_reasons))
-    return WORD_SEPARATOR.join([*all_findings, closing_line])
+    return WORD_SEPARATOR.join([*all_reasons, *_closing_lines(bool(all_step_reasons), all_reply_findings)])
 
 
 def is_held_stop(all_hook_input_fields: dict[str, object]) -> bool:

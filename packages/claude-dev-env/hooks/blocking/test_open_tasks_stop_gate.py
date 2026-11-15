@@ -579,7 +579,18 @@ THREE_BULLETS = "- The retry budget.\n- The docs page.\n- The stale branch."
 WAKE_CALL = tool_call_record("mcp__claude-code-remote__send_later", {"delay_minutes": 30})
 PROMISE_REASON_START = "The closing reply promises the user a later report"
 LIST_REASON_START = "The closing reply lists"
-REWORKED_REPLY_INSTRUCTION = "Then send the reworked closing reply and end the turn."
+REWORKED_REPLY_INSTRUCTION = "Then send the reworked reply and end the turn."
+SHORT_REPLY_INSTRUCTION = "Then send a short reply that names what you did and end the turn."
+PROMISE_KEEP_CONDITION = (
+    "Leave the promise as it is only when the reply already says that in one sentence, or when the user's"
+    " typed words in this turn asked for a report later."
+)
+LIST_KEEP_START = "Leave the list as it is only when every listed item is finished work or plain status"
+ASKED_ANSWER_SENTENCE = (
+    'A question such as "what did you defer?" asks for an answer, and the open decisions in that answer'
+    " still go out as question cards."
+)
+END_THE_TURN = "end the turn"
 
 
 def closing_turn(prompt_text: str, *all_turn_calls: dict[str, object]) -> list[dict[str, object]]:
@@ -632,7 +643,8 @@ def test_should_hold_a_closing_reply_that_promises_a_report_or_lists_open_items(
     block_output = run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text)
     assert block_output["decision"] == "block"
     assert block_output["reason"].startswith(reason_start)
-    assert block_output["reason"].endswith(REWORKED_REPLY_INSTRUCTION)
+    assert block_output["reason"].lower().count(END_THE_TURN) == 1
+    assert block_output["reason"].endswith((PROMISE_KEEP_CONDITION, ASKED_ANSWER_SENTENCE))
 
 
 def test_should_quote_the_lead_and_the_item_count_in_the_list_reason(
@@ -640,7 +652,7 @@ def test_should_quote_the_lead_and_the_item_count_in_the_list_reason(
 ) -> None:
     transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(DEFERRED_PROMPT, READ_CALL))
     block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)["reason"]
-    assert 'lists 5 open items under "What I deferred or sidestepped' in block_reason
+    assert 'lists 5 items under "What I deferred or sidestepped' in block_reason
     assert "AskUserQuestion" in block_reason
     assert PROMISE_REASON_START not in block_reason
 
@@ -716,7 +728,7 @@ def test_should_pass_a_closing_reply_when_the_transcript_cannot_be_read(
     assert run_gate(monkeypatch, capsys, missing_path, reply_text=PROMISE_REPLY) == {}
     assert run_gate(monkeypatch, capsys, missing_path, reply_text=DEFERRED_REPLY) == {}
     hook_input = {"last_assistant_message": DEFERRED_REPLY, "transcript_path": str(missing_path)}
-    assert open_tasks_stop_gate.closing_reply_reasons(hook_input, replayed_transcript(None)) == []
+    assert open_tasks_stop_gate.closing_reply_findings(hook_input, replayed_transcript(None)) == []
 
 
 def test_should_ask_for_a_reworked_reply_when_a_tracker_reason_and_a_closing_reason_combine(
@@ -728,4 +740,76 @@ def test_should_ask_for_a_reworked_reply_when_a_tracker_reason_and_a_closing_rea
     assert block_reason.index("left the task list unchanged") < block_reason.index(PROMISE_REASON_START)
     assert "Leave the reply as it stands" not in block_reason
     assert "leave the reply as it stands" not in block_reason
-    assert block_reason.endswith(REWORKED_REPLY_INSTRUCTION)
+    assert block_reason.endswith(f"{REWORKED_REPLY_INSTRUCTION} {PROMISE_KEEP_CONDITION}")
+
+
+def test_should_name_the_steps_then_end_the_turn_then_the_keep_condition_for_a_promise(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(BED_PROMPT, WAKE_CALL))
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["reason"]
+    assert block_reason == (
+        'The closing reply promises the user a later report ("when you are back"), and no typed prompt in this'
+        " turn asked for one. Drop the promise and carry the work to completion. If work is still open, do it"
+        " now. If the turn waits on a run or a wake you armed, say in one sentence what runs and what you do"
+        f" when it ends. {REWORKED_REPLY_INSTRUCTION} {PROMISE_KEEP_CONDITION}"
+    )
+
+
+def test_should_keep_question_cards_for_a_list_sent_in_answer_to_what_was_deferred(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    deferred_question = "I want to know what you did that was deferred work, and what you sidestepped."
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(deferred_question, READ_CALL))
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)["reason"]
+    assert block_reason.startswith('The closing reply lists 5 items under "What I deferred or sidestepped')
+    assert block_reason.lower().count(END_THE_TURN) == 1
+    assert block_reason.index(SHORT_REPLY_INSTRUCTION) < block_reason.index(LIST_KEEP_START)
+    assert "asked for the items as a list or a table in chat" in block_reason
+    assert block_reason.endswith(ASKED_ANSWER_SENTENCE)
+
+
+@pytest.mark.parametrize(
+    ("all_records", "reply_text", "all_reason_parts"),
+    [
+        (
+            closing_turn(WORK_PROMPT, READ_CALL),
+            f"I'll report back once CI ends.\n\nWhat I deferred:\n{THREE_BULLETS}",
+            (PROMISE_REASON_START, LIST_REASON_START, SHORT_REPLY_INSTRUCTION, PROMISE_KEEP_CONDITION, LIST_KEEP_START),
+        ),
+        (
+            [user_prompt_record(BED_PROMPT), WAKE_CALL],
+            f"What I deferred:\n{THREE_BULLETS}",
+            ("left the task list unchanged", LIST_REASON_START, SHORT_REPLY_INSTRUCTION, LIST_KEEP_START),
+        ),
+        (
+            closing_turn(WORK_PROMPT, tool_call_record("Edit")),
+            f"Three items need you.\n\n{PROMISE_REPLY}",
+            ("waits on them", "The turn ran no read call.", PROMISE_REASON_START, REWORKED_REPLY_INSTRUCTION, PROMISE_KEEP_CONDITION),
+        ),
+    ],
+)
+def test_should_end_the_turn_once_when_findings_combine(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_records: list[dict[str, object]],
+    reply_text: str,
+    all_reason_parts: tuple[str, ...],
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", all_records)
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text)["reason"]
+    assert block_reason.lower().count(END_THE_TURN) == 1
+    all_positions = [block_reason.index(each_part) for each_part in all_reason_parts]
+    assert all_positions == sorted(all_positions)
+
+
+def test_should_hold_a_wait_on_a_running_agent_with_the_keep_condition(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    notification = "<task-notification>the reuse agent finished</task-notification>"
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record(notification), READ_CALL])
+    reply_text = "The altitude agent is still running, and I'll report once it finishes."
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text)["reason"]
+    assert '("I\'ll report once")' in block_reason
+    assert block_reason.endswith(PROMISE_KEEP_CONDITION)
