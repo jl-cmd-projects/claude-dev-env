@@ -25,6 +25,17 @@ def test_should_read_a_write_as_mutating(command: str) -> None:
 @pytest.mark.parametrize(
     "command",
     [
+        "nohup env -u FOO git push origin main",
+        "time -p env -u HOME bash -c 'touch x'",
+    ],
+)
+def test_should_read_a_write_behind_a_launcher_and_env_unset_as_mutating(command: str) -> None:
+    assert is_mutating_shell_command(command) is True
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
         "rg 'gh pr merge' docs",
         "rg 'Remove-Item' docs",
         'grep "a|cp b" notes.md',
