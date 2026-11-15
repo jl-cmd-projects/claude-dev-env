@@ -1086,6 +1086,17 @@ ALL_LATER_PREFIXED_CREATES = [
             "env -",
             "env --ignore-environment",
             "sudo --preserve-env",
+            "nohup env -u GH_REPO",
+            "nice env -u GH_REPO",
+            "nice -n 5 env -u GH_REPO",
+            "stdbuf -o0 env -u GH_REPO",
+            "time env -u GH_REPO",
+            "setsid env -u GH_REPO",
+            "env nice env -u GH_REPO",
+            "nohup nice env -i env -u GH_REPO",
+            "nice -n 5 env -u GH_REPO stdbuf -o0",
+            "time nohup env --unset GH_REPO nice",
+            "nohup timeout -s KILL 60",
         )
     ),
     "echo 'gh pr create --head feature --label \"see gh pr create\" --repo acme/other' ; "
@@ -1126,6 +1137,9 @@ ALL_ORIGIN_CREATES_BESIDE_AN_OTHER_REPOSITORY = [
     "gh pr create --head feature --repo acme/other ; gh pr create --head feature --repo acme/tools",
     "gh pr create --head feature --repo acme/other && gh pr create --head feature",
     "gh pr create --head feature --repo acme/other ; gh pr create --head feature",
+    "gh pr create --head feature --repo acme/other ; nohup env -u FOO gh pr create --head feature",
+    "gh pr create --head feature --repo acme/other ; "
+    "nice -n 5 env -u FOO stdbuf -o0 gh pr create --head feature",
 ]
 
 
