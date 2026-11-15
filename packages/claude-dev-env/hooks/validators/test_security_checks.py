@@ -57,13 +57,14 @@ ALL_CLEARED_NAME_VALUE_PAIRS = (
     ("FAIL_NO_TOKENS", "No tokens were found in the response."),
     ("FAIL_NO_TOKENS", "no tokens were found in the response"),
     ("SECRET_MISSING_MESSAGE", "Set the secret in the environment before the run."),
-    ("AUTH_FAILURE_TEMPLATE", "Sign in failed for {account_name}: try again"),
+    ("AUTH_FAILURE_TEMPLATE", "Sign in failed for {account_name}, try again"),
+    ("AUTH_FAILURE_TEMPLATE", "The call for {account_name!r} took {elapsed:.2f} seconds"),
     ("token_hint", "paste a token below"),
-    ("TOKEN_MESSAGE", "Retry after 30 seconds, HTTP 401 received."),
+    ("TOKEN_MESSAGE", "The HTTP call was refused by the server."),
     ("SERVICE_TOKEN_ENV", "SERVICE_API_TOKEN"),
-    ("SERVICE_TOKEN_ENV_VAR", "TOKEN"),
+    ("SERVICE_AUTH_ENV_VAR", "MAX_TOKENS"),
     ("MAXIMUM_TOKENS_FLAG", "--max-tokens"),
-    ("TOKEN_OPTION", "-t"),
+    ("TOKEN_OPTION", "--token"),
 )
 
 ALL_AUTH_HEADER_NAME_VALUE_PAIRS = (
@@ -71,6 +72,10 @@ ALL_AUTH_HEADER_NAME_VALUE_PAIRS = (
     ("AUTH_HEADER_VALUE", "Bearer xyz"),
     ("AUTH_HEADER_VALUE", "Token abcdefghijklmnop"),
     ("AUTH_HEADER_VALUE", "Bearer is the word"),
+    ("AUTH_VALUE", "Authorization is Bearer abcdefghijklmn"),
+    ("AUTH_VALUE", "the Bearer abcdefghijklmn"),
+    ("AUTH_VALUE", "a Basic dxnlcjpwyxnz"),
+    ("AUTH_VALUE", "send the basic word in the call"),
 )
 
 ALL_WRAPPED_KEY_NAME_VALUE_PAIRS = (
@@ -83,6 +88,23 @@ ALL_WRAPPED_KEY_NAME_VALUE_PAIRS = (
     ("SERVICE_TOKEN", "{prefix} AbCdEfGhIjKlMnOp"),
     ("SERVICE_TOKEN", "Token:\tabcdefghijklmnopqrstuvwxyzabcdef"),
     ("SERVICE_TOKEN", "Send the abcdefghijklmnopqrstuvwxyz with each call."),
+    ("SERVICE_TOKEN", "{zq-live-abcdefghijklmnop} is the key for it"),
+    ("SERVICE_TOKEN", "the token for it is {AbCdEf123456GhIjKl}"),
+    ("SERVICE_TOKEN", "the token for it is {hunter2}"),
+    ("SERVICE_TOKEN", "the key for it is zq{live}abc"),
+    ("SERVICE_TOKEN", "the key for it is {}hunter"),
+    ("SERVICE_TOKEN", "the key for it is {name:swordfish}"),
+    ("SERVICE_TOKEN", "use qwxzjkvbnmplrt for the call"),
+    ("SERVICE_TOKEN", "Send the abcdefghijklmn with each call."),
+    ("SERVICE_TOKEN", "the key is\nswordfish in the pond"),
+    ("SERVICE_TOKEN", "the key is  swordfish in the pond"),
+    ("SERVICE_TOKEN", "the key is \u0661\u0662\u0663 in the pond"),
+    ("SERVICE_TOKEN", "the key is hunt\u0435r in the pond"),
+    ("SERVICE_SECRET", "::: is the !!! in it"),
+    ("SERVICE_SECRET", "the token is 'swordfish' for it"),
+    ("SERVICE_SECRET", "the token is: swordfish in the pond"),
+    ("SERVICE_SECRET", "login: admin swordfish for the store"),
+    ("SERVICE_SECRET", "it is Swordfish in the pond"),
     ("AUTH_HINT", "Open the page with ?access_token=abcdef to sign in."),
     ("AUTH_NOTE", "The store is at https://admin:hunterpass@example.test/db."),
 )
@@ -96,6 +118,14 @@ ALL_VARIABLE_OR_FLAG_SHAPED_NAME_VALUE_PAIRS = (
     ("SERVICE_TOKEN_ENV", "--swordfish"),
     ("SERVICE_TOKEN_FLAG", "PROD_SERVICE_PASS"),
     ("SERVICE_TOKEN_ENV", "prod_service_pass"),
+    ("SERVICE_AUTH_ENV", "AKIAIOSFODNNEXAMPLE"),
+    ("SERVICE_AUTH_ENV", "HUNTER_TWO"),
+    ("SERVICE_AUTH_ENV", "TOKEN_X9K2"),
+    ("SERVICE_SECRET_ENV_NAME", "XKLQZPMTVTOKENXKLQZPMTV"),
+    ("DB_PASSWORD_ENV", "DB_PASSWORD"),
+    ("DB_PASSWORD_FLAG", "--open-sesame"),
+    ("SECRET_OPTION", "--swordfish"),
+    ("SECRET_OPTION", "--token9"),
 )
 
 ALL_PASSPHRASE_NAME_VALUE_PAIRS = (
@@ -110,6 +140,16 @@ ALL_PASSPHRASE_NAME_VALUE_PAIRS = (
     ("PASSWORD", "The password is swordfish."),
     ("PASSWORD_ERROR", "My secret password"),
     ("PASSWORD_HINT", "It was the best of times."),
+    ("SECRET_PASSPHRASE", "it was the best of times"),
+    ("SECRET_PHRASE", "it was the best of times"),
+    ("SECRET_ANSWER", "the name of the first dog"),
+    ("SECRET_PASS", "it is in the pond"),
+    ("AUTH_PASS", "open the pod bay doors"),
+    ("AUTH_PASSCODE", "it is in the pond"),
+    ("SERVICE_TOKEN", "swordfish is it"),
+    ("SERVICE_API_KEY", "the key is zq live abc"),
+    ("SERVICE_TOKEN", "my voice is my passport"),
+    ("SERVICE_TOKEN", "the Secret swordfish"),
 )
 
 ALL_GROUPED_KEY_NAME_VALUE_PAIRS = (
@@ -117,6 +157,15 @@ ALL_GROUPED_KEY_NAME_VALUE_PAIRS = (
     ("APP_PASSWORD", "Abcd efgh ijkl mnop"),
     ("SERVICE_SECRET", "Abcd efgh ijkl mnop"),
     ("SERVICE_SECRET", "that with from this"),
+    ("SERVICE_SECRET", "that with from this."),
+    ("SERVICE_SECRET", "abcd efgh ijkl with."),
+    ("SERVICE_SECRET", "wxyz on abcd efgh ijkl"),
+    ("SERVICE_SECRET", "the AKIA IOSFO DNNEX AMPLE"),
+    ("SERVICE_SECRET", "QUJD REVG ROHJ SKTM a"),
+    ("SERVICE_SECRET", "AKIA is the ABCDE"),
+    ("SERVICE_SECRET", "a 123 456 789 012"),
+    ("SERVICE_TOKEN", "the code is 123 456"),
+    ("SERVICE_TOKEN", "the code is 123"),
     ("DB_AUTH_URL", "Host db.example.test user admin pass swordfish"),
 )
 
