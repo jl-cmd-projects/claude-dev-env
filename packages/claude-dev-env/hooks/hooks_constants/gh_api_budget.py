@@ -23,6 +23,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from hooks_constants.subprocess_window import hidden_window_creation_flags
 from hooks_constants.gh_api_budget_gate_constants import (
     ALL_RATE_LIMIT_QUERY_ARGUMENTS,
     CACHE_DIRECTORY_NAME,
@@ -127,6 +128,7 @@ def _queried_core_budget() -> CoreRateBudget | None:
             encoding="utf-8",
             timeout=RATE_LIMIT_QUERY_TIMEOUT_SECONDS,
             check=False,
+            creationflags=hidden_window_creation_flags(),
         )
         if completed.returncode != 0:
             return None

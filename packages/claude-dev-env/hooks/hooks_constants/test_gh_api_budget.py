@@ -24,6 +24,7 @@ class _RateLimitQueries:
 
     def __init__(self, limit: int, used: int) -> None:
         self.call_count = 0
+        self.all_creation_flags: list[object] = []
         self.stdout_text = json.dumps(
             {"resources": {"core": {"limit": limit, "used": used, "reset": _RESET_EPOCH_SECONDS}}}
         )
@@ -32,6 +33,7 @@ class _RateLimitQueries:
         self, *all_arguments: object, **all_options: object
     ) -> subprocess.CompletedProcess[str]:
         self.call_count += 1
+        self.all_creation_flags.append(all_options.get("creationflags"))
         return subprocess.CompletedProcess(
             args=all_arguments, returncode=0, stdout=self.stdout_text, stderr=""
         )
@@ -94,6 +96,17 @@ def test_should_query_once_for_a_stale_cache_and_store_the_answer(
     assert budget_reader.read_core_rate_budget() == expected_budget
     assert rate_queries.call_count == 1
     assert json.loads(cache_path.read_text(encoding="utf-8"))["used"] == 4200
+
+
+def test_should_start_the_rate_limit_query_without_a_console_window(
+    cache_path: Path, rate_queries: _RateLimitQueries, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    windows_no_console_flag = 0x08000000
+    monkeypatch.setattr(
+        budget_reader, "hidden_window_creation_flags", lambda: windows_no_console_flag
+    )
+    budget_reader.read_core_rate_budget()
+    assert rate_queries.all_creation_flags == [windows_no_console_flag]
 
 
 def test_should_return_none_and_cache_the_failure_when_gh_is_missing(
