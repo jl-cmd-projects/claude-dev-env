@@ -226,7 +226,9 @@ def main() -> None:
             registry_version=registry_version,
         )
     )
-    _failed_install_record_path().write_text(registry_version, encoding="utf-8")
+    record_path = _failed_install_record_path()
+    record_path.parent.mkdir(parents=True, exist_ok=True)
+    record_path.write_text(registry_version, encoding="utf-8")
 
 
 if __name__ == "__main__":

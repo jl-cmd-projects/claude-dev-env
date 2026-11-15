@@ -442,3 +442,15 @@ def should_install_the_next_release_quietly_after_a_failed_one(
     tool_log = (tmp_path / "tool-log.txt").read_text(encoding="utf-8")
     assert "npx -y claude-dev-env@2.13.0" in tool_log
     assert next_release_start.stdout == ""
+
+
+def should_skip_a_failed_version_when_the_config_dir_does_not_exist_yet(
+    tmp_path: Path,
+) -> None:
+    environment = _failing_install_environment(tmp_path)
+    environment["CLAUDE_CONFIG_DIR"] = "~/profile"
+    _run_hook_process(environment)
+    second_start = _run_hook_process(environment)
+    tool_log = (tmp_path / "tool-log.txt").read_text(encoding="utf-8")
+    assert tool_log.count("npx -y claude-dev-env@2.12.0") == 1, tool_log
+    assert "skipped 2.12.0" in _user_message(second_start)
