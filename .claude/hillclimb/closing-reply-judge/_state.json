@@ -1,0 +1,21 @@
+{
+  "flow": "closing-reply-judge",
+  "metrics": [
+    {"id": "fault_held", "label": "Fault calls held", "kind": "binary"},
+    {"id": "wrong_hold", "label": "Wrong holds on pass rows", "kind": "binary"}
+  ],
+  "perf_fields": ["wall_s", "cost_usd", "models"],
+  "variants": {
+    "baseline": {"results": "baseline/results.jsonl", "checks": "open_item_list and promised_report_phrase at 08c49da466f2"},
+    "v1": {"results": "v1/results.jsonl", "model": "haiku", "effort": "medium", "runs": 3}
+  },
+  "bars": {
+    "fault_held_share": 0.95,
+    "incident_twins_held_runs": 3,
+    "wrong_holds_per_run_outside_heldout_v3": 1,
+    "wrong_holds_per_run_heldout_v3": 3,
+    "wrong_holds_per_run_main_stops_local": 2,
+    "incident1_list_flags": 0,
+    "shape_rows": 0
+  }
+}

@@ -169,11 +169,11 @@ jobs:
 
       - name: Enforce the root suite collect-count floor
         env:
-          ROOT_SUITE_COLLECT_FLOOR: "201"
+          ROOT_SUITE_COLLECT_FLOOR: "227"
         run: |
           set -euo pipefail
           source .github/ci/build-deselect-args.sh
-          python -m pytest tests/ .github/ci .claude/hillclimb/features-start-with-an-eval --collect-only -q "${deselect_args[@]}" | tee collect-only.txt
+          python -m pytest tests/ .github/ci .claude/hillclimb/features-start-with-an-eval .claude/hillclimb/closing-reply-judge --collect-only -q "${deselect_args[@]}" | tee collect-only.txt
           COLLECT_LINE=$(grep -E '[0-9]+ tests? collected' collect-only.txt | tail -1 || true)
           COLLECTED_COUNT=$(echo "${COLLECT_LINE}" | grep -oE '^[0-9]+' || true)
           case "${ROOT_SUITE_COLLECT_FLOOR}" in
@@ -200,7 +200,7 @@ jobs:
         run: |
           set -euo pipefail
           source .github/ci/build-deselect-args.sh
-          python -m pytest tests/ .github/ci .claude/hillclimb/features-start-with-an-eval \
+          python -m pytest tests/ .github/ci .claude/hillclimb/features-start-with-an-eval .claude/hillclimb/closing-reply-judge \
             --basetemp="$RUNNER_TEMP/pytest-basetemp-root" \
             -q \
             -n auto \
