@@ -1272,6 +1272,89 @@
       ]
     },
     {
+      "id": "R37",
+      "kind": "should stay quiet",
+      "source": "added from the live run",
+      "summary": "After Allow it on an Unexplained refusal, the refused retry of the same command with a new description adds no entry and no second question.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "python3 -c \"open(\\\"marker.txt\\\",\\\"w\\\").write(\\\"AUTOMODE_PROOF_MARKER_7Q\\\")\" && cat marker.txt",
+              "description": "Run a step"
+            },
+            "reason": "The server-side auto mode classifier judged this action dangerous (it gave no explanation)"
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1,
+            "answers": {
+              "a": null
+            },
+            "context_contains": [
+              "=== AUTO MODE DENIAL QUICK FIX ===",
+              "```powershell",
+              "Auto mode refused 1 Bash step under the Unexplained rule. Should auto mode have refused it?"
+            ]
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Unexplained rule. Should auto mode have refused it?",
+              "Auto mode",
+              "Keep refusing",
+              "Allow it",
+              "AUTOMODE_PROOF_MARKER_7Q"
+            ]
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Unexplained rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "python3 -c \"open(\\\"marker.txt\\\",\\\"w\\\").write(\\\"AUTOMODE_PROOF_MARKER_7Q\\\")\" && cat marker.txt",
+              "description": "Retry the step"
+            },
+            "reason": "The server-side auto mode classifier judged this action dangerous (it gave no explanation)"
+          },
+          "expect": {
+            "creates_entry": false,
+            "entry_count": 1,
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "@@playbook@@",
+              "@@ledger:a@@"
+            ],
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
       "id": "Q1",
       "kind": "should act",
       "source": "eval inputs",

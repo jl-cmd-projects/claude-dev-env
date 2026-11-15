@@ -46,6 +46,20 @@ def test_should_give_two_edits_of_one_file_two_ids() -> None:
     assert first_id == ledger_files.entry_id_for("Edit", {"old_string": "x", "file_path": "a.py"})
 
 
+def test_should_give_a_retry_with_a_new_description_the_same_id() -> None:
+    first_id = ledger_files.entry_id_for(
+        "Bash", {"command": "python3 -c 1", "description": "Write marker file"}
+    )
+    retry_id = ledger_files.entry_id_for(
+        "Bash", {"command": "python3 -c 1", "description": "Retry writing marker file"}
+    )
+    other_command_id = ledger_files.entry_id_for(
+        "Bash", {"command": "python3 -c 2", "description": "Write marker file"}
+    )
+    assert first_id == retry_id
+    assert first_id != other_command_id
+
+
 def test_should_parse_an_entry_with_every_field_typed() -> None:
     assert ledger_files.parse_entry(_entry_fields()) == ledger_files.LedgerEntry(
         "3f9a", "Bash", "Git Destructive", "git push -f", 2, "kept"

@@ -25,6 +25,7 @@ from atomic_file_writer import write_text_atomically
 from hooks_constants.auto_mode_refusal_ledger_constants import (
     ALL_ANSWERS,
     ALL_LEDGER_RELATIVE_PARTS,
+    ALL_NARRATION_INPUT_KEYS,
     ENTRY_FILE_SUFFIX,
     ID_HEX_CHARACTERS,
     JSON_INDENT_SPACES,
@@ -109,16 +110,30 @@ def entry_id_for(tool_name: str, tool_input: object) -> str:
 
         Edit {"file_path": "a.py", "old_string": "x"} -> one id
         Edit {"file_path": "a.py", "old_string": "y"} -> another id
+        Bash {"command": "c", "description": "Retry c"} -> the id of Bash {"command": "c"}
+
+    The model writes a new ``description`` for each try, so a retry of the
+    same command keeps the id, and its answer, of the first refusal.
 
     Args:
         tool_name: The refused call's tool name.
         tool_input: The refused call's full ``tool_input``.
 
     Returns:
-        The first hex characters of a SHA-256 over both, as sorted JSON.
+        The first hex characters of a SHA-256 over both, as sorted JSON,
+        with the ``description`` key left out of a ``tool_input`` object.
     """
+    identity_input = (
+        {
+            each_key: each_value
+            for each_key, each_value in tool_input.items()
+            if each_key not in ALL_NARRATION_INPUT_KEYS
+        }
+        if isinstance(tool_input, dict)
+        else tool_input
+    )
     identity_text = json.dumps(
-        {"tool_name": tool_name, "tool_input": tool_input}, sort_keys=True, default=str
+        {"tool_name": tool_name, "tool_input": identity_input}, sort_keys=True, default=str
     )
     return hashlib.sha256(identity_text.encode(TEXT_ENCODING)).hexdigest()[:ID_HEX_CHARACTERS]
 
