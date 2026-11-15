@@ -54,7 +54,7 @@ open, and to end the turn when the wording hands the user no step.
 The closing reply also gets two checks of its own, which
 ``closing_reply_shapes.py`` describes. The gate holds the turn once::
 
-    block: "A full write-up will be here when you are back."  no typed prompt asked for a report
+    block: "The benchmark table will be posted when you get back."  no typed prompt asked for a report
     block: "What I deferred:" over 3 or more items             no question tool call this turn
     allow: the same list after an AskUserQuestion call
     allow: the same promise after the prompt "report back when the run ends"
@@ -301,7 +301,7 @@ def closing_reply_findings(
 
     ::
 
-        "A full write-up will be here when you are back."   -> the promised report finding
+        "The benchmark table will be posted when you get back."   -> the promised report finding
         "What I deferred:" over 5 items, no question call    -> the open item list finding
         the same list after an AskUserQuestion call          -> []
 

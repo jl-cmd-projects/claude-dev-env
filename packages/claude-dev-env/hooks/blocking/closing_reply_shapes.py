@@ -3,11 +3,11 @@
 The open tasks Stop gate reads the reply a turn ends with. Two shapes in it
 leave work with the user that the agent could carry itself::
 
-    flag: A full write-up will be here when you are back.
+    flag: The benchmark table will be posted when you get back.
     flag: I'll report back once CI ends.
     flag: What I deferred:  followed by 3 or more list or table items
     ok:   No report will follow.
-    ok:   I'll apply each finding once they report back.
+    ok:   I'll merge each lint fix once the bots report back.
     ok:   Changed files:  followed by 5 bullets
     ok:   Deferred:  followed by 2 bullets
 
@@ -143,7 +143,7 @@ def promised_report_phrase(reply_text: str, prompt_text: str) -> str | None:
 
     ::
 
-        "A full write-up will be here when you are back."  -> "when you are back"
+        "The benchmark table will be posted when you get back."  -> "when you get back"
         "I'll report back once CI ends."                   -> "I'll report back"
         "No report will follow."                           -> None
         the promise, after the prompt "report back when the run ends" -> None

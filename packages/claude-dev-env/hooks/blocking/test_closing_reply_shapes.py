@@ -2,14 +2,14 @@ import pytest
 
 from closing_reply_shapes import OpenItemList, open_item_list, promised_report_phrase
 
-BED_PROMPT = "okay, going to bed. just see either outcome through"
+BED_PROMPT = "heading out now. handle whatever the nightly job returns"
 PROMISE_REPLY = (
     "Both fix runs are armed, and a wake is set for the end of CI."
-    " A full write-up with the run's outcome will be here when you are back."
+    " The benchmark table will be posted when you get back."
 )
 DEFERRED_PROMPT = "You did a lot of work. I want to know what you put off."
 DEFERRED_LEAD = (
-    "What I deferred or sidestepped, checked against the transcript and both pull request bodies:"
+    "What I deferred, checked against the build log:"
 )
 DEFERRED_REPLY = (
     f"{DEFERRED_LEAD}\n\n"
@@ -22,15 +22,15 @@ DEFERRED_REPLY = (
 THREE_BULLETS = "- The retry budget.\n- The docs page.\n- The stale branch."
 CORRECTION_PROMPT = (
     "<!-- reply 1 -->\n"
-    "> A full write-up with the run’s outcome will be here when you are back.\n\n"
-    "don't need this; just need you to act accordingly and see the fixes through to completion"
+    "> The benchmark table will be posted when you get back.\n\n"
+    "skip that; just apply the result and finish the fixes"
 )
 
 
 @pytest.mark.parametrize(
     ("reply_text", "prompt_text", "expected_phrase"),
     [
-        (PROMISE_REPLY, BED_PROMPT, "when you are back"),
+        (PROMISE_REPLY, BED_PROMPT, "when you get back"),
         ("I'll report back once CI ends.", BED_PROMPT, "I'll report back once"),
         ("I’ll report back once CI ends.", BED_PROMPT, "I’ll report back once"),
         ("Then I'll report back.", BED_PROMPT, "I'll report back"),
@@ -39,18 +39,18 @@ CORRECTION_PROMPT = (
         (
             PROMISE_REPLY,
             "<task-notification>summary: the run ended</task-notification>",
-            "when you are back",
+            "when you get back",
         ),
-        (PROMISE_REPLY, CORRECTION_PROMPT, "when you are back"),
-        (PROMISE_REPLY, "no report needed, just finish", "when you are back"),
-        (PROMISE_REPLY, "Never mind the report, just fix it", "when you are back"),
-        (PROMISE_REPLY, 'The bot posted "Report ready" again. Fix the hook.', "when you are back"),
+        (PROMISE_REPLY, CORRECTION_PROMPT, "when you get back"),
+        (PROMISE_REPLY, "no report needed, just finish", "when you get back"),
+        (PROMISE_REPLY, "Never mind the report, just fix it", "when you get back"),
+        (PROMISE_REPLY, 'The bot posted "Report ready" again. Fix the hook.', "when you get back"),
         (
             PROMISE_REPLY,
             "<system-reminder>write a report</system-reminder> just finish",
-            "when you are back",
+            "when you get back",
         ),
-        (PROMISE_REPLY, "  > report back please\nfix it", "when you are back"),
+        (PROMISE_REPLY, "  > report back please\nfix it", "when you get back"),
     ],
 )
 def test_should_flag_a_promised_later_report_no_prompt_asked_for(
@@ -66,7 +66,7 @@ def test_should_flag_a_promised_later_report_no_prompt_asked_for(
         ("> I'll report back once CI ends.", BED_PROMPT),
         ("The draft says `I'll report back once CI ends` today.", BED_PROMPT),
         ("```\nI'll report back once CI ends.\n```", BED_PROMPT),
-        ("I'll apply or skip each finding once they report back.", BED_PROMPT),
+        ("I'll merge each lint fix once the bots report back.", BED_PROMPT),
         ("Both checkers are running. I continue when they report.", BED_PROMPT),
         ("Both builds passed.", BED_PROMPT),
         (PROMISE_REPLY, "report back when the run ends"),
@@ -186,6 +186,6 @@ def test_should_flag_a_list_whose_lead_names_open_work(lead: str) -> None:
 
 
 def test_should_flag_a_promise_to_report_once_a_running_agent_finishes() -> None:
-    reply_text = "The altitude agent is still running, and I'll report once it finishes."
+    reply_text = "The lint job is still running, and I'll report once it finishes."
     prompt_text = "<task-notification>the reuse agent finished</task-notification>"
     assert promised_report_phrase(reply_text, prompt_text) == "I'll report once"

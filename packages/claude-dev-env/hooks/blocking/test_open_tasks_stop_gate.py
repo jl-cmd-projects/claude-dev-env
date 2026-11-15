@@ -565,14 +565,14 @@ def test_should_block_a_work_turn_whose_transcript_holds_an_undecodable_byte(
     assert run_gate(monkeypatch, capsys, transcript_path)["decision"] == "block"
 
 
-BED_PROMPT = "okay, going to bed. just see either outcome through"
+BED_PROMPT = "heading out now. handle whatever the nightly job returns"
 PROMISE_REPLY = (
     "Both fix runs are armed, and a wake is set for the end of CI."
-    " A full write-up with the run's outcome will be here when you are back."
+    " The benchmark table will be posted when you get back."
 )
 DEFERRED_PROMPT = "You did a lot of work. I want to know what you put off."
 DEFERRED_REPLY = (
-    "What I deferred or sidestepped, checked against the transcript and both pull request bodies:\n\n"
+    "What I deferred, checked against the build log:\n\n"
     "1. The retry budget for the sync job.\n"
     "2. The second fixture for the Windows path.\n"
     "3. The docs page for the new flag.\n"
@@ -580,7 +580,7 @@ DEFERRED_REPLY = (
     "5. The follow-up issue for the timeout."
 )
 THREE_BULLETS = "- The retry budget.\n- The docs page.\n- The stale branch."
-WAKE_CALL = tool_call_record("mcp__claude-code-remote__send_later", {"delay_minutes": 30})
+WAKE_CALL = tool_call_record("mcp__scheduler__send_later", {"delay_minutes": 30})
 PROMISE_REASON_START = "The closing reply promises the user a later report"
 LIST_REASON_START = "The closing reply lists"
 REWORKED_REPLY_INSTRUCTION = "Then send the reworked reply and end the turn."
@@ -624,7 +624,7 @@ def closing_turn(prompt_text: str, *all_turn_calls: dict[str, object]) -> list[d
         ),
         (
             closing_turn(
-                "> A full write-up with the run’s outcome will be here when you are back.\n\n"
+                "> The benchmark table will be posted when you get back.\n\n"
                 "don't need this; just see the fixes through",
                 READ_CALL,
             ),
@@ -656,7 +656,7 @@ def test_should_quote_the_lead_and_the_item_count_in_the_list_reason(
 ) -> None:
     transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(DEFERRED_PROMPT, READ_CALL))
     block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)["reason"]
-    assert 'lists 5 items under "What I deferred or sidestepped' in block_reason
+    assert 'lists 5 items under "What I deferred, checked' in block_reason
     assert "AskUserQuestion" in block_reason
     assert PROMISE_REASON_START not in block_reason
 
@@ -666,7 +666,7 @@ def test_should_quote_the_promise_in_the_report_reason(
 ) -> None:
     transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(BED_PROMPT, WAKE_CALL))
     block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["reason"]
-    assert '("when you are back")' in block_reason
+    assert '("when you get back")' in block_reason
     assert LIST_REASON_START not in block_reason
 
 
@@ -703,7 +703,7 @@ def test_should_hold_a_codex_closing_reply_that_lists_open_items(
         (closing_turn(WORK_PROMPT, READ_CALL), "The draft says `I'll report back once CI ends` today."),
         (closing_turn("report back when the run ends", WAKE_CALL), PROMISE_REPLY),
         (closing_turn(WORK_PROMPT, READ_CALL), f"Skipped, with reasons\n\n{THREE_BULLETS}\n- The hook."),
-        (closing_turn(WORK_PROMPT, READ_CALL), "I'll apply or skip each finding once they report back."),
+        (closing_turn(WORK_PROMPT, READ_CALL), "I'll merge each lint fix once the bots report back."),
         (closing_turn(WORK_PROMPT, READ_CALL), "Both checkers are running. I continue when they report."),
     ],
 )
@@ -753,7 +753,7 @@ def test_should_name_the_steps_then_end_the_turn_then_the_keep_condition_for_a_p
     transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(BED_PROMPT, WAKE_CALL))
     block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["reason"]
     assert block_reason == (
-        'The closing reply promises the user a later report ("when you are back"), and no typed prompt in this'
+        'The closing reply promises the user a later report ("when you get back"), and no typed prompt in this'
         " turn asked for one. Drop the promise and carry the work to completion. If work is still open, do it"
         " now. If the turn waits on a run or a wake you armed, say in one sentence what runs and what you do"
         f" when it ends. {REWORKED_REPLY_INSTRUCTION} {PROMISE_KEEP_CONDITION}"
@@ -763,10 +763,10 @@ def test_should_name_the_steps_then_end_the_turn_then_the_keep_condition_for_a_p
 def test_should_keep_question_cards_for_a_list_sent_in_answer_to_what_was_deferred(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    deferred_question = "I want to know what you did that was deferred work, and what you sidestepped."
+    deferred_question = "Which parts of the work did you put off or skip?"
     transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(deferred_question, READ_CALL))
     block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)["reason"]
-    assert block_reason.startswith('The closing reply lists 5 items under "What I deferred or sidestepped')
+    assert block_reason.startswith('The closing reply lists 5 items under "What I deferred, checked')
     assert block_reason.lower().count(END_THE_TURN) == 1
     assert block_reason.index(SHORT_REPLY_INSTRUCTION) < block_reason.index(LIST_KEEP_START)
     assert "asked for the items as a list or a table in chat" in block_reason
@@ -813,7 +813,7 @@ def test_should_hold_a_wait_on_a_running_agent_with_the_keep_condition(
 ) -> None:
     notification = "<task-notification>the reuse agent finished</task-notification>"
     transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record(notification), READ_CALL])
-    reply_text = "The altitude agent is still running, and I'll report once it finishes."
+    reply_text = "The lint job is still running, and I'll report once it finishes."
     block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text)["reason"]
     assert '("I\'ll report once")' in block_reason
     assert block_reason.endswith(PROMISE_KEEP_CONDITION)
@@ -825,7 +825,7 @@ OTHER_HOOK_FEEDBACK = {
     "uuid": "feedback-1",
     "message": {
         "role": "user",
-        "content": "Stop hook feedback:\n[command hook 6]: There are uncommitted changes in the repository.",
+        "content": "Stop hook feedback:\n[command hook 2]: The build cache is out of date.",
     },
 }
 
