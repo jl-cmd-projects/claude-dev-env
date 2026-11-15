@@ -690,6 +690,33 @@ def should_tell_the_user_about_a_refresh_stopped_after_an_overlapping_start_ende
     )
 
 
+@pytest.mark.skipif(not Path("/proc/self/stat").exists(), reason="needs /proc")
+def should_tell_the_user_about_a_refresh_whose_process_is_a_zombie(
+    tmp_path: Path,
+) -> None:
+    environment = _stale_install_environment(tmp_path)
+    exited_child = subprocess.Popen([sys.executable, "-c", "pass"])
+    child_stat_path = Path(f"/proc/{exited_child.pid}/stat")
+    deadline = time.monotonic() + 10
+    while child_stat_path.read_text().rsplit(")", 1)[-1].split()[0] != "Z":
+        assert time.monotonic() < deadline, "the child never exited"
+        time.sleep(0.05)
+    (_config_directory(tmp_path) / f"{IN_PROGRESS_RECORD_NAME}.{exited_child.pid}").write_text(
+        json.dumps(
+            {"version": "2.12.0", "pid": exited_child.pid, "started_at": time.time()}
+        ),
+        encoding="utf-8",
+    )
+    environment["FAKE_NPM_FAILURE"] = "1"
+    try:
+        message = _user_message(_run_hook_process(environment))
+    finally:
+        exited_child.wait()
+    assert "stopped at an earlier session start before its install of 2.12.0 ended" in (
+        message
+    )
+
+
 def should_tell_the_user_about_a_record_older_than_any_refresh_run(
     tmp_path: Path,
 ) -> None:

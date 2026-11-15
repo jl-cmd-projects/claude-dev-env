@@ -78,7 +78,9 @@ try:
         REGISTRY_VERSION_PATTERN,
         REMOTE_SESSION_ACTIVE_VALUE,
         REMOTE_SESSION_VARIABLE_NAME,
+        PROCESS_STATUS_PATH_TEMPLATE,
         VERSION_ORDER_PATTERN,
+        ZOMBIE_PROCESS_STATE,
         RefreshOutcome,
     )
 except ImportError:
@@ -100,7 +102,9 @@ except ImportError:
         REGISTRY_VERSION_PATTERN,
         REMOTE_SESSION_ACTIVE_VALUE,
         REMOTE_SESSION_VARIABLE_NAME,
+        PROCESS_STATUS_PATH_TEMPLATE,
         VERSION_ORDER_PATTERN,
+        ZOMBIE_PROCESS_STATE,
         RefreshOutcome,
     )
 
@@ -290,6 +294,8 @@ def _process_is_running(process_id: int) -> bool:
 
     Only POSIX is checked. On Windows ``os.kill`` ends the process it names,
     so every id reads as not running there, and the record reads as stopped.
+    A killed hook whose parent died too waits as a zombie until the init
+    process collects it, so a zombie in ``/proc`` reads as not running.
     """
     if os.name != "posix" or process_id <= 0 or process_id == os.getpid():
         return False
@@ -299,7 +305,17 @@ def _process_is_running(process_id: int) -> bool:
         return True
     except OSError:
         return False
-    return True
+    return not _is_zombie(process_id)
+
+
+def _is_zombie(process_id: int) -> bool:
+    try:
+        process_status = Path(
+            PROCESS_STATUS_PATH_TEMPLATE.format(process_id=process_id)
+        ).read_text(encoding="utf-8")
+    except OSError:
+        return False
+    return process_status.rsplit(")", 1)[-1].split()[0] == ZOMBIE_PROCESS_STATE
 
 
 def _is_still_running(record: InProgressRecord) -> bool:
