@@ -66,8 +66,18 @@ turn, then when the reply may stay as it is::
     promise only   -> "Then send the reworked reply and end the turn. Leave the promise as it is only when ..."
     list present   -> "Then send a short reply that names what you did and end the turn. Leave the list as it is only when ..."
 
-One reason carries every finding. A turn the gate already held ends on the next
-stop, so the gate costs at most one extra step per turn.
+One reason carries every finding. A Claude Code stop that a Stop hook already
+held (``stop_hook_active``) gets only the closing-reply checks, and those hold
+at most once per turn::
+
+    block: another hook held, then "I'll report back once CI ends."   first such stop this turn
+    allow: the same stop again                                          the turn's marker exists
+    allow: a stop after this gate held the turn                         its feedback sits in the turn
+    allow: a Codex turn, a prompt record with no ``uuid``, or a marker that cannot be kept
+
+The marker is a file in the temp folder named for the session and the ``uuid``
+of the prompt record that started the turn. A hold on the first stop writes it
+too, so the gate costs at most one extra step per turn.
 
 A hold exits with code 2 and writes the reason to stdout and stderr. Claude
 Code marks a held stop with ``stop_hook_active``. Codex turns the reason into
@@ -98,12 +108,15 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.once_per_session_constants import SESSION_ID_KEY
 from hooks_constants.stop_hook_hold import hold_stop
+from once_per_session import claim_turn_showing
 from open_task_asks import claude_home, is_ask
 from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
 from user_step_wording import file_waiting_phrase, waiting_phrase
 from closing_reply_shapes import open_item_list, promised_report_phrase
 from hooks_constants.open_tasks_stop_gate_constants import (
+    ALL_OWN_REASON_OPENINGS,
     ALLOW_EXIT_CODE,
+    CLOSING_REPLY_HOLD_MARKER_NAME,
     COMPLETED_ITEMS_REASON_TEMPLATE,
     COMPLETED_STATUS,
     CURSOR_COMPLETED_STATUS,
@@ -351,6 +364,45 @@ def turn_block_reason(all_hook_input_fields: dict[str, object], replay: Transcri
     return WORD_SEPARATOR.join([*all_reasons, *_closing_lines(bool(all_step_reasons), all_reply_findings)])
 
 
+def _closing_reply_reason(all_reply_findings: list[ClosingReplyFinding]) -> str:
+    return WORD_SEPARATOR.join(
+        [*(each_finding.reason for each_finding in all_reply_findings), *_closing_lines(False, all_reply_findings)]
+    )
+
+
+def _has_turn_hold_from_this_gate(replay: TranscriptReplay) -> bool:
+    return any(
+        each_opening in each_feedback
+        for each_feedback in replay.turn_stop_feedback_texts
+        for each_opening in ALL_OWN_REASON_OPENINGS
+    )
+
+
+def continued_stop_reason(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> str | None:
+    """Return the closing-reply reason for a Claude Code stop that a Stop hook already held, at most once per turn.
+
+    ::
+
+        another hook held, the reply promises a report, first time this turn  -> the promised report reason
+        the same turn again                                                    -> None
+        a stop after this gate held the turn                                   -> None
+        no turn key, a Cursor payload, or a marker that cannot be kept         -> None
+
+    The turn key is the ``uuid`` of the prompt record that started the turn.
+    Tracker and user-step reasons stay off such a stop.
+    """
+    if all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY) or replay.turn_key is None:
+        return None
+    if _has_turn_hold_from_this_gate(replay):
+        return None
+    all_reply_findings = closing_reply_findings(all_hook_input_fields, replay)
+    if not all_reply_findings:
+        return None
+    if claim_turn_showing(CLOSING_REPLY_HOLD_MARKER_NAME, all_hook_input_fields, replay.turn_key) is not True:
+        return None
+    return _closing_reply_reason(all_reply_findings)
+
+
 def is_held_stop(all_hook_input_fields: dict[str, object]) -> bool:
     """Return True when a stop hook already held this turn once, or the Cursor run did not complete."""
     if all_hook_input_fields.get(STOP_HOOK_ACTIVE_KEY) is True:
@@ -363,11 +415,24 @@ def is_held_stop(all_hook_input_fields: dict[str, object]) -> bool:
     return has_sent_followup or (stop_status is not None and stop_status != CURSOR_COMPLETED_STATUS)
 
 
+def _stop_block_reason(all_hook_input_fields: dict[str, object]) -> str | None:
+    is_claude_held_stop = all_hook_input_fields.get(STOP_HOOK_ACTIVE_KEY) is True
+    if is_held_stop(all_hook_input_fields) and not is_claude_held_stop:
+        return None
+    replay = replayed_transcript(all_hook_input_fields.get(TRANSCRIPT_PATH_KEY))
+    if is_claude_held_stop:
+        return continued_stop_reason(all_hook_input_fields, replay)
+    block_reason = turn_block_reason(all_hook_input_fields, replay)
+    if block_reason is not None and replay.turn_key is not None:
+        claim_turn_showing(CLOSING_REPLY_HOLD_MARKER_NAME, all_hook_input_fields, replay.turn_key)
+    return block_reason
+
+
 def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
-    if hook_input is None or is_held_stop(hook_input):
+    if hook_input is None:
         return ALLOW_EXIT_CODE
-    block_reason = turn_block_reason(hook_input, replayed_transcript(hook_input.get(TRANSCRIPT_PATH_KEY)))
+    block_reason = _stop_block_reason(hook_input)
     if block_reason is None:
         return ALLOW_EXIT_CODE
     log_hook_block(Path(__file__).name, HOOK_EVENT_NAME, block_reason)

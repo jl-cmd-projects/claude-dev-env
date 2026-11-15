@@ -19,6 +19,7 @@ TASK_STATUS_KEY = "status"
 PENDING_STATUS = "pending"
 INCOMPLETE_STATUSES = frozenset({PENDING_STATUS, "in_progress"})
 RECORD_TYPE_KEY = "type"
+RECORD_UUID_KEY = "uuid"
 MESSAGE_KEY = "message"
 CONTENT_KEY = "content"
 TEXT_KEY = "text"
@@ -253,3 +254,11 @@ OPEN_ITEM_LIST_KEEP_CONDITION = (
 )
 REWORKED_REPLY_INSTRUCTION = "Then send the reworked reply and end the turn."
 SHORT_REPLY_INSTRUCTION = "Then send a short reply that names what you did and end the turn."
+CLOSING_REPLY_HOLD_MARKER_NAME = "closing_reply_hold"
+ALL_OWN_REASON_OPENINGS = (
+    "This turn worked on the user's ask and left the task list unchanged.",
+    "The task list shows completed work beside open items",
+    "This turn tells the user that something waits on them",
+    "The closing reply promises the user a later report",
+    "The closing reply lists",
+)

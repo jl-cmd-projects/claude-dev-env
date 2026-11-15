@@ -404,3 +404,24 @@ def test_should_note_the_read_calls_and_sent_files_of_the_current_turn_only(tmp_
     later_replay = replayed_transcript(str(write_transcript(tmp_path / "b.jsonl", all_later_records)))
     assert (earlier_replay.has_turn_read_tool, earlier_replay.turn_sent_file_paths) == (True, ["old.md"])
     assert (later_replay.has_turn_read_tool, later_replay.turn_sent_file_paths) == (False, ["status.md"])
+
+
+def test_should_key_the_turn_by_its_prompt_uuid_and_keep_it_across_stop_feedback(tmp_path: Path) -> None:
+    feedback_text = "Stop hook feedback:\n[command hook 6]: There are uncommitted changes."
+    first_prompt = {"type": "user", "uuid": "prompt-1", "message": {"role": "user", "content": "Write the gate"}}
+    feedback_record = {"type": "user", "uuid": "feedback-1", "message": {"role": "user", "content": feedback_text}}
+    second_prompt = {"type": "user", "uuid": "prompt-2", "message": {"role": "user", "content": "Export the APKs"}}
+    first_path = write_transcript(tmp_path / "first.jsonl", [first_prompt, feedback_record])
+    first_replay = replayed_transcript(str(first_path))
+    assert first_replay.turn_key == "prompt-1"
+    assert first_replay.turn_stop_feedback_texts == [feedback_text]
+    second_replay = replayed_transcript(str(write_transcript(tmp_path / "second.jsonl", [first_prompt, feedback_record, second_prompt])))
+    assert second_replay.turn_key == "prompt-2"
+    assert second_replay.turn_stop_feedback_texts == []
+
+
+def test_should_give_a_codex_turn_no_turn_key(tmp_path: Path) -> None:
+    codex_prompt = {"type": "response_item", "payload": {"type": "message", "role": "user", "content": "Export the APKs"}}
+    replay = replayed_transcript(str(write_transcript(tmp_path / "rollout.jsonl", [codex_prompt])))
+    assert replay.turn_prompt_text == "Export the APKs"
+    assert replay.turn_key is None

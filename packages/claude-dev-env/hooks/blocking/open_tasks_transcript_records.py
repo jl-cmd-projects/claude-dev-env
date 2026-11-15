@@ -113,6 +113,16 @@ def claude_prompt_text(all_record_fields: dict[str, object]) -> str | None:
     return prompt_text
 
 
+def stop_feedback_text(all_record_fields: dict[str, object]) -> str | None:
+    """Return the text of a Claude Code ``Stop hook feedback`` user record, flagged ``isMeta`` or not, or None."""
+    message_body = all_record_fields.get(MESSAGE_KEY)
+    if USER_RECORD_TYPE != all_record_fields.get(RECORD_TYPE_KEY) or not isinstance(message_body, dict):
+        return None
+    content_value = message_body.get(CONTENT_KEY)
+    feedback_text = content_value if isinstance(content_value, str) else _text_of_blocks(_content_blocks(all_record_fields))
+    return feedback_text if feedback_text.lstrip().startswith(STOP_HOOK_FEEDBACK_PREFIX) else None
+
+
 def _codex_payload(all_record_fields: dict[str, object]) -> dict[str, object] | None:
     payload_body = all_record_fields.get(CODEX_PAYLOAD_KEY)
     if all_record_fields.get(RECORD_TYPE_KEY) != CODEX_RESPONSE_ITEM_TYPE or not isinstance(payload_body, dict):

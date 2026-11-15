@@ -2,6 +2,7 @@ import io
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -16,6 +17,9 @@ WORK_PROMPT = "Export the APKs and submit them"
 
 @pytest.fixture(autouse=True)
 def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    marker_directory = tmp_path / "markers"
+    marker_directory.mkdir()
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(marker_directory))
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
@@ -813,3 +817,105 @@ def test_should_hold_a_wait_on_a_running_agent_with_the_keep_condition(
     block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text)["reason"]
     assert '("I\'ll report once")' in block_reason
     assert block_reason.endswith(PROMISE_KEEP_CONDITION)
+
+
+OTHER_HOOK_FEEDBACK = {
+    "type": "user",
+    "isMeta": True,
+    "uuid": "feedback-1",
+    "message": {
+        "role": "user",
+        "content": "Stop hook feedback:\n[command hook 6]: There are uncommitted changes in the repository.",
+    },
+}
+
+
+def keyed_prompt_record(prompt_text: str, prompt_uuid: str) -> dict[str, object]:
+    return {**user_prompt_record(prompt_text), "uuid": prompt_uuid}
+
+
+def keyed_turn(prompt_uuid: str = "prompt-1") -> list[dict[str, object]]:
+    return [keyed_prompt_record(BED_PROMPT, prompt_uuid), TRACKER_CALL, WAKE_CALL, OTHER_HOOK_FEEDBACK]
+
+
+def test_should_hold_a_promise_once_after_another_stop_hook_held_the_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", keyed_turn())
+    all_outputs = [
+        run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY)
+        for _ in range(3)
+    ]
+    assert all_outputs[0]["reason"].startswith(PROMISE_REASON_START)
+    assert all_outputs[0]["reason"].endswith(PROMISE_KEEP_CONDITION)
+    assert all_outputs[1:] == [{}, {}]
+
+
+def test_should_hold_again_after_a_new_prompt_in_the_same_session(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    first_path = write_records(tmp_path / "s.jsonl", keyed_turn("prompt-1"))
+    assert run_gate(monkeypatch, capsys, first_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY)
+    second_path = write_records(tmp_path / "s.jsonl", [*keyed_turn("prompt-1"), *keyed_turn("prompt-2")])
+    second_output = run_gate(monkeypatch, capsys, second_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY)
+    assert second_output["reason"].startswith(PROMISE_REASON_START)
+
+
+def test_should_hold_a_list_once_after_another_stop_hook_held_the_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_records = [keyed_prompt_record(DEFERRED_PROMPT, "prompt-1"), TRACKER_CALL, READ_CALL, OTHER_HOOK_FEEDBACK]
+    transcript_path = write_records(tmp_path / "s.jsonl", all_records)
+    first_output = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DEFERRED_REPLY)
+    assert first_output["reason"].startswith(LIST_REASON_START)
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DEFERRED_REPLY) == {}
+
+
+def test_should_pass_a_held_stop_when_the_turn_marker_cannot_be_written(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "absent_directory"))
+    transcript_path = write_records(tmp_path / "s.jsonl", keyed_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY) == {}
+
+
+def test_should_pass_a_held_stop_after_this_gate_held_the_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    unkept_path = tmp_path / "absent_directory"
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(unkept_path))
+    transcript_path = write_records(tmp_path / "s.jsonl", keyed_turn()[:-1])
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["reason"]
+    own_feedback = {**OTHER_HOOK_FEEDBACK, "message": {"role": "user", "content": f"Stop hook feedback:\n{first_reason}"}}
+    write_records(transcript_path, [*keyed_turn()[:-1], own_feedback])
+    unkept_path.mkdir()
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY) == {}
+
+
+def test_should_pass_a_held_stop_after_this_gate_held_the_first_stop(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", keyed_turn()[:-1])
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["decision"] == "block"
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY) == {}
+
+
+def test_should_keep_skipping_a_held_codex_stop(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    plan_arguments = json.dumps({"plan": [{"step": "Report the run", "status": "in_progress"}]})
+    plan_call = codex_record({"type": "function_call", "name": "update_plan", "arguments": plan_arguments})
+    transcript_path = write_records(tmp_path / "rollout.jsonl", [codex_prompt(BED_PROMPT), plan_call])
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY) == {}
+
+
+def test_should_leave_the_tracker_reasons_off_a_held_stop(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_records = [keyed_prompt_record(WORK_PROMPT, "prompt-1"), tool_call_record("Bash"), OTHER_HOOK_FEEDBACK]
+    transcript_path = write_records(tmp_path / "s.jsonl", all_records)
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True) == {}
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY)[
+        "reason"
+    ]
+    assert "left the task list unchanged" not in block_reason
