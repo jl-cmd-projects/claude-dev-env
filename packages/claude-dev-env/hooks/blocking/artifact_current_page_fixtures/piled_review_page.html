@@ -1,0 +1,399 @@
+<title>Sample Theme</title>
+<style>
+:root {
+  --bg: #f3f6f2; --surface: #ffffff; --fg: #17241b; --muted: #4c5c51; --line: #d5dfd6;
+  --done: #14603a; --done-soft: #dff2e6; --wait: #6f4100; --wait-soft: #fbf0dc;
+  --yours: #1f3f9c; --yours-soft: #e4ebfb;
+  --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101612; --surface: #18211b; --fg: #e5ece6; --muted: #a9b8ad; --line: #2a372e;
+  --done: #74d6a2; --done-soft: #16301f; --wait: #f0b860; --wait-soft: #33280f;
+  --yours: #a9bfff; --yours-soft: #1c2742; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #101612; --surface: #18211b; --fg: #e5ece6; --muted: #a9b8ad; --line: #2a372e;
+  --done: #74d6a2; --done-soft: #16301f; --wait: #f0b860; --wait-soft: #33280f;
+  --yours: #a9bfff; --yours-soft: #1c2742; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 17px; line-height: 1.45;
+  padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+.wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 20px }
+h1 { font-size: 28px; font-weight: 800; margin: 0; text-wrap: balance }
+h2 { font-size: 21px; font-weight: 800; margin: 0; text-wrap: balance }
+p { margin: 0 }
+.stamp { font-size: 16px; font-weight: 700; color: var(--muted) }
+.steps { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0 }
+.steps li { font-size: 16px; font-weight: 700; padding: 6px 12px; border-radius: 999px }
+.steps .done { background: var(--done-soft); color: var(--done) }
+.steps .wait { background: var(--wait-soft); color: var(--wait) }
+.steps .yours { background: var(--yours-soft); color: var(--yours) }
+.group { background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 12px; min-width: 0 }
+.group.pending { border-color: var(--wait) }
+.note { font-size: 16px; font-weight: 700; color: var(--muted) }
+.group.pending .note { color: var(--wait) }
+.screens { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px }
+figure { margin: 0; display: grid; gap: 6px }
+figure img { width: 100%; max-width: 100%; aspect-ratio: 9 / 16; object-fit: cover; border-radius: 12px; border: 2px solid var(--line); background: var(--line) }
+figcaption { font-size: 16px; font-weight: 700; display: grid; gap: 4px }
+.shot { position: relative }
+.shot img { display: block }
+.flag { position: absolute; top: 8px; left: 8px; background: var(--wait-soft); color: var(--wait); border: 2px solid var(--wait);
+  border-radius: 999px; padding: 2px 10px; font-size: 16px; font-weight: 800 }
+figure.warned img { border-color: var(--wait) }
+.why { font-size: 16px; font-weight: 700; color: var(--wait) }
+.group.warning { border-color: var(--wait) }
+.group.warning h2::before { content: "Warning: "; color: var(--wait) }
+.quote { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 16px; color: var(--muted);
+  overflow-wrap: anywhere; background: var(--bg); border: 2px solid var(--line); border-radius: 8px; padding: 8px 10px }
+.left { display: grid; gap: 8px }
+.left ul { margin: 0; padding-left: 20px; display: grid; gap: 6px }
+.foot { font-size: 16px; color: var(--muted) }
+</style>
+
+<div class="wrap">
+  <header class="left">
+    <h1>Sample Theme, first prototype run</h1>
+    <p class="stamp">Built on a scratch copy. 2026-01-15</p>
+  </header>
+
+  <ul class="steps" id="steps"></ul>
+
+  <div id="groups" class="wrap" style="gap:20px"></div>
+
+  <header class="left">
+    <h2>Warnings from the run</h2>
+    <p class="note">Each warning the run logged is below with the screen that shows the part. A screen with a warning carries a Warning mark everywhere on this page.</p>
+  </header>
+  <div id="warnings" class="wrap" style="gap:20px"></div>
+
+  <section class="group left">
+    <h2>Warnings with no screen</h2>
+    <ul id="unseen"></ul>
+  </section>
+
+  <section class="group left">
+    <h2>What is not finished</h2>
+    <ul id="open"></ul>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<script type="application/json" id="data">
+{
+ "folder": "screens/sample-theme/",
+ "steps": [
+  [
+   "done",
+   "Step 1"
+  ],
+  [
+   "done",
+   "Step 2"
+  ],
+  [
+   "done",
+   "Step 3"
+  ],
+  [
+   "done",
+   "Step 4"
+  ],
+  [
+   "wait",
+   "Step 5"
+  ],
+  [
+   "wait",
+   "Step 6"
+  ],
+  [
+   "yours",
+   "Step 7"
+  ]
+ ],
+ "groups": [
+  {
+   "title": "Group 1",
+   "note": "Note for group 1.",
+   "screens": [
+    [
+     "screen-01",
+     "Screen 01"
+    ],
+    [
+     "screen-02",
+     "Screen 02"
+    ],
+    [
+     "screen-03",
+     "Screen 03"
+    ],
+    [
+     "screen-04",
+     "Screen 04"
+    ]
+   ]
+  },
+  {
+   "title": "Group 2",
+   "note": "Note for group 2.",
+   "screens": [
+    [
+     "screen-05",
+     "Screen 05"
+    ],
+    [
+     "screen-06",
+     "Screen 06"
+    ],
+    [
+     "screen-07",
+     "Screen 07"
+    ],
+    [
+     "screen-08",
+     "Screen 08"
+    ],
+    [
+     "screen-09",
+     "Screen 09"
+    ]
+   ]
+  },
+  {
+   "title": "Group 3",
+   "pending": true,
+   "note": "Note for group 3.",
+   "screens": [
+    [
+     "screen-10",
+     "Screen 10"
+    ],
+    [
+     "screen-11",
+     "Screen 11"
+    ],
+    [
+     "screen-12",
+     "Screen 12"
+    ],
+    [
+     "screen-13",
+     "Screen 13"
+    ]
+   ]
+  },
+  {
+   "title": "Group 4",
+   "pending": true,
+   "note": "Note for group 4.",
+   "screens": [
+    [
+     "screen-14",
+     "Screen 14"
+    ],
+    [
+     "screen-15",
+     "Screen 15"
+    ],
+    [
+     "screen-16",
+     "Screen 16"
+    ]
+   ]
+  }
+ ],
+ "warnings": [
+  {
+   "title": "Warning 1",
+   "short": "Warning 1",
+   "plain": "What warning 1 means.",
+   "quote": "log line 1",
+   "screens": [
+    [
+     "screen-17",
+     "Screen 17"
+    ]
+   ]
+  },
+  {
+   "title": "Warning 2",
+   "short": "Warning 2",
+   "plain": "What warning 2 means.",
+   "quote": "log line 2",
+   "screens": [
+    [
+     "screen-06",
+     "Screen 06"
+    ],
+    [
+     "screen-18",
+     "Screen 18"
+    ]
+   ]
+  },
+  {
+   "title": "Warning 3",
+   "short": "Warning 3",
+   "plain": "What warning 3 means.",
+   "quote": "log line 3",
+   "screens": [
+    [
+     "screen-01",
+     "Screen 01"
+    ]
+   ]
+  },
+  {
+   "title": "Warning 4",
+   "short": "Warning 4",
+   "plain": "What warning 4 means.",
+   "quote": "log line 4",
+   "screens": [
+    [
+     "screen-02",
+     "Screen 02"
+    ],
+    [
+     "screen-05",
+     "Screen 05"
+    ],
+    [
+     "screen-19",
+     "Screen 19"
+    ],
+    [
+     "screen-12",
+     "Screen 12"
+    ],
+    [
+     "screen-13",
+     "Screen 13"
+    ]
+   ]
+  },
+  {
+   "title": "Warning 5",
+   "short": "Warning 5",
+   "plain": "What warning 5 means.",
+   "quote": "log line 5",
+   "screens": [
+    [
+     "screen-03",
+     "Screen 03"
+    ],
+    [
+     "screen-04",
+     "Screen 04"
+    ]
+   ]
+  },
+  {
+   "title": "Warning 6",
+   "short": "Warning 6",
+   "plain": "What warning 6 means.",
+   "quote": "log line 6",
+   "screens": [
+    [
+     "screen-20",
+     "Screen 20"
+    ]
+   ]
+  },
+  {
+   "title": "Warning 7",
+   "short": "Warning 7",
+   "plain": "What warning 7 means.",
+   "quote": "log line 7",
+   "screens": [
+    [
+     "screen-11",
+     "Screen 11"
+    ]
+   ]
+  },
+  {
+   "title": "Warning 8",
+   "short": "Warning 8",
+   "plain": "What warning 8 means.",
+   "quote": "log line 8",
+   "screens": [
+    [
+     "screen-14",
+     "Screen 14"
+    ]
+   ]
+  },
+  {
+   "title": "Warning 9",
+   "short": "Warning 9",
+   "plain": "What warning 9 means.",
+   "quote": "log line 9",
+   "screens": [
+    [
+     "screen-10",
+     "Screen 10"
+    ],
+    [
+     "screen-12",
+     "Screen 12"
+    ],
+    [
+     "screen-13",
+     "Screen 13"
+    ]
+   ]
+  }
+ ],
+ "unseen": [
+  "Warning with no screen 1.",
+  "Warning with no screen 2.",
+  "Warning with no screen 3.",
+  "Warning with no screen 4."
+ ],
+ "open": [
+  "Open point 1.",
+  "Open point 2.",
+  "Open point 3.",
+  "Open point 4.",
+  "Open point 5.",
+  "Open point 6."
+ ],
+ "foot": "Every screen is a capture from sample run 3."
+}
+</script>
+<script>
+const data = JSON.parse(document.getElementById("data").textContent);
+document.getElementById("steps").innerHTML = data.steps.map(([state, label]) => `<li class="${state}">${label}</li>`).join("");
+const warningsByScreen = {};
+data.warnings.forEach(warning => warning.screens.forEach(([file]) => {
+  (warningsByScreen[file] = warningsByScreen[file] || []).push(warning.short);
+}));
+const screenFigure = ([file, label]) => {
+  const reasons = warningsByScreen[file] || [];
+  return `
+      <figure class="${reasons.length ? "warned" : ""}">
+        <div class="shot"><img src="${data.folder}${file}.png" alt="${label} screen" loading="lazy">${reasons.length ? `<span class="flag">Warning</span>` : ""}</div>
+        <figcaption>${label}${reasons.map(reason => `<span class="why">Warning: ${reason}</span>`).join("")}</figcaption>
+      </figure>`;
+};
+document.getElementById("groups").innerHTML = data.groups.map(group => `
+  <section class="group${group.pending ? " pending" : ""}">
+    <h2>${group.title}</h2>
+    ${group.note ? `<p class="note">${group.note}</p>` : ""}
+    <div class="screens">${group.screens.map(screenFigure).join("")}
+    </div>
+  </section>`).join("");
+document.getElementById("warnings").innerHTML = data.warnings.map(warning => `
+  <section class="group warning">
+    <h2>${warning.title}</h2>
+    <p class="note">${warning.plain}</p>
+    <p class="quote">${warning.quote}</p>
+    <div class="screens">${warning.screens.map(screenFigure).join("")}
+    </div>
+  </section>`).join("");
+document.getElementById("unseen").innerHTML = data.unseen.map(line => `<li>${line}</li>`).join("");
+document.getElementById("open").innerHTML = data.open.map(line => `<li>${line}</li>`).join("");
+document.getElementById("foot").textContent = data.foot;
+</script>

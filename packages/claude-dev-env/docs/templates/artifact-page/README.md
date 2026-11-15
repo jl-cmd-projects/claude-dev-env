@@ -24,6 +24,7 @@ Render the page and look at the screenshot before you publish. Headless Chromium
 |---|---|
 | One file | The page, its styles, its script and its data live in one HTML file. It opens with no build step and no companion files. |
 | Data block | The sample data sits in `<script type="application/json" id="tracker-data">`. Swap that block for new data. Escape every `</` inside it as `<\/`. |
+| One entry per item | `items` is an object keyed by item id, so the block cannot hold one item twice. Each card carries its key as `data-item`. An item's status, warnings and links all sit on its one entry. |
 | Board first | A board of colored lanes shows where every item stands. Each lane chip jumps to its card. |
 | Picture cards | Each item is a card with a status band, a four-step progress track, a next-step line, a folded summary, links and a copy button. |
 | Filters | Two tabs, a project filter row and a search box narrow the list. The tab and the filter persist per viewer through `localStorage`, wrapped in `try`. |
@@ -49,4 +50,16 @@ Ask an agent: "convert <artifact link> to our format."
 2. Map each part to its piece in `template.html`: status groups to board lanes, records to picture cards, filters to tabs and chips, and the data to the JSON data block.
 3. Apply the house rules above and the template's color tokens.
 4. Check that text is 16px or larger, text contrast is 7:1 or better, and the page has no horizontal scroll at 390px, in light and dark.
-5. Publish to the same link as a new version, so the reviewer keeps one URL.
+5. Publish as [Republish a page](#republish-a-page) says.
+
+## Republish a page
+
+A page a person reads more than once shows one current state at one link. This holds for every page built from any template here, and for a page built by hand.
+
+- **Rebuild on each publish.** Make the page again from the current state on each publish. A new result takes the place of the entry it updates. A section added for one round of feedback, such as a second list of the same screens under a warnings heading, leaves the reader with two entries and no way to tell which is current.
+- **Each item once.** One entry per item, with its status and every warning that names it on that entry. To show several draws of one screen, give each draw its own image and its own entry. Show a baseline once, at the head of the row of its variants. Give a thumbnail's full view a closed `<details>` or `<dialog>`, or zoom the one image with CSS.
+- **Replaced content leaves the page.** Remove a count, a note or a section that a newer result replaced. The page holds no history of what it said before.
+- **State what it shows and when.** A line at the top names the run or source the page shows and the time it was updated.
+- **One link.** Pass the page's link as `url` on every publish after the first. Write the link into the page as `<meta name="artifact-link" content="<link>">`, so it travels with a copy of the file. `session/artifact_link_record.py` also writes it to `<page file>.artifact-link.json` beside the page after each publish.
+
+`blocking/artifact_current_page_gate.py` renders each page publish and refuses one that draws an image twice, draws two elements with one `data-item` key, or passes no `url` for a page with a recorded link. The refusal names the item or the link. An image up to 64 pixels on a side is an icon and may repeat. The gate cannot see a repeated item that has no image and no `data-item` key, so give each card of a hand-built page a `data-item` key.

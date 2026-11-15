@@ -1,6 +1,7 @@
 """Behavioral tests for the artifact page gate's paths and publish wrapper."""
 
 from hooks_constants.artifact_dark_mode_gate_constants import (
+    BLOCKING_HOOKS_DIRECTORY,
     PUBLISH_SKELETON_PREFIX,
     RENDERER_SCRIPT_PATH,
 )
@@ -9,6 +10,11 @@ from hooks_constants.artifact_dark_mode_gate_constants import (
 def test_renderer_path_names_the_packaged_render_script() -> None:
     assert RENDERER_SCRIPT_PATH.is_file()
     assert RENDERER_SCRIPT_PATH.suffix == ".cjs"
+
+
+def test_blocking_directory_holds_the_gate_that_runs_the_renderer() -> None:
+    assert (BLOCKING_HOOKS_DIRECTORY / "artifact_dark_mode_gate.py").is_file()
+    assert RENDERER_SCRIPT_PATH.parent == BLOCKING_HOOKS_DIRECTORY
 
 
 def test_publish_wrapper_pins_body_light_and_opens_the_body() -> None:
