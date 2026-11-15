@@ -176,6 +176,29 @@ ASKING_FILES = [
         "**Can you run it offline?**\n\nIt runs offline.\n",
         "Can you run it offline?",
     ),
+    (
+        "heading_how_should_we.md",
+        "## How should we handle the rollback?\n\nThe build passed.\n",
+        "How should we handle the rollback?",
+    ),
+    (
+        "heading_where_should_i.md",
+        "## Where should I put the config?\n\nThe build passed.\n",
+        "Where should I put the config?",
+    ),
+    (
+        "heading_preferred.md",
+        "## Is option A preferred?\n\nThe build passed.\n",
+        "Is option A preferred?",
+    ),
+    (
+        "mid_length_reader.md",
+        "Given the runner logs, " * 20
+        + "do you want me to merge it, "
+        + "given the runner logs, " * 25
+        + "and the cache?\n",
+        "Given the runner logs",
+    ),
 ]
 
 CLEAN_FILES = [

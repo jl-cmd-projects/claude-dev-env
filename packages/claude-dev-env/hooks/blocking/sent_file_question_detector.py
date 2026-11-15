@@ -250,10 +250,10 @@ def _is_checklist_item(unit_text: str, earlier_unit: str | None, later_unit: str
 
 def _asking_heading(heading_text: str, later_unit: str | None) -> str | None:
     heading_words = _sentence_edges(_plain_words(heading_text))
+    if _is_question(heading_words) and WRITER_VOICE_HEADING_PATTERN.search(heading_words):
+        return heading_words
     if not _asks_the_reader(heading_words):
         return None
-    if WRITER_VOICE_HEADING_PATTERN.search(heading_words) is not None:
-        return heading_words
     is_answered_below = (
         later_unit is not None
         and _heading_text(later_unit) is None

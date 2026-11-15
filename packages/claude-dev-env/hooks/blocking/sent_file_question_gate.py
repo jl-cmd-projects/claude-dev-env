@@ -62,7 +62,7 @@ A file over 256 KB is read through its first and last 128 KB, and the
 refusal, or a system message when the gate lets the call run, says so. A file
 that holds a NUL byte or is not UTF-8, and a file the gate cannot read, pass.
 The refusal quotes at most 160 characters of the question. A sentence or
-heading over 800 characters is read through its first and last 400
+heading over 2,000 characters is read through its first and last 400
 characters. The read runs on a worker thread with a 4 s
 budget. When the HTML parser does not finish in that time, a second read
 strips the tags in one pass with no parser and applies the same rules, with
