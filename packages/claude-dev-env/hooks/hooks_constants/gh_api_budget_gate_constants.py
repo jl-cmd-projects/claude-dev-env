@@ -44,6 +44,7 @@ __all__ = [
     "SLEEP_TIMESPAN_PATTERN",
     "SLEEP_TIMESPAN_FIELD_SEPARATOR",
     "ALL_SECONDS_BY_TIMESPAN_FIELD",
+    "ALL_SHELL_EXPANSION_MARKERS",
     "OPTION_PREFIX",
     "SLEEP_PARAMETER_VALUE_SEPARATOR",
     "START_SLEEP_SECONDS_PARAMETER",
@@ -129,6 +130,7 @@ SECONDS_BY_SLEEP_UNIT: dict[str, float] = {"": 1.0, "s": 1.0, "m": 60.0, "h": 36
 SLEEP_TIMESPAN_PATTERN: re.Pattern[str] = re.compile(r"\d+:\d+(?::\d+(?:\.\d+)?)?")
 SLEEP_TIMESPAN_FIELD_SEPARATOR: str = ":"
 ALL_SECONDS_BY_TIMESPAN_FIELD: tuple[float, ...] = (3600.0, 60.0, 1.0)
+ALL_SHELL_EXPANSION_MARKERS: tuple[str, ...] = ("$", "`")
 OPTION_PREFIX: str = "-"
 SLEEP_PARAMETER_VALUE_SEPARATOR: str = ":"
 START_SLEEP_SECONDS_PARAMETER: str = "-seconds"

@@ -32,6 +32,7 @@ from hooks_constants.gh_api_budget_gate_constants import (
     LOOP_HEADER_CHARACTERS,
     LOOP_HEADER_OPENER,
     ALL_SECONDS_BY_TIMESPAN_FIELD,
+    ALL_SHELL_EXPANSION_MARKERS,
     MILLISECONDS_PER_SECOND,
     MINIMUM_POLL_INTERVAL_SECONDS,
     MINIMUM_START_SLEEP_DURATION_PARAMETER_LENGTH,
@@ -259,10 +260,13 @@ def _sleep_seconds(all_arguments: list[str]) -> float | None:
         Start-Sleep -Seconds 30 -Verbose         30.0
         Start-Sleep -Milliseconds 500            0.5
         Start-Sleep -Duration 00:01:30           90.0
+        sleep 5 2>/dev/null                      5.0
         sleep $delay                             None
 
     A parameter that names no time unit, such as ``-Verbose`` or
-    ``-ErrorAction Stop``, is skipped together with its value.
+    ``-ErrorAction Stop``, is skipped together with its value. Any other
+    word that is not a duration, such as a redirect, is skipped too. Only a
+    shell expansion, a ``$`` or a backtick, makes the sleep unreadable.
     """
     total_seconds = 0.0
     seconds_per_unit: float | None = 1.0
@@ -277,7 +281,9 @@ def _sleep_seconds(all_arguments: list[str]) -> float | None:
             continue
         duration_seconds = _duration_seconds(argument)
         if duration_seconds is None:
-            return None
+            if any(each_marker in argument for each_marker in ALL_SHELL_EXPANSION_MARKERS):
+                return None
+            continue
         total_seconds += duration_seconds * seconds_per_unit
     return total_seconds
 
