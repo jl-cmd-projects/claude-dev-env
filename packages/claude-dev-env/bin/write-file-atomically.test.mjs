@@ -130,3 +130,55 @@ test(
         });
     },
 );
+
+
+const KILL_AT_TARGET_CHANGE_PRELOAD = `
+const fs = require('node:fs');
+const targetPath = process.env.KILL_TARGET_PATH;
+const originalWriteFileSync = fs.writeFileSync;
+const originalRenameSync = fs.renameSync;
+fs.writeFileSync = function (filePath, data, options) {
+    if (String(filePath) === targetPath) {
+        const text = String(data);
+        originalWriteFileSync(filePath, text.slice(0, Math.floor(text.length / 2)));
+        process.kill(process.pid, 'SIGKILL');
+    }
+    return originalWriteFileSync.apply(this, arguments);
+};
+fs.renameSync = function (sourcePath, destinationPath) {
+    if (String(destinationPath) === targetPath) {
+        process.kill(process.pid, 'SIGKILL');
+    }
+    return originalRenameSync.apply(this, arguments);
+};
+require('node:module').syncBuiltinESMExports();
+`;
+
+
+test(
+    'writeFileAtomically should keep the prior file whole when the writer is killed as the target changes',
+    { skip: isPosixPlatform ? false : 'a SIGKILL a process sends itself is POSIX only' },
+    () => {
+        withSandbox((sandboxRoot) => {
+            const settingsPath = join(sandboxRoot, 'settings.json');
+            writeFileSync(settingsPath, PRIOR_SETTINGS_TEXT);
+            const preloadPath = join(sandboxRoot, 'kill-at-target-change.cjs');
+            writeFileSync(preloadPath, KILL_AT_TARGET_CHANGE_PRELOAD);
+            const writerScriptPath = join(sandboxRoot, 'write.mjs');
+            writeFileSync(writerScriptPath, [
+                `import { writeFileAtomically } from ${JSON.stringify(new URL('./write-file-atomically.mjs', import.meta.url).href)};`,
+                `writeFileAtomically(${JSON.stringify(settingsPath)}, ${JSON.stringify(NEW_SETTINGS_TEXT)});`,
+            ].join('\n'));
+
+            const killedRun = spawnSync(
+                process.execPath,
+                ['--require', preloadPath, writerScriptPath],
+                { encoding: 'utf8', env: { ...process.env, KILL_TARGET_PATH: settingsPath } },
+            );
+
+            assert.equal(killedRun.signal, 'SIGKILL', killedRun.stderr);
+            assert.equal(readFileSync(settingsPath, 'utf8'), PRIOR_SETTINGS_TEXT);
+        });
+    },
+);
+
