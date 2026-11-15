@@ -389,6 +389,29 @@ def is_html_file_path(file_path_text: str) -> bool:
     return Path(file_path_text).suffix.lower() in ALL_HTML_FILE_SUFFIXES
 
 
+def sent_file_location(file_path_text: str, working_directory: object) -> Path | None:
+    """Return the regular Markdown, text, or HTML file a sent path names, or None.
+
+    ::
+
+        "notes.md" with cwd "/work"  -> Path("/work/notes.md"), when it is a file
+        "/tmp/shot.png"              -> None
+
+    A path that is not absolute is resolved from the working directory. A path
+    with another suffix, and a path that is no regular file (a pipe, a device,
+    a directory, a missing file), give None.
+    """
+    file_path = Path(file_path_text)
+    if not file_path.is_absolute() and isinstance(working_directory, str):
+        file_path = Path(working_directory) / file_path
+    if file_path.suffix.lower() not in ALL_SENT_TEXT_FILE_SUFFIXES:
+        return None
+    try:
+        return file_path if file_path.is_file() else None
+    except (OSError, ValueError):
+        return None
+
+
 def sent_file_text(file_path_text: str, working_directory: object) -> str | None:
     """Return the text of a Markdown, text, or HTML file sent to the user, or None.
 
@@ -410,14 +433,10 @@ def sent_file_text(file_path_text: str, working_directory: object) -> str | None
     Returns:
         The file text decoded as UTF-8 with bad bytes replaced, or None.
     """
-    file_path = Path(file_path_text)
-    if not file_path.is_absolute() and isinstance(working_directory, str):
-        file_path = Path(working_directory) / file_path
-    if file_path.suffix.lower() not in ALL_SENT_TEXT_FILE_SUFFIXES:
+    file_path = sent_file_location(file_path_text, working_directory)
+    if file_path is None:
         return None
     try:
-        if not file_path.is_file():
-            return None
         with file_path.open(BINARY_READ_MODE) as sent_file:
             file_bytes = sent_file.read(MAXIMUM_SENT_FILE_BYTES + 1)
     except (OSError, ValueError):
