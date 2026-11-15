@@ -86,7 +86,7 @@ def test_should_allow_work_that_ends_with_the_declaration(
     [
         f"`{DECLARATION}`",
         f"- {DECLARATION}",
-        "Open items: none",
+        "Open items: none yet",
         f"{DECLARATION} Both tests pass.",
         f"> {DECLARATION}",
         f"```\n{DECLARATION}\n```",

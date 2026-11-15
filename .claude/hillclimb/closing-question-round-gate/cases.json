@@ -2009,6 +2009,63 @@
     ]
   },
   {
+    "id": "allow-work-with-the-declaration-without-its-period",
+    "group": "work",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place.\n\nOpen items: none"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
     "id": "allow-work-with-a-bold-declaration-in-the-payload",
     "group": "work",
     "expected": "allow",

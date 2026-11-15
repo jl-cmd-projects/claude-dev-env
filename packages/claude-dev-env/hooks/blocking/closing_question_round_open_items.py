@@ -268,10 +268,12 @@ def declares_no_open_items(closing_reply: str, deadline_at: float) -> bool:
         "Open items: none.\\n\\nBoth tests pass."      -> False
         "`Open items: none.`"                        -> False, a code span
         "- Open items: none."                        -> False, a list item
+        "Open items: none"                           -> True, no period
 
     The reply is masked as ``marked_open_lines`` masks it. Its last non-empty
     line, with outer spaces stripped, must be the declaration alone or the
-    declaration wrapped in one bold or italic mark. A ``* `` list item does not
+    declaration wrapped in one bold or italic mark. The final period may be
+    left out. A ``* `` list item does not
     count. A reply over 2 MiB never declares. The masking
     raises TimeoutError once the clock reaches ``deadline_at``.
     """

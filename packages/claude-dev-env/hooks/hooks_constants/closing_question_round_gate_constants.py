@@ -106,7 +106,9 @@ INDENTED_CODE_LINE_PATTERN = re.compile(r"^(?: {4}|\t)")
 LIST_ITEM_LINE_PATTERN = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]+\S")
 NO_OPEN_ITEMS_DECLARATION = "Open items: none."
 DECLARATION_LINE_PATTERN = re.compile(
-    r"(?P<mark>\*\*|__|\*|_|)" + re.escape(NO_OPEN_ITEMS_DECLARATION) + r"(?P=mark)"
+    r"(?P<mark>\*\*|__|\*|_|)"
+    + re.escape(NO_OPEN_ITEMS_DECLARATION.removesuffix("."))
+    + r"\.?(?P=mark)"
 )
 
 MAXIMUM_HOLD_COUNT = 2

@@ -16,8 +16,8 @@ line ``closing_question_round_open_items`` finds: a marker word or a line that
 ends with a question mark. Work is any tool call that is no question call and
 that sits in the stretch after the last record whose final text ends with the
 declaration, in a record with no work call of its own. The declaration is the
-closing reply's last prose line, read after masking as ``Open items: none.``
-alone or wrapped in one bold or italic mark. The closing reply is the newest
+closing reply's last prose line, read after masking as ``Open items: none.``,
+with or without its period, alone or wrapped in one bold or italic mark. The closing reply is the newest
 text after the last work call.
 
 - A marker line holds the stop, and a declaration does not excuse it. The

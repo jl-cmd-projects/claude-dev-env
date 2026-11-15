@@ -3,6 +3,7 @@ import pytest
 from hooks_constants.closing_question_round_gate_constants import (
     ALL_REASON_LEADS,
     CLOSING_ROUND_INSTRUCTION,
+    DECLARATION_LINE_PATTERN,
     ESCAPED_PRINTABLE_ASCII_PATTERN,
     NO_OPEN_ITEMS_DECLARATION,
     OPEN_ITEM_MARKER_PATTERN,
@@ -56,3 +57,19 @@ def test_escaped_printable_ascii_pattern_should_find_only_printable_ascii_escape
 
 def test_watchdogs_should_end_a_held_stop_inside_the_host_timeout_of_ten_seconds() -> None:
     assert STDIN_WATCHDOG_SECONDS + OUTPUT_WATCHDOG_SECONDS < 10
+
+
+@pytest.mark.parametrize(
+    ("declaration_line", "is_declaration"),
+    [
+        ("Open items: none.", True),
+        ("Open items: none", True),
+        ("**Open items: none**", True),
+        ("Open items: none..", False),
+        ("**Open items: none*", False),
+    ],
+)
+def test_declaration_line_pattern_should_leave_the_final_period_optional(
+    declaration_line: str, is_declaration: bool
+) -> None:
+    assert (DECLARATION_LINE_PATTERN.fullmatch(declaration_line) is not None) is is_declaration
