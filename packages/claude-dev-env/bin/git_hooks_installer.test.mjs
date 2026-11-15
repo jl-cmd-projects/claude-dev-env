@@ -10,6 +10,7 @@ import {
     writeAllGitHookShims,
     configureGlobalGitHooksPath,
     KNOWN_GIT_HOOK_NAMES,
+    renameSyncRetryingWhileBusy,
 } from './git_hooks_installer.mjs';
 
 
@@ -374,4 +375,39 @@ test('generated advisory shim preserves KeyboardInterrupt cancellation', () => {
     );
     assert.notEqual(shimResult.status, 0);
     assert.match(shimResult.stderr, /KeyboardInterrupt/);
+});
+
+
+test('renameSyncRetryingWhileBusy should move the file over the destination', () => {
+    const { temporaryRoot, gitHooksDirectory } = makeTemporaryGitHooksDirectory();
+    try {
+        const sourcePath = join(gitHooksDirectory, 'next.tmp');
+        const destinationPath = join(gitHooksDirectory, 'current');
+        writeFileSync(sourcePath, 'next');
+        writeFileSync(destinationPath, 'prior');
+
+        renameSyncRetryingWhileBusy(sourcePath, destinationPath);
+
+        assert.equal(readFileSync(destinationPath, 'utf8'), 'next');
+        assert.equal(existsSync(sourcePath), false);
+    } finally {
+        rmSync(temporaryRoot, { recursive: true, force: true });
+    }
+});
+
+
+test('renameSyncRetryingWhileBusy should throw a missing source error without retrying it away', () => {
+    const { temporaryRoot, gitHooksDirectory } = makeTemporaryGitHooksDirectory();
+    try {
+        const destinationPath = join(gitHooksDirectory, 'current');
+        writeFileSync(destinationPath, 'prior');
+
+        assert.throws(
+            () => renameSyncRetryingWhileBusy(join(gitHooksDirectory, 'missing.tmp'), destinationPath),
+            (error) => error.code === 'ENOENT',
+        );
+        assert.equal(readFileSync(destinationPath, 'utf8'), 'prior');
+    } finally {
+        rmSync(temporaryRoot, { recursive: true, force: true });
+    }
 });
