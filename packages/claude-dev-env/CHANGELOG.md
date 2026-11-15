@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.120.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.119.2...claude-dev-env-v8.120.0) (2026-11-15)
+
+
+### Features
+
+* **hooks:** refuse gh watch commands, tight gh loops, and gh reads on a spent core limit ([#2377](https://github.com/jl-cmd-projects/claude-dev-env/issues/2377)) ([dca9fc0](https://github.com/jl-cmd-projects/claude-dev-env/commit/dca9fc0f7f5fe7dc3d530eed5f9c31026c6dc5aa))
+
 ## [8.119.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.119.1...claude-dev-env-v8.119.2) (2026-11-15)
 
 
