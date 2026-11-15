@@ -31,8 +31,14 @@ from hooks_constants.sent_file_question_gate_constants import (
     TAG_OPEN,
     MAXIMUM_SENTENCE_CHARACTERS,
     REPLY_REQUEST_PATTERN,
-    DECISION_WORD_PATTERN,
-    CHECK_OPENER_PATTERN,
+    CHECK_BLOCK_WORD_PATTERN,
+    CHOICE_COMMAND_PATTERN,
+    MAXIMUM_COMMAND_CHOICE_WORDS,
+    REPLY_OPTION_PATTERN,
+    SENTENCE_EDGE_CHARACTERS,
+    SENTENCE_EDGE_JOIN,
+    TASK_CHECK_PATTERN,
+    WRITER_VOICE_HEADING_PATTERN,
     ALL_BOLD_MARKS,
     ALL_FULL_WIDTH_QUESTION_MARKS,
     ALL_INDENTED_CODE_PREFIXES,
@@ -116,10 +122,31 @@ def _is_wish_ask(sentence: str) -> bool:
     )
 
 
+def _sentence_edges(sentence: str) -> str:
+    if len(sentence) <= MAXIMUM_SENTENCE_CHARACTERS:
+        return sentence
+    return (
+        sentence[:SENTENCE_EDGE_CHARACTERS]
+        + SENTENCE_EDGE_JOIN
+        + sentence[-SENTENCE_EDGE_CHARACTERS:]
+    )
+
+
+def _is_reply_request(sentence: str) -> bool:
+    if REPLY_REQUEST_PATTERN.match(sentence) is not None:
+        return True
+    if CHOICE_COMMAND_PATTERN.match(sentence) is None or sentence.endswith(LABEL_COLON):
+        return False
+    return REPLY_OPTION_PATTERN.search(sentence) is not None or (
+        READER_CHOICE_PATTERN.search(sentence) is not None
+        and len(sentence.split()) <= MAXIMUM_COMMAND_CHOICE_WORDS
+    )
+
+
 def _is_check(sentence: str) -> bool:
     return (
-        CHECK_OPENER_PATTERN.match(sentence) is not None
-        and DECISION_WORD_PATTERN.search(sentence) is None
+        TASK_CHECK_PATTERN.match(sentence) is not None
+        and CHECK_BLOCK_WORD_PATTERN.search(sentence) is None
         and not _is_wish_ask(sentence)
         and not _is_short_choice(sentence)
     )
@@ -189,12 +216,11 @@ def _table_question(row_text: str) -> str | None:
 def _sentence_question(unit_text: str, is_checklist_item: bool) -> str | None:
     unquoted_text = QUOTED_SPAN_PATTERN.sub(CODE_SPAN_STAND_IN, unit_text)
     all_sentences = [
-        _plain_words(each_match.group()) for each_match in SENTENCE_PATTERN.finditer(unquoted_text)
+        _sentence_edges(_plain_words(each_match.group()))
+        for each_match in SENTENCE_PATTERN.finditer(unquoted_text)
     ]
     for each_index, each_sentence in enumerate(all_sentences):
-        if len(each_sentence) > MAXIMUM_SENTENCE_CHARACTERS:
-            continue
-        if REPLY_REQUEST_PATTERN.match(each_sentence) is not None:
+        if _is_reply_request(each_sentence):
             return each_sentence
         next_sentence = all_sentences[each_index + 1] if each_index + 1 < len(all_sentences) else ""
         if is_checklist_item and _is_check(each_sentence):
@@ -223,9 +249,11 @@ def _is_checklist_item(unit_text: str, earlier_unit: str | None, later_unit: str
 
 
 def _asking_heading(heading_text: str, later_unit: str | None) -> str | None:
-    heading_words = _plain_words(heading_text)
-    if len(heading_words) > MAXIMUM_SENTENCE_CHARACTERS or not _asks_the_reader(heading_words):
+    heading_words = _sentence_edges(_plain_words(heading_text))
+    if not _asks_the_reader(heading_words):
         return None
+    if WRITER_VOICE_HEADING_PATTERN.search(heading_words) is not None:
+        return heading_words
     is_answered_below = (
         later_unit is not None
         and _heading_text(later_unit) is None

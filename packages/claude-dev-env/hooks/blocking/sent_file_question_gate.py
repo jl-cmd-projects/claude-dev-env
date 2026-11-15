@@ -24,20 +24,30 @@ me, okay to, proceed, merge, thoughts, are we good, would it make sense,
 ...), opens with "can I", "could we", or "may I", asks which or what works
 best or should be done ("What release date works best?"), or offers a choice
 with "or" in ten words or fewer. A sentence that asks for a reply on its own
-("Let me know which you prefer.", "Please advise which one to apply.") counts
-too. A list marker and a task box ("- [ ]") before it are skipped. A
-checklist item, a list item with a task box or next to another question
-item, passes when it only checks the reader's work ("Did you run the
-tests?", "Is the build done?") and names no decision, confirmation, or
-preference.
+("Let me know which you prefer.", "Please advise which one to apply.", "Tell
+me which.", "Send me your pick.") counts too, as does a sentence that opens
+with reply, answer, respond, choose, pick, select, or decide and offers yes
+or no, "one of", or a choice with "or" in six words or fewer ("Choose A or
+B."), unless it ends with a colon. A list marker and a task box ("- [ ]")
+before it are skipped. A checklist item, a list item with a task box or next
+to another question item, passes only when it asks whether the reader did a
+piece of work: it opens with "Did you" or "Have you" and a verb such as
+saved, ran, tested, pushed, committed, updated, added, removed, checked,
+read, installed, restarted, closed, or filled in ("Did you run the
+tests?"), and holds none of ok, fine, good, signed off, approve, happy,
+ready, want, prefer, decide, agree, go ahead, ship, merge, or delete.
 
 Quotes, fenced and indented code, and preformatted text are not read. A
 heading, a ``summary`` label, or a ``dt`` label is refused when it opens a
 question or decision section, such as "Open questions", "Decisions needed
 from you", or "Need your input", or when it asks the reader something and no
-paragraph follows to answer it ("## Should I delete the old logs?" at the end
-of the file or above a list of options). "## Why does this exist?" and "##
-How does it work?" pass.
+paragraph follows to answer it ("## Which works best?" at the end of the
+file or above a list of options). A question heading in the writer's or the
+reader-addressed voice is refused whatever follows it: it holds should I,
+should we, shall I, shall we, do you, would you, will you, can you, want me,
+your, or prefer ("## What should I do next?"). "## Can I run it offline?",
+"## Why does this exist?" and "## How does it work?" pass with an answer
+paragraph below them.
 
 A question the next sentence answers with "Yes," "No." and the like passes;
 "Yes or no." and "No rush." are no answers. A question that asks for no
@@ -51,8 +61,9 @@ cell with an answer cell after it, pass.
 A file over 256 KB is read through its first and last 128 KB, and the
 refusal, or a system message when the gate lets the call run, says so. A file
 that holds a NUL byte or is not UTF-8, and a file the gate cannot read, pass.
-The refusal quotes at most 160 characters of the question. A sentence over
-2,000 characters is not read. The read runs on a worker thread with a 4 s
+The refusal quotes at most 160 characters of the question. A sentence or
+heading over 800 characters is read through its first and last 400
+characters. The read runs on a worker thread with a 4 s
 budget. When the HTML parser does not finish in that time, a second read
 strips the tags in one pass with no parser and applies the same rules, with
 another 4 s. Only when that read also runs out does the call run, with a

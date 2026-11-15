@@ -21,10 +21,10 @@ __all__ = [
     "BLOCK_BREAK",
     "BLOCK_EXIT_CODE",
     "BOLD_MARK_COUNT",
-    "CHECK_OPENER_PATTERN",
+    "CHECK_BLOCK_WORD_PATTERN",
+    "CHOICE_COMMAND_PATTERN",
     "CLOSING_TAG_MARK",
     "CWD_KEY",
-    "DECISION_WORD_PATTERN",
     "EMPHASIS_CHARACTERS",
     "EMPHASIS_PATTERN",
     "FILE_PARTS_SEPARATOR",
@@ -38,6 +38,7 @@ __all__ = [
     "LINE_BREAK",
     "LIST_MARKER_PATTERN",
     "MAXIMUM_CHOICE_WORDS",
+    "MAXIMUM_COMMAND_CHOICE_WORDS",
     "MAXIMUM_QUOTED_CHARACTERS",
     "MAXIMUM_SENTENCE_CHARACTERS",
     "MAXIMUM_UTF8_CONTINUATION_BYTES",
@@ -58,10 +59,13 @@ __all__ = [
     "READER_ADDRESS_PATTERN",
     "READER_CHOICE_PATTERN",
     "READER_WISH_PATTERN",
+    "REPLY_OPTION_PATTERN",
     "REPLY_REQUEST_PATTERN",
     "REQUEST_OPENER_PATTERN",
     "RESPONSE_PROMPT_PATTERN",
     "SCAN_TIMEOUT_MESSAGE",
+    "SENTENCE_EDGE_CHARACTERS",
+    "SENTENCE_EDGE_JOIN",
     "SENTENCE_PATTERN",
     "SPACE",
     "SPACE_RUN_PATTERN",
@@ -72,6 +76,7 @@ __all__ = [
     "TAG_CLOSE",
     "TAG_OPEN",
     "TASK_BOX_PATTERN",
+    "TASK_CHECK_PATTERN",
     "TOOL_INPUT_KEY",
     "TOOL_NAME_KEY",
     "TRAILING_CLOSERS",
@@ -80,6 +85,7 @@ __all__ = [
     "UTF8_CONTINUATION_BYTES",
     "UTF8_ENCODING",
     "WH_CHOICE_PATTERN",
+    "WRITER_VOICE_HEADING_PATTERN",
 ]
 
 ALLOW_EXIT_CODE = 0
@@ -102,6 +108,7 @@ TABLE_CELL_SEPARATOR = "|"
 TRAILING_CLOSERS = "*_)] \t"
 ALL_QUOTED_QUESTION_ENDINGS = ('?"', "?'", "?’", "?”")
 MAXIMUM_CHOICE_WORDS = 10
+MAXIMUM_COMMAND_CHOICE_WORDS = 6
 QUOTED_SPAN_PATTERN = re.compile(r'"[^"\n]{1,400}"|“[^”\n]{1,400}”')
 HEADING_OPENER_PATTERN = re.compile(r"#{1,6}(?:[ \t]|$)")
 HEADING_CLOSE_MARKS = "#"
@@ -168,28 +175,41 @@ WH_CHOICE_PATTERN = re.compile(
 TASK_BOX_PATTERN = re.compile(r"^\s*(?:[-*+]|\d{1,3}[.)])\s+\[[ xX]\]\s")
 PARSED_READ_BUDGET_SECONDS = 4
 PLAIN_READ_BUDGET_SECONDS = 4
-MAXIMUM_SENTENCE_CHARACTERS = 2000
+MAXIMUM_SENTENCE_CHARACTERS = 800
+SENTENCE_EDGE_CHARACTERS = 400
+SENTENCE_EDGE_JOIN = " ... "
 TAG_OPEN = "<"
 TAG_CLOSE = ">"
 CLOSING_TAG_MARK = "/"
 BLOCK_BREAK = "\n\n"
 PLAIN_HEADING_BREAK = "\n\n# "
 SPACE = " "
-CHECK_OPENER_PATTERN = re.compile(
-    r"^(?:did|have|has|is|are|was|were)\s+"
-    r"(?:you|we|it|they|the|this|that|these|those|all|every|each|both|any)\b",
+TASK_CHECK_PATTERN = re.compile(
+    r"^(?:did|have)\s+you\s+(?:already\s+)?"
+    r"(?:save|saved|run|ran|test|tested|push|pushed|commit|committed|update|updated"
+    r"|add|added|remove|removed|check|checked|read|install|installed|restart|restarted"
+    r"|close|closed|fill\s+in|filled\s+in)\b",
     re.IGNORECASE,
 )
-DECISION_WORD_PATTERN = re.compile(
-    r"\b(?:confirm|prefer|preferred|preference|decide|decision|choose|choice|approve|approval"
-    r"|agree|want|like|think|ok|okay|rather|pick)\b",
+CHECK_BLOCK_WORD_PATTERN = re.compile(
+    r"\b(?:ok|okay|fine|good|sign(?:s|ed)?\s+off|approv\w*|happy|ready|want\w*|prefer\w*"
+    r"|decid\w*|decision|agree\w*|go\s+ahead|ship\w*|merg\w*|delet\w*)\b",
     re.IGNORECASE,
 )
 REPLY_REQUEST_PATTERN = re.compile(
     r"^(?:please\s+)?(?:let\s+(?:me|us)\s+know|get\s+back\s+to\s+(?:me|us)"
     r"|advise\s+(?:me|us|which|whether|if|on|how|when)"
-    r"|tell\s+(?:me|us)\s+(?:which|what|whether|if|how|when|where|who))\b"
-    r"|^please\s+(?:advise|confirm|choose|pick|select|decide|approve|reply|respond)\b",
+    r"|send\s+(?:me|us)|tell\s+(?:me|us)|give\s+(?:me|us)\s+your)\b"
+    r"|^please\s+(?:advise|confirm|choose|pick|select|decide|approve|reply|respond|answer)\b",
+    re.IGNORECASE,
+)
+CHOICE_COMMAND_PATTERN = re.compile(
+    r"^(?:reply|answer|respond|choose|pick|select|decide)\b", re.IGNORECASE
+)
+REPLY_OPTION_PATTERN = re.compile(r"\byes\s+or\s+no\b|\bone\s+of\b", re.IGNORECASE)
+WRITER_VOICE_HEADING_PATTERN = re.compile(
+    r"\b(?:should|shall)\s+(?:i|we)\b|\b(?:do|would|will|can)\s+you\b"
+    r"|\bwant\s+me\b|\byour\b|\bprefer\w*",
     re.IGNORECASE,
 )
 SYSTEM_MESSAGE_KEY = "systemMessage"

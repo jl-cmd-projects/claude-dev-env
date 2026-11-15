@@ -131,6 +131,51 @@ ASKING_FILES = [
         "## Which option do you prefer?\n\n- Option A\n- Option B\n",
         "Which option do you prefer?",
     ),
+    ("box_ship.md", "- [ ] Are we good to ship?\n", "Are we good to ship?"),
+    ("box_delete.md", "- [ ] Is it fine to delete the logs?\n", "Is it fine to delete the logs?"),
+    (
+        "box_sign_off.md",
+        "- [ ] Have you signed off on the release?\n",
+        "Have you signed off on the release?",
+    ),
+    (
+        "long_should_first.md",
+        "Should I merge it, given "
+        + "the runner logs from the nightly build, " * 60
+        + "and the cache?\n",
+        "Should I merge it, given",
+    ),
+    (
+        "long_want_last.md",
+        "Given "
+        + "the runner logs from the nightly build, " * 60
+        + "do you want me to merge it?\n",
+        "Given the runner logs",
+    ),
+    ("reply_yes_no.md", "The patch is ready. Reply with yes or no.\n", "Reply with yes or no."),
+    ("answer_yes_no.md", "The patch is ready. Answer yes or no.\n", "Answer yes or no."),
+    ("choose_a_b.md", "Two layouts fit. Choose A or B.\n", "Choose A or B."),
+    (
+        "pick_one.md",
+        "Two layouts fit. Pick one of the two layouts.\n",
+        "Pick one of the two layouts.",
+    ),
+    ("send_pick.md", "Two layouts fit. Send me your pick.\n", "Send me your pick."),
+    (
+        "heading_what_next.md",
+        "## What should I do next?\n\nThe build passed and the logs are clean.\n",
+        "What should I do next?",
+    ),
+    (
+        "heading_pin.md",
+        "## Should I pin the version?\n\nPin it in the lock file.\n",
+        "Should I pin",
+    ),
+    (
+        "bold_can_you.md",
+        "**Can you run it offline?**\n\nIt runs offline.\n",
+        "Can you run it offline?",
+    ),
 ]
 
 CLEAN_FILES = [
@@ -144,8 +189,11 @@ CLEAN_FILES = [
     ("how_heading.md", "## How does it work?\n"),
     ("troubleshooting.md", "## Troubleshooting\n\nDid you set `HOME`? Set it before the run.\n"),
     ("q_and_a_split.md", "Q: Can you run it offline?\n\nA: Yes.\n"),
-    ("heading_question.md", "## Should I pin the version?\n\nPin it in the lock file.\n"),
-    ("bold_question.md", "**Can you run it offline?**\n\nIt runs offline.\n"),
+    ("faq_heading_can_i.md", "## Can I run it offline?\n\nIt runs offline after the first sync.\n"),
+    ("choose_instruction.md", "Choose IDs that contain no personal or secret text.\n"),
+    ("pick_instruction.md", "Pick one of two widths:\n\n- 640\n- 1280\n"),
+    ("reply_instruction.md", "Reply to the sender, by name.\n"),
+    ("subject_heading.md", "## What does the gate read?\n\nIt reads the sent file.\n"),
     ("fenced.md", "Run this:\n\n```\nread -p 'Should I continue? ' answer\n```\n"),
     ("quoted.md", "You wrote:\n\n> Should we ship this today?\n\nIt shipped at noon.\n"),
     ("code_span.md", "The prompt reads `Do you want to continue?` on start.\n"),
