@@ -24,3 +24,15 @@ def test_sent_file_scan_text_should_skip_a_file_that_is_not_utf8_text(tmp_path: 
     assert sent_file_scan.sent_file_scan_text("nul.md", str(tmp_path)) is None
     assert sent_file_scan.sent_file_scan_text("latin.md", str(tmp_path)) is None
     assert sent_file_scan.sent_file_scan_text("shot.png", str(tmp_path)) is None
+
+
+def test_sent_file_is_partly_read_should_name_only_a_text_file_over_the_limit(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "large.md").write_text("A" * 262145, encoding="utf-8")
+    (tmp_path / "limit.md").write_text("A" * 262144, encoding="utf-8")
+    (tmp_path / "large.png").write_bytes(b"A" * 262145)
+    assert sent_file_scan.sent_file_is_partly_read("large.md", str(tmp_path)) is True
+    assert sent_file_scan.sent_file_is_partly_read("limit.md", str(tmp_path)) is False
+    assert sent_file_scan.sent_file_is_partly_read("large.png", str(tmp_path)) is False
+    assert sent_file_scan.sent_file_is_partly_read("missing.md", str(tmp_path)) is False

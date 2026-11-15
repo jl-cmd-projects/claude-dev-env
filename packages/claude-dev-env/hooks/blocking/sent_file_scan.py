@@ -98,3 +98,28 @@ def sent_file_scan_text(file_path_text: str, working_directory: object) -> str |
     except UnicodeDecodeError:
         return None
     return head_text + FILE_PARTS_SEPARATOR + tail_text if tail_text else head_text
+
+
+def sent_file_is_partly_read(file_path_text: str, working_directory: object) -> bool:
+    """Return True when ``sent_file_scan_text`` reads only the start and end of the file.
+
+    ::
+
+        a 3 KB notes.md      -> False
+        a 2 MB report.md     -> True
+        shot.png, lost path  -> False
+
+    Args:
+        file_path_text: The path the tool call names.
+        working_directory: The session's ``cwd`` from the hook payload.
+
+    Returns:
+        True for a sent text file over 256 KB.
+    """
+    file_path = sent_file_location(file_path_text, working_directory)
+    if file_path is None:
+        return False
+    try:
+        return file_path.stat().st_size > MAXIMUM_WHOLE_FILE_BYTES
+    except OSError:
+        return False

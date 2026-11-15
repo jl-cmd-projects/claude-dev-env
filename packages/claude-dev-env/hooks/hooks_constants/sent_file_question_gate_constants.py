@@ -25,6 +25,7 @@ __all__ = [
     "EMPHASIS_PATTERN",
     "FILE_PARTS_SEPARATOR",
     "FILE_PART_BYTES",
+    "FILE_PATH_SEPARATOR",
     "GATE_EVENT_NAME",
     "HEADING_CLOSE_MARKS",
     "HEADING_MARK",
@@ -38,6 +39,8 @@ __all__ = [
     "MAXIMUM_WHOLE_FILE_BYTES",
     "NUL_BYTE",
     "OPEN_ASK_PATTERN",
+    "PARTIAL_READ_MESSAGE",
+    "PARTIAL_READ_NOTE",
     "QUESTION_FOUND_MESSAGE",
     "QUESTION_LABEL_PATTERN",
     "QUESTION_MARK",
@@ -49,11 +52,15 @@ __all__ = [
     "READER_WISH_PATTERN",
     "REQUEST_OPENER_PATTERN",
     "RESPONSE_PROMPT_PATTERN",
+    "SCAN_BUDGET_SECONDS",
+    "SCAN_TIMEOUT_MESSAGE",
     "SENTENCE_PATTERN",
     "SPACE_RUN_PATTERN",
+    "SYSTEM_MESSAGE_KEY",
     "TABLE_CELL_SEPARATOR",
     "TABLE_DIVIDER_CELL_PATTERN",
     "TABLE_ROW_PATTERN",
+    "TASK_BOX_PATTERN",
     "TOOL_INPUT_KEY",
     "TOOL_NAME_KEY",
     "TRAILING_CLOSERS",
@@ -61,6 +68,7 @@ __all__ = [
     "UNIT_START_PATTERN",
     "UTF8_CONTINUATION_BYTES",
     "UTF8_ENCODING",
+    "WH_CHOICE_PATTERN",
 ]
 
 ALLOW_EXIT_CODE = 0
@@ -142,6 +150,27 @@ REQUEST_OPENER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 ANSWER_OPENER_PATTERN = re.compile(r"^(?:yes|no|nope|yep)(?:[.,;:!]|$)", re.IGNORECASE)
+WH_CHOICE_PATTERN = re.compile(
+    r"^(?:which|what|when|who)\b.*?\b(?:works?\s+(?:best|better)|best|better|preferred|should\s+(?:i|we))\b",
+    re.IGNORECASE,
+)
+TASK_BOX_PATTERN = re.compile(r"^\s*(?:[-*+]|\d{1,3}[.)])\s+\[[ xX]\]\s")
+SCAN_BUDGET_SECONDS = 6
+SYSTEM_MESSAGE_KEY = "systemMessage"
+FILE_PATH_SEPARATOR = ", "
+SCAN_TIMEOUT_MESSAGE = (
+    "sent_file_question_gate could not finish reading {file_paths} within {budget_seconds} s, "
+    "so it did not check them for questions for the user. "
+    "Ask any question through AskUserQuestion (Codex: request_user_input), not inside the file."
+)
+PARTIAL_READ_NOTE = (
+    " The gate read only the first and last 128 KB of {file_path}, which is over 256 KB."
+)
+PARTIAL_READ_MESSAGE = (
+    "sent_file_question_gate read only the first and last 128 KB of {file_paths}, "
+    "which is over 256 KB, and found no question for the user there. "
+    "The middle of the file was not checked."
+)
 OPEN_ASK_PATTERN = re.compile(r"^(?:can|could|may)\s+(?:i|we)\b", re.IGNORECASE)
 RESPONSE_PROMPT_PATTERN = re.compile(
     r"^(?:please\s+)?(?:reply|answer|respond|confirm|choose|pick|select|say|type|tell\s+me|let\s+me\s+know)\b",

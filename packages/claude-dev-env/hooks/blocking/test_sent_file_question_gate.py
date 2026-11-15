@@ -97,11 +97,20 @@ ASKING_FILES = [
         "Decisions needed",
     ),
     ("need_your_input.md", "### Need your input\n\n- Release date\n", "Need your input"),
+    (
+        "which_date.md",
+        "The draft has three dates. What release date works best?\n",
+        "What release date works best?",
+    ),
+    ("lone_check.md", "The run is done.\n\n- Did you run the tests?\n", "Did you run the tests?"),
 ]
 
 CLEAN_FILES = [
     ("faq.md", "## How do I install it?\n\nRun the installer.\n"),
     ("faq_you.md", "Do you need admin rights? Only for the system install.\n"),
+    ("checklist.md", "## Checklist\n\n- Did you run the tests?\n- Did you update the changelog?\n"),
+    ("task_box_check.md", "- [ ] Did you run the tests?\n"),
+    ("which_version.md", "Which Python version works best? Python 3.12.\n"),
     ("troubleshooting.md", "## Troubleshooting\n\nDid you set `HOME`? Set it before the run.\n"),
     ("q_and_a_split.md", "Q: Can you run it offline?\n\nA: Yes.\n"),
     ("heading_question.md", "## Should I pin the version?\n\nPin it in the lock file.\n"),
@@ -412,6 +421,7 @@ def test_should_read_the_start_and_end_of_a_file_over_the_size_limit(
     )
     assert exit_code == 2
     assert quoted_question in reason
+    assert "read only the first and last 128 KB" in reason
 
 
 @pytest.mark.parametrize(
@@ -448,3 +458,60 @@ def test_should_quote_at_most_a_short_line_of_a_long_question(
     assert len(quoted_text) <= 160
     assert quoted_text.startswith("Should I archive the old branch,")
     assert quoted_text.endswith("...")
+
+
+def test_should_say_when_it_read_only_the_start_and_end_of_a_clean_file(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    file_path = written_file(tmp_path, "large.md", "The build passed on every runner.\n" * 20000)
+    hook_input = {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "SendUserFile",
+        "tool_input": {"files": [str(file_path)]},
+        "cwd": str(tmp_path),
+    }
+    monkeypatch.setattr(
+        "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
+    )
+    assert sent_file_question_gate.main() == 0
+    captured = capsys.readouterr()
+    assert captured.err == ""
+    system_message = json.loads(captured.out)["systemMessage"]
+    assert "large.md" in system_message
+    assert "middle of the file was not checked" in system_message
+
+
+def slow_question_for_user(file_text: str, is_html: bool) -> str | None:
+    time.sleep(2)
+    return None
+
+
+def test_findings_within_budget_should_give_up_when_the_read_runs_long(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    written_file(tmp_path, "status.md", "Should I archive the old branches?\n")
+    findings = sent_file_question_gate.findings_within_budget(["status.md"], str(tmp_path), 5)
+    assert findings == [("status.md", "Should I archive the old branches?", False)]
+    monkeypatch.setattr(sent_file_question_gate, "question_for_user", slow_question_for_user)
+    assert sent_file_question_gate.findings_within_budget(["status.md"], str(tmp_path), 0.2) is None
+
+
+def test_should_say_so_when_the_read_runs_past_its_budget(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    written_file(tmp_path, "page.html", "<p>Which option do you prefer?</p>")
+    monkeypatch.setattr(sent_file_question_gate, "question_for_user", slow_question_for_user)
+    monkeypatch.setattr(sent_file_question_gate, "SCAN_BUDGET_SECONDS", 0.2)
+    hook_input = {
+        "hook_event_name": "PreToolUse",
+        "tool_name": "SendUserFile",
+        "tool_input": {"files": ["page.html"]},
+        "cwd": str(tmp_path),
+    }
+    monkeypatch.setattr(
+        "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
+    )
+    assert sent_file_question_gate.main() == 0
+    system_message = json.loads(capsys.readouterr().out)["systemMessage"]
+    assert "could not finish reading page.html within 0.2 s" in system_message
+    assert "AskUserQuestion" in system_message
