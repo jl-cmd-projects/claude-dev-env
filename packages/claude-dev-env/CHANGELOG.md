@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.118.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.5...claude-dev-env-v8.118.0) (2026-11-15)
+
+
+### Features
+
+* **hooks:** refuse procedure step names in the task list ([#2365](https://github.com/jl-cmd-projects/claude-dev-env/issues/2365)) ([7f4fe7a](https://github.com/jl-cmd-projects/claude-dev-env/commit/7f4fe7a61c9601a82565dd156e5dc2547d92dd87))
+
 ## [8.117.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.117.4...claude-dev-env-v8.117.5) (2026-11-14)
 
 
