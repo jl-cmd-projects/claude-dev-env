@@ -16,7 +16,9 @@ from blocking.pr_lifecycle_skill_gate import deny_decision, transcript_paths
 from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 from hooks_constants.resolve_thread_reply_gate_constants import (
-    ALL_REPLY_SCRIPT_HELP_OPTIONS,
+    ALL_REPLY_SCRIPT_FLAG_OPTIONS,
+    ALL_REPLY_SCRIPT_LAUNCHER_NAMES,
+    ALL_REPLY_SCRIPT_VALUE_OPTIONS,
     ALL_REPLY_TOOL_NAME_SUFFIXES,
     ALL_THREAD_ID_INPUT_KEYS,
     COMMENT_ANCHOR_PATTERN,
@@ -24,7 +26,6 @@ from hooks_constants.resolve_thread_reply_gate_constants import (
     MISSING_REPLY_REASON,
     REPLY_SCRIPT_COMMENT_ID_OPTION,
     REPLY_SCRIPT_FILE_NAME,
-    REPLY_SCRIPT_INTERPRETER_PATTERN,
     REPLY_SCRIPT_REQUEST_SUBCOMMAND,
     REPLY_SCRIPT_THREAD_ID_OPTION,
     RESOLVE_TOOL_NAME_PATTERN,
@@ -32,9 +33,10 @@ from hooks_constants.resolve_thread_reply_gate_constants import (
     REVIEW_WRITE_METHOD_KEY,
     REVIEW_WRITE_TOOL_NAME_PATTERN,
     SHELL_COMMAND_KEY,
-    SHELL_CONTROL_CHARACTER_PATTERN,
+    SHELL_OPTION_PREFIX,
     SHELL_OPTION_VALUE_SEPARATOR,
     SHELL_PATH_SEPARATOR,
+    SHELL_UNREADABLE_CHARACTER_PATTERN,
     SHELL_REPLY_COMMAND_PATTERN,
     SHELL_REPLY_COMMENT_ID_PATTERN,
     SHELL_RESOLVE_COMMAND_PATTERN,
@@ -129,35 +131,45 @@ def is_reply_call(tool_call: TranscriptToolCall) -> bool:
     )
 
 
-def _option_value(all_arguments: list[str], option: str) -> str | None:
-    last_value: str | None = None
-    for each_index, each_argument in enumerate(all_arguments):
-        name, separator, attached_value = each_argument.partition(SHELL_OPTION_VALUE_SEPARATOR)
-        if name != option:
-            continue
-        if separator:
-            last_value = attached_value
-        else:
-            last_value = all_arguments[each_index + 1] if each_index + 1 < len(all_arguments) else ""
-    return last_value
+def _is_reply_script_launcher(word: str) -> bool:
+    folder, separator, name = word.rpartition(SHELL_PATH_SEPARATOR)
+    return name in ALL_REPLY_SCRIPT_LAUNCHER_NAMES and (not separator or folder.startswith(SHELL_PATH_SEPARATOR))
 
 
-def _reply_script_arguments(command: str) -> list[str] | None:
-    if SHELL_CONTROL_CHARACTER_PATTERN.search(command) is not None:
+def _reply_script_request_words(command: str) -> list[str] | None:
+    if SHELL_UNREADABLE_CHARACTER_PATTERN.search(command) is not None:
         return None
     try:
         all_words = shlex.split(command)
     except ValueError:
         return None
-    if all_words and REPLY_SCRIPT_INTERPRETER_PATTERN.fullmatch(all_words[0].rpartition(SHELL_PATH_SEPARATOR)[2]):
+    if all_words and _is_reply_script_launcher(all_words[0]):
         all_words = all_words[1:]
     if not all_words or all_words[0].rpartition(SHELL_PATH_SEPARATOR)[2] != REPLY_SCRIPT_FILE_NAME:
         return None
     all_script_words = all_words[1:]
     if not all_script_words or all_script_words[0] != REPLY_SCRIPT_REQUEST_SUBCOMMAND:
         return None
-    all_arguments = all_script_words[1:]
-    return None if any(each_option in all_arguments for each_option in ALL_REPLY_SCRIPT_HELP_OPTIONS) else all_arguments
+    return all_script_words[1:]
+
+
+def _reply_script_option_values(all_request_words: list[str]) -> dict[str, str] | None:
+    value_by_option: dict[str, str] = {}
+    all_pending_words = list(reversed(all_request_words))
+    while all_pending_words:
+        option, separator, attached_value = all_pending_words.pop().partition(SHELL_OPTION_VALUE_SEPARATOR)
+        if option in value_by_option:
+            return None
+        if option in ALL_REPLY_SCRIPT_FLAG_OPTIONS and not separator:
+            value_by_option[option] = ""
+            continue
+        if option not in ALL_REPLY_SCRIPT_VALUE_OPTIONS:
+            return None
+        option_value = attached_value if separator else (all_pending_words.pop() if all_pending_words else "")
+        if not option_value or option_value.startswith(SHELL_OPTION_PREFIX):
+            return None
+        value_by_option[option] = option_value
+    return value_by_option
 
 
 def reply_script_targets(command: str) -> tuple[frozenset[str], frozenset[str]] | None:
@@ -166,32 +178,45 @@ def reply_script_targets(command: str) -> tuple[frozenset[str], frozenset[str]] 
     ::
 
         python ci/review_reply_post.py request --pull 7 --comment-id 9 --thread-id PRRT_a  -> ({"PRRT_a"}, {"9"})
-        review_reply_post.py request --comment-id=9                                        -> ({}, {"9"})
+        /usr/bin/python3 review_reply_post.py request --comment-id=9 --supersede           -> ({}, {"9"})
         python review_reply_post.py request --comment-id 9 || true                         -> None
-        python review_reply_post.py request --comment-id 9 --help                          -> None
-        python review_reply_post.py request --comment-id 9 # PRRT_b                        -> None
+        python review_reply_post.py request --comment-id 9 --he                            -> None
+        python review_reply_post.py request --comment-id 9 --comment 5                     -> None
+        python review_reply_post.py request --comment-id 9 --comment-id 5                  -> None
+        python review_reply_post.py request --comment-id 9 --hel{p,p}                      -> None
+        ./python review_reply_post.py request --comment-id 9                               -> None
+        python -u review_reply_post.py request --comment-id 9                              -> None
         python review_reply_post.py post --request r.json                                  -> None
         echo review_reply_post.py request --comment-id 9                                   -> None
 
-    The command must be one plain call: an optional ``python`` or ``py``
-    launcher, the script, then ``request``. A command with ``;``, ``&``, ``|``,
-    a redirect, a subshell, a substitution, a variable, a ``#`` or a line break is no
-    reply, since its exit code is not the script's own. The ids come only from
-    the script's own ``--comment-id`` and ``--thread-id`` values, the last of
-    each as the script reads them.
+    The command must be one plain call: an optional launcher, the script, then
+    ``request``. The launcher is ``python``, ``python3`` or ``py``, bare or by
+    an absolute path. The script's parser accepts any prefix of an option
+    name, so every word after ``request`` must be an option the gate knows by
+    its full name, each given once, with its value: ``--pull``,
+    ``--comment-id``, ``--thread-id``, ``--body-file``, ``--wait-seconds``, or
+    the bare ``--supersede``. A value that starts with ``-`` is refused. A
+    command that holds ``;``, ``&``, ``|``, a redirect, a subshell, a
+    substitution, a variable, a ``#``, a brace, a glob, ``~``, ``!``, a
+    backslash or a line break is no reply, since the words bash runs, or the
+    exit code it reports, can differ from the text.
 
     Args:
         command: The shell command text.
     """
-    all_arguments = _reply_script_arguments(command)
-    if all_arguments is None:
+    all_request_words = _reply_script_request_words(command)
+    value_by_option = None if all_request_words is None else _reply_script_option_values(all_request_words)
+    if value_by_option is None:
         return None
-    comment_id = _option_value(all_arguments, REPLY_SCRIPT_COMMENT_ID_OPTION)
-    if comment_id is None or not (comment_id.isascii() and comment_id.isdigit()):
+    comment_id = value_by_option.get(REPLY_SCRIPT_COMMENT_ID_OPTION, "")
+    if not (comment_id.isascii() and comment_id.isdigit()):
         return None
-    thread_id = _option_value(all_arguments, REPLY_SCRIPT_THREAD_ID_OPTION)
-    all_thread_ids = frozenset({thread_id}) if thread_id and THREAD_ID_PATTERN.fullmatch(thread_id) else frozenset()
-    return all_thread_ids, frozenset({comment_id})
+    thread_id = value_by_option.get(REPLY_SCRIPT_THREAD_ID_OPTION)
+    if thread_id is None:
+        return frozenset(), frozenset({comment_id})
+    if THREAD_ID_PATTERN.fullmatch(thread_id) is None:
+        return None
+    return frozenset({thread_id}), frozenset({comment_id})
 
 
 def _reply_comment_ids(all_tool_input_fields: dict[str, object]) -> frozenset[str]:

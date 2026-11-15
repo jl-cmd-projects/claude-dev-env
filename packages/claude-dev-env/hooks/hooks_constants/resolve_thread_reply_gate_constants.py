@@ -13,11 +13,19 @@ SHELL_REPLY_COMMAND_PATTERN = re.compile(
 )
 REPLY_SCRIPT_FILE_NAME = "review_reply_post.py"
 REPLY_SCRIPT_REQUEST_SUBCOMMAND = "request"
-REPLY_SCRIPT_INTERPRETER_PATTERN = re.compile(r"(?:python[\d.]*|py)(?:\.exe)?")
+ALL_REPLY_SCRIPT_LAUNCHER_NAMES = ("python", "python3", "py")
 REPLY_SCRIPT_COMMENT_ID_OPTION = "--comment-id"
 REPLY_SCRIPT_THREAD_ID_OPTION = "--thread-id"
-ALL_REPLY_SCRIPT_HELP_OPTIONS = ("-h", "--help")
-SHELL_CONTROL_CHARACTER_PATTERN = re.compile(r"[;&|<>()`$#\n\r]")
+ALL_REPLY_SCRIPT_VALUE_OPTIONS = (
+    "--pull",
+    REPLY_SCRIPT_COMMENT_ID_OPTION,
+    REPLY_SCRIPT_THREAD_ID_OPTION,
+    "--body-file",
+    "--wait-seconds",
+)
+ALL_REPLY_SCRIPT_FLAG_OPTIONS = ("--supersede",)
+SHELL_OPTION_PREFIX = "-"
+SHELL_UNREADABLE_CHARACTER_PATTERN = re.compile(r"[;&|<>()`$#{}*?\[\]~!\\\n\r]")
 SHELL_OPTION_VALUE_SEPARATOR = "="
 SHELL_PATH_SEPARATOR = "/"
 SHELL_RESOLVE_COMMAND_PATTERN = re.compile(r"\bgh\s+api\s+graphql\b.*\bresolveReviewThread\b", re.DOTALL)
@@ -33,7 +41,8 @@ MISSING_REPLY_REASON = (
     "This review thread has no reply on it that posted since the last user prompt and the last"
     " resolve of the thread. Post the reply on this thread with add_reply_to_pull_request_comment,"
     " with gh api graphql addPullRequestReviewThreadReply and the thread's PRRT_ id, or with a"
-    " review_reply_post.py request run as one plain command that names --comment-id and exits 0, confirm its"
+    " review_reply_post.py request run as one plain command (python3, the script, request, then only"
+    " full option names, each once) that exits 0, confirm its"
     " result came back without an error, then resolve the thread by its PRRT_ id or by the comment id the reply answered. A comment id"
     " ties to a thread only through a pull_request_read get_review_comments result in this session."
 )

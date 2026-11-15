@@ -268,6 +268,42 @@ def should_count_a_background_call_only_after_its_notice_reports_exit_code_zero(
     ]
 
 
+def should_read_queued_command_attachments_and_calls_moved_to_the_background() -> None:
+    def _call(tool_use_id: str, tool_input: dict[str, object]) -> str:
+        tool_use = {"type": "tool_use", "id": tool_use_id, "name": "Bash", "input": tool_input}
+        return json.dumps({"type": "assistant", "message": {"content": [tool_use]}})
+
+    def _result(tool_use_id: str, text: str) -> str:
+        tool_result = {"type": "tool_result", "tool_use_id": tool_use_id, "is_error": False, "content": text}
+        return json.dumps({"type": "user", "message": {"content": [tool_result]}})
+
+    def _queued(text: str, origin_kind: str) -> str:
+        attachment = {"type": "queued_command", "prompt": text, "origin": {"kind": origin_kind}}
+        return json.dumps({"type": "attachment", "attachment": attachment})
+
+    def _notice(tool_use_id: str) -> str:
+        return (
+            f"<task-notification><tool-use-id>{tool_use_id}</tool-use-id><status>completed</status>"
+            '<summary>Background command "x" completed (exit code 0)</summary></task-notification>'
+        )
+
+    all_turn_lines = [
+        json.dumps({"type": "user", "message": {"content": "First."}}),
+        _call("flag-text", {"run_in_background": "true"}),
+        _result("flag-text", "Command running in background with ID: b1"),
+        _call("moved", {}),
+        _result("moved", "Command did not complete within its 120s timeout and was moved to the background."),
+        _call("waiting", {"run_in_background": 1}),
+        _result("waiting", "Command running in background with ID: b3"),
+        _call("plain", {}),
+        _result("plain", "done"),
+        _queued(_notice("flag-text"), "task-notification"),
+        _queued(_notice("moved"), "task-notification"),
+    ]
+    assert [each_call.succeeded for each_call in tool_calls_since_last_prompt(all_turn_lines)] == [True, True, False, True]
+    assert tool_calls_since_last_prompt([*all_turn_lines, _queued("Stop.", "human")]) == []
+
+
 NEWEST_FIRST_SKILL_NAMES = ("pr-lifecycle",)
 NEWEST_FIRST_MARKERS = ("<command-name>/pr-lifecycle</command-name>",)
 ALL_GENERATED_LINE_KINDS = (

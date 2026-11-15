@@ -662,9 +662,48 @@ def should_credit_only_the_thread_the_reply_script_names_as_its_own_argument(tmp
     assert _deny_reason(decision) == MISSING_REPLY_REASON
 
 
-def should_read_the_last_comment_id_as_the_reply_script_does() -> None:
-    command = f"python review_reply_post.py request --comment-id {SECOND_COMMENT_ID} --comment-id={FIRST_COMMENT_ID}"
-    assert gate.reply_script_targets(command) == (frozenset(), frozenset({str(FIRST_COMMENT_ID)}))
+def should_not_count_a_reply_script_call_the_parser_can_read_another_way() -> None:
+    plain_call = (
+        f"python3 .github/ci/review_reply_post.py request --pull 7 --comment-id {FIRST_COMMENT_ID}"
+        f" --thread-id {FIRST_THREAD_ID} --body-file reply.md"
+    )
+    assert gate.reply_script_targets(plain_call) == (frozenset({FIRST_THREAD_ID}), frozenset({str(FIRST_COMMENT_ID)}))
+    assert gate.reply_script_targets(plain_call + " --wait-seconds 30 --supersede") is not None
+    assert gate.reply_script_targets("/usr/bin/" + plain_call) is not None
+    all_misread_commands = [
+        f"{plain_call} --he",
+        f"{plain_call} --h",
+        f"{plain_call} --hel",
+        f"{plain_call} --hel{{p,p}}",
+        f"{plain_call} {{--help,--help}}",
+        f"{plain_call} --comment {SECOND_COMMENT_ID}",
+        f"{plain_call} --comment-i={SECOND_COMMENT_ID}",
+        f"{plain_call} --c {SECOND_COMMENT_ID}",
+        f"{plain_call} --thread {SECOND_THREAD_ID}",
+        f"{plain_call} --thread-i={SECOND_THREAD_ID}",
+        f"{plain_call} --comment-id {SECOND_COMMENT_ID}",
+        f"{plain_call} --thread-id={SECOND_THREAD_ID}",
+        f"{plain_call} --supersede --supersede",
+        f"{plain_call} --supersede=1",
+        f"{plain_call} --unknown 1",
+        f"{plain_call} extra",
+        f"{plain_call} --wait-seconds -1",
+        f"{plain_call} --wait-seconds",
+        f"{plain_call} --wait-seconds=",
+        f"{plain_call} --body-file repl?.md",
+        f"{plain_call} --body-file ~/reply.md",
+        f"{plain_call} --body-file reply[1].md",
+        f"{plain_call} --body-file reply\\ one.md",
+        "python3 review_reply_post.py request --pull 7 --thread-id not-a-thread --comment-id 9",
+        f"./{plain_call}",
+        f"bin/{plain_call}",
+        "python3 -u review_reply_post.py request --comment-id 9",
+        "python3.12 review_reply_post.py request --comment-id 9",
+        "uv run review_reply_post.py request --comment-id 9",
+        "~/bin/python3 review_reply_post.py request --comment-id 9",
+    ]
+    for each_command in all_misread_commands:
+        assert gate.reply_script_targets(each_command) is None, each_command
 
 
 def should_not_count_a_reply_script_whose_exit_code_the_command_can_hide() -> None:
@@ -743,3 +782,106 @@ def should_deny_a_resolve_when_a_failed_notice_carries_a_passing_one(tmp_path: P
             ],
         )
         assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON, each_text
+
+
+BACKGROUND_STARTED_TEXT = "Command running in background with ID: b1"
+
+
+def _queued_command(text: str, origin_kind: str, command_mode: str) -> str:
+    return json.dumps(
+        {
+            "parentUuid": "00000000-0000-4000-8000-000000000001",
+            "isSidechain": False,
+            "attachment": {
+                "type": "queued_command",
+                "prompt": text,
+                "source_uuid": "00000000-0000-4000-8000-000000000002",
+                "delivery_id": "00000000-0000-4000-8000-000000000003",
+                "commandMode": command_mode,
+                "origin": {"kind": origin_kind},
+                "timestamp": "2026-01-01T00:00:00.000Z",
+            },
+            "type": "attachment",
+            "uuid": "00000000-0000-4000-8000-000000000004",
+            "timestamp": "2026-01-01T00:00:00.000Z",
+            "rendered": [{"content": text}],
+            "renderedRole": "system",
+        }
+    )
+
+
+def _notice_text(tool_use_id: str, status: str = "completed", exit_code: int = 0) -> str:
+    return (
+        f"<task-notification>\n<task-id>b1</task-id>\n<tool-use-id>{tool_use_id}</tool-use-id>\n"
+        f"<output-file>/tmp/b1.output</output-file>\n<status>{status}</status>\n"
+        f'<summary>Background command "Post the reply" {status} (exit code {exit_code})</summary>\n'
+        "</task-notification>"
+    )
+
+
+def _background_reply(run_in_background: object = True) -> list[str]:
+    return [
+        _call("reply-1", "Bash", {"command": REPLY_SCRIPT_COMMAND, "run_in_background": run_in_background}),
+        _result("reply-1", text=BACKGROUND_STARTED_TEXT),
+    ]
+
+
+def should_allow_a_resolve_after_a_notice_queued_mid_turn_reports_exit_code_zero(tmp_path: Path) -> None:
+    all_lines = [_prompt("Address the review threads."), *_background_reply()]
+    queued_notice = _queued_command(_notice_text("reply-1"), "task-notification", "task-notification")
+    transcript_path = _write_transcript(tmp_path, [*all_lines, queued_notice])
+    assert gate.decision_for(_resolve_payload(transcript_path)) is None
+    for each_notice_text in (
+        _notice_text("reply-1", "failed", 3),
+        _notice_text("another-call"),
+        _notice_text("another-call") + _notice_text("reply-1", "failed", 3),
+    ):
+        queued_notice = _queued_command(each_notice_text, "task-notification", "task-notification")
+        transcript_path = _write_transcript(tmp_path, [*all_lines, queued_notice])
+        assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
+
+
+def should_deny_a_resolve_after_a_prompt_the_user_queued_mid_turn(tmp_path: Path) -> None:
+    all_lines = [_prompt("Address the review threads."), *_threads_read(), _reply("reply-1"), _result("reply-1")]
+    transcript_path = _write_transcript(tmp_path, all_lines)
+    assert gate.decision_for(_resolve_payload(transcript_path)) is None
+    for each_origin_kind in ("human", "peer"):
+        queued_prompt = _queued_command("Stop, leave the threads open.", each_origin_kind, "prompt")
+        transcript_path = _write_transcript(tmp_path, [*all_lines, queued_prompt])
+        assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
+
+
+def should_wait_for_the_notice_whatever_truthy_value_the_background_flag_holds(tmp_path: Path) -> None:
+    for each_flag in ("true", 1):
+        all_lines = [_prompt("Address the review threads."), *_background_reply(each_flag)]
+        transcript_path = _write_transcript(tmp_path, all_lines)
+        assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
+        transcript_path = _write_transcript(tmp_path, [*all_lines, _task_notice("reply-1")])
+        assert gate.decision_for(_resolve_payload(transcript_path)) is None
+
+
+def should_wait_for_the_notice_when_a_result_says_the_call_moved_to_the_background(tmp_path: Path) -> None:
+    for each_result_text in (
+        "Command was manually backgrounded by user with ID: b1",
+        "partial output\nCommand did not complete within its 120s timeout and was moved to the background (ID: b1).",
+    ):
+        all_lines = [
+            _prompt("Address the review threads."),
+            _script_reply("reply-1"),
+            _result("reply-1", text=each_result_text),
+        ]
+        transcript_path = _write_transcript(tmp_path, all_lines)
+        assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
+        transcript_path = _write_transcript(tmp_path, [*all_lines, _raw_notice(_notice_text("reply-1"))])
+        assert gate.decision_for(_resolve_payload(transcript_path)) is None
+
+
+def should_deny_a_resolve_when_a_notice_appends_exit_code_zero_after_a_failure(tmp_path: Path) -> None:
+    appended_text = (
+        "<task-notification>\n<tool-use-id>reply-1</tool-use-id>\n<status>completed</status>\n"
+        '<summary>Background command "d" failed (exit code 3) (exit code 0)</summary>\n</task-notification>'
+    )
+    transcript_path = _write_transcript(
+        tmp_path, [_prompt("Address the review threads."), *_background_reply(), _raw_notice(appended_text)]
+    )
+    assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
