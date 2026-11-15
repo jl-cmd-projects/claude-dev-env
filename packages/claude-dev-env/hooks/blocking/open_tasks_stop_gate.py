@@ -51,6 +51,18 @@ gate checks that a read ran, and leaves which item it read to the agent. Each
 such hold tells the agent to read the live state of every item it shows as
 open, and to end the turn when the wording hands the user no step.
 
+The closing reply also gets two checks of its own, which
+``closing_reply_shapes.py`` describes. The gate holds the turn once::
+
+    block: "A full write-up will be here when you are back."  no typed prompt asked for a report
+    block: "What I deferred:" over 3 or more items             no question tool call this turn
+    allow: the same list after an AskUserQuestion call
+    allow: the same promise after the prompt "report back when the run ends"
+    allow: any reply when the transcript cannot be read
+
+Such a hold ends with "Then send the reworked closing reply and end the
+turn." in place of the line that keeps the reply as it stands.
+
 One reason carries every finding. A turn the gate already held ends on the next
 stop, so the gate costs at most one extra step per turn.
 
@@ -85,6 +97,7 @@ from hooks_constants.stop_hook_hold import hold_stop
 from open_task_asks import claude_home, is_ask
 from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
 from user_step_wording import file_waiting_phrase, waiting_phrase
+from closing_reply_shapes import open_item_list, promised_report_phrase
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALLOW_EXIT_CODE,
     COMPLETED_ITEMS_REASON_TEMPLATE,
@@ -97,6 +110,9 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     INCOMPLETE_STATUSES,
     KEEP_REPLY_INSTRUCTION,
     NO_STEP_INSTRUCTION,
+    OPEN_ITEM_LIST_REASON_TEMPLATE,
+    PROMISED_REPORT_REASON_TEMPLATE,
+    REWORKED_REPLY_INSTRUCTION,
     STOP_HOOK_ACTIVE_KEY,
     TASK_FILE_GLOB,
     TASK_ID_KEY,
@@ -208,6 +224,11 @@ def turn_waiting_phrase(all_hook_input_fields: dict[str, object], replay: Transc
     return next((each_phrase for each_phrase in all_file_phrases if each_phrase is not None), None)
 
 
+def _has_readable_transcript(all_hook_input_fields: dict[str, object]) -> bool:
+    transcript_path = all_hook_input_fields.get(TRANSCRIPT_PATH_KEY)
+    return isinstance(transcript_path, str) and Path(transcript_path).is_file()
+
+
 def user_step_reasons(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> list[str]:
     """Return a reason for each thing a turn skipped before it told the user something waits on them.
 
@@ -220,8 +241,7 @@ def user_step_reasons(all_hook_input_fields: dict[str, object], replay: Transcri
 
     A session whose transcript cannot be read gives no reason.
     """
-    transcript_path = all_hook_input_fields.get(TRANSCRIPT_PATH_KEY)
-    if not isinstance(transcript_path, str) or not Path(transcript_path).is_file():
+    if not _has_readable_transcript(all_hook_input_fields):
         return []
     all_reasons = [
         each_reason
@@ -246,14 +266,46 @@ def tracker_reasons(all_hook_input_fields: dict[str, object], replay: Transcript
     return all_reasons if stale_reason is None else [*all_reasons, stale_reason]
 
 
+def closing_reply_reasons(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> list[str]:
+    """Return a reason for a promised later report and one for open items sent as a list in the closing reply.
+
+    ::
+
+        "A full write-up will be here when you are back."   -> the promised report reason
+        "What I deferred:" over 5 items, no question call    -> the open item list reason
+        the same list after an AskUserQuestion call          -> []
+
+    A session whose transcript cannot be read gives no reason.
+    """
+    reply_text = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
+    if not isinstance(reply_text, str) or not _has_readable_transcript(all_hook_input_fields):
+        return []
+    all_reasons: list[str] = []
+    promise_phrase = promised_report_phrase(reply_text, replay.turn_prompt_text)
+    if promise_phrase is not None:
+        all_reasons.append(PROMISED_REPORT_REASON_TEMPLATE.format(phrase=promise_phrase))
+    item_list = None if replay.has_turn_question_tool else open_item_list(reply_text, replay.turn_prompt_text)
+    if item_list is not None:
+        all_reasons.append(OPEN_ITEM_LIST_REASON_TEMPLATE.format(count=item_list.count, lead=item_list.lead))
+    return all_reasons
+
+
+def _closing_instruction(has_step_reason: bool, has_reply_reason: bool) -> str:
+    if has_reply_reason:
+        return REWORKED_REPLY_INSTRUCTION
+    return NO_STEP_INSTRUCTION if has_step_reason else KEEP_REPLY_INSTRUCTION
+
+
 def turn_block_reason(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> str | None:
     """Return one reason that carries every finding on the turn, or None when the turn may end."""
     all_tracker_reasons = tracker_reasons(all_hook_input_fields, replay)
     all_step_reasons = user_step_reasons(all_hook_input_fields, replay)
-    if not all_tracker_reasons and not all_step_reasons:
+    all_reply_reasons = closing_reply_reasons(all_hook_input_fields, replay)
+    all_findings = [*all_tracker_reasons, *all_step_reasons, *all_reply_reasons]
+    if not all_findings:
         return None
-    all_closing_lines = [NO_STEP_INSTRUCTION] if all_step_reasons else [KEEP_REPLY_INSTRUCTION]
-    return WORD_SEPARATOR.join([*all_tracker_reasons, *all_step_reasons, *all_closing_lines])
+    closing_line = _closing_instruction(bool(all_step_reasons), bool(all_reply_reasons))
+    return WORD_SEPARATOR.join([*all_findings, closing_line])
 
 
 def is_held_stop(all_hook_input_fields: dict[str, object]) -> bool:
