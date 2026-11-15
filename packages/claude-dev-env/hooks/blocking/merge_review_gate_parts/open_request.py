@@ -234,6 +234,7 @@ def _placed_open_calls(placed_create: PlacedCreate, is_gh_repository_set: bool) 
                 branch=each_head,
                 folder=placed_create.folder,
                 is_folder_followed=placed_create.is_folder_followed and is_repository_read,
+                is_prefix_origin_check=prefix_value is not None and repository is None,
             )
         )
         if prefix_value is not None:
