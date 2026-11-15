@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.119.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.118.1...claude-dev-env-v8.119.0) (2026-11-15)
+
+
+### Features
+
+* **hooks:** ask to clear the title's red flag when an event starts a turn ([#2369](https://github.com/jl-cmd-projects/claude-dev-env/issues/2369)) ([e44d401](https://github.com/jl-cmd-projects/claude-dev-env/commit/e44d4012ed0bd677011c27d207175c8b7e6a8fa8))
+
 ## [8.118.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.118.0...claude-dev-env-v8.118.1) (2026-11-15)
 
 
