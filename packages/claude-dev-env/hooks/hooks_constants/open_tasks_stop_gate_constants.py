@@ -190,9 +190,11 @@ ALL_PROMISED_REPORT_PATTERNS = tuple(
 )
 PROMISE_NEGATOR_PATTERN = re.compile(r"\b(?:no|not|never|none|nothing)\b", re.IGNORECASE)
 REPLY_SENTENCE_END_PATTERN = re.compile(r"[.!?\n]")
-REPORT_ASK_PATTERN = re.compile(
-    r"\b(?:report|summary|summari[sz]e|recap|update me|let me know|tell me (?:when|once|how))\b", re.IGNORECASE
+REPORT_VERB_ASK_PATTERN = re.compile(
+    r"\b(?:report back|summari[sz]e|update me|let me know|tell me (?:when|once|how))\b", re.IGNORECASE
 )
+REPORT_NOUN_ASK_PATTERN = re.compile(r"\b(?:report|summary|recap)\b", re.IGNORECASE)
+LATER_TIME_PATTERN = re.compile(r"\b(?:when|once|after|later|tomorrow|then|at the end)\b", re.IGNORECASE)
 LIST_ASK_PATTERN = re.compile(
     r"\blist\s+(?:the|them|all|each|every|what|out)\b"
     r"|\b(?:as|in|into)\s+(?:a\s+)?(?:list|bullets?|table)\b"
@@ -204,7 +206,7 @@ LIST_ASK_PATTERN = re.compile(
 ASK_NEGATOR_PATTERN = re.compile(
     rf"\b(?:no|not|never|none|nothing|without|don{APOSTROPHE_CLASS}t|do not|no need|never mind)\b", re.IGNORECASE
 )
-PROMPT_CLAUSE_SPLIT_PATTERN = re.compile(r"[.!?;,\n]|\bthen\b", re.IGNORECASE)
+PROMPT_CLAUSE_SPLIT_PATTERN = re.compile(r"[.!?;,\n]|(?=\bthen\b)", re.IGNORECASE)
 QUOTED_PROMPT_LINE_PATTERN = re.compile(r"^[ \t]*>.*$", re.MULTILINE)
 BACKTICK_TEXT_PATTERN = re.compile(r"`[^`]*`")
 SPACED_QUOTE_PATTERN = re.compile(r'"[^"]*\s[^"]*"|“[^”]*\s[^”]*”')
@@ -226,6 +228,7 @@ COMPLETION_WORD_PATTERN = re.compile(
     re.IGNORECASE,
 )
 COMPLETION_NEGATOR_GROUP = "negator"
+DONE_LEAD_TAIL_PATTERN = re.compile(r"[\s:*_.]*")
 GOVERNANCE_BREAK_PATTERN = re.compile(
     r"[,;:.!?()—–]|\b(?:and|or|but|while|after|before|besides|except|beyond|plus)\b", re.IGNORECASE
 )

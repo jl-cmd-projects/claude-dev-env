@@ -26,13 +26,16 @@ The lead loses its code spans and its double-quoted text first. It must
 name open work (deferred, sidestepped, remaining, outstanding, still open,
 open items, next steps, follow-ups, to-dos, pending, parked, and the like)
 and hold no no, none, nothing, nobody, or zero. A lead whose every open-work
-word has a completion word in its clause names done work::
+word has a completion word in its clause names done work, and so does a lead
+whose last word is a completion word that is not negated::
 
     flag: Remaining work after the merged fixes:   "after" ends the clause
     flag: What I fixed and what I deferred:         "and" ends the clause
     flag: Follow-ups not yet merged:                a negated completion word
+    flag: Remaining tasks, not done:                a negated last word
     ok:   I fixed the three follow-ups you flagged:
     ok:   All pending checks passed:
+    ok:   Remaining tasks, now done:                the last word is "done"
 
 The completion words are fixed, closed, resolved, removed, passed, passes,
 completed, merged, landed, addressed, finished, cleared, shipped, handled,
@@ -47,14 +50,18 @@ The typed prompt can ask for either shape. Before the ask check, the prompt
 loses its ``<system-reminder>`` blocks, its ``>`` quoted lines, its code
 spans, and any double-quoted text that holds a space. An ask counts unless a
 negator (no, not, never, none, nothing, without, don't, do not, no need,
-never mind) comes before it in its clause; clauses end at ``. ! ? ; ,``, a
-line break, or the word "then". A prompt that opens with a harness envelope,
-such as ``<task-notification>``, never asks::
+never mind) comes before it in its clause; clauses end at ``. ! ? ; ,`` or a
+line break, and a new clause starts at the word "then". A report ask is a verb
+ask (report back, summarize, update me, let me know, tell me when, once, or
+how), or a bare report, summary, or recap in a clause that also names a later
+time (when, once, after, later, tomorrow, then, at the end). A prompt that
+opens with a harness envelope, such as ``<task-notification>``, never asks::
 
     exempts the promise:  "report back when the run ends"
     exempts the promise:  "don't stop until it is merged, then give me a summary"
     exempts the list:     "list the deferred items as bullets"
     no exemption:         "no report needed, just finish"
+    no exemption:         "Fix the report page."
     no exemption:         "no list please, ask me instead"
 """
 
@@ -87,7 +94,9 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_INDENTED_LINE_PREFIXES,
     COMPLETION_NEGATOR_GROUP,
     COMPLETION_WORD_PATTERN,
+    DONE_LEAD_TAIL_PATTERN,
     GOVERNANCE_BREAK_PATTERN,
+    LATER_TIME_PATTERN,
     LEAD_NEGATOR_PATTERN,
     LEAD_QUOTED_TEXT_PATTERN,
     LIST_ASK_PATTERN,
@@ -99,7 +108,8 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     QUOTED_REPLY_LINE_PATTERN,
     REMOVED_PROMPT_TEXT,
     REPLY_SENTENCE_END_PATTERN,
-    REPORT_ASK_PATTERN,
+    REPORT_NOUN_ASK_PATTERN,
+    REPORT_VERB_ASK_PATTERN,
     SPACED_QUOTE_PATTERN,
 )
 from hooks_constants.question_brief_gate_constants import (
@@ -118,7 +128,9 @@ class OpenItemList(NamedTuple):
     count: int
 
 
-def _prompt_asks_for(prompt_text: str, ask_pattern: re.Pattern[str]) -> bool:
+def _prompt_asks_for(
+    prompt_text: str, ask_pattern: re.Pattern[str], clause_pattern: re.Pattern[str] | None = None
+) -> bool:
     stripped_text = prompt_without_reminders(prompt_text)
     if stripped_text.startswith((*ALL_HARNESS_ENVELOPE_MARKERS, *ALL_ASK_ONLY_ENVELOPE_MARKERS)):
         return False
@@ -128,7 +140,14 @@ def _prompt_asks_for(prompt_text: str, ask_pattern: re.Pattern[str]) -> bool:
     return any(
         ASK_NEGATOR_PATTERN.search(each_clause[: each_ask.start()]) is None
         for each_clause in PROMPT_CLAUSE_SPLIT_PATTERN.split(cleaned_text)
+        if clause_pattern is None or clause_pattern.search(each_clause) is not None
         for each_ask in ask_pattern.finditer(each_clause)
+    )
+
+
+def _prompt_asks_for_report(prompt_text: str) -> bool:
+    return _prompt_asks_for(prompt_text, REPORT_VERB_ASK_PATTERN) or _prompt_asks_for(
+        prompt_text, REPORT_NOUN_ASK_PATTERN, LATER_TIME_PATTERN
     )
 
 
@@ -155,7 +174,7 @@ def promised_report_phrase(reply_text: str, prompt_text: str) -> str | None:
     Returns:
         The matched promise, or None when the reply holds none or the prompt asked for a report.
     """
-    if _prompt_asks_for(prompt_text, REPORT_ASK_PATTERN):
+    if _prompt_asks_for_report(prompt_text):
         return None
     all_promises = (
         _unnegated_promise(each_paragraph) for each_paragraph in prose_paragraphs(reply_text)
@@ -244,11 +263,22 @@ def _governs(lead: str, open_match: re.Match[str], completion_match: re.Match[st
     return GOVERNANCE_BREAK_PATTERN.search(lead, gap_start, gap_end) is None
 
 
+def _ends_in_done_word(lead: str, all_completion_matches: list[re.Match[str]]) -> bool:
+    if not all_completion_matches:
+        return False
+    last_completion_match = all_completion_matches[-1]
+    if last_completion_match.group(COMPLETION_NEGATOR_GROUP) is not None:
+        return False
+    return DONE_LEAD_TAIL_PATTERN.fullmatch(lead, last_completion_match.end()) is not None
+
+
 def _is_open_item_lead(lead: str) -> bool:
     unquoted_lead = LEAD_QUOTED_TEXT_PATTERN.sub(REMOVED_PROMPT_TEXT, lead)
     if LEAD_NEGATOR_PATTERN.search(unquoted_lead) is not None:
         return False
     all_completion_matches = list(COMPLETION_WORD_PATTERN.finditer(unquoted_lead))
+    if _ends_in_done_word(unquoted_lead, all_completion_matches):
+        return False
     return any(
         not any(
             _governs(unquoted_lead, each_open_match, each_completion_match)

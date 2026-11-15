@@ -179,6 +179,7 @@ def test_should_pass_a_list_of_finished_work_whose_lead_names_follow_ups(lead: s
         "Unresolved after this round:",
         "Follow-ups not yet merged:",
         "Follow-ups that aren't fixed:",
+        "Remaining tasks, not done:",
     ],
 )
 def test_should_flag_a_list_whose_lead_names_open_work(lead: str) -> None:
@@ -189,3 +190,24 @@ def test_should_flag_a_promise_to_report_once_a_running_agent_finishes() -> None
     reply_text = "The lint job is still running, and I'll report once it finishes."
     prompt_text = "<task-notification>the reuse agent finished</task-notification>"
     assert promised_report_phrase(reply_text, prompt_text) == "I'll report once"
+
+
+@pytest.mark.parametrize(
+    "lead",
+    ["Remaining tasks, now done:", "Open items, all fixed:", "Follow-ups, already merged:", "Pending checks, passed:"],
+)
+def test_should_pass_a_lead_that_ends_in_a_completion_word(lead: str) -> None:
+    assert open_item_list(f"{lead}\n{THREE_BULLETS}", DEFERRED_PROMPT) is None
+
+
+@pytest.mark.parametrize(
+    "prompt_text",
+    [
+        "Fix the report page.",
+        "The summary card is cut off on mobile, fix it",
+        "Fix the report page, then deploy it",
+        "rename the recap table",
+    ],
+)
+def test_should_hold_a_promise_when_the_prompt_names_a_report_as_a_noun(prompt_text: str) -> None:
+    assert promised_report_phrase(PROMISE_REPLY, prompt_text) == "when you get back"
