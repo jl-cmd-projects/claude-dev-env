@@ -153,6 +153,7 @@ import {
     unparsedSettingsMayHoldGate,
 } from './profile-stop-gate.mjs';
 import { pythonExecutableProbeCommand, pythonVersionMeetsFloor } from './python-probe.mjs';
+import { writeFileAtomically } from './write-file-atomically.mjs';
 
 const PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const INSTALL_ROOT_RESOLUTION = resolveInstallRoot({
@@ -538,7 +539,7 @@ function removeRetiredSessionContinuityHooks(hosts = ['claude', 'codex', 'cursor
         const configuration = JSON.parse(configurationText);
         if (removeContinuityHooks(configuration) === 0) continue;
         const indent = hostConfigurationIndent(configurationText);
-        writeFileSync(configurationPath, JSON.stringify(configuration, null, indent) + '\n');
+        writeFileAtomically(configurationPath, JSON.stringify(configuration, null, indent) + '\n');
         changedPaths.push(configurationPath);
         console.log(`  Session continuity: retired hook registrations removed from ${configurationPath}`);
     }
@@ -2097,7 +2098,7 @@ export function pruneRetiredHookEntriesFromSettings(
     );
     if (removedCount === 0) return 0;
     const settingsIndent = hostConfigurationIndent(settingsText);
-    writeFileSync(settingsPath, JSON.stringify(settings, null, settingsIndent) + '\n');
+    writeFileAtomically(settingsPath, JSON.stringify(settings, null, settingsIndent) + '\n');
     return removedCount;
 }
 
@@ -2345,7 +2346,7 @@ function mergeHooksAtPath(
     const groupCount = mergeHooksIntoSettings(
         settings, hooksConfig, pluginRootDir, pythonCommand, realPathOrNull(settingsPath),
     );
-    writeFileSync(settingsPath, JSON.stringify(settings, null, indentation) + '\n');
+    writeFileAtomically(settingsPath, JSON.stringify(settings, null, indentation) + '\n');
     return groupCount;
 }
 
@@ -2512,7 +2513,7 @@ function mergeManagedPermissions() {
         || mergeOutcome.addedCount > 0
         || (!settingsExisted && hasCurrentManagedPermissions);
     if (shouldWriteSettings) {
-        writeFileSync(settingsPath, JSON.stringify(settings, null, 4) + '\n');
+        writeFileAtomically(settingsPath, JSON.stringify(settings, null, 4) + '\n');
     }
     return { ...mergeOutcome, removedCount: pruneOutcome.removedCount };
 }
@@ -2532,7 +2533,7 @@ function mergePackageSettingsDefaults() {
     const settings = loadClaudeSettingsObject(settingsPath);
     const mergeOutcome = mergeMissingSettingsDefaults(settings, settingsDefaults);
     if (mergeOutcome.addedKeys.length > 0) {
-        writeFileSync(settingsPath, JSON.stringify(settings, null, 4) + '\n');
+        writeFileAtomically(settingsPath, JSON.stringify(settings, null, 4) + '\n');
     }
     return mergeOutcome;
 }
@@ -3649,7 +3650,7 @@ function pruneManagedHooksFromHostConfiguration(settingsPath, defaultIndentation
         managedPackageSourceRoots(),
     );
     pruneManagedHooksFromSettings(settings, managedHookRelativePaths);
-    writeFileSync(
+    writeFileAtomically(
         settingsPath,
         JSON.stringify(settings, null, hostConfigurationIndent(settingsText) || defaultIndentation) + '\n',
     );
@@ -3725,7 +3726,7 @@ function executeUninstallPlan(plan, helpers = {}) {
             }
         }
         if (didSettingsChange) {
-            writeFileSync(plan.settingsPath, JSON.stringify(settings, null, 4) + '\n');
+            writeFileAtomically(plan.settingsPath, JSON.stringify(settings, null, 4) + '\n');
         }
     }
     for (const eachChangedPath of removeOpenTasksGateFromProfiles({

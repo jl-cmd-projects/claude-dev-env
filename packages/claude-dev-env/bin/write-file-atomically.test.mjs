@@ -1,0 +1,132 @@
+import { test } from 'node:test';
+import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
+import {
+    chmodSync,
+    lstatSync,
+    mkdirSync,
+    mkdtempSync,
+    readFileSync,
+    readdirSync,
+    readlinkSync,
+    rmSync,
+    statSync,
+    symlinkSync,
+    writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { writeFileAtomically } from './write-file-atomically.mjs';
+
+const FILE_SIZE_LIMIT_COMMAND = 'prlimit';
+const isFileSizeLimitAvailable = spawnSync(FILE_SIZE_LIMIT_COMMAND, ['--version']).status === 0;
+const isPosixPlatform = process.platform !== 'win32';
+const PRIOR_SETTINGS_TEXT = '{\n    "prior": true\n}\n';
+const NEW_SETTINGS_TEXT = `{\n    "next": "${'x'.repeat(4096)}"\n}\n`;
+
+
+function withSandbox(runInSandbox) {
+    const sandboxRoot = mkdtempSync(join(tmpdir(), 'cdev-atomic-write-'));
+    try {
+        runInSandbox(sandboxRoot);
+    } finally {
+        rmSync(sandboxRoot, { recursive: true, force: true });
+    }
+}
+
+
+test('writeFileAtomically should replace an existing file with the complete new text and leave no temporary file', () => {
+    withSandbox((sandboxRoot) => {
+        const settingsPath = join(sandboxRoot, 'settings.json');
+        writeFileSync(settingsPath, PRIOR_SETTINGS_TEXT);
+
+        writeFileAtomically(settingsPath, NEW_SETTINGS_TEXT);
+
+        assert.equal(readFileSync(settingsPath, 'utf8'), NEW_SETTINGS_TEXT);
+        assert.deepEqual(readdirSync(sandboxRoot), ['settings.json']);
+    });
+});
+
+
+test('writeFileAtomically should create a file that does not exist yet', () => {
+    withSandbox((sandboxRoot) => {
+        const settingsPath = join(sandboxRoot, 'settings.json');
+
+        writeFileAtomically(settingsPath, NEW_SETTINGS_TEXT);
+
+        assert.equal(readFileSync(settingsPath, 'utf8'), NEW_SETTINGS_TEXT);
+        assert.deepEqual(readdirSync(sandboxRoot), ['settings.json']);
+    });
+});
+
+
+test(
+    'writeFileAtomically should keep the mode of the file it replaces',
+    { skip: isPosixPlatform ? false : 'Windows keeps no POSIX mode bits' },
+    () => {
+        withSandbox((sandboxRoot) => {
+            const settingsPath = join(sandboxRoot, 'settings.json');
+            writeFileSync(settingsPath, PRIOR_SETTINGS_TEXT);
+            chmodSync(settingsPath, 0o600);
+
+            writeFileAtomically(settingsPath, NEW_SETTINGS_TEXT);
+
+            assert.equal(statSync(settingsPath).mode & 0o777, 0o600);
+        });
+    },
+);
+
+
+test(
+    'writeFileAtomically should write through a linked settings.json and keep the link',
+    { skip: isPosixPlatform ? false : 'creating a file link on Windows needs a privilege the runner may lack' },
+    () => {
+        withSandbox((sandboxRoot) => {
+            const sharedDirectory = join(sandboxRoot, 'shared');
+            const profileDirectory = join(sandboxRoot, 'profile');
+            mkdirSync(sharedDirectory);
+            mkdirSync(profileDirectory);
+            const sharedSettingsPath = join(sharedDirectory, 'settings.json');
+            const linkedSettingsPath = join(profileDirectory, 'settings.json');
+            writeFileSync(sharedSettingsPath, PRIOR_SETTINGS_TEXT);
+            symlinkSync(sharedSettingsPath, linkedSettingsPath);
+
+            writeFileAtomically(linkedSettingsPath, NEW_SETTINGS_TEXT);
+
+            assert.equal(lstatSync(linkedSettingsPath).isSymbolicLink(), true, 'the profile entry is still a link');
+            assert.equal(readlinkSync(linkedSettingsPath), sharedSettingsPath);
+            assert.equal(readFileSync(sharedSettingsPath, 'utf8'), NEW_SETTINGS_TEXT);
+            assert.deepEqual(readdirSync(sharedDirectory), ['settings.json']);
+            assert.deepEqual(readdirSync(profileDirectory), ['settings.json']);
+        });
+    },
+);
+
+
+test(
+    'writeFileAtomically should keep the prior file whole and remove its temporary file when the write fails part way',
+    { skip: isFileSizeLimitAvailable ? false : `${FILE_SIZE_LIMIT_COMMAND} is not on PATH` },
+    () => {
+        withSandbox((sandboxRoot) => {
+            const settingsPath = join(sandboxRoot, 'settings.json');
+            writeFileSync(settingsPath, PRIOR_SETTINGS_TEXT);
+            const writerScriptPath = join(sandboxRoot, 'write.mjs');
+            writeFileSync(writerScriptPath, [
+                `import { writeFileAtomically } from ${JSON.stringify(new URL('./write-file-atomically.mjs', import.meta.url).href)};`,
+                `writeFileAtomically(${JSON.stringify(settingsPath)}, ${JSON.stringify(NEW_SETTINGS_TEXT)});`,
+            ].join('\n'));
+
+            const limitedRun = spawnSync(
+                FILE_SIZE_LIMIT_COMMAND,
+                [`--fsize=${Math.floor(NEW_SETTINGS_TEXT.length / 2)}`, process.execPath, writerScriptPath],
+                { encoding: 'utf8' },
+            );
+
+            assert.notEqual(limitedRun.status, 0, 'the write past the file size limit fails');
+            assert.match(limitedRun.stderr, /EFBIG/);
+            assert.equal(readFileSync(settingsPath, 'utf8'), PRIOR_SETTINGS_TEXT);
+            assert.deepEqual(readdirSync(sandboxRoot).sort(), ['settings.json', 'write.mjs']);
+        });
+    },
+);
