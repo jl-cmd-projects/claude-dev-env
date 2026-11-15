@@ -380,7 +380,9 @@ def _install_outcome(
     try:
         completed = reinstall(registry_version)
     except subprocess.TimeoutExpired:
-        return RefreshOutcome.INSTALL_TIMED_OUT, {}
+        return RefreshOutcome.INSTALL_TIMED_OUT, {
+            "installed_version": _installed_version_text()
+        }
     finally:
         _own_in_progress_record_path().unlink(missing_ok=True)
     if completed is None:
@@ -390,7 +392,8 @@ def _install_outcome(
         return RefreshOutcome.INSTALL_EXITED, {"exit_code": completed.returncode}
     if completed.returncode < 0:
         return RefreshOutcome.INSTALL_SIGNALLED, {
-            "signal_number": -completed.returncode
+            "signal_number": -completed.returncode,
+            "installed_version": _installed_version_text(),
         }
     if read_installed_version() != registry_version:
         return RefreshOutcome.INSTALL_LEFT_OLD_VERSION, {

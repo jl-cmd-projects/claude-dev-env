@@ -565,6 +565,8 @@ def should_tell_the_user_when_the_install_runs_past_the_time_limit(
     assert completed.returncode == 0, completed.stderr
     message = _user_message(completed)
     assert "ran past 1 seconds and was stopped" in message
+    assert "manifest shows 2.9.0" in message
+    assert "booted with" not in message
     assert "npx -y claude-dev-env@2.12.0" in message
     npx_process_id = int((tmp_path / "tool-log.txt.npx-pid").read_text())
     assert _process_is_gone(npx_process_id)
@@ -578,6 +580,8 @@ def should_tell_the_user_when_the_install_ends_on_a_signal(tmp_path: Path) -> No
     environment["FAKE_NPX_SIGNAL"] = "1"
     message = _user_message(_run_hook_process(environment))
     assert "stopped by signal 9" in message
+    assert "manifest shows 2.9.0" in message
+    assert "booted with" not in message
     assert "npx -y claude-dev-env@2.12.0" in message
 
 

@@ -47,11 +47,11 @@ class RefreshOutcome(Enum):
         " from your home directory."
     )
     INSTALL_TIMED_OUT = (
-        "claude-dev-env refresh: {version} did not install, because the"
-        " install ran past {timeout_seconds} seconds and was stopped. This"
-        " session keeps the claude-dev-env it booted with, and the next session"
-        " start tries again. To install it now, run `{install_command}` from"
-        " your home directory."
+        "claude-dev-env refresh: the install of {version} ran past"
+        " {timeout_seconds} seconds and was stopped before it ended, and the"
+        " manifest shows {installed_version}. The next session start tries"
+        " again. To install it now, run `{install_command}` from your home"
+        " directory."
     )
     INSTALL_EXITED = (
         "claude-dev-env refresh: `{install_command}` failed with exit code"
@@ -61,11 +61,10 @@ class RefreshOutcome(Enum):
         " directory."
     )
     INSTALL_SIGNALLED = (
-        "claude-dev-env refresh: {version} did not install, because the"
-        " install was stopped by signal {signal_number}. This session keeps the"
-        " claude-dev-env it booted with, and the next session start tries"
-        " again. To install it now, run `{install_command}` from your home"
-        " directory."
+        "claude-dev-env refresh: the install of {version} was stopped by"
+        " signal {signal_number} before it ended, and the manifest shows"
+        " {installed_version}. The next session start tries again. To install"
+        " it now, run `{install_command}` from your home directory."
     )
     INSTALL_LEFT_OLD_VERSION = (
         "claude-dev-env refresh: `{install_command}` exited 0, but the"
