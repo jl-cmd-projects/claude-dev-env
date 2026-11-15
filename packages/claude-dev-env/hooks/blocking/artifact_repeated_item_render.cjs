@@ -35,30 +35,27 @@ function countDrawnItems([largestIconSide, itemNameLength]) {
     const box = element.getBoundingClientRect();
     return box.width > largestIconSide || box.height > largestIconSide;
   };
-  const timesByKindAndItem = new Map();
-  const countItem = (kind, item) => {
-    const key = `${kind}\n${item}`;
-    timesByKindAndItem.set(key, (timesByKindAndItem.get(key) || 0) + 1);
+  const countsByKind = { image: new Map(), "data-item": new Map() };
+  const countItem = (kind, countKey, item) => {
+    const itemCount = countsByKind[kind].get(countKey) || { kind, item: item.slice(0, itemNameLength), times: 0 };
+    itemCount.times += 1;
+    countsByKind[kind].set(countKey, itemCount);
   };
   for (const image of document.querySelectorAll("img[src]")) {
     const source = image.getAttribute("src").trim();
     if (source && isDrawn(image) && isLargerThanAnIcon(image)) {
-      countItem("image", source);
+      countItem("image", image.src, source);
     }
   }
   for (const element of document.querySelectorAll("[data-item]")) {
     const itemKey = element.getAttribute("data-item").trim();
     if (itemKey && isDrawn(element)) {
-      countItem("data-item", itemKey);
+      countItem("data-item", itemKey, itemKey);
     }
   }
-  const allRepeats = [];
-  for (const [key, times] of timesByKindAndItem) {
-    if (times > 1) {
-      const [kind, item] = key.split("\n");
-      allRepeats.push({ kind, item: item.slice(0, itemNameLength), times });
-    }
-  }
+  const allRepeats = Object.values(countsByKind)
+    .flatMap((itemCounts) => [...itemCounts.values()])
+    .filter((itemCount) => itemCount.times > 1);
   return allRepeats.sort((first, second) => second.times - first.times);
 }
 
@@ -105,7 +102,7 @@ async function main() {
     await page.goto(PAGE_ADDRESS, { waitUntil: "load", timeout: PAGE_LOAD_TIMEOUT_MILLISECONDS }).catch(() => undefined);
     await page.evaluate(loadEveryImage, IMAGE_SETTLE_TIMEOUT_MILLISECONDS).catch(() => undefined);
     const allRepeats = await page.evaluate(countDrawnItems, [LARGEST_ICON_SIDE_IN_PIXELS, ITEM_NAME_LENGTH]);
-    process.stdout.write(JSON.stringify({ repeats: allRepeats }));
+    process.stdout.write(JSON.stringify(allRepeats));
   } finally {
     await browser.close();
   }

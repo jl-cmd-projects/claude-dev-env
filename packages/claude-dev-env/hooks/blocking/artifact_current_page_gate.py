@@ -12,8 +12,8 @@ would send it and refuses both::
     Artifact {"file_path": "page.html", "url": "<link>"}     each item once                 -> allowed, with a note
     Artifact {"action": "read", ...}                         -> allowed
 
-An item is an image larger than an icon, counted by its ``src`` in the
-rendered page, or an element with a ``data-item`` key. The link record is a
+An item is an image larger than an icon, counted by the file its ``src``
+names in the rendered page, or an element with a ``data-item`` key. The link record is a
 ``<meta name="artifact-link">`` tag in the page, or the record file that
 ``session/artifact_link_record.py`` writes beside the page.
 
@@ -40,13 +40,17 @@ from hooks_constants.artifact_current_page_gate_constants import (
     EDIT_NEW_TEXT_KEY,
     EDIT_OLD_TEXT_KEY,
     FULL_RULE_POINTER_TEMPLATE,
-    LINK_META_PATTERN,
+    ARTIFACT_LINK_PATTERN,
+    LINK_META_NAME,
+    LINK_META_SOURCE,
     LINK_RECORD_SUFFIX,
     LINK_RECORD_TITLE_KEY,
     LINK_RECORD_URL_KEY,
+    META_CONTENT_ATTRIBUTE,
+    META_NAME_ATTRIBUTE,
+    META_TAG_PATTERN,
     PAGE_TITLE_PATTERN,
     REPEAT_ITEM_KEY,
-    REPEAT_LIST_KEY,
     REPEAT_RENDERER_MISSING_HEADER,
     REPEAT_RENDERER_SCRIPT_PATH,
     REPEAT_TIMES_KEY,
@@ -55,6 +59,7 @@ from hooks_constants.artifact_current_page_gate_constants import (
     REPEATED_ITEM_RETRY_INSTRUCTION,
     REPUBLISH_NOTE,
     SECOND_LINK_REASON_TEMPLATE,
+    TAG_ATTRIBUTE_PATTERN,
 )
 from hooks_constants.artifact_dark_mode_gate_constants import (
     ALLOW_EXIT_CODE,
@@ -82,32 +87,38 @@ from session.artifact_template_pointer import installed_template_path
 def page_source_after_edits(page_source: str, all_edits: object) -> str:
     """Return the page as the publish sends it, with the call's ``edits`` applied.
 
-    The Artifact tool applies each edit whose ``old_str`` occurs once, in order.
-    An edit that can add a section must be checked too, so the gate applies the
-    same edits before it reads the page.
+    The Artifact tool applies the edits in order, all or none. Each ``old_str``
+    must occur exactly once in the page as it stands. An edit that can add a
+    section must be checked too, so the gate applies the same edits first::
 
-    >>> page_source_after_edits("<p>old</p>", [{"old_str": "old", "new_str": "new"}])
-    '<p>new</p>'
+        [{"old_str": "old", "new_str": "new"}] on "<p>old</p>"        -> "<p>new</p>"
+        one edit whose old_str is missing or occurs twice              -> the page unchanged
+        no edits, or an edit that is not an old_str/new_str pair       -> the page unchanged
+
+    A call with a missed edit publishes nothing, so the unchanged page is the
+    one the gate reads.
 
     Args:
         page_source: The HTML in the page file.
         all_edits: The ``edits`` value of the publish call, or None.
 
     Returns:
-        The page source with each applicable edit applied.
+        The page source with every edit applied, or the page source unchanged.
     """
     if not isinstance(all_edits, list):
         return page_source
+    edited_source = page_source
     for each_edit in all_edits:
         if not isinstance(each_edit, dict):
-            continue
+            return page_source
         old_text = each_edit.get(EDIT_OLD_TEXT_KEY)
         new_text = each_edit.get(EDIT_NEW_TEXT_KEY)
         if not isinstance(old_text, str) or not isinstance(new_text, str):
-            continue
-        if page_source.count(old_text) == 1:
-            page_source = page_source.replace(old_text, new_text)
-    return page_source
+            return page_source
+        if edited_source.count(old_text) != 1:
+            return page_source
+        edited_source = edited_source.replace(old_text, new_text)
+    return edited_source
 
 
 def page_title(page_source: str) -> str:
@@ -149,6 +160,43 @@ def _link_record(record_path: Path) -> dict[str, str]:
     }
 
 
+def _meta_page_link(page_source: str) -> str:
+    for each_meta_tag in META_TAG_PATTERN.findall(page_source):
+        all_attributes = {
+            each_name.lower(): (double_quoted or single_quoted).strip()
+            for each_name, double_quoted, single_quoted in TAG_ATTRIBUTE_PATTERN.findall(
+                each_meta_tag
+            )
+        }
+        meta_link = all_attributes.get(META_CONTENT_ATTRIBUTE, "")
+        if all_attributes.get(
+            META_NAME_ATTRIBUTE, ""
+        ).lower() == LINK_META_NAME and ARTIFACT_LINK_PATTERN.fullmatch(meta_link):
+            return meta_link
+    return ""
+
+
+def _page_link_and_source(page_path: Path, page_source: str) -> tuple[str, str]:
+    meta_link = _meta_page_link(page_source)
+    if meta_link:
+        return meta_link, LINK_META_SOURCE
+    own_record_path = link_record_path(page_path)
+    own_link = _link_record(own_record_path).get(LINK_RECORD_URL_KEY, "")
+    if own_link:
+        return own_link, str(own_record_path)
+    title = page_title(page_source)
+    if not title:
+        return "", ""
+    for each_record_path in sorted(page_path.parent.glob("*" + LINK_RECORD_SUFFIX)):
+        recorded_page_name = each_record_path.name.removesuffix(LINK_RECORD_SUFFIX)
+        if (page_path.parent / recorded_page_name).exists():
+            continue
+        each_record = _link_record(each_record_path)
+        if each_record.get(LINK_RECORD_TITLE_KEY) == title:
+            return each_record.get(LINK_RECORD_URL_KEY, ""), str(each_record_path)
+    return "", ""
+
+
 def recorded_page_link(page_path: Path, page_source: str) -> str:
     """Return the link this page was published at before, or an empty string.
 
@@ -156,9 +204,12 @@ def recorded_page_link(page_path: Path, page_source: str) -> str:
 
         <meta name="artifact-link" content="<link>"> in the page       -> that link
         first-look.html.artifact-link.json beside first-look.html      -> its url
-        any *.artifact-link.json in the same folder with this title    -> its url
+        a record in the same folder with this title, page file gone    -> its url
 
-    The third place catches a copy of the page saved under a new file name.
+    The meta tag counts in either attribute order, and only when its content
+    is an artifact link. The third place catches a page renamed in its folder.
+    A record whose page file is still there belongs to a separate page, even
+    when the two titles match, so it is skipped.
 
     Args:
         page_path: The local page file.
@@ -167,20 +218,7 @@ def recorded_page_link(page_path: Path, page_source: str) -> str:
     Returns:
         The recorded link, or an empty string when the page has none.
     """
-    meta_match = LINK_META_PATTERN.search(page_source)
-    if meta_match:
-        return meta_match.group(1).strip()
-    own_link = _link_record(link_record_path(page_path)).get(LINK_RECORD_URL_KEY, "")
-    if own_link:
-        return own_link
-    title = page_title(page_source)
-    if not title:
-        return ""
-    for each_record_path in sorted(page_path.parent.glob("*" + LINK_RECORD_SUFFIX)):
-        each_record = _link_record(each_record_path)
-        if each_record.get(LINK_RECORD_TITLE_KEY) == title:
-            return each_record.get(LINK_RECORD_URL_KEY, "")
-    return ""
+    return _page_link_and_source(page_path, page_source)[0]
 
 
 def _run_renderer(wrapped_page_path: Path) -> subprocess.CompletedProcess[str] | str:
@@ -217,8 +255,10 @@ def repeated_items(page_source: str) -> tuple[list[dict[str, object]] | None, st
     if completed_render.returncode == RENDERER_MISSING_EXIT_CODE:
         return None, completed_render.stderr.strip()
     try:
-        all_repeats = json.loads(completed_render.stdout)[REPEAT_LIST_KEY]
-    except (ValueError, KeyError, TypeError):
+        all_repeats = json.loads(completed_render.stdout)
+    except ValueError:
+        all_repeats = None
+    if not isinstance(all_repeats, list):
         return None, completed_render.stderr.strip() or "the renderer printed no result"
     return all_repeats, ""
 
@@ -283,12 +323,16 @@ def main() -> int:
     if page_path is None or not page_path.is_file() or not isinstance(tool_input, dict):
         return ALLOW_EXIT_CODE
     page_source = page_source_after_edits(
-        page_path.read_text(encoding="utf-8"), tool_input.get(ARTIFACT_EDITS_INPUT_KEY)
+        page_path.read_text(encoding="utf-8", errors="replace"),
+        tool_input.get(ARTIFACT_EDITS_INPUT_KEY),
     )
     has_link_in_call = bool(tool_input.get(ARTIFACT_URL_INPUT_KEY))
-    recorded_link = recorded_page_link(page_path, page_source)
+    recorded_link, link_source = _page_link_and_source(page_path, page_source)
     if recorded_link and not has_link_in_call:
-        return _block(SECOND_LINK_REASON_TEMPLATE.format(link=recorded_link), page_path)
+        return _block(
+            SECOND_LINK_REASON_TEMPLATE.format(link=recorded_link, link_source=link_source),
+            page_path,
+        )
     all_repeats, renderer_problem = repeated_items(page_source)
     if all_repeats is None:
         return _block(REPEAT_RENDERER_MISSING_HEADER + renderer_problem, page_path)

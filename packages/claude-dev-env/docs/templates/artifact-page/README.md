@@ -24,7 +24,7 @@ Render the page and look at the screenshot before you publish. Headless Chromium
 |---|---|
 | One file | The page, its styles, its script and its data live in one HTML file. It opens with no build step and no companion files. |
 | Data block | The sample data sits in `<script type="application/json" id="tracker-data">`. Swap that block for new data. Escape every `</` inside it as `<\/`. |
-| One entry per item | `items` is an object keyed by item id, so the block cannot hold one item twice. Each card carries its key as `data-item`. An item's status, warnings and links all sit on its one entry. |
+| One entry per item | `items` is an object keyed by item id, so each item has one entry. When two entries share a key, the page keeps the last one and drops the first with no error, so update an item's one entry in place. Each card carries its key as `data-item`. An item's status, warnings and links all sit on its one entry. |
 | Board first | A board of colored lanes shows where every item stands. Each lane chip jumps to its card. |
 | Picture cards | Each item is a card with a status band, a four-step progress track, a next-step line, a folded summary, links and a copy button. |
 | Filters | Two tabs, a project filter row and a search box narrow the list. The tab and the filter persist per viewer through `localStorage`, wrapped in `try`. |

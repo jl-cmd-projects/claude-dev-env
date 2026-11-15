@@ -13,22 +13,25 @@ __all__ = [
     "EDIT_NEW_TEXT_KEY",
     "EDIT_OLD_TEXT_KEY",
     "FULL_RULE_POINTER_TEMPLATE",
-    "LINK_META_PATTERN",
+    "LINK_META_NAME",
+    "LINK_META_SOURCE",
     "LINK_RECORD_SUFFIX",
     "LINK_RECORD_TITLE_KEY",
     "LINK_RECORD_URL_KEY",
+    "META_CONTENT_ATTRIBUTE",
+    "META_NAME_ATTRIBUTE",
+    "META_TAG_PATTERN",
     "PAGE_TITLE_PATTERN",
-    "PUBLISH_RESULT_LINK_KEY",
     "REPEATED_ITEM_HEADER",
     "REPEATED_ITEM_LINE_TEMPLATE",
     "REPEATED_ITEM_RETRY_INSTRUCTION",
     "REPEAT_ITEM_KEY",
-    "REPEAT_LIST_KEY",
     "REPEAT_RENDERER_MISSING_HEADER",
     "REPEAT_RENDERER_SCRIPT_PATH",
     "REPEAT_TIMES_KEY",
     "REPUBLISH_NOTE",
     "SECOND_LINK_REASON_TEMPLATE",
+    "TAG_ATTRIBUTE_PATTERN",
     "TOOL_RESPONSE_KEY",
 ]
 
@@ -37,17 +40,18 @@ ARTIFACT_EDITS_INPUT_KEY = "edits"
 EDIT_OLD_TEXT_KEY = "old_str"
 EDIT_NEW_TEXT_KEY = "new_str"
 TOOL_RESPONSE_KEY = "tool_response"
-PUBLISH_RESULT_LINK_KEY = "url"
 LINK_RECORD_SUFFIX = ".artifact-link.json"
 LINK_RECORD_URL_KEY = "url"
 LINK_RECORD_TITLE_KEY = "title"
-REPEAT_LIST_KEY = "repeats"
 REPEAT_ITEM_KEY = "item"
 REPEAT_TIMES_KEY = "times"
-ARTIFACT_LINK_PATTERN = re.compile(r"https://claude\.ai/(?:code/)?artifact/[A-Za-z0-9-]+")
-LINK_META_PATTERN = re.compile(
-    r"<meta\s+name=[\"']artifact-link[\"']\s+content=[\"']([^\"']+)[\"']", re.IGNORECASE
-)
+ARTIFACT_LINK_PATTERN = re.compile(r"https://claude\.ai/(?:code/)?artifact/[A-Za-z0-9_-]+")
+META_TAG_PATTERN = re.compile(r"<meta\b[^>]*>", re.IGNORECASE)
+TAG_ATTRIBUTE_PATTERN = re.compile(r"""([A-Za-z-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')""")
+META_NAME_ATTRIBUTE = "name"
+META_CONTENT_ATTRIBUTE = "content"
+LINK_META_NAME = "artifact-link"
+LINK_META_SOURCE = "the artifact-link meta tag from the page"
 PAGE_TITLE_PATTERN = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 REPEAT_RENDERER_SCRIPT_PATH = BLOCKING_HOOKS_DIRECTORY / "artifact_repeated_item_render.cjs"
 REPEATED_ITEM_HEADER = "This page draws the same item more than once, so the reader cannot tell which entry is current.\n"
@@ -63,7 +67,8 @@ SECOND_LINK_REASON_TEMPLATE = (
     "This page already has a link: {link}\n"
     "A publish with no url opens a second link, and the reader then holds two copies."
     " Publish again with url set to that link. A separate page gets its own file and its own"
-    " title."
+    " title. When the user asks for a separate copy, or says the page at that link was deleted,"
+    " remove {link_source}, then publish with no url."
 )
 FULL_RULE_POINTER_TEMPLATE = ' The full rule is under "Republish a page" in {path_of_page_readme}.'
 REPEAT_RENDERER_MISSING_HEADER = (

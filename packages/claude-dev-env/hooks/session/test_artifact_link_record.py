@@ -55,18 +55,31 @@ def test_should_find_no_link_in_a_result_that_names_none() -> None:
     assert published_link({}, "The publish was refused.") == ""
 
 
+def test_should_take_a_link_whose_id_holds_an_underscore() -> None:
+    underscore_link = "https://claude.ai/artifact/Ab_12Cd"
+    assert published_link({}, f"Published to {underscore_link}.") == underscore_link
+
+
+def test_should_record_nothing_when_the_result_text_names_two_links() -> None:
+    result_text = f"Copied from https://claude.ai/artifact/SourcePage01 to {PAGE_LINK}."
+    assert published_link({}, result_text) == ""
+    assert published_link({}, f"Published to {PAGE_LINK}. Open {PAGE_LINK}.") == PAGE_LINK
+
+
 def test_should_write_the_link_and_title_beside_the_page(tmp_path: Path) -> None:
     page_path = tmp_path / "first-look.html"
     page_path.write_text(PAGE_SOURCE, encoding="utf-8")
-    assert record_page_link(page_path, PAGE_LINK) is True
+    record_page_link(page_path, PAGE_LINK)
     assert json.loads(link_record_path(page_path).read_text(encoding="utf-8")) == {
         "url": PAGE_LINK,
         "title": "Sample Run",
     }
 
 
-def test_should_report_no_record_for_a_page_that_is_gone(tmp_path: Path) -> None:
-    assert record_page_link(tmp_path / "missing.html", PAGE_LINK) is False
+def test_should_write_no_record_for_a_page_that_is_gone(tmp_path: Path) -> None:
+    missing_page_path = tmp_path / "missing.html"
+    record_page_link(missing_page_path, PAGE_LINK)
+    assert not link_record_path(missing_page_path).exists()
 
 
 def test_should_record_a_first_publish_so_the_gate_finds_its_link(tmp_path: Path) -> None:

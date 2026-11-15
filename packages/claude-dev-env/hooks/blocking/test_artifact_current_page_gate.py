@@ -96,6 +96,11 @@ def test_should_leave_the_page_alone_for_an_ambiguous_or_malformed_edit() -> Non
     assert page_source_after_edits("<p>a</p>", None) == "<p>a</p>"
 
 
+def test_should_apply_no_edit_when_one_edit_of_the_call_misses() -> None:
+    all_edits = [{"old_str": "a", "new_str": "x"}, {"old_str": "missing", "new_str": "y"}]
+    assert page_source_after_edits("<p>a b</p>", all_edits) == "<p>a b</p>"
+
+
 def test_should_read_the_page_title() -> None:
     assert page_title("<title> Sample Run </title><p>x</p>") == "Sample Run"
     assert page_title("<p>no title</p>") == ""
@@ -116,18 +121,37 @@ def test_should_read_the_link_from_the_meta_tag_in_the_page(tmp_path: Path) -> N
     assert recorded_page_link(tmp_path / "page.html", page_source) == PAGE_LINK
 
 
+def test_should_read_the_meta_tag_with_its_attributes_in_either_order(tmp_path: Path) -> None:
+    page_source = f"<meta content='{PAGE_LINK}' name='artifact-link'>" + PAGE_WITH_ONE_SCREEN
+    assert recorded_page_link(tmp_path / "page.html", page_source) == PAGE_LINK
+
+
+def test_should_ignore_a_meta_tag_that_holds_no_artifact_link(tmp_path: Path) -> None:
+    page_source = '<meta name="artifact-link" content="<link>">' + PAGE_WITH_ONE_SCREEN
+    assert recorded_page_link(tmp_path / "page.html", page_source) == ""
+
+
 def test_should_read_the_link_from_the_record_beside_the_page(tmp_path: Path) -> None:
     page_path = tmp_path / "page.html"
     link_record_path(page_path).write_text(json.dumps({"url": PAGE_LINK, "title": "Other"}))
     assert recorded_page_link(page_path, PAGE_WITH_ONE_SCREEN) == PAGE_LINK
 
 
-def test_should_find_the_link_of_a_copy_saved_under_a_new_name(tmp_path: Path) -> None:
+def test_should_find_the_link_of_a_page_renamed_in_its_folder(tmp_path: Path) -> None:
     link_record_path(tmp_path / "page.html").write_text(
         json.dumps({"url": PAGE_LINK, "title": "Sample Run"})
     )
     assert recorded_page_link(tmp_path / "page-v2.html", PAGE_WITH_ONE_SCREEN) == PAGE_LINK
     assert recorded_page_link(tmp_path / "other.html", "<title>Other Page</title>") == ""
+
+
+def test_should_leave_a_separate_page_with_the_same_title_unlinked(tmp_path: Path) -> None:
+    first_page_path = tmp_path / "team-a.html"
+    first_page_path.write_text(PAGE_WITH_ONE_SCREEN, encoding="utf-8")
+    link_record_path(first_page_path).write_text(
+        json.dumps({"url": PAGE_LINK, "title": "Sample Run"})
+    )
+    assert recorded_page_link(tmp_path / "team-b.html", PAGE_WITH_ONE_SCREEN) == ""
 
 
 def test_should_name_each_repeated_item_and_its_count() -> None:
@@ -175,6 +199,17 @@ def test_should_pass_a_small_icon_used_many_times() -> None:
 @needs_renderer
 def test_should_count_an_image_with_no_size_set_as_an_item() -> None:
     page_source = '<img src="screens/home.png" alt="Home"><p>Later</p><img src="screens/home.png" alt="">'
+    all_repeats, _ = repeated_items(page_source)
+    assert all_repeats == [{"kind": "image", "item": "screens/home.png", "times": 2}]
+
+
+@needs_renderer
+def test_should_count_two_spellings_of_one_image_file_as_one_item() -> None:
+    page_source = (
+        ITEM_IMAGE_STYLE
+        + '<img src="screens/home.png" alt="Home">'
+        + '<img src="./screens/home.png" alt="Home again">'
+    )
     all_repeats, _ = repeated_items(page_source)
     assert all_repeats == [{"kind": "image", "item": "screens/home.png", "times": 2}]
 
@@ -251,11 +286,24 @@ def test_should_refuse_a_second_link_and_allow_the_recorded_one(tmp_path: Path) 
     denied_run = _run_gate({"file_path": str(page_path)})
     assert denied_run.returncode == BLOCK_EXIT_CODE
     assert PAGE_LINK in denied_run.stderr
+    assert "When the user asks for a separate copy" in denied_run.stderr
+    assert "page.html.artifact-link.json" in denied_run.stderr
     allowed_run = _run_gate({"file_path": str(page_path), "url": PAGE_LINK})
     assert allowed_run.returncode == ALLOW_EXIT_CODE
     assert (
         REPUBLISH_NOTE in json.loads(allowed_run.stdout)["hookSpecificOutput"]["additionalContext"]
     )
+
+
+@needs_renderer
+def test_should_check_a_page_saved_in_another_text_encoding(tmp_path: Path) -> None:
+    page_path = tmp_path / "page.html"
+    page_path.write_bytes(
+        (PAGE_WITH_ONE_SCREEN + "<p>Caf\u00e9</p>" + SECOND_DRAW_OF_THE_SCREEN).encode("latin-1")
+    )
+    denied_run = _run_gate({"file_path": str(page_path)})
+    assert denied_run.returncode == BLOCK_EXIT_CODE
+    assert "screens/home.png is drawn 2 times" in denied_run.stderr
 
 
 def test_should_allow_reads_assets_and_other_tools(tmp_path: Path) -> None:

@@ -31,7 +31,6 @@ from hooks_constants.artifact_current_page_gate_constants import (
     ARTIFACT_URL_INPUT_KEY,
     LINK_RECORD_TITLE_KEY,
     LINK_RECORD_URL_KEY,
-    PUBLISH_RESULT_LINK_KEY,
     TOOL_RESPONSE_KEY,
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
@@ -47,7 +46,11 @@ def published_link(all_tool_input: dict[str, object], tool_response: object) -> 
         {"url": "https://claude.ai/artifact/abc"}, <any result>    -> https://claude.ai/artifact/abc
         {}, {"url": "https://claude.ai/artifact/xyz", ...}         -> https://claude.ai/artifact/xyz
         {}, "Published to https://claude.ai/artifact/xyz"          -> https://claude.ai/artifact/xyz
+        {}, "Copied from <link a> to <link b>"                     -> ""
         {}, "The publish was refused"                              -> ""
+
+    Result text that names two different links does not say which one is the
+    page, so it gives no link.
 
     Args:
         all_tool_input: The input of the publish call.
@@ -60,35 +63,31 @@ def published_link(all_tool_input: dict[str, object], tool_response: object) -> 
     if isinstance(link_in_call, str) and link_in_call:
         return link_in_call
     if isinstance(tool_response, dict):
-        link_in_result = tool_response.get(PUBLISH_RESULT_LINK_KEY)
+        link_in_result = tool_response.get(ARTIFACT_URL_INPUT_KEY)
         if isinstance(link_in_result, str) and ARTIFACT_LINK_PATTERN.fullmatch(link_in_result):
             return link_in_result
     response_text = (
         tool_response if isinstance(tool_response, str) else json.dumps(tool_response, default=str)
     )
-    link_match = ARTIFACT_LINK_PATTERN.search(response_text)
-    return link_match.group(0) if link_match else ""
+    all_links_in_text = set(ARTIFACT_LINK_PATTERN.findall(response_text))
+    return all_links_in_text.pop() if len(all_links_in_text) == 1 else ""
 
 
-def record_page_link(page_path: Path, link: str) -> bool:
-    """Write the link record beside the page and return whether it was written.
+def record_page_link(page_path: Path, link: str) -> None:
+    """Write the link record beside the page, and skip a page file that cannot be read.
 
     Args:
         page_path: The local page file that was published.
         link: The link the page was published at.
-
-    Returns:
-        True when the record file was written.
     """
     try:
-        title = page_title(page_path.read_text(encoding="utf-8"))
+        title = page_title(page_path.read_text(encoding="utf-8", errors="replace"))
         link_record_path(page_path).write_text(
             json.dumps({LINK_RECORD_URL_KEY: link, LINK_RECORD_TITLE_KEY: title}) + "\n",
             encoding="utf-8",
         )
     except OSError:
-        return False
-    return True
+        return
 
 
 def main() -> int:
