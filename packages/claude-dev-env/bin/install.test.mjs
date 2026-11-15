@@ -3853,6 +3853,31 @@ test('a full install clears a retired session-continuity registration from every
     }
 });
 
+test('should install over an empty settings.json and leave a settings object', t => {
+    const sandbox = pstackPluginSandbox(t);
+    const settingsPath = join(sandbox.homeDirectory, '.claude', 'settings.json');
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(settingsPath, '');
+
+    runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment);
+
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    assert.equal(typeof settings.hooks, 'object');
+});
+
+test('should refuse a settings.json that holds malformed JSON and leave it unchanged', t => {
+    const sandbox = pstackPluginSandbox(t);
+    const settingsPath = join(sandbox.homeDirectory, '.claude', 'settings.json');
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(settingsPath, '{ "hooks": ');
+
+    assert.throws(
+        () => runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment),
+        error => error.status === 1,
+    );
+    assert.equal(readFileSync(settingsPath, 'utf8'), '{ "hooks": ');
+});
+
 function installWithGlobalPrefix(context, globalPrefix) {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-action-needed-'));
     context.after(() => rmSync(homeDirectory, { recursive: true, force: true }));

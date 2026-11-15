@@ -524,7 +524,9 @@ function seedSubagentModelPolicy() {
  * Cursor. The pstack plugin now carries the SessionStart context the companion
  * supplied, so a registration left behind points every session at a deleted
  * script. Every install clears all three hosts; an uninstall passes the two the
- * settings block does not already own.
+ * settings block does not already own. An empty or blank configuration file
+ * holds no registration, so it is left as it is, the way the settings loader
+ * reads an empty settings.json as an empty object.
  *
  * @param {string[]} [hosts] The hosts to clear. Defaults to all three.
  * @returns {string[]} The host configuration paths this run changed.
@@ -536,6 +538,7 @@ function removeRetiredSessionContinuityHooks(hosts = ['claude', 'codex', 'cursor
         const configurationPath = configurationPaths[host];
         if (!existsSync(configurationPath)) continue;
         const configurationText = readFileSync(configurationPath, 'utf8');
+        if (!configurationText.trim()) continue;
         const configuration = JSON.parse(configurationText);
         if (removeContinuityHooks(configuration) === 0) continue;
         const indent = hostConfigurationIndent(configurationText);
