@@ -8,6 +8,9 @@ The refusal hook and the Stop gate both read and write it.
 from __future__ import annotations
 
 __all__ = [
+    "LEDGER_LOCK_FILE_NAME",
+    "LEDGER_LOCK_WAIT_SECONDS",
+    "LEDGER_LOCK_POLL_SECONDS",
     "PLAYBOOK_ENVIRONMENT_VARIABLE",
     "ALL_LEDGER_RELATIVE_PARTS",
     "ENTRY_FILE_SUFFIX",
@@ -72,6 +75,9 @@ SEVERAL_STEPS_QUESTION_TEMPLATE = (
 PLAYBOOK_ROOT_DEPTH = 2
 ALL_RULE_ROOT_MARKER_PATHS = (".git", "setup/add_auto_mode_rule.py")
 TIMESTAMP_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+LEDGER_LOCK_FILE_NAME = ".ledger.lock"
+LEDGER_LOCK_WAIT_SECONDS = 2.0
+LEDGER_LOCK_POLL_SECONDS = 0.01
 
 QUESTION_HOLDS_FIELD = "question_holds"
 RULE_HOLDS_FIELD = "rule_holds"

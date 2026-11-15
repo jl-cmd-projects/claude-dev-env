@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -323,3 +325,74 @@ def test_should_merge_fields_into_entries_and_keep_their_other_fields(tmp_path: 
     assert second_entry.question_holds == 0
     assert second_entry.entry_id == second_id
     assert not (tmp_path / "missing.json").exists()
+
+
+_PARALLEL_REFUSAL_SCRIPT = """
+import sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import auto_mode_refusal_ledger as ledger
+ledger.record_refusal(
+    ledger.RefusedStep(
+        session_id="s1",
+        transcript_path=None,
+        tool_name="Bash",
+        tool_input={"command": sys.argv[2]},
+        working_folder=None,
+        rule_label="Git Destructive",
+        reason="[Git Destructive] force push",
+        action_summary=sys.argv[2],
+    ),
+    Path(sys.argv[3]),
+)
+"""
+
+
+def test_should_give_parallel_refusals_distinct_sequences_and_one_record_with_every_id(
+    tmp_path: Path, scratch_config_directory: Path
+) -> None:
+    repository_root = _rule_repository(tmp_path)
+    hooks_folder = str(Path(ledger.__file__).resolve().parent)
+    all_commands = [f"git push -f origin claude/x{each_index}" for each_index in range(8)]
+    all_processes = [
+        subprocess.Popen(
+            [
+                sys.executable,
+                "-c",
+                _PARALLEL_REFUSAL_SCRIPT,
+                hooks_folder,
+                each_command,
+                str(repository_root),
+            ]
+        )
+        for each_command in all_commands
+    ]
+    assert [each.wait() for each in all_processes] == [0] * 8
+    ledger_directory = ledger.ledger_directory_for("s1")
+    all_entries = ledger.load_entries(ledger_directory)
+    assert sorted(each.sequence for each in all_entries) == list(range(1, 9))
+    all_records = ledger.load_question_records(ledger_directory)
+    five_oldest_ids = tuple(
+        each.entry_id for each in sorted(all_entries, key=lambda each: each.sequence)[:5]
+    )
+    five_step_question = ledger.question_text_for("Bash", "Git Destructive", 5)
+    assert [
+        each.all_entry_ids for each in all_records if each.question == five_step_question
+    ] == [five_oldest_ids]
+
+
+def test_should_clear_a_stale_ledger_lock_after_the_wait(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(ledger, "LEDGER_LOCK_WAIT_SECONDS", 0.05)
+    ledger_directory = tmp_path / "ledger"
+    ledger_directory.mkdir()
+    stale_lock_path = ledger_directory / ".ledger.lock"
+    stale_lock_path.write_text("", encoding="utf-8")
+    with ledger.ledger_lock(ledger_directory):
+        _add(ledger_directory, "git push -f")
+    assert not stale_lock_path.exists()
+    assert _answers(ledger_directory) == [None]
+    with ledger.ledger_lock(ledger_directory):
+        assert stale_lock_path.exists()
+    assert not stale_lock_path.exists()

@@ -16,12 +16,16 @@ record's exact question text and gets ``Allow it`` or ``Keep refusing``. A
 call that asks the card question for the record's tool counts too, when no
 other record of that tool was written at or before the call.
 ``auto_mode_refusal_ledger_files.py`` reads each file into a typed entry or
-record and skips a file that does not parse.
+record and skips a file that does not parse. A refusal writes its entry and
+the question records under ``ledger_lock``, one writer at a time.
 """
 
 from __future__ import annotations
 
 import os
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -47,6 +51,9 @@ from hooks_constants.auto_mode_refusal_ledger_constants import (
     ALL_RULE_ROOT_MARKER_PATHS,
     ALLOWED_ANSWER,
     ANSWER_BY_OPTION_LABEL,
+    LEDGER_LOCK_FILE_NAME,
+    LEDGER_LOCK_POLL_SECONDS,
+    LEDGER_LOCK_WAIT_SECONDS,
     MAXIMUM_STEPS_PER_QUESTION,
     PLAYBOOK_ENVIRONMENT_VARIABLE,
     PLAYBOOK_ROOT_DEPTH,
@@ -393,6 +400,41 @@ def _entry_fields_for(step: RefusedStep, rule_label: str) -> JsonObject:
     }
 
 
+@contextmanager
+def ledger_lock(ledger_directory: Path) -> Iterator[None]:
+    """Hold one session's ledger for a single writer.
+
+    ::
+
+        two refusals from one message, two hook processes
+            -> the second waits, so each entry gets its own sequence and
+               the question record lists both ids
+        a lock file left by a killed process
+            -> the wait ends after LEDGER_LOCK_WAIT_SECONDS, the stale file is
+               removed, and the write goes on
+
+    Args:
+        ledger_directory: One session's ledger folder; it is created when missing.
+    """
+    ledger_directory.mkdir(parents=True, exist_ok=True)
+    lock_path = ledger_directory / LEDGER_LOCK_FILE_NAME
+    wait_deadline = time.monotonic() + LEDGER_LOCK_WAIT_SECONDS
+    is_lock_held = False
+    while not is_lock_held and time.monotonic() < wait_deadline:
+        try:
+            os.close(os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            is_lock_held = True
+        except FileExistsError:
+            time.sleep(LEDGER_LOCK_POLL_SECONDS)
+    if not is_lock_held:
+        lock_path.unlink(missing_ok=True)
+    try:
+        yield
+    finally:
+        if is_lock_held:
+            lock_path.unlink(missing_ok=True)
+
+
 def record_refusal(step: RefusedStep, repository_root: Path) -> str | None:
     """Keep the refusal ledger for one denial and return the question to ask.
 
@@ -425,9 +467,10 @@ def record_refusal(step: RefusedStep, repository_root: Path) -> str | None:
     if is_rule_flow_step(step.tool_name, step.tool_input, step.working_folder, setting):
         return None
     entry_fields = _entry_fields_for(step, step.rule_label)
-    add_entry(ledger_directory, entry_fields)
-    all_groups = question_groups(load_entries(ledger_directory))
-    write_question_records(ledger_directory, all_groups, step.transcript_path)
+    with ledger_lock(ledger_directory):
+        add_entry(ledger_directory, entry_fields)
+        all_groups = question_groups(load_entries(ledger_directory))
+        write_question_records(ledger_directory, all_groups, step.transcript_path)
     return next(
         (
             each_group.question
