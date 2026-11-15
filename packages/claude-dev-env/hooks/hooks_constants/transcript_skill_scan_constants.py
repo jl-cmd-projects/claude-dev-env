@@ -15,8 +15,10 @@ ORIGIN_KIND_FIELD = "kind"
 TASK_NOTIFICATION_ORIGIN_KIND = "task-notification"
 RUN_IN_BACKGROUND_INPUT_KEY = "run_in_background"
 MOVED_TO_BACKGROUND_RESULT_PATTERN = (
-    r"\brunning in (?:the )?background\b|\bmoved to (?:the )?background\b|\bbackgrounded\b"
+    r"(?m)^Command (?:running in background with ID: |was manually backgrounded by user with ID: "
+    r"|did not complete within [^\n]*\bmoved to the background\b)"
 )
+ALL_BACKGROUND_SHELL_TOOL_NAMES = frozenset({"Bash", "PowerShell"})
 ATTACHMENT_ENTRY_TYPE = "attachment"
 ATTACHMENT_FIELD = "attachment"
 QUEUED_COMMAND_ATTACHMENT_TYPE = "queued_command"

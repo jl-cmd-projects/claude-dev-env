@@ -698,7 +698,12 @@ def should_not_count_a_reply_script_call_the_parser_can_read_another_way() -> No
         f"./{plain_call}",
         f"bin/{plain_call}",
         "python3 -u review_reply_post.py request --comment-id 9",
-        "python3.12 review_reply_post.py request --comment-id 9",
+        "py -3 review_reply_post.py request --comment-id 9",
+        ".venv/bin/python review_reply_post.py request --comment-id 9",
+        "python2 review_reply_post.py request --comment-id 9",
+        "python3.12x review_reply_post.py request --comment-id 9",
+        "pythonw.exe review_reply_post.py request --comment-id 9",
+        "python review_reply_post.py request --comment-id 9 --body-file 'reply (1).md'",
         "uv run review_reply_post.py request --comment-id 9",
         "~/bin/python3 review_reply_post.py request --comment-id 9",
     ]
@@ -885,3 +890,52 @@ def should_deny_a_resolve_when_a_notice_appends_exit_code_zero_after_a_failure(t
         tmp_path, [_prompt("Address the review threads."), *_background_reply(), _raw_notice(appended_text)]
     )
     assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
+
+
+def should_read_a_versioned_or_exe_launcher_and_a_bare_script_path() -> None:
+    all_plain_commands = [
+        "python3.12 review_reply_post.py request --comment-id 9",
+        "python.exe review_reply_post.py request --comment-id 9",
+        "py.exe ci/review_reply_post.py request --comment-id 9",
+        "/usr/bin/python3.13 review_reply_post.py request --comment-id 9",
+        "ci/review_reply_post.py request --comment-id 9",
+    ]
+    for each_command in all_plain_commands:
+        assert gate.reply_script_targets(each_command) == (frozenset(), frozenset({"9"})), each_command
+
+
+BACKGROUND_WORDS_IN_A_BODY = (
+    "Command running in background with ID: b1\nThe job is backgrounded and running in the background."
+)
+
+
+def should_count_a_reply_tool_whose_result_quotes_the_background_words(tmp_path: Path) -> None:
+    all_lines = [
+        _prompt("Address the review threads."),
+        *_threads_read(),
+        _reply("reply-1"),
+        _result("reply-1", text=BACKGROUND_WORDS_IN_A_BODY),
+    ]
+    assert gate.decision_for(_resolve_payload(_write_transcript(tmp_path, all_lines))) is None
+
+
+def should_spend_the_reply_when_a_resolve_result_quotes_the_background_words(tmp_path: Path) -> None:
+    all_lines = [
+        _prompt("Address the review threads."),
+        *_threads_read(),
+        _reply("reply-1"),
+        _result("reply-1"),
+        _resolve("resolve-1"),
+        _result("resolve-1", text=BACKGROUND_WORDS_IN_A_BODY),
+    ]
+    transcript_path = _write_transcript(tmp_path, all_lines)
+    assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
+
+
+def should_count_a_shell_reply_whose_output_mentions_the_background_mid_line(tmp_path: Path) -> None:
+    all_lines = [
+        _prompt("Address the review threads."),
+        _script_reply("reply-1"),
+        _result("reply-1", text="posted: the job is backgrounded and running in the background"),
+    ]
+    assert gate.decision_for(_resolve_payload(_write_transcript(tmp_path, all_lines))) is None

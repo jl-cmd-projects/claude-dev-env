@@ -17,6 +17,7 @@ from typing import BinaryIO, NamedTuple
 from hooks_constants.transcript_skill_scan_constants import (
     ALL_LINE_BREAK_BYTES,
     ASSISTANT_ENTRY_TYPE,
+    ALL_BACKGROUND_SHELL_TOOL_NAMES,
     ATTACHMENT_ENTRY_TYPE,
     ATTACHMENT_FIELD,
     CARRIAGE_RETURN_BYTE,
@@ -631,7 +632,8 @@ def tool_calls_since_last_prompt(all_transcript_lines: Iterable[str]) -> list[Tr
         background call, started                          -> [call failed]
         background call, notice of exit code 0            -> [call succeeded]
         background call, notice of exit code 3            -> [call failed]
-        call whose result says it left the foreground     -> [call failed] until its notice
+        shell call whose result is the harness's own line -> [call failed] until its notice
+        any other call whose result holds those words     -> [call succeeded]
 
     A hook that denies a call leaves an errored result, so a denied call does
     not count as a success. A tool result leaves the turn open. A background
@@ -639,8 +641,12 @@ def tool_calls_since_last_prompt(all_transcript_lines: Iterable[str]) -> list[Tr
     is a user entry or a queued command attachment. Any other queued command
     attachment, such as a prompt the user sent mid-turn, ends the turn as a
     user prompt does. A call runs in the background when its
-    ``run_in_background`` input is truthy or its result says the command is
-    running in the background, or that the harness put it there. Such a call succeeds only
+    ``run_in_background`` input is truthy, or when it is a ``Bash`` or
+    ``PowerShell`` call whose result holds a line the harness writes for a
+    command in the background, starting ``Command running in background with
+    ID:``, ``Command was manually backgrounded by user with ID:`` or ``Command
+    did not complete within``. The same words in the result of any other tool,
+    or elsewhere in a line, change nothing. Such a call succeeds only
     when the notice that names its tool use id reports a completed status
     with exit code 0.
 
@@ -672,7 +678,10 @@ def tool_calls_since_last_prompt(all_transcript_lines: Iterable[str]) -> list[Tr
             and each_id in all_succeeded_ids
             and (
                 each_id in all_finished_background_ids
-                or not (each_input.get(RUN_IN_BACKGROUND_INPUT_KEY) or each_id in all_moved_to_background_ids)
+                or not (
+                    each_input.get(RUN_IN_BACKGROUND_INPUT_KEY)
+                    or (each_name in ALL_BACKGROUND_SHELL_TOOL_NAMES and each_id in all_moved_to_background_ids)
+                )
             ),
         )
         for each_id, each_name, each_input in all_calls

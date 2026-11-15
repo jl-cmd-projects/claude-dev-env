@@ -17,9 +17,9 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import SHELL_TOOL_NAMES
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 from hooks_constants.resolve_thread_reply_gate_constants import (
     ALL_REPLY_SCRIPT_FLAG_OPTIONS,
-    ALL_REPLY_SCRIPT_LAUNCHER_NAMES,
     ALL_REPLY_SCRIPT_VALUE_OPTIONS,
     ALL_REPLY_TOOL_NAME_SUFFIXES,
+    REPLY_SCRIPT_LAUNCHER_NAME_PATTERN,
     ALL_THREAD_ID_INPUT_KEYS,
     COMMENT_ANCHOR_PATTERN,
     COMMENT_ID_INPUT_KEY,
@@ -133,7 +133,9 @@ def is_reply_call(tool_call: TranscriptToolCall) -> bool:
 
 def _is_reply_script_launcher(word: str) -> bool:
     folder, separator, name = word.rpartition(SHELL_PATH_SEPARATOR)
-    return name in ALL_REPLY_SCRIPT_LAUNCHER_NAMES and (not separator or folder.startswith(SHELL_PATH_SEPARATOR))
+    return REPLY_SCRIPT_LAUNCHER_NAME_PATTERN.fullmatch(name) is not None and (
+        not separator or folder.startswith(SHELL_PATH_SEPARATOR)
+    )
 
 
 def _reply_script_request_words(command: str) -> list[str] | None:
@@ -190,8 +192,8 @@ def reply_script_targets(command: str) -> tuple[frozenset[str], frozenset[str]] 
         echo review_reply_post.py request --comment-id 9                                   -> None
 
     The command must be one plain call: an optional launcher, the script, then
-    ``request``. The launcher is ``python``, ``python3`` or ``py``, bare or by
-    an absolute path. The script's parser accepts any prefix of an option
+    ``request``. The launcher is ``python``, ``python3``, ``python3.<n>`` or
+    ``py``, with or without ``.exe``, bare or by an absolute path. The script's parser accepts any prefix of an option
     name, so every word after ``request`` must be an option the gate knows by
     its full name, each given once, with its value: ``--pull``,
     ``--comment-id``, ``--thread-id``, ``--body-file``, ``--wait-seconds``, or

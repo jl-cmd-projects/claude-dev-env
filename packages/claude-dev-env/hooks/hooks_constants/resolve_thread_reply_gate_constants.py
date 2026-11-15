@@ -13,7 +13,7 @@ SHELL_REPLY_COMMAND_PATTERN = re.compile(
 )
 REPLY_SCRIPT_FILE_NAME = "review_reply_post.py"
 REPLY_SCRIPT_REQUEST_SUBCOMMAND = "request"
-ALL_REPLY_SCRIPT_LAUNCHER_NAMES = ("python", "python3", "py")
+REPLY_SCRIPT_LAUNCHER_NAME_PATTERN = re.compile(r"(?:python(?:3(?:\.\d+)?)?|py)(?:\.exe)?")
 REPLY_SCRIPT_COMMENT_ID_OPTION = "--comment-id"
 REPLY_SCRIPT_THREAD_ID_OPTION = "--thread-id"
 ALL_REPLY_SCRIPT_VALUE_OPTIONS = (
