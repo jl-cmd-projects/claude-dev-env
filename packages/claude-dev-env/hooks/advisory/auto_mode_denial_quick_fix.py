@@ -20,13 +20,16 @@ single-quoted literal.
 When ``CLAUDE_AUTO_MODE_RULE_PLAYBOOK`` names an existing file, the hook also
 keeps the refusal ledger::
 
-    labelled refusal  -> one ledger entry per distinct step, the group's
-                         question record, and the exact question appended
-                         to the agent's context
-    anything else     -> today's output and no ledger file
+    labelled refusal    -> one ledger entry per distinct step, the group's
+                           question record, and the exact question appended
+                           to the agent's context
+    unexplained danger  -> the same, under the rule label ``Unexplained``
+    anything else       -> today's output and no ledger file
 
-It first reads the user's answers from ``transcript_path``. It writes no
-entry for a reason with no rule label, or for one of the rule flow's own
+An unexplained danger reason starts ``The server-side auto mode classifier
+judged this action dangerous``. It first reads the user's answers from
+``transcript_path``. It writes no entry for any other reason with no rule
+label, or for one of the rule flow's own
 steps, which ``auto_mode_rule_steps.py`` names: a Bash command that runs
 ``setup/add_auto_mode_rule.py``, or, once the session holds an allowed entry,
 a Bash ``git commit`` or ``git push`` of a ``claude/auto-mode-rule-`` branch
@@ -70,6 +73,8 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     SENTENCE_END_PATTERN,
     SUMMARY_WORD_SEPARATOR,
     TRUNCATION_MARKER,
+    UNEXPLAINED_RULE_LABEL,
+    UNEXPLAINED_VERDICT_REASON_PREFIX,
     UNLABELLED_RULE_WORDING_COMMAND,
     UNLABELLED_RULE_WORDING_LINE_TEMPLATE,
     UNNAMED_RULE_LABEL,
@@ -118,12 +123,15 @@ def parse_denial_reason(reason: str) -> DenialReason:
         "the command cancels runs."         -> no label, verdict
         "Classifier unavailable"            -> no label, no verdict
         "Reason: [Git Destructive] force"   -> label "Git Destructive", verdict
+        "The server-side auto mode classifier judged this action dangerous
+         (it gave no explanation)"          -> label "Unexplained", verdict
 
     A leading ``Reason:``, and the classifier sentence ``Permission for this
     action was denied by the Claude Code auto mode classifier.`` before it,
-    are dropped first. A bracketed label counts only at the start of the
-    remaining text. A bare label is
-    two or more capitalised words that end at a comma, colon, semicolon,
+    are dropped first. A reason that starts ``The server-side auto mode
+    classifier judged this action dangerous`` gets the label ``Unexplained``,
+    and the whole text is the prose. A bracketed label counts only at the
+    start of the remaining text. A bare label is two or more capitalised words that end at a comma, colon, semicolon,
     period, spaced dash, or the end of the text. A label keeps only ASCII
     letters, digits, spaces, ``-``, ``_`` and ``/``, with whitespace
     collapsed. A label left with none of them is no label, and the whole
@@ -140,6 +148,10 @@ def parse_denial_reason(reason: str) -> DenialReason:
     stripped_reason = re.sub(CLASSIFIER_REASON_PREFIX_PATTERN, "", reason, count=1).strip()
     if not stripped_reason or stripped_reason.lower().startswith(ALL_NO_VERDICT_REASON_PREFIXES):
         return DenialReason(rule_label=None, has_verdict=False, prose=stripped_reason)
+    if stripped_reason.lower().startswith(UNEXPLAINED_VERDICT_REASON_PREFIX):
+        return DenialReason(
+            rule_label=UNEXPLAINED_RULE_LABEL, has_verdict=True, prose=stripped_reason
+        )
     for each_label_pattern in (BRACKETED_LABEL_PATTERN, BARE_LABEL_PATTERN):
         label_match = re.match(each_label_pattern, stripped_reason, re.DOTALL)
         safe_label = _safe_rule_label(label_match.group("label")) if label_match else ""
@@ -240,12 +252,13 @@ def rule_wording_command_for(rule_label: str | None) -> str:
 
 
 def _rule_wording_line_for(rule_label: str | None) -> str:
+    named_rule_label = None if rule_label == UNEXPLAINED_RULE_LABEL else rule_label
     line_template = (
         UNLABELLED_RULE_WORDING_LINE_TEMPLATE
-        if rule_label is None
+        if named_rule_label is None
         else LABELLED_RULE_WORDING_LINE_TEMPLATE
     )
-    return line_template.format(command=rule_wording_command_for(rule_label))
+    return line_template.format(command=rule_wording_command_for(named_rule_label))
 
 
 def _verdict_context_text(

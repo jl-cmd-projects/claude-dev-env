@@ -1206,6 +1206,72 @@
       ]
     },
     {
+      "id": "R36",
+      "kind": "should act",
+      "source": "added from the live run",
+      "summary": "A server-side refusal that judged the action dangerous with no explanation: one Unexplained entry, the Stop gate holds with its question, and Allow it leads to a rule hold.",
+      "events": [
+        {
+          "refusal": {
+            "tool_name": "Bash",
+            "tool_input": {
+              "command": "python3 -c \"open(\\\"marker.txt\\\",\\\"w\\\").write(\\\"AUTOMODE_PROOF_MARKER_7Q\\\")\" && cat marker.txt",
+              "description": "Run a step"
+            },
+            "reason": "The server-side auto mode classifier judged this action dangerous (it gave no explanation)"
+          },
+          "name": "a",
+          "expect": {
+            "creates_entry": true,
+            "entry_count": 1,
+            "answers": {
+              "a": null
+            },
+            "context_contains": [
+              "=== AUTO MODE DENIAL QUICK FIX ===",
+              "```powershell",
+              "Auto mode refused 1 Bash step under the Unexplained rule. Should auto mode have refused it?"
+            ]
+          }
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "Auto mode refused 1 Bash step under the Unexplained rule. Should auto mode have refused it?",
+              "Auto mode",
+              "Keep refusing",
+              "Allow it",
+              "AUTOMODE_PROOF_MARKER_7Q"
+            ]
+          }
+        },
+        {
+          "transcript": "ask",
+          "questions": [
+            {
+              "question": "Auto mode refused 1 Bash step under the Unexplained rule. Should auto mode have refused it?",
+              "answer": "Allow it"
+            }
+          ]
+        },
+        {
+          "stop": {},
+          "expect": {
+            "held": true,
+            "reason_contains": [
+              "@@playbook@@",
+              "@@ledger:a@@"
+            ],
+            "answers": {
+              "a": "allowed"
+            }
+          }
+        }
+      ]
+    },
+    {
       "id": "Q1",
       "kind": "should act",
       "source": "eval inputs",

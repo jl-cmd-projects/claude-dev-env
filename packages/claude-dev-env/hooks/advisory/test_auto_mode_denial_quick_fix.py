@@ -216,6 +216,47 @@ def test_should_append_the_question_only_when_the_flow_is_on(
     assert "Auto mode refused 1 Bash step under the Git Destructive rule." in context_text
 
 
+UNEXPLAINED_DANGER_REASON = (
+    "The server-side auto mode classifier judged this action dangerous (it gave no explanation)"
+)
+
+
+def test_should_parse_an_unexplained_danger_reason_as_the_unexplained_rule() -> None:
+    assert auto_mode_denial_quick_fix.parse_denial_reason(UNEXPLAINED_DANGER_REASON) == (
+        auto_mode_denial_quick_fix.DenialReason(
+            rule_label="Unexplained", has_verdict=True, prose=UNEXPLAINED_DANGER_REASON
+        )
+    )
+
+
+def test_should_parse_a_timed_out_server_reason_with_no_label() -> None:
+    timed_out_reason = "The server-side auto mode classifier gave no verdict (timed out)"
+    assert auto_mode_denial_quick_fix.parse_denial_reason(timed_out_reason).rule_label is None
+
+
+def test_should_record_an_unexplained_refusal_and_ask_its_question(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scratch_config_directory: Path
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    context_text = auto_mode_denial_quick_fix.hook_output_with_ledger(
+        _ledger_payload(tmp_path, reason=UNEXPLAINED_DANGER_REASON)
+    )["hookSpecificOutput"]["additionalContext"]
+    assert (
+        "Auto mode refused 1 Bash step under the Unexplained rule. "
+        "Should auto mode have refused it?"
+    ) in context_text
+    assert "Unexplained exception: Bash calls like `git push -f origin claude/x`" in context_text
+    assert "Find the matching rule with: claude auto-mode defaults" in context_text
+    assert "--label" not in context_text
+    ledger_directory = scratch_config_directory / "state" / "auto-mode-refusals" / "session-1"
+    all_entry_files = [
+        each_path
+        for each_path in ledger_directory.glob("*.json")
+        if not each_path.name.startswith("question-")
+    ]
+    assert len(all_entry_files) == 1
+
+
 def test_should_parse_a_missing_reason_as_no_verdict() -> None:
     assert auto_mode_denial_quick_fix.parse_denial_reason("") == (
         auto_mode_denial_quick_fix.DenialReason(rule_label=None, has_verdict=False, prose="")

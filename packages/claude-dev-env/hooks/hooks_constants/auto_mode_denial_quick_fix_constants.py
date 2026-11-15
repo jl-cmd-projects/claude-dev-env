@@ -11,6 +11,8 @@ from __future__ import annotations
 __all__ = [
     "HOOK_EVENT_NAME",
     "ALL_NO_VERDICT_REASON_PREFIXES",
+    "UNEXPLAINED_VERDICT_REASON_PREFIX",
+    "UNEXPLAINED_RULE_LABEL",
     "BRACKETED_LABEL_PATTERN",
     "BARE_LABEL_PATTERN",
     "SENTENCE_END_PATTERN",
@@ -42,6 +44,8 @@ ALL_NO_VERDICT_REASON_PREFIXES = (
     "auto mode could not evaluate this action",
     "classifier unavailable",
 )
+UNEXPLAINED_VERDICT_REASON_PREFIX = "the server-side auto mode classifier judged this action dangerous"
+UNEXPLAINED_RULE_LABEL = "Unexplained"
 BRACKETED_LABEL_PATTERN = r"^\s*\[(?P<label>[^\]]+)\]\s*(?P<prose>.*)$"
 BARE_LABEL_PATTERN = (
     r"^\s*(?P<label>[A-Z][\w-]*(?:\s+[A-Z][\w-]*)+)\s*(?:[,:;.]|\s-\s|$)\s*(?P<prose>.*)$"
