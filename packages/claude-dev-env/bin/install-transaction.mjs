@@ -20,6 +20,7 @@ import {
     lstatSync,
     mkdirSync,
     mkdtempSync,
+    readFileSync,
     readdirSync,
     readlinkSync,
     rmdirSync,
@@ -31,6 +32,7 @@ import {
 import { dirname, join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { ADDITIONAL_SETTINGS_BLOB_PREFIX } from './install-constants.mjs';
+import { writeFileAtomically } from './write-file-atomically.mjs';
 
 /** Env var that forces a throw after a named mutation phase (tests only). */
 export const INSTALL_FAULT_ENV = 'CLAUDE_DEV_ENV_INSTALL_FAULT';
@@ -341,7 +343,7 @@ export function restorePriorInstallSnapshot(snapshot, options = {}) {
     for (const eachSnapshot of settingsSnapshots) {
         if (eachSnapshot.existed) {
             mkdir(dirname(eachSnapshot.path), { recursive: true });
-            copyFile(join(snapshot.journalRoot, eachSnapshot.blobName), eachSnapshot.path);
+            writeFileAtomically(eachSnapshot.path, readFileSync(join(snapshot.journalRoot, eachSnapshot.blobName)));
         } else if (exists(eachSnapshot.path)) {
             try {
                 unlink(eachSnapshot.path);

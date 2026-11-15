@@ -37,7 +37,11 @@ The repo-committed SessionStart hook `.claude/hooks/session_start_refresh.py`
 closes that gap for sessions on this repository: at cloud session start it
 compares the installed manifest version against the npm registry and
 reinstalls on a difference. A matching version costs one `npm view` call,
-about a second; a reinstall runs once per release. The full mechanism — the
+about a second; a reinstall runs once per release. A start that cannot show
+the current version installed, such as a failed version lookup, a missing
+`npx`, an install that fails or runs past its time limit, or an earlier start
+whose hook was stopped mid-install, prints one line that says what happened
+and the command to run by hand. The full mechanism — the
 `CLAUDE_CONFIG_DIR` override, the fail-open guarantee, the home-directory
 rule — lives in the hook's module docstring.
 
