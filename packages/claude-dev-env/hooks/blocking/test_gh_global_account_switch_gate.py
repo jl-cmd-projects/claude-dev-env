@@ -45,6 +45,10 @@ def test_global_account_change_is_detected(command: str) -> None:
     assert gate.changes_global_gh_account(command) is True
 
 
+def test_should_detect_an_account_switch_behind_a_launcher_and_env_unset() -> None:
+    assert gate.changes_global_gh_account("time -p env -u FOO gh auth switch --user account-b") is True
+
+
 @pytest.mark.parametrize(
     "command",
     [

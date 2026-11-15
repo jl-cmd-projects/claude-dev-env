@@ -49,6 +49,8 @@ from hooks_constants.shell_command_pipeline import (
     segments_with_following_operator,
 )
 from hooks_constants.shell_command_segments import (
+    ALL_LAUNCHER_WRAPPER_COMMANDS,
+    LAUNCHER_DURATION_PATTERN,
     LEADING_ASSIGNMENT_PATTERN,
     effective_leading_program,
     token_basename,
@@ -186,20 +188,33 @@ def _wrapper_basename(token: str) -> str:
 def _wrapper_program_index(all_segment_tokens: list[str]) -> int | None:
     """Return the index of the program a wrapper step reads.
 
-    A wrapper with its own option grammar is read where it stands, so the
-    ``-u HOME`` behind ``env`` stays an option. Any other leading program is
-    found past assignments and plain launchers such as ``time`` and ``nohup``.
+    ::
+
+        nohup env -u HOME gh pr       the index of env
+        nice -n 5 stdbuf -o0 gh pr    the index of gh
+
+    Assignments and plain launchers such as ``time``, ``nohup`` and
+    ``nice -n 5`` are stepped past with their options. A wrapper with its
+    own option grammar is read where it stands, so the ``-u HOME`` behind
+    ``env`` stays an option.
     """
+    has_seen_launcher = False
     for each_index, each_token in enumerate(all_segment_tokens):
         if LEADING_ASSIGNMENT_PATTERN.match(each_token) is not None:
             continue
-        if _wrapper_basename(each_token) in ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME:
+        program_basename = _wrapper_basename(each_token)
+        if program_basename in ALL_WRAPPER_OPTION_GRAMMARS_BY_NAME:
             return each_index
-        break
-    leading_program = effective_leading_program(all_segment_tokens)
-    if leading_program is None:
-        return None
-    return all_segment_tokens.index(leading_program)
+        if program_basename in ALL_LAUNCHER_WRAPPER_COMMANDS:
+            has_seen_launcher = True
+            continue
+        is_launcher_option = each_token.startswith(SHORT_OPTION_PREFIX) or (
+            LAUNCHER_DURATION_PATTERN.match(each_token) is not None
+        )
+        if has_seen_launcher and is_launcher_option:
+            continue
+        return each_index
+    return None
 
 
 def _all_tokens_after_one_wrapper(all_segment_tokens: list[str]) -> list[str] | None:

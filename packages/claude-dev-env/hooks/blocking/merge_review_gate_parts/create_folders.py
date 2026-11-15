@@ -128,7 +128,9 @@ def all_placed_creates(command: str, folder: str | None) -> list[PlacedCreate]:
     are read for a wrapper too. A text whose quotes do not close is read as
     written and with its quoted line breaks joined, each in POSIX and raw
     words. ``wrapped_creates.unplaced_creates`` gives each create the
-    walk did not place, and it comes back unfollowed.
+    walk did not place, and it comes back unfollowed. Two creates with the
+    same options stay two creates when their command words differ, so a
+    ``GH_REPO=`` prefix on one of them is kept.
 
     Args:
         command: The shell command text.
@@ -142,7 +144,9 @@ def all_placed_creates(command: str, folder: str | None) -> list[PlacedCreate]:
         PlacedCreate(each_arguments, None, False, each_words)
         for each_arguments, each_words in unplaced_creates(command, all_placed_arguments)
     )
-    return list(dict.fromkeys(all_creates))
+    return list(
+        {(each_create, each_create.all_command_words): each_create for each_create in all_creates}.values()
+    )
 
 
 def _walk_text(walk: _Walk, text: str, state: FolderState, depth: int) -> FolderState:
