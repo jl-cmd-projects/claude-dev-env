@@ -9,15 +9,17 @@ keeps, and the session transcript::
     pending entry, not asked, held under 2 times     -> question hold, 4 groups at most
     allowed entry, no add call names it, held under 2 times -> rule hold
     none left                                        -> turn ends, no output
-    any ledger or transcript error                   -> turn ends, no output
+    a transcript it cannot read                      -> no calls seen, holds as above
+    any other error                                  -> turn ends, no output
     reader closed stdout before the hold             -> exit 0, the hold text is dropped
 
 An entry counts as asked once an answered ``AskUserQuestion`` call at or after
 a question record's ``transcript_offset`` asks that record's exact text, with
 any answer, or once a decision card call claims it. A card call that did not
 fail and carries the card question ``Should auto mode have refused this <tool>
-step?`` claims the oldest pending, unasked group of that tool, and within it
-the entries with a question record at or before the card. Each card claims one
+step?`` claims the oldest pending, unasked group of that tool that has an
+entry with a question record at or before the card, and within it those
+entries. Each card claims one
 group, and the entry keeps the card's offset so a later Stop does not claim
 again with it. The asked mark stays on the entry. An add call
 is a Bash call that did not fail whose command holds ``add_auto_mode_rule.py
@@ -273,7 +275,7 @@ def _flow_folders(all_stop_fields: dict[str, object]) -> tuple[Path, Path] | Non
 
 def _counted_fields(
     all_entries: list[LedgerEntry],
-    card_offset_by_asked_id: dict[str, int | None],
+    all_card_offset_by_asked_id: dict[str, int | None],
     all_groups: list[auto_mode_refusal_ledger.QuestionGroup],
     all_rule_entries: list[LedgerEntry],
 ) -> dict[str, JsonObject]:
@@ -281,9 +283,9 @@ def _counted_fields(
     fields_by_entry_id: dict[str, JsonObject] = {
         each.entry_id: {QUESTION_ASKED_FIELD: True}
         for each in all_entries
-        if each.entry_id in card_offset_by_asked_id and not each.is_question_asked
+        if each.entry_id in all_card_offset_by_asked_id and not each.is_question_asked
     }
-    for each_id, each_card_offset in card_offset_by_asked_id.items():
+    for each_id, each_card_offset in all_card_offset_by_asked_id.items():
         if each_card_offset is not None:
             fields_by_entry_id[each_id][QUESTION_CARD_OFFSET_FIELD] = each_card_offset
     for each_id in (each for each_group in all_groups for each in each_group.all_entry_ids):

