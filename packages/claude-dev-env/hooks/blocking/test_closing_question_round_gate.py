@@ -856,3 +856,18 @@ def test_should_allow_with_no_output_once_the_deadline_passes(
     assert run_gate(monkeypatch, capsys, transcript_path)["decision"] == "block"
     monkeypatch.setattr(closing_question_round_gate, "STOP_DEADLINE_SECONDS", 0.0)
     assert run_gate(monkeypatch, capsys, transcript_path) == {}
+
+
+@pytest.mark.parametrize("closed_stream_name", ["stdin", "stdout", "stderr"])
+def test_supervised_main_should_allow_with_no_output_when_a_standard_stream_is_closed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], closed_stream_name: str
+) -> None:
+    def held_run(*all_arguments: object, **all_options: object) -> object:
+        return subprocess.CompletedProcess(args=[], returncode=2, stdout=b'{"x": 1}', stderr=b"why")
+
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(b"{}")))
+    monkeypatch.setattr(closing_question_round_gate.subprocess, "run", held_run)
+    monkeypatch.setattr(f"sys.{closed_stream_name}", None)
+    assert closing_question_round_gate.supervised_main() == 0
+    captured = capsys.readouterr()
+    assert (captured.out, captured.err) == ("", "")

@@ -329,8 +329,11 @@ def supervised_main() -> int:
     and no thread of the same process runs then. The child is killed at the
     deadline, and a watchdog thread here ends a stdin read that never finishes
     at 8.5 seconds. A child that exits with a code other than 0 or 2 allows
-    the stop with no output, and so does output that cannot be written.
+    the stop with no output, and so do a closed standard stream and output
+    that cannot be written.
     """
+    if sys.stdin is None or sys.stdout is None or sys.stderr is None:
+        return ALLOW_EXIT_CODE
     deadline_at = time.monotonic() + STOP_DEADLINE_SECONDS + WATCHDOG_GRACE_SECONDS
     output_lock = threading.Lock()
     watchdog = threading.Timer(STDIN_WATCHDOG_SECONDS, _allow_now, args=(output_lock,))

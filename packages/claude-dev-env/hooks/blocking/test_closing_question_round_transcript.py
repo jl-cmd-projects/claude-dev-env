@@ -250,3 +250,25 @@ def test_closing_reply_texts_reads_a_closing_reply_the_transcript_does_not_end_w
     )
     assert closing_reply_texts({"last_assistant_message": "  "}, all_lines, NO_DEADLINE) == []
     assert closing_reply_texts({}, all_lines, NO_DEADLINE) == []
+
+
+def test_closing_reply_texts_sets_aside_the_question_calls_that_share_the_last_record() -> None:
+    question_line = "Which cache size should I use?"
+    question_call = {"type": "tool_use", "id": "id-card", "name": "AskUserQuestion", "input": {}}
+    edit_call = {"type": "tool_use", "id": "id-edit", "name": "Edit", "input": {}}
+    for all_blocks, all_expected_texts in [
+        ([{"type": "text", "text": question_line}, question_call], []),
+        ([{"type": "text", "text": question_line}, edit_call, question_call], [question_line]),
+    ]:
+        card_record = {"type": "assistant", "message": {"role": "assistant", "content": all_blocks}}
+        all_lines = json_lines(
+            [
+                typed_prompt_record(),
+                card_record,
+                tool_result_record("AskUserQuestion", "The user chose 64.", tool_use_id="id-card"),
+            ]
+        )
+        assert (
+            closing_reply_texts({"last_assistant_message": question_line}, all_lines, NO_DEADLINE)
+            == all_expected_texts
+        )

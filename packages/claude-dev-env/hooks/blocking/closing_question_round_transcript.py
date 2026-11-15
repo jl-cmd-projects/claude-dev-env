@@ -354,11 +354,14 @@ def _last_assistant_text(all_lines: list[str], deadline_at: float) -> str | None
         if each_record is None or not is_assistant_record(each_record):
             continue
         all_blocks = _content_blocks(each_record)
-        if all_blocks and _is_question_block(all_blocks[-1]):
+        all_answer_blocks = list(all_blocks)
+        while all_answer_blocks and _is_question_block(all_answer_blocks[-1]):
+            all_answer_blocks.pop()
+        if all_blocks and not all_answer_blocks:
             continue
-        all_record_texts = block_texts(each_record)
-        ends_in_text = bool(all_blocks) and all_blocks[-1].get(RECORD_TYPE_KEY) == TEXT_KEY
-        return all_record_texts[-1] if ends_in_text and all_record_texts else None
+        last_block = all_answer_blocks[-1] if all_answer_blocks else {}
+        last_text = last_block.get(TEXT_KEY) if last_block.get(RECORD_TYPE_KEY) == TEXT_KEY else None
+        return last_text if isinstance(last_text, str) else None
     return None
 
 
