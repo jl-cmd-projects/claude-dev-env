@@ -5,13 +5,16 @@ import pytest
 
 from open_tasks_transcript import (
     TaskItem,
+    advanced_items,
     claude_prompt_text,
+    codex_plan_items,
     codex_prompt_text,
     is_assistant_record,
     is_codex_read_call,
     is_codex_work_call,
     is_read_tool_name,
     is_work_tool_name,
+    merged_todo_items,
     parsed_object,
     replayed_transcript,
     send_call_file_paths,
@@ -192,6 +195,35 @@ def test_should_parse_only_json_objects() -> None:
 def test_should_parse_text_nested_past_the_recursion_limit_as_no_object() -> None:
     assert parsed_object("[" * 100_000) is None
     assert parsed_object('{"a": ' * 100_000) is None
+
+
+def test_should_replay_the_readable_records_and_skip_unreadable_transcripts(tmp_path: Path) -> None:
+    prompt_record = {"type": "user", "message": {"role": "user", "content": "Export the APKs"}}
+    transcript_path = tmp_path / "mixed.jsonl"
+    transcript_path.write_bytes(b"not json\n[1, 2]\n\xff\xfe\n" + json.dumps(prompt_record).encode("utf-8") + b"\n")
+    assert replayed_transcript(str(transcript_path)).turn_prompt_text == "Export the APKs"
+    missing_replay = replayed_transcript(str(tmp_path / "missing.jsonl"))
+    assert missing_replay.items() is None
+    assert missing_replay.turn_prompt_text == ""
+    assert replayed_transcript(None).items() is None
+
+
+def test_should_merge_todo_updates_by_id_advance_the_plan_and_read_a_codex_plan() -> None:
+    all_earlier_items = [TaskItem("1", "Write the gate", "in_progress"), TaskItem("2", "Open the PR", "pending")]
+    all_merged_items = merged_todo_items(all_earlier_items, [{"id": "1", "status": "completed"}, {"id": "3", "content": "Tag it"}])
+    assert all_merged_items == [
+        TaskItem("1", "Write the gate", "completed"),
+        TaskItem("2", "Open the PR", "pending"),
+        TaskItem("3", "Tag it", ""),
+    ]
+    assert advanced_items(all_earlier_items) == [
+        TaskItem("1", "Write the gate", "completed"),
+        TaskItem("2", "Open the PR", "in_progress"),
+    ]
+    plan_arguments = json.dumps({"plan": [{"step": "Port parser", "status": "completed"}, "skip", {"step": "Run tests"}]})
+    plan_record = {"type": "response_item", "payload": {"type": "function_call", "name": "update_plan", "arguments": plan_arguments}}
+    assert codex_plan_items(plan_record) == [TaskItem("1", "Port parser", "completed"), TaskItem("2", "Run tests", "")]
+    assert codex_plan_items({"type": "response_item", "payload": {"type": "function_call", "name": "shell"}}) is None
 
 
 def ccd_plan_record(all_plan_input: dict[str, object], record_type: str = "assistant") -> dict[str, object]:

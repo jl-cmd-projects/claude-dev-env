@@ -82,6 +82,32 @@ def _log_hook_crash(hook_script_path: str, error: Exception) -> None:
     sys.stderr.flush()
 
 
+def _run_hook_script(hook_script_path: str) -> tuple[bool, int]:
+    """Run one hook script under ``__main__`` and return whether it crashed and its exit code.
+
+    ::
+
+        the script calls sys.exit(2)       -> (False, 2)
+        the script ends without an exit    -> (False, 0)
+        the script calls sys.exit("text")  -> (False, 0)
+        the script raises ValueError       -> (True, 0), and the crash is logged
+
+    Args:
+        hook_script_path: Absolute path of the hook script to run.
+
+    Returns:
+        The crash flag, then the integer the hook passed to SystemExit, else 0.
+    """
+    try:
+        runpy.run_path(hook_script_path, run_name="__main__")
+    except SystemExit as exit_signal:
+        return False, exit_signal.code if isinstance(exit_signal.code, int) else 0
+    except Exception as error:
+        _log_hook_crash(hook_script_path, error)
+        return True, 0
+    return False, 0
+
+
 def run_hosted_hook(
     hook_script_path: str,
     all_hook_arguments: list[str],
@@ -113,19 +139,12 @@ def run_hosted_hook(
     original_stdout = sys.stdout
     original_argv = sys.argv
     captured_output = io.StringIO()
-    hook_did_crash = False
-    hook_exit_code = 0
 
     try:
         sys.stdin = io.StringIO(payload_text)
         sys.stdout = captured_output
         sys.argv = [hook_script_path, *all_hook_arguments]
-        runpy.run_path(hook_script_path, run_name="__main__")
-    except SystemExit as exit_signal:
-        hook_exit_code = exit_signal.code if isinstance(exit_signal.code, int) else 0
-    except Exception as error:
-        _log_hook_crash(hook_script_path, error)
-        hook_did_crash = True
+        hook_did_crash, hook_exit_code = _run_hook_script(hook_script_path)
     finally:
         sys.stdin = original_stdin
         sys.stdout = original_stdout
