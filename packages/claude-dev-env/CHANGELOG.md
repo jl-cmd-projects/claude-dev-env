@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.119.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.119.0...claude-dev-env-v8.119.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **hooks:** tell the user every time the cloud refresh fails ([#2374](https://github.com/jl-cmd-projects/claude-dev-env/issues/2374)) ([d7a09a9](https://github.com/jl-cmd-projects/claude-dev-env/commit/d7a09a9f29056f7e268c3eacf4a8190bdf9a87b1))
+
 ## [8.119.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.118.1...claude-dev-env-v8.119.0) (2026-11-15)
 
 
