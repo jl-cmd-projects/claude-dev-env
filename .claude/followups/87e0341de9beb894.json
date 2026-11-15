@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/gh_api_budget_gate.py",
+  "message": "packages/claude-dev-env/hooks/blocking/gh_api_budget_gate.py:1: File is 732 lines (max 400) - consider splitting",
+  "check_id": "validators/file-length",
+  "severity": "smell",
+  "origin_commit": "e03c73ad9fa486f6205cd3c145438d74ee12b8fe"
+}
