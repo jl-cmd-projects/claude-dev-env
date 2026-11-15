@@ -128,6 +128,7 @@ printf '%s\\n' "$FAKE_NPM_VERSION"
 
 POSIX_NPX_SHIM = """#!/bin/bash
 printf 'npx %s cfg=%s cwd=%s\\n' "$*" "$CLAUDE_CONFIG_DIR" "$PWD" >> "$FAKE_TOOL_LOG"
+exit "${FAKE_NPX_EXIT:-0}"
 """
 
 WINDOWS_NPM_SHIM = """@echo off
@@ -138,6 +139,7 @@ echo %FAKE_NPM_VERSION%
 
 WINDOWS_NPX_SHIM = """@echo off
 echo npx %* cfg=%CLAUDE_CONFIG_DIR% cwd=%CD% >> "%FAKE_TOOL_LOG%"
+if defined FAKE_NPX_EXIT exit /b %FAKE_NPX_EXIT%
 """
 
 
@@ -202,12 +204,17 @@ def _hook_environment(
     return environment
 
 
-def _run_hook_script(sandbox: Path, environment: dict[str, str]) -> str:
+def _run_hook_process(environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
     completed = subprocess.run(
         [sys.executable, str(HOOK_SCRIPT)],
         env=environment, capture_output=True, text=True, check=False,
     )
     assert completed.returncode == 0, completed.stderr
+    return completed
+
+
+def _run_hook_script(sandbox: Path, environment: dict[str, str]) -> str:
+    _run_hook_process(environment)
     return (sandbox / "tool-log.txt").read_text(encoding="utf-8")
 
 
@@ -385,3 +392,53 @@ def should_anchor_a_relative_config_dir_override_to_the_home_directory(
     tool_log = _run_hook_script(tmp_path, environment)
     assert "npm view claude-dev-env version" in tool_log
     assert "npx -y" not in tool_log
+
+
+def _failing_install_environment(sandbox: Path) -> dict[str, str]:
+    _seed_sandbox(sandbox, "2.9.0", None)
+    environment = _hook_environment(
+        sandbox,
+        remote=True,
+        registry_version="2.12.0",
+        registry_failure=False,
+        config_dir_version=None,
+    )
+    environment["FAKE_NPX_EXIT"] = "1"
+    return environment
+
+
+def _user_message(completed: subprocess.CompletedProcess[str]) -> str:
+    message = json.loads(completed.stdout)["systemMessage"]
+    assert isinstance(message, str)
+    return message
+
+
+def should_tell_the_user_the_exit_code_when_the_install_fails(tmp_path: Path) -> None:
+    completed = _run_hook_process(_failing_install_environment(tmp_path))
+    message = _user_message(completed)
+    assert "npx -y claude-dev-env@2.12.0" in message
+    assert "exit code 1" in message
+
+
+def should_skip_a_version_whose_install_failed_at_an_earlier_start(
+    tmp_path: Path,
+) -> None:
+    environment = _failing_install_environment(tmp_path)
+    _run_hook_process(environment)
+    second_start = _run_hook_process(environment)
+    tool_log = (tmp_path / "tool-log.txt").read_text(encoding="utf-8")
+    assert tool_log.count("npx -y claude-dev-env@2.12.0") == 1, tool_log
+    assert "npx -y claude-dev-env@2.12.0" in _user_message(second_start)
+
+
+def should_install_the_next_release_quietly_after_a_failed_one(
+    tmp_path: Path,
+) -> None:
+    environment = _failing_install_environment(tmp_path)
+    _run_hook_process(environment)
+    environment["FAKE_NPM_VERSION"] = "2.13.0"
+    environment.pop("FAKE_NPX_EXIT")
+    next_release_start = _run_hook_process(environment)
+    tool_log = (tmp_path / "tool-log.txt").read_text(encoding="utf-8")
+    assert "npx -y claude-dev-env@2.13.0" in tool_log
+    assert next_release_start.stdout == ""

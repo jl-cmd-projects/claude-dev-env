@@ -1,6 +1,6 @@
 # Repository `.claude/hooks`
 
-This repository's own `.claude/settings.json` registers one SessionStart hook for sessions opened on this checkout. At a cloud session start, `.claude/hooks/session_start_refresh.py` compares the installed `claude-dev-env` version with the npm registry version. When they differ, it runs `npx -y claude-dev-env@<registry version>`. Once the module loads, the hook prints nothing and exits `0` on every path, because `main` runs inside a `try` that drops every `Exception`. The `config` import and the `re.compile` of the registry version pattern run at module load, before that `try` and before the remote guard. A `config/` that does not import, or a pattern that does not compile, prints a traceback on stderr and exits `1` in every session. [The cloud session guide](../../../../docs/claude-code-on-the-web.md) states why the hook exists. The package hooks have their own map in [Hook lifecycle](hook-lifecycle.md).
+This repository's own `.claude/settings.json` registers one SessionStart hook for sessions opened on this checkout. At a cloud session start, `.claude/hooks/session_start_refresh.py` compares the installed `claude-dev-env` version with the npm registry version. When they differ, it runs `npx -y claude-dev-env@<registry version>`. Once the module loads, the hook exits `0` on every path, because `main` runs inside a `try` that drops every `Exception`. It prints nothing unless an install fails or a start skips a version whose install failed. The `config` import and the `re.compile` of the registry version pattern run at module load, before that `try` and before the remote guard. A `config/` that does not import, or a pattern that does not compile, prints a traceback on stderr and exits `1` in every session. [The cloud session guide](../../../../docs/claude-code-on-the-web.md) states why the hook exists. The package hooks have their own map in [Hook lifecycle](hook-lifecycle.md).
 
 ## Sub-features
 
@@ -10,7 +10,8 @@ This repository's own `.claude/settings.json` registers one SessionStart hook fo
 - `current-install`. A manifest version equal to the registry version costs one `npm view claude-dev-env version` call and runs no install.
 - `stale-install`. A manifest version that differs from the registry version runs `npx -y claude-dev-env@<registry version>`. The hook compares the two with `==`, so a newer manifest version also installs the older registry version. A missing manifest installs too, and so does one that is not JSON, not an object, or has no string `version`. Both calls run from the home directory.
 - `config-dir`. `CLAUDE_CONFIG_DIR` moves the manifest the hook reads. A relative or `~` value anchors to the home directory. The install gets the resolved absolute path in `CLAUDE_CONFIG_DIR`.
-- `fail-open`. These cases exit `0` with no install: no `npm`, a non-zero `npm` exit, a registry answer that is not a bare version, and a probe past 30 seconds. These cases exit `0` after the install starts or is skipped: no `npx`, a non-zero install exit, and an install past 570 seconds. A timeout kills the tool's process group.
+- `fail-open`. These cases exit `0` with no install: no `npm`, a non-zero `npm` exit, a registry answer that is not a bare version, and a probe past 30 seconds. These cases exit `0` and print nothing after the install starts or is skipped: no `npx`, and an install past 570 seconds. A timeout kills the tool's process group and leaves no record, so the next start runs the install again.
+- `failed-install`. An install that exits with a code above `0` prints one JSON line on stdout, `{"systemMessage": "claude-dev-env refresh: `npx -y claude-dev-env@<version>` failed with exit code <n>, ..."}`, and writes `<version>` to `.claude-dev-env-refresh-failed-version` beside the manifest. Claude Code shows a SessionStart `systemMessage` to the user. A later start whose registry version matches the record skips the install and prints a `systemMessage` that starts `claude-dev-env refresh: skipped <version>` and names the retry command. A registry version that differs from the record installs as usual.
 
 ## How to get to it (user POV)
 
@@ -102,17 +103,19 @@ repository=$(cat "$scratch/repository-root")
 evidence=$(cat "$scratch/evidence-root")
 live_manifest=$(cat "$scratch/live-manifest-path")
 doctor_python=$(cat "$scratch/doctor-python")
-case_name=${1:?usage: drive <case> [--bin <folder>] [--manifest <text>] [--home-manifest <text>] [--doctor-only] [NAME=value ...]}
+case_name=${1:?usage: drive <case> [--bin <folder>] [--manifest <text>] [--home-manifest <text>] [--failed-record <text>] [--doctor-only] [NAME=value ...]}
 shift
 bin_name=bin
 manifest=
 home_manifest=
+failed_record=
 doctor_only=
 while [ $# -gt 0 ]; do
   case $1 in
     --bin) bin_name=$2; shift 2 ;;
     --manifest) manifest=$2; shift 2 ;;
     --home-manifest) home_manifest=$2; shift 2 ;;
+    --failed-record) failed_record=$2; shift 2 ;;
     --doctor-only) doctor_only=1; shift ;;
     *) break ;;
   esac
@@ -134,6 +137,7 @@ config_directory=$(sed -n 's/^config=//p' "$case_evidence/doctor.txt")
 mkdir -p "$config_directory"
 [ -n "$manifest" ] && printf '%s' "$manifest" > "$config_directory/.claude-dev-env-manifest.json"
 [ -n "$home_manifest" ] && printf '%s' "$home_manifest" > "$home/.claude/.claude-dev-env-manifest.json"
+[ -n "$failed_record" ] && printf '%s' "$failed_record" > "$config_directory/.claude-dev-env-refresh-failed-version"
 mapfile -t registration < <("$doctor_python" -I "$scratch/registration.py" "$repository/.claude/settings.json")
 [ "${#registration[@]}" -eq 3 ] || { echo "drive: no SessionStart entry names session_start_refresh.py"; exit 4; }
 printf 'matcher=%s\ntimeout=%s\ncommand=%s\n' "${registration[@]}" > "$case_evidence/registration.txt"
@@ -153,6 +157,9 @@ git_after=$(git -C "$repository" status --porcelain --untracked-files=all --igno
   [ "$git_before" = "$git_after" ] && echo "repository status unchanged" || echo "REPOSITORY STATUS CHANGED"
   [ -s "$case_evidence/tools.log" ] || echo "tools: none"
   sed 's/^/tool: /' "$case_evidence/tools.log"
+  sed 's/^/stdout: /' "$case_evidence/stdout"
+  record="$config_directory/.claude-dev-env-refresh-failed-version"
+  if [ -f "$record" ]; then echo "failed record: $(cat "$record")"; else echo "failed record: none"; fi
   for pid in $(sed -n 's/.* pid=\([0-9]*\)$/\1/p' "$case_evidence/tools.log"); do
     if kill -0 "$pid" 2>/dev/null; then echo "process $pid alive"; else echo "process $pid gone"; fi
   done
@@ -163,7 +170,7 @@ live_manifest=$(cat live-manifest-path)
 if [ -f "$live_manifest" ]; then sha256sum "$live_manifest"; else echo "absent $live_manifest"; fi | tee "$evidence/live-manifest-before.txt"
 ```
 
-Each drive prints the doctor lines, then a summary that `<evidence>/<case>/summary.txt` keeps. A pass shows `doctor: ready`, `exit=0` unless the case names another exit, `stdout_bytes=0`, `live manifest unchanged`, and `repository status unchanged`. Each case name is used once, because every drive gets a new home.
+Each drive prints the doctor lines, then a summary that `<evidence>/<case>/summary.txt` keeps. A pass shows `doctor: ready`, `exit=0` unless the case names another exit, `stdout_bytes=0` and `failed record: none` unless the case names a message or a record, `live manifest unchanged`, and `repository status unchanged`. Each `stdout:` line repeats one line the hook printed. Each case name is used once, because every drive gets a new home.
 
 - **Doctor.** Run `<scratch>/drive doctor --doctor-only CLAUDE_CODE_REMOTE=true`. Exit `0`. Each `home=`, `config=`, `node=`, `python3=`, `npm=`, and `npx=` line names a path under `<scratch>`, `python=absent`, and the last line is `doctor: ready`.
 - **Doctor refusal.** Run `<scratch>/drive refusal --doctor-only CLAUDE_CONFIG_DIR="$HOME/.claude"`, which names the live configuration folder. Exit `3`, the line `doctor: not isolated: config`, and `drive: doctor failed, hook not run`.
@@ -178,9 +185,11 @@ Each drive prints the doctor lines, then a summary that `<evidence>/<case>/summa
 - **Probe answer is not a bare version.** Run `<scratch>/drive probe-quoted --manifest '{"version":"8.0.0"}' CLAUDE_CODE_REMOTE=true STUB_NPM_VERSION='"9.0.0"'`. Only the `npm view` line. An npmrc `json=true` gives this answer.
 - **No npm.** Run `<scratch>/drive no-npm --bin bin-no-npm --manifest '{"version":"8.0.0"}' CLAUDE_CODE_REMOTE=true`. The doctor shows `npm=absent`, and the summary shows `tools: none`.
 - **No npx.** Run `<scratch>/drive no-npx --bin bin-no-npx --manifest '{"version":"8.0.0"}' CLAUDE_CODE_REMOTE=true`. Only the `npm view` line.
-- **Install fails.** Run `<scratch>/drive install-exit --manifest '{"version":"8.0.0"}' CLAUDE_CODE_REMOTE=true STUB_NPX_EXIT=1`. The `npx` line and `exit=0`.
+- **Install fails.** Run `<scratch>/drive install-exit --manifest '{"version":"8.0.0"}' CLAUDE_CODE_REMOTE=true STUB_NPX_EXIT=1`. The `npx` line, `exit=0`, one `stdout: {"systemMessage": "claude-dev-env refresh: `npx -y claude-dev-env@9.0.0` failed with exit code 1, ...` line, and `failed record: 9.0.0`.
+- **Failed version skipped.** Run `<scratch>/drive install-skip --manifest '{"version":"8.0.0"}' --failed-record 9.0.0 CLAUDE_CODE_REMOTE=true`. Only the `npm view` line, one `stdout: {"systemMessage": "claude-dev-env refresh: skipped 9.0.0, ...` line that names `npx -y claude-dev-env@9.0.0`, and `failed record: 9.0.0`.
+- **Next release after a failed one.** Run `<scratch>/drive install-next --manifest '{"version":"8.0.0"}' --failed-record 8.5.0 CLAUDE_CODE_REMOTE=true`. The `npx -y claude-dev-env@9.0.0` line, `stdout_bytes=0`, and `failed record: 8.5.0`.
 - **Probe timeout.** Run `<scratch>/drive probe-timeout --manifest '{"version":"8.0.0"}' CLAUDE_CODE_REMOTE=true STUB_NPM_SLEEP=120`. `seconds=30` or `31`, only the `npm view` line, and `process <n> gone`.
-- **Install timeout.** Start `<scratch>/drive install-timeout --manifest '{"version":"8.0.0"}' CLAUDE_CODE_REMOTE=true STUB_NPX_SLEEP=900` in the background, because it runs about 570 seconds. Run the other cases while it waits, because each drive writes its own tool log. `seconds=570` or `571`, the `npx` line, and `process <n> gone` on both process lines.
+- **Install timeout.** Start `<scratch>/drive install-timeout --manifest '{"version":"8.0.0"}' CLAUDE_CODE_REMOTE=true STUB_NPX_SLEEP=900` in the background, because it runs about 570 seconds. Run the other cases while it waits, because each drive writes its own tool log. `seconds=570` or `571`, the `npx` line, `stdout_bytes=0`, `failed record: none`, and `process <n> gone` on both process lines.
 - **Python fallback.** Run `<scratch>/drive python-fallback --bin bin-python-only --manifest '{"version":"8.0.0"}' CLAUDE_CODE_REMOTE=true`. The doctor shows `python3=absent`, and the summary shows the `npx` line.
 - **No Python.** Run `<scratch>/drive no-python --bin bin-no-python --manifest '{"version":"8.0.0"}' CLAUDE_CODE_REMOTE=true`. `exit=1` and `tools: none`. Claude Code treats an exit other than `0` or `2` as a non-blocking hook error, so the session starts without the refresh.
 - **Broken `config/`.** Seed a new `<scratch>` against a git copy of the hook folder, then delete the `INSTALL_TIMEOUT_SECONDS` line from the copy's `.claude/hooks/config/session_start_refresh_constants.py`. Run `<scratch>/drive broken-config CLAUDE_CODE_REMOTE=true`. The doctor prints `ImportError: cannot import name 'INSTALL_TIMEOUT_SECONDS'`, then `drive: doctor failed, hook not run`, and the drive exits `3`.
@@ -189,11 +198,12 @@ Each drive prints the doctor lines, then a summary that `<evidence>/<case>/summa
 
 ## Gotchas
 
-- Silence is the pass for every branch once the module loads. The hook sends install output to `/dev/null` and prints nothing, so the stub log is the only record of what ran. Read `tools.log`, and check the exit code before you trust empty output.
+- Silence is the pass for every branch once the module loads, except a failed install and a skipped version, which each print one `systemMessage` line. The hook sends install output to `/dev/null`, so the stub log is the only record of what ran. Read `tools.log`, and check the exit code before you trust empty output.
+- The drive shows the line the hook prints. It does not show Claude Code displaying that `systemMessage`. A cloud session start on this repository with a failing install proves the display.
 - The stubs stand in for the registry, the published installer, and the manifest the installer rewrites. A drive proves the hook's decisions, and it does not prove that an install succeeds. Use [Installer lifecycle](installer-lifecycle.md) for the install itself.
 - The driver runs the registered command with a `startup` payload and the registered timeout. Claude Code's matcher and its own timeout are not driven. A change to the matcher needs a session start on the web to prove it.
-- A non-zero install exit leaves the manifest at the old version, so the next session start runs the install again.
-- The install timeout kills the installer's process group after 570 seconds, wherever the installer is in its writes.
+- A non-zero install exit leaves the manifest at the old version. The failed record stops the next session start from running the same version again, and it stays until a release with another version comes out. The failed record lives as long as the manifest beside it does.
+- The install timeout kills the installer's process group after 570 seconds, wherever the installer is in its writes. It writes no failed record, so the next start runs the install again over the partial tree.
 - The seed block is longer than 4096 characters and holds shell variables. A session that also loads another repository's Bash gates can refuse a command of that shape, so run the block from a saved file. Those gates also refuse a command whose program name starts with a variable, such as `"$scratch/drive"`. Call the driver by its literal path.
 - `CLAUDE_CODE_REMOTE=true` comes from the cloud session. The driver's `env -i` drops it, so pass it on each remote case.
 - `CLAUDE_CONFIG_DIR` with an absolute path outside `<scratch>` stops at the doctor. Keep every override under `<scratch>`, or relative to the scratch home.

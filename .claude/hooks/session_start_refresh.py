@@ -19,6 +19,13 @@ response that is not a bare semver string (an npmrc ``json=true`` wraps the
 version in quotes) reads as a failed probe. Every failure path — registry
 outage, probe timeout, missing npm — exits 0, so the hook never blocks a
 session from starting.
+
+An install that exits with a code above 0 prints one ``systemMessage`` for
+the user and records the version beside the manifest. A later start that
+finds the same registry version skips the install and prints a message with
+the command that retries it. The next release installs as usual. An install
+that times out or ends on a signal may have stopped part way through its
+writes, so it leaves no record and the next start runs it again.
 """
 
 from __future__ import annotations
@@ -36,6 +43,8 @@ try:
     from config.session_start_refresh_constants import (
         CLAUDE_HOME_DIRECTORY_NAME,
         CONFIG_DIR_OVERRIDE_VARIABLE_NAME,
+        FAILED_INSTALL_MESSAGE_TEMPLATE,
+        FAILED_INSTALL_RECORD_FILE_NAME,
         INSTALL_TIMEOUT_SECONDS,
         MANIFEST_FILE_NAME,
         PACKAGE_NAME,
@@ -43,6 +52,7 @@ try:
         REGISTRY_VERSION_PATTERN,
         REMOTE_SESSION_ACTIVE_VALUE,
         REMOTE_SESSION_VARIABLE_NAME,
+        SKIPPED_INSTALL_MESSAGE_TEMPLATE,
     )
 except ImportError:
     sys.modules.pop("config", None)
@@ -50,6 +60,8 @@ except ImportError:
     from config.session_start_refresh_constants import (
         CLAUDE_HOME_DIRECTORY_NAME,
         CONFIG_DIR_OVERRIDE_VARIABLE_NAME,
+        FAILED_INSTALL_MESSAGE_TEMPLATE,
+        FAILED_INSTALL_RECORD_FILE_NAME,
         INSTALL_TIMEOUT_SECONDS,
         MANIFEST_FILE_NAME,
         PACKAGE_NAME,
@@ -57,6 +69,7 @@ except ImportError:
         REGISTRY_VERSION_PATTERN,
         REMOTE_SESSION_ACTIVE_VALUE,
         REMOTE_SESSION_VARIABLE_NAME,
+        SKIPPED_INSTALL_MESSAGE_TEMPLATE,
     )
 
 _registry_version_matcher = re.compile(REGISTRY_VERSION_PATTERN)
@@ -152,17 +165,38 @@ def read_registry_version() -> str:
     return version if _registry_version_matcher.fullmatch(version) else ""
 
 
-def reinstall(registry_version: str) -> None:
+def reinstall(registry_version: str) -> int | None:
     environment = os.environ.copy()
     if environment.get(CONFIG_DIR_OVERRIDE_VARIABLE_NAME, "").strip():
         environment[CONFIG_DIR_OVERRIDE_VARIABLE_NAME] = str(claude_config_directory())
-    _run_tool_from_home(
+    completed = _run_tool_from_home(
         "npx",
-        ["-y", PACKAGE_NAME + "@" + registry_version],
+        ["-y", _package_at(registry_version)],
         INSTALL_TIMEOUT_SECONDS,
         capture=False,
         all_environment_variables=environment,
     )
+    return None if completed is None else completed.returncode
+
+
+def _package_at(registry_version: str) -> str:
+    return PACKAGE_NAME + "@" + registry_version
+
+
+def _failed_install_record_path() -> Path:
+    return claude_config_directory() / FAILED_INSTALL_RECORD_FILE_NAME
+
+
+def _read_failed_install_version() -> str:
+    try:
+        return _failed_install_record_path().read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _tell_the_user(message: str) -> None:
+    sys.stdout.write(json.dumps({"systemMessage": message}) + "\n")
+    sys.stdout.flush()
 
 
 def main() -> None:
@@ -173,7 +207,26 @@ def main() -> None:
         return
     if read_installed_version() == registry_version:
         return
-    reinstall(registry_version)
+    install_command = "npx -y " + _package_at(registry_version)
+    if _read_failed_install_version() == registry_version:
+        _tell_the_user(
+            SKIPPED_INSTALL_MESSAGE_TEMPLATE.format(
+                registry_version=registry_version, install_command=install_command
+            )
+        )
+        return
+    exit_code = reinstall(registry_version)
+    installer_reported_failure = exit_code is not None and exit_code > 0
+    if not installer_reported_failure:
+        return
+    _tell_the_user(
+        FAILED_INSTALL_MESSAGE_TEMPLATE.format(
+            install_command=install_command,
+            exit_code=exit_code,
+            registry_version=registry_version,
+        )
+    )
+    _failed_install_record_path().write_text(registry_version, encoding="utf-8")
 
 
 if __name__ == "__main__":
