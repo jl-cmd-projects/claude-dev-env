@@ -1,5 +1,7 @@
 """Constants for the open tasks Stop gate."""
 
+import re
+
 HOOK_EVENT_NAME = "Stop"
 TRANSCRIPT_PATH_KEY = "transcript_path"
 ALLOW_EXIT_CODE = 0
@@ -172,3 +174,65 @@ TASK_LIST_NUDGE = (
     " turn ends, so the list shows only open work."
 )
 TASK_LIST_NUDGE_ONCE_MARKER_NAME = "tracking_nudge"
+APOSTROPHE_CLASS = "['’]"
+ALL_PROMISED_REPORT_PATTERNS = tuple(
+    re.compile(each_pattern, re.IGNORECASE)
+    for each_pattern in (
+        rf"\bwhen you(?:{APOSTROPHE_CLASS}re| are| get| come) back\b",
+        r"\b(?:report|summary|write-?up|recap|results?)\b[^.!?\n]{0,80}?"
+        r"\bwill (?:be (?:here|waiting|ready|posted)|follow|land|arrive|come)\b",
+        rf"\bI(?:{APOSTROPHE_CLASS}ll| will| am going to)\s+(?:report|post|send|share|update you|let you know"
+        r"|follow up|circle back|check back|get back to you)\b[^.!?\n]{0,80}?"
+        r"\b(?:when|once|after|later|tomorrow|in the morning)\b",
+        rf"\bI(?:{APOSTROPHE_CLASS}ll| will| am going to)\s+report back\b",
+    )
+)
+PROMISE_NEGATOR_PATTERN = re.compile(r"\b(?:no|not|never|none|nothing)\b", re.IGNORECASE)
+REPLY_SENTENCE_END_PATTERN = re.compile(r"[.!?\n]")
+REPORT_ASK_PATTERN = re.compile(
+    r"\b(?:report|summary|summari[sz]e|recap|update me|let me know|tell me (?:when|once|how))\b", re.IGNORECASE
+)
+LIST_ASK_PATTERN = re.compile(
+    r"\blist\s+(?:the|them|all|each|every|what|out)\b"
+    r"|\b(?:as|in|into)\s+(?:a\s+)?(?:list|bullets?|table)\b"
+    r"|\ba\s+list\s+of\b"
+    r"|\bgive\s+me\s+(?:a|the)\s+(?:list|table|bullets?)\b"
+    r"|\bbulleted\b",
+    re.IGNORECASE,
+)
+ASK_NEGATOR_PATTERN = re.compile(
+    rf"\b(?:no|not|never|none|nothing|without|don{APOSTROPHE_CLASS}t|do not|no need|never mind)\b", re.IGNORECASE
+)
+PROMPT_CLAUSE_SPLIT_PATTERN = re.compile(r"[.!?;,\n]|\bthen\b", re.IGNORECASE)
+QUOTED_PROMPT_LINE_PATTERN = re.compile(r"^[ \t]*>.*$", re.MULTILINE)
+BACKTICK_TEXT_PATTERN = re.compile(r"`[^`]*`")
+SPACED_QUOTE_PATTERN = re.compile(r'"[^"]*\s[^"]*"|“[^”]*\s[^”]*”')
+REMOVED_PROMPT_TEXT = " "
+OPEN_ITEM_LEAD_PATTERN = re.compile(
+    r"\b(?:deferred|defer|sidestepped|not (?:yet )?done|left open|still open|remaining|outstanding|open items?"
+    r"|unfinished|unresolved|pending|parked|postponed|follow-?ups?|next steps|to-?dos?|loose ends)\b",
+    re.IGNORECASE,
+)
+LEAD_NEGATOR_PATTERN = re.compile(r"\b(?:no|none|nothing|nobody|zero)\b", re.IGNORECASE)
+QUOTED_REPLY_LINE_PATTERN = re.compile(r"^\s*>")
+ALL_INDENTED_LINE_PREFIXES = (" ", "\t")
+OPEN_ITEM_LIST_MINIMUM = 3
+USER_WORDS_ESCAPE_SENTENCE = (
+    "If the user's own words in this turn asked for this, leave the reply as it is and end the turn."
+)
+PROMISED_REPORT_REASON_TEMPLATE = (
+    'The closing reply promises the user a later report ("{phrase}"), and no typed prompt in this turn asked'
+    " for one. Drop the promise and carry the work to completion. If work is still open, do it now. If the"
+    " turn waits on a run or a wake you armed, say in one sentence what runs and what you do when it ends. "
+    + USER_WORDS_ESCAPE_SENTENCE
+)
+OPEN_ITEM_LIST_REASON_TEMPLATE = (
+    'The closing reply lists {count} open items under "{lead}", and this turn sent no question through the'
+    " native question tool. Read the live state of each item and drop the ones that are done. Act now on each"
+    " item you can settle yourself. Put each item that needs the user's judgment in its own AskUserQuestion"
+    " call (Codex: request_user_input), with the context in the question text and two or three options whose"
+    " effects sit in their descriptions. The first question call after this hold can be refused once for the"
+    " length of the held reply; send the same call again. Then end the turn with a short reply that names what"
+    " you did. " + USER_WORDS_ESCAPE_SENTENCE
+)
+REWORKED_REPLY_INSTRUCTION = "Then send the reworked closing reply and end the turn."
