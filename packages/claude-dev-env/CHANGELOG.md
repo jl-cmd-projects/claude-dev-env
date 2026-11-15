@@ -1,5 +1,13 @@
 # Changelog
 
+## [8.119.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.119.1...claude-dev-env-v8.119.2) (2026-11-15)
+
+
+### Bug Fixes
+
+* **hooks:** count a reply request script as a reply before a resolve ([#2372](https://github.com/jl-cmd-projects/claude-dev-env/issues/2372)) ([cb707f5](https://github.com/jl-cmd-projects/claude-dev-env/commit/cb707f530a8f063ddac79b7ef772fd927ace1981))
+* **validators:** judge the value in the hardcoded-secret check ([#2371](https://github.com/jl-cmd-projects/claude-dev-env/issues/2371)) ([4d1529f](https://github.com/jl-cmd-projects/claude-dev-env/commit/4d1529ff034437e043fd3f2f562ed2969461a525))
+
 ## [8.119.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.119.0...claude-dev-env-v8.119.1) (2026-11-15)
 
 
