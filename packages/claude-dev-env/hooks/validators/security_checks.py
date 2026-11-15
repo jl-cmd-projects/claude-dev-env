@@ -13,13 +13,20 @@ from pathlib import Path
 from typing import List
 
 from .config.security_checks_constants import (
-    ALL_CREDENTIAL_WORD_PATTERNS,
-    ALL_MESSAGE_CLOSING_MARKS,
-    ALL_REFERENCE_VALUE_PATTERNS,
+    ALL_AUTH_SCHEME_LEAD_WORDS,
+    ALL_FLAG_NAME_SUFFIXES,
+    ALL_PASSWORD_NAME_WORDS,
+    ALL_SENSITIVE_LABEL_WORDS,
+    ALL_SENTENCE_FUNCTION_WORDS,
+    ALL_VARIABLE_NAME_SUFFIXES,
+    FLAG_VALUE_PATTERN,
     FORMAT_PLACEHOLDER_PATTERN,
-    MINIMUM_CREDENTIAL_WORD_LENGTH,
+    LABEL_CLOSING_MARK,
+    MAXIMUM_CAPITALS_WORD_LENGTH,
+    MAXIMUM_NUMBER_WORD_LENGTH,
+    MAXIMUM_ORDINARY_WORD_LENGTH,
     MINIMUM_MESSAGE_WORD_COUNT,
-    VALUE_ASSIGNMENT_MARK,
+    VARIABLE_NAME_VALUE_PATTERN,
     WORD_EDGE_PUNCTUATION,
 )
 from .validator_base import Violation, source_text, syntax_tree
@@ -86,67 +93,83 @@ def _is_secret_metadata(variable_name: str, literal_text: str) -> bool:
     return _is_resource_name_metadata(variable_name, literal_text)
 
 
-def _is_credential_shaped_word(word: str) -> bool:
+def _bare_word(word: str) -> str:
     word_without_placeholders = FORMAT_PLACEHOLDER_PATTERN.sub("", word)
-    bare_word = word_without_placeholders.strip(WORD_EDGE_PUNCTUATION)
-    if VALUE_ASSIGNMENT_MARK in bare_word:
+    return word_without_placeholders.strip(WORD_EDGE_PUNCTUATION)
+
+
+def _is_ordinary_word(bare_word: str) -> bool:
+    if not bare_word:
         return True
-    if any(
-        each_pattern.fullmatch(bare_word)
-        for each_pattern in ALL_CREDENTIAL_WORD_PATTERNS
-    ):
-        return True
-    if len(bare_word) < MINIMUM_CREDENTIAL_WORD_LENGTH:
+    if bare_word.isdigit():
+        return len(bare_word) <= MAXIMUM_NUMBER_WORD_LENGTH
+    if not (bare_word.isascii() and bare_word.isalpha()):
         return False
-    has_letter = any(each_character.isalpha() for each_character in bare_word)
-    has_digit = any(each_character.isdigit() for each_character in bare_word)
-    return has_letter and has_digit
+    if bare_word.isupper():
+        return len(bare_word) <= MAXIMUM_CAPITALS_WORD_LENGTH
+    if len(bare_word) > MAXIMUM_ORDINARY_WORD_LENGTH:
+        return False
+    return bare_word[1:].islower() or len(bare_word) == 1
 
 
-def _has_message_shape(literal_text: str) -> bool:
-    stripped_text = literal_text.strip()
-    if stripped_text[:1].isupper():
-        return True
-    if stripped_text.endswith(ALL_MESSAGE_CLOSING_MARKS):
-        return True
-    return FORMAT_PLACEHOLDER_PATTERN.search(stripped_text) is not None
+def _has_label_before_value(all_words: list[str]) -> bool:
+    for each_index, each_word in enumerate(all_words[:-1]):
+        if not each_word.endswith(LABEL_CLOSING_MARK):
+            continue
+        has_one_word_after = len(all_words[each_index + 1 :]) == 1
+        if has_one_word_after or _bare_word(each_word).lower() in ALL_SENSITIVE_LABEL_WORDS:
+            return True
+    return False
 
 
 def _reads_as_message(literal_text: str) -> bool:
     """Return whether a string literal reads as a message a person wrote.
 
-    A credential is one unbroken run of characters. A message is several words
-    with the shape of a sentence: a capital first letter, a closing mark, or a
-    format placeholder. A message that carries a credential-shaped word is not
-    cleared: a word that mixes letters with digits, assigns a value, runs long
-    in hexadecimal or capitals, or puts a password in a URL.
+    The default verdict is "not a message". A value is a message only when
+    every sign agrees: three or more words, each one a short plain word, a
+    short number or a format placeholder; a sentence function word among them;
+    no authentication scheme word in the lead; no label with a value after
+    it; and words that differ in length, unlike a grouped key.
 
     Args:
         literal_text: The string value assigned to a sensitive name.
 
     Returns:
-        Whether the value is prose with no credential-shaped word in it.
+        Whether the value is prose with nothing key-shaped in it.
     """
     all_words = literal_text.split()
     if len(all_words) < MINIMUM_MESSAGE_WORD_COUNT:
         return False
-    if not _has_message_shape(literal_text):
+    all_bare_words = [_bare_word(each_word) for each_word in all_words]
+    if not all(_is_ordinary_word(each_word) for each_word in all_bare_words):
         return False
-    return not any(_is_credential_shaped_word(each_word) for each_word in all_words)
+    all_lowered_words = [each_word.lower() for each_word in all_bare_words]
+    if all_lowered_words[0] in ALL_AUTH_SCHEME_LEAD_WORDS:
+        return False
+    if _has_label_before_value(all_words):
+        return False
+    if len({len(each_word) for each_word in all_words}) == 1:
+        return False
+    return not ALL_SENTENCE_FUNCTION_WORDS.isdisjoint(all_lowered_words)
 
 
-def _names_a_variable_or_flag(literal_text: str) -> bool:
-    return any(
-        each_pattern.fullmatch(literal_text)
-        for each_pattern in ALL_REFERENCE_VALUE_PATTERNS
-    )
+def _names_the_variable_or_flag_it_points_to(
+    variable_name: str, literal_text: str
+) -> bool:
+    if variable_name.endswith(ALL_VARIABLE_NAME_SUFFIXES):
+        return VARIABLE_NAME_VALUE_PATTERN.fullmatch(literal_text) is not None
+    if variable_name.endswith(ALL_FLAG_NAME_SUFFIXES):
+        return FLAG_VALUE_PATTERN.fullmatch(literal_text) is not None
+    return False
 
 
 def _is_secret_value(variable_name: str, literal_text: str) -> bool:
     if _is_secret_metadata(variable_name, literal_text):
         return False
-    if _names_a_variable_or_flag(literal_text):
+    if _names_the_variable_or_flag_it_points_to(variable_name, literal_text):
         return False
+    if any(each_word in variable_name for each_word in ALL_PASSWORD_NAME_WORDS):
+        return True
     return not _reads_as_message(literal_text)
 
 

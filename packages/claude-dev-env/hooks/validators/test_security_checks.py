@@ -53,28 +53,85 @@ password_key = "password"
 ''',
 )
 
-MESSAGE_VALUE_SOURCE_FIXTURES = (
-    'FAIL_NO_TOKENS = "No tokens were found in the response."',
-    'SECRET_MISSING_MESSAGE = "Set the secret in the environment before the run."',
-    'AUTH_FAILURE_TEMPLATE = "Sign-in failed for {account_name}: try again"',
-    'AUTHOR_LABEL = "Written By"',
-    'token_hint = "Paste a token below"',
-    'TOKEN_SETUP_MESSAGE = "Set SERVICE_API_TOKEN before the run."',
-    'TOKEN_VARIABLE_NAME = "SERVICE_API_TOKEN"',
-    'MAXIMUM_TOKENS_FLAG = "--max-tokens"',
+ALL_CLEARED_NAME_VALUE_PAIRS = (
+    ("FAIL_NO_TOKENS", "No tokens were found in the response."),
+    ("FAIL_NO_TOKENS", "no tokens were found in the response"),
+    ("SECRET_MISSING_MESSAGE", "Set the secret in the environment before the run."),
+    ("AUTH_FAILURE_TEMPLATE", "Sign in failed for {account_name}: try again"),
+    ("token_hint", "paste a token below"),
+    ("TOKEN_MESSAGE", "Retry after 30 seconds, HTTP 401 received."),
+    ("SERVICE_TOKEN_ENV", "SERVICE_API_TOKEN"),
+    ("SERVICE_TOKEN_ENV_VAR", "TOKEN"),
+    ("MAXIMUM_TOKENS_FLAG", "--max-tokens"),
+    ("TOKEN_OPTION", "-t"),
 )
 
-SECRET_VALUE_UNDER_MESSAGE_NAME_SOURCE_FIXTURES = (
-    'FAIL_NO_TOKENS = "sk-abc123xyz789"',
-    'TOKEN_MESSAGE = "Send the token ghp_0123456789abcdefABCDEF with each call."',
-    'AUTH_HINT = "Open the page with ?access_token=abcdef to sign in."',
-    'SECRET_PHRASE = "correct horse battery staple"',
-    'TOKEN_MESSAGE = "Token: ABCDEFGHIJKLMNOP"',
-    'TOKEN_MESSAGE = "{prefix} deadbeefcafebabe"',
-    'PASSWORD_MESSAGE = "The store is https://admin:hunterpass@example.test/db."',
-    'TOKEN_VARIABLE_NAME = "SERVICE_API_TOKEN_0a1b2c3d"',
-    'AUTH_FAILURE_TEMPLATE = "Sign-in failed for {account_name} with hunter2hunter2"',
+ALL_AUTH_HEADER_NAME_VALUE_PAIRS = (
+    ("AUTH_HEADER_VALUE", "Bearer abcdefghijklmnopqrstuvwxyz"),
+    ("AUTH_HEADER_VALUE", "Bearer xyz"),
+    ("AUTH_HEADER_VALUE", "Token abcdefghijklmnop"),
+    ("AUTH_HEADER_VALUE", "Bearer is the word"),
 )
+
+ALL_WRAPPED_KEY_NAME_VALUE_PAIRS = (
+    ("FAIL_NO_TOKENS", "aaaa1111bbbb"),
+    ("SERVICE_API_KEY", "Use zq_live_abcdefghijklmnopqrstuvwx here"),
+    ("SERVICE_API_KEY", "Key zq-live-abcdefghijklmnop."),
+    ("SERVICE_TOKEN", "Use AbCdEfGhIjKlMnOpQrStUvWx for the call"),
+    ("SERVICE_SECRET", "Key wJalrXUtnFEMI/KzMDENG/bPxRfiCYEXAMPLEKEY"),
+    ("SERVICE_TOKEN", "zqzq-abcdefghij-klmnopqrst is the one."),
+    ("SERVICE_TOKEN", "{prefix} AbCdEfGhIjKlMnOp"),
+    ("SERVICE_TOKEN", "Token:\tabcdefghijklmnopqrstuvwxyzabcdef"),
+    ("SERVICE_TOKEN", "Send the abcdefghijklmnopqrstuvwxyz with each call."),
+    ("AUTH_HINT", "Open the page with ?access_token=abcdef to sign in."),
+    ("AUTH_NOTE", "The store is at https://admin:hunterpass@example.test/db."),
+)
+
+ALL_VARIABLE_OR_FLAG_SHAPED_NAME_VALUE_PAIRS = (
+    ("DB_PASSWORD", "PROD_DB_PASS"),
+    ("DB_PASSWORD", "HUNTER_TWO"),
+    ("DB_PASSWORD", "--swordfish"),
+    ("DB_PASSWORD", "--open-sesame"),
+    ("SERVICE_SECRET", "PROD_SERVICE_PASS"),
+    ("SERVICE_TOKEN_ENV", "--swordfish"),
+    ("SERVICE_TOKEN_FLAG", "PROD_SERVICE_PASS"),
+    ("SERVICE_TOKEN_ENV", "prod_service_pass"),
+)
+
+ALL_PASSPHRASE_NAME_VALUE_PAIRS = (
+    ("SERVICE_TOKEN", "Correct horse battery staple"),
+    ("SECRET_PHRASE", "correct horse battery staple."),
+    ("PASSWORD", "Open Sesame"),
+    ("PASSWORD", "Admin admin"),
+    ("PASSWORD", "P@ssword One!"),
+    ("DB_PASSWORD", "Password: swordfish"),
+    ("SERVICE_SECRET", "Password: swordfish"),
+    ("SERVICE_SECRET", "The secret: swordfish in the pond"),
+    ("PASSWORD", "The password is swordfish."),
+    ("PASSWORD_ERROR", "My secret password"),
+    ("PASSWORD_HINT", "It was the best of times."),
+)
+
+ALL_GROUPED_KEY_NAME_VALUE_PAIRS = (
+    ("SECRET_KEY", "QUJD REVG R0hJ SktM"),
+    ("APP_PASSWORD", "Abcd efgh ijkl mnop"),
+    ("SERVICE_SECRET", "Abcd efgh ijkl mnop"),
+    ("SERVICE_SECRET", "that with from this"),
+    ("DB_AUTH_URL", "Host db.example.test user admin pass swordfish"),
+)
+
+ALL_REPORTED_NAME_VALUE_PAIRS = (
+    *ALL_AUTH_HEADER_NAME_VALUE_PAIRS,
+    *ALL_WRAPPED_KEY_NAME_VALUE_PAIRS,
+    *ALL_VARIABLE_OR_FLAG_SHAPED_NAME_VALUE_PAIRS,
+    *ALL_PASSPHRASE_NAME_VALUE_PAIRS,
+    *ALL_GROUPED_KEY_NAME_VALUE_PAIRS,
+)
+
+
+def _assignment_tree(variable_name: str, literal_text: str) -> ast.AST:
+    return ast.parse(f"{variable_name} = {literal_text!r}")
+
 
 GOOD_PARAMETERIZED_SQL = '''
 def get_user(user_id):
@@ -156,19 +213,23 @@ class TestHardcodedSecrets:
         violations = check_hardcoded_secrets(tree, "test.py")
         assert len(violations) == 1
 
-    @pytest.mark.parametrize("source_fixture", MESSAGE_VALUE_SOURCE_FIXTURES)
-    def test_message_value_under_sensitive_name_passes(
-        self, source_fixture: str
+    @pytest.mark.parametrize(
+        ("variable_name", "literal_text"), ALL_CLEARED_NAME_VALUE_PAIRS
+    )
+    def test_message_or_pointer_value_under_sensitive_name_passes(
+        self, variable_name: str, literal_text: str
     ) -> None:
-        tree = ast.parse(source_fixture)
+        tree = _assignment_tree(variable_name, literal_text)
         violations = check_hardcoded_secrets(tree, "test.py")
         assert violations == []
 
     @pytest.mark.parametrize(
-        "source_fixture", SECRET_VALUE_UNDER_MESSAGE_NAME_SOURCE_FIXTURES
+        ("variable_name", "literal_text"), ALL_REPORTED_NAME_VALUE_PAIRS
     )
-    def test_secret_value_under_message_name_fails(self, source_fixture: str) -> None:
-        tree = ast.parse(source_fixture)
+    def test_secret_shaped_value_fails(
+        self, variable_name: str, literal_text: str
+    ) -> None:
+        tree = _assignment_tree(variable_name, literal_text)
         violations = check_hardcoded_secrets(tree, "test.py")
         assert len(violations) == 1
 
