@@ -331,8 +331,8 @@ def _relayed_exit_code(completed_decision: subprocess.CompletedProcess[bytes]) -
     output_watchdog.daemon = True
     output_watchdog.start()
     all_outputs = (
-        (sys.stdout, completed_decision.stdout),
         (sys.stderr, completed_decision.stderr),
+        (sys.stdout, completed_decision.stdout),
     )
     try:
         for each_stream, each_output in all_outputs:
@@ -353,7 +353,8 @@ def supervised_main() -> int:
     deadline, and a watchdog thread here ends a stdin read that never finishes
     at 8.5 seconds. A child that exits with a code other than 0 or 2 allows
     the stop with no output, and so do a closed standard stream and output
-    that cannot be written. Both streams are written and flushed here, and a
+    that cannot be written. Both streams are written and flushed here, stderr
+    first, so stdout holds the hold only once the reason reached stderr, and a
     write that has not finished 1 second after it starts, such as one to a
     full pipe nobody reads, ends the process with 0.
     """

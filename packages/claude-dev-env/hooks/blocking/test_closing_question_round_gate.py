@@ -960,3 +960,24 @@ def test_should_allow_the_stop_when_the_output_pipe_has_no_reader(
     finally:
         os.close(write_end)
     assert completed_gate.returncode == 0
+
+
+@pytest.mark.parametrize("unwritable_stderr", ["closed_reader", "full_device"])
+def test_should_leave_no_hold_on_stdout_when_stderr_cannot_be_written(
+    tmp_path: Path, unwritable_stderr: str
+) -> None:
+    if unwritable_stderr == "full_device":
+        if not Path("/dev/full").exists():
+            pytest.skip("this host has no /dev/full")
+        stderr_target = os.open("/dev/full", os.O_WRONLY)
+    else:
+        read_end, stderr_target = os.pipe()
+        os.close(read_end)
+    try:
+        completed_gate, _ = _held_gate_run(
+            tmp_path, {"stderr": stderr_target, "stdout": subprocess.PIPE}
+        )
+    finally:
+        os.close(stderr_target)
+    assert completed_gate.returncode == 0
+    assert b'"block"' not in completed_gate.stdout
