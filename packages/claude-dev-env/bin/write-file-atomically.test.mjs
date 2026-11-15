@@ -12,6 +12,7 @@ import {
     rmSync,
     statSync,
     symlinkSync,
+    utimesSync,
     writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -182,3 +183,35 @@ test(
     },
 );
 
+
+function exitedProcessId() {
+    return spawnSync(process.execPath, ['-e', '']).pid;
+}
+
+
+test('writeFileAtomically should remove old temporary files of this target whose writer is gone', () => {
+    withSandbox((sandboxRoot) => {
+        const settingsPath = join(sandboxRoot, 'settings.json');
+        writeFileSync(settingsPath, PRIOR_SETTINGS_TEXT);
+        const goneWriterId = exitedProcessId();
+        const hourAgo = new Date(Date.now() - 60 * 60 * 1000);
+        const staleName = `.settings.json.${goneWriterId}.aaaaaaaaaaaa.tmp`;
+        const liveWriterName = `.settings.json.${process.pid}.bbbbbbbbbbbb.tmp`;
+        const freshName = `.settings.json.${goneWriterId}.cccccccccccc.tmp`;
+        const otherTargetName = `.other.json.${goneWriterId}.dddddddddddd.tmp`;
+        for (const eachName of [staleName, liveWriterName, freshName, otherTargetName]) {
+            writeFileSync(join(sandboxRoot, eachName), '{"half":');
+        }
+        for (const eachName of [staleName, liveWriterName, otherTargetName]) {
+            utimesSync(join(sandboxRoot, eachName), hourAgo, hourAgo);
+        }
+
+        writeFileAtomically(settingsPath, NEW_SETTINGS_TEXT);
+
+        assert.equal(readFileSync(settingsPath, 'utf8'), NEW_SETTINGS_TEXT);
+        assert.deepEqual(
+            readdirSync(sandboxRoot).sort(),
+            [freshName, otherTargetName, liveWriterName, 'settings.json'].sort(),
+        );
+    });
+});
