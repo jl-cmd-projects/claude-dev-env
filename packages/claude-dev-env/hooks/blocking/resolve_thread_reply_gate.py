@@ -27,6 +27,8 @@ from hooks_constants.resolve_thread_reply_gate_constants import (
     SHELL_COMMAND_KEY,
     SHELL_REPLY_COMMAND_PATTERN,
     SHELL_REPLY_COMMENT_ID_PATTERN,
+    SHELL_REPLY_SCRIPT_COMMAND_PATTERN,
+    SHELL_REPLY_SCRIPT_COMMENT_ID_PATTERN,
     SHELL_RESOLVE_COMMAND_PATTERN,
     SHELL_RESOLVE_COMMENT_ID_PATTERN,
     TEXT_BLOCK_TYPE,
@@ -100,7 +102,12 @@ def is_reply_call(tool_call: TranscriptToolCall) -> bool:
         mcp__github__add_reply_to_pull_request_comment               -> True
         Bash "gh api repos/o/r/pulls/7/comments/99/replies -f body=x" -> True
         Bash "gh api graphql" with addPullRequestReviewThreadReply    -> True
+        Bash "python review_reply_post.py request --comment-id 99"     -> True
+        Bash "python review_reply_post.py post --request r.json"       -> False
         mcp__github__add_issue_comment                                -> False
+
+    The reply script exits 0 only once its reply is on the thread, so the
+    call counts when its result, or its background task notice, shows no error.
 
     Args:
         tool_call: One tool call read from the transcript.
@@ -108,7 +115,13 @@ def is_reply_call(tool_call: TranscriptToolCall) -> bool:
     if tool_call.name.endswith(ALL_REPLY_TOOL_NAME_SUFFIXES):
         return True
     command = _shell_command(tool_call.name, tool_call.tool_input)
-    return command is not None and SHELL_REPLY_COMMAND_PATTERN.search(command) is not None
+    return command is not None and (
+        SHELL_REPLY_COMMAND_PATTERN.search(command) is not None or _is_reply_script_command(command)
+    )
+
+
+def _is_reply_script_command(command: str) -> bool:
+    return SHELL_REPLY_SCRIPT_COMMAND_PATTERN.search(command) is not None
 
 
 def _reply_comment_ids(all_tool_input_fields: dict[str, object]) -> frozenset[str]:
@@ -124,7 +137,13 @@ def _reply_targets(tool_call: TranscriptToolCall) -> tuple[frozenset[str], froze
     command = _shell_command(tool_call.name, tool_call.tool_input)
     if command is None:
         return frozenset(), _reply_comment_ids(tool_call.tool_input)
-    return frozenset(THREAD_ID_PATTERN.findall(command)), frozenset(SHELL_REPLY_COMMENT_ID_PATTERN.findall(command))
+    all_script_comment_ids = (
+        SHELL_REPLY_SCRIPT_COMMENT_ID_PATTERN.findall(command) if _is_reply_script_command(command) else []
+    )
+    return (
+        frozenset(THREAD_ID_PATTERN.findall(command)),
+        frozenset(SHELL_REPLY_COMMENT_ID_PATTERN.findall(command)) | frozenset(all_script_comment_ids),
+    )
 
 
 def _result_content_texts(result_content: object) -> list[str]:

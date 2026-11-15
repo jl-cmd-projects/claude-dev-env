@@ -232,6 +232,42 @@ def should_list_each_tool_call_since_the_last_prompt_with_its_outcome() -> None:
     ]
 
 
+def should_count_a_background_call_only_after_its_notice_reports_exit_code_zero() -> None:
+    background_input: dict[str, object] = {"command": "sleep 1", "run_in_background": True}
+
+    def _call(tool_use_id: str) -> str:
+        tool_use = {"type": "tool_use", "id": tool_use_id, "name": "Bash", "input": background_input}
+        return json.dumps({"type": "assistant", "message": {"content": [tool_use]}})
+
+    def _started(tool_use_id: str) -> str:
+        tool_result = {"type": "tool_result", "tool_use_id": tool_use_id, "is_error": False, "content": "started"}
+        return json.dumps({"type": "user", "message": {"content": [tool_result]}})
+
+    def _notice(tool_use_id: str, status: str, exit_code: int) -> str:
+        text = (
+            f"<task-notification><tool-use-id>{tool_use_id}</tool-use-id><status>{status}</status>"
+            f"<summary>Background command {status} (exit code {exit_code})</summary></task-notification>"
+        )
+        return json.dumps({"type": "user", "origin": {"kind": "task-notification"}, "message": {"content": text}})
+
+    lines = [
+        json.dumps({"type": "user", "message": {"content": "First."}}),
+        _call("done"),
+        _started("done"),
+        _call("failed"),
+        _started("failed"),
+        _call("running"),
+        _started("running"),
+        _notice("done", "completed", 0),
+        _notice("failed", "failed", 3),
+    ]
+    assert tool_calls_since_last_prompt(lines) == [
+        TranscriptToolCall("Bash", background_input, True),
+        TranscriptToolCall("Bash", background_input, False),
+        TranscriptToolCall("Bash", background_input, False),
+    ]
+
+
 NEWEST_FIRST_SKILL_NAMES = ("pr-lifecycle",)
 NEWEST_FIRST_MARKERS = ("<command-name>/pr-lifecycle</command-name>",)
 ALL_GENERATED_LINE_KINDS = (

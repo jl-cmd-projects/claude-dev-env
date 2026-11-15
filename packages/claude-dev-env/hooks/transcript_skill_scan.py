@@ -24,7 +24,13 @@ from hooks_constants.transcript_skill_scan_constants import (
     IS_ERROR_FIELD,
     META_ENTRY_FIELD,
     NEWLINE_BYTE,
+    ORIGIN_FIELD,
+    ORIGIN_KIND_FIELD,
+    RUN_IN_BACKGROUND_INPUT_KEY,
     SKILL_TOOL_NAME,
+    TASK_NOTIFICATION_ORIGIN_KIND,
+    TASK_NOTIFICATION_SUCCESS_PATTERN,
+    TASK_NOTIFICATION_TOOL_USE_ID_PATTERN,
     TOOL_RESULT_BLOCK_TYPE,
     TRANSCRIPT_BLOCK_BYTES,
     TRANSCRIPT_LINE_BYTE_CAP,
@@ -523,6 +529,19 @@ def _succeeded_result_ids(all_entry_fields: dict[str, object]) -> set[object]:
     }
 
 
+def _task_notification_text(all_entry_fields: dict[str, object]) -> str | None:
+    origin = all_entry_fields.get(ORIGIN_FIELD)
+    if not isinstance(origin, dict) or origin.get(ORIGIN_KIND_FIELD) != TASK_NOTIFICATION_ORIGIN_KIND:
+        return None
+    return _user_command_text(all_entry_fields) or ""
+
+
+def _background_ids_finished_without_error(notification_text: str) -> set[object]:
+    if re.search(TASK_NOTIFICATION_SUCCESS_PATTERN, notification_text) is None:
+        return set()
+    return set(re.findall(TASK_NOTIFICATION_TOOL_USE_ID_PATTERN, notification_text))
+
+
 def tool_calls_since_last_prompt(all_transcript_lines: Iterable[str]) -> list[TranscriptToolCall]:
     """Return the tool calls after the last user prompt, in order, each marked by whether it succeeded.
 
@@ -532,23 +551,40 @@ def tool_calls_since_last_prompt(all_transcript_lines: Iterable[str]) -> list[Tr
         prompt, reply call, its result with is_error     -> [reply failed]
         prompt, resolve call with no result yet          -> [resolve failed]
         reply call and result, then a new prompt         -> []
+        background call, started                          -> [call failed]
+        background call, notice of exit code 0            -> [call succeeded]
+        background call, notice of exit code 3            -> [call failed]
 
     A hook that denies a call leaves an errored result, so a denied call does
-    not count as a success. A tool result leaves the turn open.
+    not count as a success. A tool result leaves the turn open. A background
+    task notice is no user prompt, so it leaves the turn open too. A call with
+    ``run_in_background`` set succeeds only when the notice that names its
+    tool use id reports a completed status with exit code 0.
 
     Args:
         all_transcript_lines: JSON transcript entries, one per line.
     """
     all_calls: list[tuple[object, str, dict[str, object]]] = []
     all_succeeded_ids: set[object] = set()
+    all_finished_background_ids: set[object] = set()
     all_entries = (each_entry for each_entry in map(_parsed_entry, all_transcript_lines) if each_entry is not None)
     for each_entry_fields in all_entries:
+        notification_text = _task_notification_text(each_entry_fields)
+        if notification_text is not None:
+            all_finished_background_ids.update(_background_ids_finished_without_error(notification_text))
+            continue
         if _is_user_prompt(each_entry_fields):
-            all_calls, all_succeeded_ids = [], set()
+            all_calls, all_succeeded_ids, all_finished_background_ids = [], set(), set()
             continue
         all_calls.extend(_tool_use_calls(each_entry_fields))
         all_succeeded_ids.update(_succeeded_result_ids(each_entry_fields))
     return [
-        TranscriptToolCall(each_name, each_input, each_id is not None and each_id in all_succeeded_ids)
+        TranscriptToolCall(
+            each_name,
+            each_input,
+            each_id is not None
+            and each_id in all_succeeded_ids
+            and (each_input.get(RUN_IN_BACKGROUND_INPUT_KEY) is not True or each_id in all_finished_background_ids),
+        )
         for each_id, each_name, each_input in all_calls
     ]

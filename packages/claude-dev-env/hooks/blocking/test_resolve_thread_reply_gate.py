@@ -513,3 +513,137 @@ def should_allow_a_review_write_resolve_after_a_reply_on_that_thread(tmp_path: P
 def should_leave_a_review_write_that_submits_a_review_alone(tmp_path: Path) -> None:
     transcript_path = _write_transcript(tmp_path, [_prompt("Review the pull request.")])
     assert gate.decision_for(_review_write_payload(transcript_path, "create")) is None
+
+
+REPLY_SCRIPT_COMMAND = (
+    f"python .github/ci/review_reply_post.py request --pull 7 --comment-id {FIRST_COMMENT_ID}"
+    f" --thread-id {FIRST_THREAD_ID} --body-file reply.md"
+)
+
+
+def _script_reply(tool_use_id: str, command: str = REPLY_SCRIPT_COMMAND, is_background: bool = False) -> str:
+    tool_input: dict[str, object] = {"command": command}
+    if is_background:
+        tool_input["run_in_background"] = True
+    return _call(tool_use_id, "Bash", tool_input)
+
+
+def _task_notice(tool_use_id: str, exit_code: int = 0) -> str:
+    status = "completed" if exit_code == 0 else "failed"
+    text = (
+        f"<task-notification>\n<task-id>b1</task-id>\n<tool-use-id>{tool_use_id}</tool-use-id>\n"
+        f"<status>{status}</status>\n<summary>Background command {status} (exit code {exit_code})</summary>\n"
+        "</task-notification>"
+    )
+    return json.dumps({"type": "user", "origin": {"kind": "task-notification"}, "message": {"content": text}})
+
+
+def should_allow_a_resolve_after_the_reply_script_posted(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path,
+        [
+            _prompt("Address the review threads."),
+            _script_reply("reply-1"),
+            _result("reply-1", text="already posted https://github.com/o/r/pull/7#discussion_r1"),
+        ],
+    )
+    assert gate.decision_for(_resolve_payload(transcript_path)) is None
+
+
+def should_allow_a_comment_id_resolve_after_the_reply_script_named_no_thread(tmp_path: Path) -> None:
+    command = f"python review_reply_post.py request --pull 7 --comment-id={FIRST_COMMENT_ID} --body-file reply.md"
+    transcript_path = _write_transcript(
+        tmp_path,
+        [_prompt("Address the review threads."), *_threads_read(), _script_reply("reply-1", command), _result("reply-1")],
+    )
+    assert gate.decision_for(_resolve_payload(transcript_path)) is None
+    resolve_command = f"gh api -X POST repos/o/r/pulls/7/ccr/comments/{FIRST_COMMENT_ID}/resolve"
+    assert gate.decision_for(_shell_resolve_payload(transcript_path, resolve_command)) is None
+
+
+def should_deny_a_resolve_when_the_reply_script_did_not_post(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path,
+        [
+            _prompt("Address the review threads."),
+            _script_reply("reply-1"),
+            _result("reply-1", is_error=True, text="not posted"),
+        ],
+    )
+    assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
+
+
+def should_deny_a_resolve_of_another_thread_after_the_reply_script(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path,
+        [_prompt("Address the review threads."), *_threads_read(), _script_reply("reply-1"), _result("reply-1")],
+    )
+    decision = gate.decision_for(_resolve_payload(transcript_path, SECOND_THREAD_ID))
+    assert _deny_reason(decision) == MISSING_REPLY_REASON
+
+
+def should_deny_a_resolve_after_a_script_call_that_requests_no_reply(tmp_path: Path) -> None:
+    all_commands = [
+        f"python review_reply_post.py post --request review-reply.json --branch b --sender s # {FIRST_THREAD_ID}",
+        f"cat review_reply_post.py; echo request --comment-id {FIRST_COMMENT_ID} {FIRST_THREAD_ID}",
+        f"python review_reply_post.py request --help; echo {FIRST_THREAD_ID}",
+    ]
+    for each_command in all_commands:
+        transcript_path = _write_transcript(
+            tmp_path,
+            [_prompt("Address the review threads."), _script_reply("reply-1", each_command), _result("reply-1")],
+        )
+        assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
+
+
+def should_allow_a_resolve_after_a_background_reply_script_exits_zero(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path,
+        [
+            _prompt("Address the review threads."),
+            _script_reply("reply-1", is_background=True),
+            _result("reply-1", text="Command running in background with ID: b1"),
+            _task_notice("reply-1"),
+        ],
+    )
+    assert gate.decision_for(_resolve_payload(transcript_path)) is None
+
+
+def should_deny_a_resolve_while_a_background_reply_script_still_runs(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path,
+        [
+            _prompt("Address the review threads."),
+            _script_reply("reply-1", is_background=True),
+            _result("reply-1", text="Command running in background with ID: b1"),
+        ],
+    )
+    assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
+
+
+def should_deny_a_resolve_after_a_background_reply_script_fails(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path,
+        [
+            _prompt("Address the review threads."),
+            _script_reply("reply-1", is_background=True),
+            _result("reply-1", text="Command running in background with ID: b1"),
+            _task_notice("reply-1", exit_code=3),
+            _task_notice("another-call"),
+        ],
+    )
+    assert _deny_reason(gate.decision_for(_resolve_payload(transcript_path))) == MISSING_REPLY_REASON
+
+
+def should_keep_a_posted_reply_across_a_background_task_notice(tmp_path: Path) -> None:
+    transcript_path = _write_transcript(
+        tmp_path,
+        [
+            _prompt("Address the review threads."),
+            *_threads_read(),
+            _reply("reply-1"),
+            _result("reply-1"),
+            _task_notice("another-call"),
+        ],
+    )
+    assert gate.decision_for(_resolve_payload(transcript_path)) is None
