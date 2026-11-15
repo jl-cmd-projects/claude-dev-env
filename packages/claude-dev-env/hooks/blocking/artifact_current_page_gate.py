@@ -12,10 +12,11 @@ would send it and refuses both::
     Artifact {"file_path": "page.html", "url": "<link>"}     each item once                 -> allowed, with a note
     Artifact {"action": "read", ...}                         -> allowed
 
-An item is an image larger than an icon, counted by the file its ``src``
-names in the rendered page, or an element with a ``data-item`` key. The link record is a
-``<meta name="artifact-link">`` tag in the page, or the record file that
-``session/artifact_link_record.py`` writes beside the page.
+An item is an image larger than an icon, counted by the file its
+``src`` names in the rendered page, or an element with a ``data-item``
+key. The link record is a ``<meta name="artifact-link">`` tag in the
+page, or the record file that ``session/artifact_link_record.py``
+writes beside the page.
 
 A host without Playwright or Chromium is denied with the install command,
 because an unrendered page is the case this gate exists to stop.
@@ -36,11 +37,11 @@ if hooks_root_directory not in sys.path:
 from blocking.artifact_dark_mode_gate import published_page_path, wrap_in_publish_skeleton
 from hooks_constants.artifact_current_page_gate_constants import (
     ARTIFACT_EDITS_INPUT_KEY,
+    ARTIFACT_LINK_PATTERN,
     ARTIFACT_URL_INPUT_KEY,
     EDIT_NEW_TEXT_KEY,
     EDIT_OLD_TEXT_KEY,
     FULL_RULE_POINTER_TEMPLATE,
-    ARTIFACT_LINK_PATTERN,
     LINK_META_NAME,
     LINK_META_SOURCE,
     LINK_RECORD_SUFFIX,
@@ -58,6 +59,7 @@ from hooks_constants.artifact_current_page_gate_constants import (
     REPEATED_ITEM_LINE_TEMPLATE,
     REPEATED_ITEM_RETRY_INSTRUCTION,
     REPUBLISH_NOTE,
+    LINK_SOURCE_JOINER,
     SECOND_LINK_REASON_TEMPLATE,
     TAG_ATTRIBUTE_PATTERN,
 )
@@ -162,12 +164,13 @@ def _link_record(record_path: Path) -> dict[str, str]:
 
 def _meta_page_link(page_source: str) -> str:
     for each_meta_tag in META_TAG_PATTERN.findall(page_source):
-        all_attributes = {
-            each_name.lower(): (double_quoted or single_quoted).strip()
-            for each_name, double_quoted, single_quoted in TAG_ATTRIBUTE_PATTERN.findall(
-                each_meta_tag
+        all_attributes: dict[str, str] = {}
+        for each_name, each_double_quoted, each_single_quoted in TAG_ATTRIBUTE_PATTERN.findall(
+            each_meta_tag
+        ):
+            all_attributes.setdefault(
+                each_name.lower(), (each_double_quoted or each_single_quoted).strip()
             )
-        }
         meta_link = all_attributes.get(META_CONTENT_ATTRIBUTE, "")
         if all_attributes.get(
             META_NAME_ATTRIBUTE, ""
@@ -176,25 +179,54 @@ def _meta_page_link(page_source: str) -> str:
     return ""
 
 
+def _record_link(record_path: Path) -> str:
+    recorded_link = _link_record(record_path).get(LINK_RECORD_URL_KEY, "")
+    return recorded_link if ARTIFACT_LINK_PATTERN.fullmatch(recorded_link) else ""
+
+
+def _renamed_page_record(page_path: Path, title: str) -> Path | None:
+    if not title:
+        return None
+    all_record_paths = sorted(page_path.parent.glob("*" + LINK_RECORD_SUFFIX))
+    page_path_by_record = {
+        each_record_path: page_path.parent / each_record_path.name.removesuffix(LINK_RECORD_SUFFIX)
+        for each_record_path in all_record_paths
+    }
+    links_of_other_present_pages = {
+        _record_link(each_record_path)
+        for each_record_path, each_page_path in page_path_by_record.items()
+        if each_page_path.exists() and each_page_path != page_path
+    }
+    for each_record_path, each_page_path in page_path_by_record.items():
+        if each_page_path.exists():
+            continue
+        each_link = _record_link(each_record_path)
+        is_same_title = _link_record(each_record_path).get(LINK_RECORD_TITLE_KEY) == title
+        if is_same_title and each_link and each_link not in links_of_other_present_pages:
+            return each_record_path
+    return None
+
+
 def _page_link_and_source(page_path: Path, page_source: str) -> tuple[str, str]:
+    all_links_with_sources: list[tuple[str, str]] = []
     meta_link = _meta_page_link(page_source)
     if meta_link:
-        return meta_link, LINK_META_SOURCE
+        all_links_with_sources.append((meta_link, LINK_META_SOURCE))
     own_record_path = link_record_path(page_path)
-    own_link = _link_record(own_record_path).get(LINK_RECORD_URL_KEY, "")
+    own_link = _record_link(own_record_path)
     if own_link:
-        return own_link, str(own_record_path)
-    title = page_title(page_source)
-    if not title:
+        all_links_with_sources.append((own_link, str(own_record_path)))
+    renamed_record_path = _renamed_page_record(page_path, page_title(page_source))
+    if renamed_record_path is not None:
+        all_links_with_sources.append(
+            (_record_link(renamed_record_path), str(renamed_record_path))
+        )
+    if not all_links_with_sources:
         return "", ""
-    for each_record_path in sorted(page_path.parent.glob("*" + LINK_RECORD_SUFFIX)):
-        recorded_page_name = each_record_path.name.removesuffix(LINK_RECORD_SUFFIX)
-        if (page_path.parent / recorded_page_name).exists():
-            continue
-        each_record = _link_record(each_record_path)
-        if each_record.get(LINK_RECORD_TITLE_KEY) == title:
-            return each_record.get(LINK_RECORD_URL_KEY, ""), str(each_record_path)
-    return "", ""
+    first_link = all_links_with_sources[0][0]
+    return first_link, LINK_SOURCE_JOINER.join(
+        each_source for _, each_source in all_links_with_sources
+    )
 
 
 def recorded_page_link(page_path: Path, page_source: str) -> str:
@@ -206,10 +238,11 @@ def recorded_page_link(page_path: Path, page_source: str) -> str:
         first-look.html.artifact-link.json beside first-look.html      -> its url
         a record in the same folder with this title, page file gone    -> its url
 
-    The meta tag counts in either attribute order, and only when its content
-    is an artifact link. The third place catches a page renamed in its folder.
-    A record whose page file is still there belongs to a separate page, even
-    when the two titles match, so it is skipped.
+    Each place counts only when it holds an artifact link, and the meta tag
+    counts in either attribute order. The third place catches a page renamed
+    in its folder. A record whose page file is still there belongs to a
+    separate page, even when the two titles match, so it is skipped. So is a
+    record whose link another page in the folder still holds.
 
     Args:
         page_path: The local page file.

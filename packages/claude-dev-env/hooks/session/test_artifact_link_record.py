@@ -35,6 +35,10 @@ def test_should_take_the_link_the_call_passed() -> None:
     assert published_link({"url": PAGE_LINK}, "Updated the page.") == PAGE_LINK
 
 
+def test_should_skip_a_call_url_that_is_no_artifact_link() -> None:
+    assert published_link({"url": "<link>"}, "The publish was refused.") == ""
+
+
 def test_should_take_the_link_the_result_names() -> None:
     assert published_link({}, f"Published to {PAGE_LINK} (private).") == PAGE_LINK
     code_link = "https://claude.ai/code/artifact/0e557edc-f0c7-4382-8568-aee7ab02950b"

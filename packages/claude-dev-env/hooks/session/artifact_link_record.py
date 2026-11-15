@@ -50,7 +50,8 @@ def published_link(all_tool_input: dict[str, object], tool_response: object) -> 
         {}, "The publish was refused"                              -> ""
 
     Result text that names two different links does not say which one is the
-    page, so it gives no link.
+    page, so it gives no link. A call ``url`` that is no artifact link is
+    skipped.
 
     Args:
         all_tool_input: The input of the publish call.
@@ -60,7 +61,7 @@ def published_link(all_tool_input: dict[str, object], tool_response: object) -> 
         The link, or an empty string when neither place names one.
     """
     link_in_call = all_tool_input.get(ARTIFACT_URL_INPUT_KEY)
-    if isinstance(link_in_call, str) and link_in_call:
+    if isinstance(link_in_call, str) and ARTIFACT_LINK_PATTERN.fullmatch(link_in_call):
         return link_in_call
     if isinstance(tool_response, dict):
         link_in_result = tool_response.get(ARTIFACT_URL_INPUT_KEY)

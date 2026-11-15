@@ -18,6 +18,7 @@ __all__ = [
     "LINK_RECORD_SUFFIX",
     "LINK_RECORD_TITLE_KEY",
     "LINK_RECORD_URL_KEY",
+    "LINK_SOURCE_JOINER",
     "META_CONTENT_ATTRIBUTE",
     "META_NAME_ATTRIBUTE",
     "META_TAG_PATTERN",
@@ -52,6 +53,7 @@ META_NAME_ATTRIBUTE = "name"
 META_CONTENT_ATTRIBUTE = "content"
 LINK_META_NAME = "artifact-link"
 LINK_META_SOURCE = "the artifact-link meta tag from the page"
+LINK_SOURCE_JOINER = " and "
 PAGE_TITLE_PATTERN = re.compile(r"<title[^>]*>(.*?)</title>", re.IGNORECASE | re.DOTALL)
 REPEAT_RENDERER_SCRIPT_PATH = BLOCKING_HOOKS_DIRECTORY / "artifact_repeated_item_render.cjs"
 REPEATED_ITEM_HEADER = "This page draws the same item more than once, so the reader cannot tell which entry is current.\n"

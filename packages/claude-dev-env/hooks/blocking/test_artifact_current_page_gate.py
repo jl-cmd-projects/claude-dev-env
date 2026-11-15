@@ -131,6 +131,19 @@ def test_should_ignore_a_meta_tag_that_holds_no_artifact_link(tmp_path: Path) ->
     assert recorded_page_link(tmp_path / "page.html", page_source) == ""
 
 
+def test_should_read_the_first_of_two_name_attributes_as_html_does(tmp_path: Path) -> None:
+    page_source = (
+        f'<meta name="artifact-link" name="other" content="{PAGE_LINK}">' + PAGE_WITH_ONE_SCREEN
+    )
+    assert recorded_page_link(tmp_path / "page.html", page_source) == PAGE_LINK
+
+
+def test_should_ignore_a_record_that_holds_no_artifact_link(tmp_path: Path) -> None:
+    page_path = tmp_path / "page.html"
+    link_record_path(page_path).write_text(json.dumps({"url": "<link>", "title": "Sample Run"}))
+    assert recorded_page_link(page_path, PAGE_WITH_ONE_SCREEN) == ""
+
+
 def test_should_read_the_link_from_the_record_beside_the_page(tmp_path: Path) -> None:
     page_path = tmp_path / "page.html"
     link_record_path(page_path).write_text(json.dumps({"url": PAGE_LINK, "title": "Other"}))
@@ -152,6 +165,19 @@ def test_should_leave_a_separate_page_with_the_same_title_unlinked(tmp_path: Pat
         json.dumps({"url": PAGE_LINK, "title": "Sample Run"})
     )
     assert recorded_page_link(tmp_path / "team-b.html", PAGE_WITH_ONE_SCREEN) == ""
+
+
+def test_should_skip_an_old_name_record_whose_link_a_present_page_holds(tmp_path: Path) -> None:
+    link_record_path(tmp_path / "first-name.html").write_text(
+        json.dumps({"url": PAGE_LINK, "title": "Sample Run"})
+    )
+    renamed_page_path = tmp_path / "second-name.html"
+    renamed_page_path.write_text(PAGE_WITH_ONE_SCREEN, encoding="utf-8")
+    link_record_path(renamed_page_path).write_text(
+        json.dumps({"url": PAGE_LINK, "title": "Sample Run"})
+    )
+    assert recorded_page_link(tmp_path / "third-page.html", PAGE_WITH_ONE_SCREEN) == ""
+    assert recorded_page_link(renamed_page_path, PAGE_WITH_ONE_SCREEN) == PAGE_LINK
 
 
 def test_should_name_each_repeated_item_and_its_count() -> None:
@@ -293,6 +319,19 @@ def test_should_refuse_a_second_link_and_allow_the_recorded_one(tmp_path: Path) 
     assert (
         REPUBLISH_NOTE in json.loads(allowed_run.stdout)["hookSpecificOutput"]["additionalContext"]
     )
+
+
+def test_should_name_every_place_that_keeps_the_link(tmp_path: Path) -> None:
+    page_path = tmp_path / "page.html"
+    page_path.write_text(
+        f'<meta name="artifact-link" content="{PAGE_LINK}">' + PAGE_WITH_ONE_SCREEN,
+        encoding="utf-8",
+    )
+    link_record_path(page_path).write_text(json.dumps({"url": PAGE_LINK, "title": "Sample Run"}))
+    denied_run = _run_gate({"file_path": str(page_path)})
+    assert denied_run.returncode == BLOCK_EXIT_CODE
+    assert "the artifact-link meta tag from the page and " in denied_run.stderr
+    assert "page.html.artifact-link.json, then publish" in denied_run.stderr
 
 
 @needs_renderer
