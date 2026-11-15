@@ -536,6 +536,39 @@ def test_gh_repo_environment_should_name_the_repository_when_the_origin_is_unrea
     assert all_asked_repositories == [("o", "r")]
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        'GH_REPO=o/r env -u GH_REPO gh pr create --title "fix: a" --body "Follow-up to #7"',
+        'GH_REPO=o/r env -i gh pr create --title "fix: a" --body "Follow-up to #7"',
+        'gh pr create --repo o/r --title "fix: a" --body "Follow-up to #7" ; '
+        'GH_REPO=o/r gh pr create --title "fix: a" --body "Follow-up to #7"',
+    ],
+)
+def test_should_find_an_origin_duplicate_for_a_create_behind_a_gh_repo_prefix(
+    tmp_path: Path, command: str
+) -> None:
+    checkout_path = _checkout_with_origin(tmp_path, "https://github.com/acme/tools.git")
+    open_followup = _open_followup(9, 7)
+    all_asked_repositories: list[tuple[str, str]] = []
+    payload = {"tool_name": "Bash", "cwd": str(checkout_path), "tool_input": {"command": command}}
+    reader = _keyed_reader({("o", "r"): [], ("acme", "tools"): [open_followup]}, all_asked_repositories)
+    assert dedupe.duplicate_followup_reason(payload, reader) == _duplicate_reason(open_followup, 7)
+    assert ("acme", "tools") in all_asked_repositories
+
+
+def test_should_allow_a_create_that_names_its_repository_with_its_own_repo_flag_when_origin_holds_a_duplicate(
+    tmp_path: Path,
+) -> None:
+    checkout_path = _checkout_with_origin(tmp_path, "https://github.com/acme/tools.git")
+    all_asked_repositories: list[tuple[str, str]] = []
+    command = 'gh pr create --repo o/r --title "fix: a" --body "Follow-up to #7"'
+    payload = {"tool_name": "Bash", "cwd": str(checkout_path), "tool_input": {"command": command}}
+    reader = _keyed_reader({("o", "r"): [], ("acme", "tools"): [_open_followup(9, 7)]}, all_asked_repositories)
+    assert dedupe.duplicate_followup_reason(payload, reader) is None
+    assert all_asked_repositories == [("o", "r")]
+
+
 def test_all_pull_request_argument_lists_should_list_the_named_action_only() -> None:
     command = "gh pr edit 7 --body x && python pull_request.py edit --number 8 && gh pr create --body y"
     all_argument_lists = list(dedupe.all_pull_request_argument_lists(command, ["pr", "edit"], "edit"))
