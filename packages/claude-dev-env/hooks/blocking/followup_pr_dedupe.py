@@ -435,14 +435,26 @@ def _arguments_draft(
     repository_value = option_value(all_arguments, ALL_REPOSITORY_OPTIONS)
     if repository_value is None and is_gh_repository_set:
         return UnreadOriginDraft(body, GH_REPO_SET_FOLLOWUP_REASON_TEMPLATE)
-    if repository_value is not None:
-        repository = named_repository(repository_value)
-    else:
-        remote_url = _origin_remote_url(working_directory)
-        if remote_url is None:
-            return UnreadOriginDraft(body)
-        repository = _github_repository(remote_url)
+    if repository_value is None:
+        return _origin_draft(body, working_directory)
+    repository = named_repository(repository_value)
     return None if repository is None else PullRequestDraft(repository[0], repository[1], body)
+
+
+def _origin_draft(body: str, working_directory: str) -> PullRequestDraft | UnreadOriginDraft | None:
+    remote_url = _origin_remote_url(working_directory)
+    if remote_url is None:
+        return UnreadOriginDraft(body)
+    repository = _github_repository(remote_url)
+    return None if repository is None else PullRequestDraft(repository[0], repository[1], body)
+
+
+def _is_prefix_named_create(all_segment_tokens: list[str]) -> bool:
+    program, all_arguments = segment_program_and_arguments(all_segment_tokens)
+    if program != GH_PROGRAM_NAME or prefix_repository(all_segment_tokens) is None:
+        return False
+    all_action_arguments = _gh_action_arguments(all_arguments, ALL_GH_CREATE_WORDS)
+    return all_action_arguments is not None and option_value(all_action_arguments, ALL_REPOSITORY_OPTIONS) is None
 
 
 def sets_gh_repository(command: str) -> bool:
@@ -492,11 +504,33 @@ def _assigned_name(argument: str) -> str:
 
 
 def _shell_followup_drafts(command: str, working_directory: str) -> list[PullRequestDraft | UnreadOriginDraft]:
+    """Return the follow-up draft of each create in a shell command, in command order.
+
+    ::
+
+        gh pr create --repo o/r --body "Follow-up to #7"                 -> [o/r]
+        GH_REPO=o/r env -u GH_REPO gh pr create --body "Follow-up to #7" -> [o/r, origin]
+
+    A create whose repository comes only from a ``GH_REPO=`` prefix also
+    gets an origin draft, since a wrapper such as ``env -u GH_REPO`` can drop
+    the prefix before gh runs. That origin draft is left out when the origin
+    remote gives no GitHub repository, since gh then has none to open in.
+
+    Args:
+        command: The shell command text.
+        working_directory: The folder the command runs in.
+    """
     is_gh_repository_set = sets_gh_repository(command)
-    all_drafts = (
-        _arguments_draft(all_arguments, working_directory, is_gh_repository_set)
-        for all_arguments in all_create_argument_lists(command)
-    )
+    all_drafts: list[PullRequestDraft | UnreadOriginDraft | None] = []
+    for each_segment in all_command_segments(command):
+        all_arguments = create_arguments(each_segment)
+        if all_arguments is None:
+            continue
+        draft = _arguments_draft(all_arguments, working_directory, is_gh_repository_set)
+        all_drafts.append(draft)
+        if isinstance(draft, PullRequestDraft) and _is_prefix_named_create(each_segment):
+            origin_draft = _origin_draft(draft.body, working_directory)
+            all_drafts.append(origin_draft if isinstance(origin_draft, PullRequestDraft) else None)
     return list(dict.fromkeys(each_draft for each_draft in all_drafts if each_draft is not None))
 
 
