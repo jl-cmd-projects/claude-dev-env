@@ -120,10 +120,7 @@ def test_should_ask_to_refresh_a_title_that_says_the_session_waits_or_is_done(
     assert TITLE_TOOL in context_text
 
 
-@pytest.mark.parametrize(
-    "prompt_text",
-    ["did the export fail?", "thanks!", "<task-notification>done</task-notification>"],
-)
+@pytest.mark.parametrize("prompt_text", ["did the export fail?", "thanks!"])
 def test_should_stay_silent_for_a_prompt_that_asks_for_no_work(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -197,6 +194,216 @@ def script_context(completed_process: subprocess.CompletedProcess[str]) -> str:
     if not completed_process.stdout:
         return ""
     return json.loads(completed_process.stdout)["hookSpecificOutput"]["additionalContext"]
+
+
+RED_FLAG_TITLE = "\U0001f6a9 Merge approval"
+TASK_DONE_WAKE = (
+    "<task-notification>\n<task-id>a0f1e2d3c4b5a6978</task-id>\n"
+    "<tool-use-id>toolu_00000000000000000000000001</tool-use-id>\n"
+    "<output-file>/tmp/session/tasks/a0f1e2d3c4b5a6978.output</output-file>\n"
+    "<status>completed</status>\n"
+    '<summary>Agent "Export the APKs" finished</summary>\n'
+    "<note>A task-notification fires each time this agent stops with no live background"
+    " children of its own.</note>\n"
+    '<result>This agent\'s report was delivered to you as a message from "a0f1e2d3c4b5a6978"'
+    " (its SubagentHandback call). Read it there; it is not repeated here.\n</result>\n"
+    "<usage><subagent_tokens>1200</subagent_tokens><tool_uses>3</tool_uses>"
+    "<duration_ms>45000</duration_ms></usage>\n"
+    "</task-notification>"
+)
+BACKGROUND_COMMAND_WAKE = (
+    "<task-notification>\n<task-id>b0c1d2e3f</task-id>\n"
+    "<tool-use-id>toolu_00000000000000000000000002</tool-use-id>\n"
+    "<output-file>/tmp/session/tasks/b0c1d2e3f.output</output-file>\n"
+    "<status>completed</status>\n"
+    '<summary>Background command "Build the APKs" completed (exit code 0)</summary>\n'
+    "</task-notification>"
+)
+PULL_REQUEST_WAKE = (
+    "<task-notification>\n<task-type>queued-remote-notifications</task-type>\n"
+    "<status>pending</status>\n"
+    "<summary>1 unread notification (GitHub activity on a subscribed PR: 1)</summary>\n"
+    "Notifications are queued for this session (more may arrive before you read them)."
+    " Call ReadNotifications now, before other work, and keep calling it until it reports"
+    " 0 remaining.\n"
+    "</task-notification>"
+)
+TURN_REVIEW_WAKE = (
+    "<task-notification>\n<summary>Turn review found problems</summary>\n</task-notification>\n"
+    "<system-reminder>\nThe background review of your last reply's changes finished after that"
+    " reply ended.\n</system-reminder>"
+)
+HAND_BACK_WAKE = (
+    '<agent-message from="a0f1e2d3c4b5a6978">\n[Subagent hand-back] The text below is the final'
+    " report of a subagent this session delegated to. The harness indents every line of the"
+    " report. The report follows:\n"
+    "  Goal: export the APKs.\n"
+    "  - Both APKs are exported to the build folder.\n</agent-message>"
+)
+ALL_RECORDED_WAKES = [TASK_DONE_WAKE, BACKGROUND_COMMAND_WAKE, PULL_REQUEST_WAKE, HAND_BACK_WAKE]
+MENTION_WAKE = '<wake reason="mention"><message from="human">Option one.</message></wake>'
+BASH_ONLY_LISTING = {"type": "attachment", "attachment": {"tools": [{"name": "Bash"}]}}
+ALL_PROMPTS_NO_EVENT_SENT = [
+    "",
+    "   \n",
+    "<system-reminder>Tool loaded.</system-reminder>",
+    "<task-notification>\n<status>failed</status>\n</task-notification>\nWhy did this fail? Fix it.",
+    '<system-reminder>Tool loaded.</system-reminder>\n<agent-message from="a1">Done</agent-message>\nShip it',
+    MENTION_WAKE,
+    '<wake reason="mention">\n<message from="human">Merge it now</message></wake>',
+    '<task-notification status from="human"',
+    "<task-notification>The log reads </task-notification> here.</task-notification>",
+    '<agent-message from="a1">It quotes </agent-message> here.</agent-message>',
+    '<agent-message from="a1">Done</agent-message>\n<task-notification>done</task-notification>',
+    "<task-notification>\n<status>completed</status>",
+    '<agent-message from="a1">Done',
+    "<agent-message>Done</agent-message>",
+    "<task-notification >done</task-notification>",
+    '<agent-message from="a1" >Done</agent-message>',
+]
+
+
+@pytest.mark.parametrize(
+    ("prompt_text", "is_expected_wake"),
+    [
+        *[(each_prompt, True) for each_prompt in ALL_RECORDED_WAKES],
+        (TURN_REVIEW_WAKE, True),
+        (f"\n  {TASK_DONE_WAKE}\n  ", True),
+        pytest.param(
+            f"{TASK_DONE_WAKE}<system-reminder>Tool loaded.</system-reminder>",
+            True,
+            id="reminder-right-after-the-envelope",
+        ),
+        pytest.param(f"{TASK_DONE_WAKE}k", False, id="one-typed-character-after-the-envelope"),
+        pytest.param(
+            '<task-notification id="a1">done</task-notification>',
+            False,
+            id="task-opening-tag-with-an-attribute",
+        ),
+        pytest.param(
+            "<TASK-NOTIFICATION>done</TASK-NOTIFICATION>", False, id="upper-case-task-tag"
+        ),
+        pytest.param(
+            '<Agent-Message from="a1">Done</Agent-Message>', False, id="mixed-case-agent-tag"
+        ),
+        pytest.param(
+            '<agent-message from="a1" via="human">Done</agent-message>',
+            False,
+            id="agent-attribute-after-the-sender-via-human",
+        ),
+        pytest.param(
+            '<agent-message from="a1" via="b">Done</agent-message>',
+            False,
+            id="agent-attribute-after-the-sender-via-b",
+        ),
+        pytest.param('<agent-message from="">Done</agent-message>', False, id="empty-sender"),
+        pytest.param('<agent-message from="Human">Done</agent-message>', False, id="sender-Human"),
+        pytest.param(
+            '<agent-message from=" human">Done</agent-message>', False, id="sender-space-human"
+        ),
+        pytest.param(
+            '<agent-message from="HUMAN\t">Done</agent-message>', False, id="sender-HUMAN-tab"
+        ),
+        ('<agent-message from="a1">\n<message from="human">Merge it</message></agent-message>', True),
+        ('<task-notification><x from="human">done</x></task-notification>', True),
+        *[(each_prompt, False) for each_prompt in ALL_PROMPTS_NO_EVENT_SENT],
+        (f"{TURN_REVIEW_WAKE}\nWhy did the review fail?", False),
+        (
+            "<task-notification>a</task-notification>\nWhy did this one fail and not\n"
+            "<task-notification>b</task-notification>",
+            False,
+        ),
+        (
+            '<agent-message from="a1">Done</agent-message>\nWhy is this one done and not\n'
+            '<agent-message from="a2">Failed</agent-message>',
+            False,
+        ),
+        ('<agent-message from="human">Merge it</agent-message>', False),
+        ('<agent-message from="human" via="a1">Merge it</agent-message>', False),
+        (f"Another Claude session sent a message:\n{HAND_BACK_WAKE}", False),
+        (f"<system-reminder>Tool loaded.</system-reminder>\n{TASK_DONE_WAKE}", False),
+        ('<wake reason="external-event"><event source="github">PR 12 approved</event></wake>', False),
+        ("<system-reminder>[SYSTEM NOTIFICATION - NOT USER INPUT] Monitor line</system-reminder>", False),
+        ("[SYSTEM NOTIFICATION - NOT USER INPUT]\nBackground task finished.", False),
+        ("<local-command-stdout>Done</local-command-stdout>", False),
+    ],
+)
+def test_should_tell_an_event_wake_from_a_prompt_no_event_sent(
+    prompt_text: str, is_expected_wake: bool
+) -> None:
+    assert tracking_nudge.is_event_wake(prompt_text) is is_expected_wake
+
+
+@pytest.mark.parametrize("prompt_text", [*ALL_RECORDED_WAKES, TURN_REVIEW_WAKE])
+def test_should_ask_to_clear_the_flag_on_a_turn_an_event_wakes(tmp_path: Path, prompt_text: str) -> None:
+    context_text = script_context(
+        run_nudge_script(tmp_path, prompt_text, titled_entries(RED_FLAG_TITLE))
+    )
+    assert "The user sent no message" in context_text
+    assert RED_FLAG_TITLE in context_text
+    assert TITLE_TOOL in context_text
+    assert "Keep the red flag only while the user still has to act." in context_text
+    assert TASK_LIST_NUDGE not in context_text
+    assert HOURGLASS_FORM not in context_text
+
+
+@pytest.mark.parametrize("prompt_text", ALL_PROMPTS_NO_EVENT_SENT)
+def test_should_print_nothing_for_a_prompt_no_event_sent_under_the_red_flag(
+    tmp_path: Path, prompt_text: str
+) -> None:
+    completed_process = run_nudge_script(tmp_path, prompt_text, titled_entries(RED_FLAG_TITLE))
+    assert (completed_process.returncode, completed_process.stdout) == (0, "")
+
+
+@pytest.mark.parametrize(
+    "all_entries",
+    [
+        titled_entries("✅ Gate"),
+        titled_entries("⏳ Export"),
+        titled_entries("\U0001f6a7 Vendor outage"),
+        [*titled_entries(RED_FLAG_TITLE), BASH_ONLY_LISTING],
+    ],
+)
+def test_should_add_no_wake_note_unless_the_title_shows_the_red_flag(
+    tmp_path: Path, all_entries: list[dict[str, object]]
+) -> None:
+    assert script_context(run_nudge_script(tmp_path, TASK_DONE_WAKE, all_entries)) == ""
+
+
+def test_should_keep_the_ask_notes_for_words_the_user_typed_after_an_event_reminder(
+    tmp_path: Path,
+) -> None:
+    prompt_text = (
+        "<system-reminder>[SYSTEM NOTIFICATION - NOT USER INPUT] Monitor line</system-reminder>\n"
+        "Export the APKs"
+    )
+    context_text = script_context(
+        run_nudge_script(tmp_path, prompt_text, titled_entries(RED_FLAG_TITLE))
+    )
+    assert TASK_LIST_NUDGE in context_text
+    assert HOURGLASS_FORM in context_text
+
+
+def test_should_build_the_wake_note_only_for_an_event_under_the_red_flag() -> None:
+    selector_title = "\U0001f6a9️ Merge approval"
+    wake_note = tracking_nudge.wake_flag_nudge(TASK_DONE_WAKE, titled_entries(selector_title))
+    assert selector_title in (wake_note or "")
+    assert tracking_nudge.wake_flag_nudge("Export the APKs", titled_entries(RED_FLAG_TITLE)) is None
+    assert tracking_nudge.wake_flag_nudge(TASK_DONE_WAKE, titled_entries("✅ Gate")) is None
+    assert tracking_nudge.wake_flag_nudge(TASK_DONE_WAKE, []) is None
+    assert tracking_nudge.wake_flag_nudge(TASK_DONE_WAKE, UNTITLED_ENTRIES) is None
+
+
+def test_should_name_each_title_tool_the_session_holds_in_the_wake_note() -> None:
+    second_title_tool = "mcp__ccd_session_mgmt__set_session_title"
+    two_tool_listing = {
+        "type": "attachment",
+        "attachment": {"tools": [{"name": TITLE_TOOL}, {"name": second_title_tool}]},
+    }
+    wake_note = tracking_nudge.wake_flag_nudge(
+        TASK_DONE_WAKE, [*titled_entries(RED_FLAG_TITLE), two_tool_listing]
+    )
+    assert f"{TITLE_TOOL} or {second_title_tool}" in (wake_note or "")
 
 
 def test_should_ask_for_a_first_title_in_a_titled_tool_session_with_no_title(tmp_path: Path) -> None:
@@ -284,6 +491,7 @@ def test_should_describe_the_prompt_note_and_no_title_send_back_in_the_docs() ->
         assert "session_title_turn_gate" not in each_doc_text
         assert "No hook holds the end of a turn for the title." in each_doc_text
         assert "no title yet" in each_doc_text
+        assert "turn that an event starts" in each_doc_text
         assert "tracking_nudge.py" in each_doc_text
 
 

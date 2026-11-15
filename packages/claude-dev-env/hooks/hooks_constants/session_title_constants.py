@@ -66,3 +66,16 @@ NO_TITLE_NUDGE_TEMPLATE = (
     " '⏳ <name>' before other work, so the user sees the session working."
 )
 NO_TITLE_NUDGE_ONCE_MARKER_NAME = "no_title_nudge"
+WAKE_FLAG_NUDGE_TEMPLATE = (
+    "An event started this turn. The user sent no message. The session title still shows"
+    " '{title}'. If this event leaves the user nothing to do, set the title with"
+    " {tool_name} to the status that fits now before you reply. Keep the red flag only"
+    " while the user still has to act."
+)
+WAKE_EVENT_ENVELOPE_PATTERN = re.compile(
+    r"<task-notification>.*?</task-notification>"
+    r'|<agent-message from="(?P<sender>[^"]*)">.*?</agent-message>',
+    re.DOTALL,
+)
+WAKE_SENDER_GROUP_NAME = "sender"
+ALL_NO_WAKE_SENDER_NAMES = frozenset({"", "human"})

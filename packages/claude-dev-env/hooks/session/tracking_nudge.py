@@ -14,12 +14,22 @@ on the first ask after each compaction::
                                              -> task list note + no title note
     "Sign the APKs", a later ask             -> nothing, or the title note
     "did the export fail?"                   -> nothing
-    "<task-notification>...</task-notification>"
+    "<task-notification>...</task-notification>", title shows a red flag
+                                             -> wake note
+    "<task-notification>...</task-notification>", any other title
                                              -> nothing
+
+A turn that an event starts carries no message from the user. The hook counts a
+prompt as an event when it is one ``<task-notification>`` envelope, such as a
+finished delegate, a pull request wake, or a turn review notice, or one queued
+``<agent-message>`` hand-back, followed by nothing but reminder blocks. While
+the title shows the red flag, the wake note asks the agent to set the status
+that fits now if the event cleared what the user had to do. It shows on each
+such prompt. Any other prompt gets no wake note.
 
 The note never blocks. The Stop gate ``open_tasks_stop_gate.py`` holds the turn
 once only when the agent skipped the task list. No hook holds a turn for the
-title. Both title notes need the title tool in the transcript, and the no title
+title. All three title notes need the title tool in the transcript, and the no title
 note shows at most once in a session, compactions included.
 """
 
@@ -48,14 +58,19 @@ from hooks_constants.open_tasks_stop_gate_constants import (
 )
 from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_stdin
 from hooks_constants.session_title_constants import (
+    ALL_NO_WAKE_SENDER_NAMES,
     ALL_STALE_AT_START_STATUSES,
     NO_TITLE_NUDGE_ONCE_MARKER_NAME,
     NO_TITLE_NUDGE_TEMPLATE,
+    RED_FLAG_STATUS,
     TITLE_NUDGE_TEMPLATE,
     TITLE_TOOL_DISPLAY_SEPARATOR,
+    WAKE_EVENT_ENVELOPE_PATTERN,
+    WAKE_FLAG_NUDGE_TEMPLATE,
+    WAKE_SENDER_GROUP_NAME,
 )
 from once_per_session import claim_first_showing, claim_only_showing
-from open_task_asks import is_ask
+from open_task_asks import is_ask, prompt_without_reminders
 from session_title_transcript import (
     available_title_tools,
     read_transcript_entries,
@@ -96,19 +111,83 @@ def title_nudge(
     return TITLE_NUDGE_TEMPLATE.format(title=title, tool_name=tool_name)
 
 
+def is_event_wake(prompt_text: str) -> bool:
+    """Return True when a harness event sent the whole prompt, with no words from the user.
+
+    ::
+
+        "<task-notification>...</task-notification>"                    -> True
+        '<agent-message from="a1">...</agent-message>'                   -> True
+        "<task-notification>...</task-notification><system-reminder>...</system-reminder>"
+                                                                         -> True
+        "<task-notification>...</task-notification> Why did it fail?"   -> False
+        '<agent-message from=" Human">...</agent-message>', from=""     -> False
+        "<task-notification>It quotes </task-notification>.</task-notification>"
+                                                                         -> False
+        '<task-notification id="a1">...', "<TASK-NOTIFICATION>..."      -> False
+        "", "<system-reminder>...</system-reminder>", '<wake ...>...'    -> False
+
+    The prompt must open, after white space, with one envelope. Its opening tag
+    is a bare lower case ``<task-notification>``, or ``<agent-message>`` with
+    ``from`` as its only attribute. The sender must not be empty or ``human``.
+    The sender check ignores letter case and the white space around the name.
+    Only reminder blocks and white space may follow the envelope.
+
+    The first closing tag ends the envelope. A body that quotes its own closing
+    tag reads as an envelope with typed text after it, so it is no wake.
+    """
+    text = prompt_text.lstrip()
+    envelope = WAKE_EVENT_ENVELOPE_PATTERN.match(text)
+    if envelope is None:
+        return False
+    sender = envelope.group(WAKE_SENDER_GROUP_NAME)
+    if sender is not None and sender.strip().casefold() in ALL_NO_WAKE_SENDER_NAMES:
+        return False
+    return not prompt_without_reminders(text[envelope.end() :])
+
+
+def wake_flag_nudge(prompt_text: str, all_entries: list[dict[str, object]]) -> str | None:
+    """Return the wake note when an event starts the turn while the title shows the red flag.
+
+    ::
+
+        "<task-notification>...", title shows "\U0001f6a9 Merge approval" -> note naming it
+        "<task-notification>...", shows "✅ Gate" or "⏳ Export"          -> None
+        "Export the APKs", title shows "\U0001f6a9 Merge approval"        -> None
+        no title tool in the transcript                                  -> None
+
+    Args:
+        prompt_text: The ``prompt`` field of the UserPromptSubmit payload.
+        all_entries: The transcript entries, oldest first.
+
+    Returns:
+        The note text, or None.
+    """
+    if not is_event_wake(prompt_text):
+        return None
+    all_title_tools = available_title_tools(all_entries)
+    title = shown_title(all_entries)
+    if not all_title_tools or title is None or title_status(title) != RED_FLAG_STATUS:
+        return None
+    tool_name = TITLE_TOOL_DISPLAY_SEPARATOR.join(all_title_tools)
+    return WAKE_FLAG_NUDGE_TEMPLATE.format(title=title, tool_name=tool_name)
+
+
 def ask_tracking_context(
     prompt_text: str,
     all_entries: list[dict[str, object]],
     all_hook_fields: Mapping[str, object],
 ) -> str | None:
-    """Return the note for a prompt that asks for work, or None for any other prompt.
+    """Return the note for a prompt that asks for work, the wake note for an event, else None.
 
     The task list note shows on the session's first ask and on the first ask
-    after each compaction. The title note shows on every ask while the title is stale,
-    and the no title note on the first ask in the session that finds no title.
+    after each compaction. The title note shows on every ask while the title is
+    stale, and the no title note on the first ask in the session that finds no
+    title. A prompt that asks for no work gets only the wake note, and only when
+    ``wake_flag_nudge`` builds one.
     """
     if not is_ask(prompt_text):
-        return None
+        return wake_flag_nudge(prompt_text, all_entries)
     tracker_note = (
         TASK_LIST_NUDGE
         if claim_first_showing(TASK_LIST_NUDGE_ONCE_MARKER_NAME, all_hook_fields)
