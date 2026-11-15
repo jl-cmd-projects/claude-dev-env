@@ -44,6 +44,7 @@ from blocking.gate_run_reads import gate_run, read_deadlines_started
 from blocking.merge_review_gate_parts.open_request import (
     OpenCall,
     OpenRequest,
+    ShellOpenCall,
     open_calls_from,
     open_request_for,
 )
@@ -94,6 +95,7 @@ from hooks_constants.merge_review_gate_constants import (
     OPTION_WITH_VALUE_PATTERN,
     OWNER_FIELD,
     PERMISSION_DECISION_REASON_KEY,
+    PREFIX_ORIGIN_CHECK_SENTENCE,
     PR_NUMBER_PATTERN,
     PR_URL_PATTERN,
     RECEIPT_HEAD_KEY,
@@ -493,6 +495,8 @@ def _deny_decision(reason: str) -> dict[str, object]:
 def _first_open_deny_reason(all_open_calls: list[OpenCall]) -> str | None:
     for each_call in all_open_calls:
         reason = open_deny_reason(open_request_for(each_call))
+        if reason is not None and isinstance(each_call, ShellOpenCall) and each_call.is_prefix_origin_check:
+            return reason + PREFIX_ORIGIN_CHECK_SENTENCE
         if reason is not None:
             return reason
     return None
