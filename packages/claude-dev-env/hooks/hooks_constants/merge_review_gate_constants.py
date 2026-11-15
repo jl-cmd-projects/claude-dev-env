@@ -263,6 +263,11 @@ NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE = (
     "finding, comma separated>`, each path:line a line this head holds. Then open the pull "
     "request. A merge pinned to {head} accepts an open pass only at zero findings."
 )
+PREFIX_ORIGIN_CHECK_SENTENCE = (
+    " This create names its repository only with a `GH_REPO=` prefix, and a wrapper such as "
+    "`env -u GH_REPO` can drop that prefix before gh runs, so the gate also checks the origin "
+    "repository. Name the repository with `--repo owner/name` on the create instead."
+)
 UNKNOWN_OPEN_TARGET_REASON = (
     "This pull request names no repository or head commit the review gate can read. Check that "
     "the head branch is on GitHub and this session can reach it, or run it from the branch "

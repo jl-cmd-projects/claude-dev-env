@@ -56,6 +56,10 @@ def test_should_flag_isolated_python_without_utf8_mode(command: str) -> None:
     assert gate.runs_isolated_python_without_utf8_mode(command) is True
 
 
+def test_should_flag_isolated_python_behind_a_launcher_and_env_unset() -> None:
+    assert gate.runs_isolated_python_without_utf8_mode("time -p env -u FOO python -I script.py") is True
+
+
 @pytest.mark.parametrize(
     "command",
     [

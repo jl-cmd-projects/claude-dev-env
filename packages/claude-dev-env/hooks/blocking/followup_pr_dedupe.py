@@ -8,7 +8,7 @@ import sys
 import urllib.error
 import urllib.request
 from collections.abc import Callable, Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from http import HTTPStatus
 from pathlib import Path
@@ -45,6 +45,7 @@ from hooks_constants.followup_pr_dedupe_constants import (
     OPEN_PULL_REQUESTS_PATH_TEMPLATE,
     OPTION_AND_VALUE_WIDTH,
     OPTION_PREFIX,
+    PREFIX_ORIGIN_FOLLOWUP_SENTENCE,
     PYTHON_PROGRAM_NAME_PATTERN,
     READ_TIMEOUT_SECONDS,
     REPOSITORY_OPTION,
@@ -75,11 +76,20 @@ from hooks_constants.shell_command_wrappers import (
 
 @dataclass(frozen=True)
 class PullRequestDraft:
-    """The repository and body of a pull request about to be opened."""
+    """The repository and body of a pull request about to be opened.
+
+    Attributes:
+        owner: Repository owner.
+        repo: Repository name.
+        body: The create's body.
+        is_prefix_origin_check: True for the origin draft a create gets when only a
+            ``GH_REPO=`` prefix names its repository. Equal drafts compare equal either way.
+    """
 
     owner: str
     repo: str
     body: str
+    is_prefix_origin_check: bool = field(default=False, compare=False)
 
 
 @dataclass(frozen=True)
@@ -435,14 +445,26 @@ def _arguments_draft(
     repository_value = option_value(all_arguments, ALL_REPOSITORY_OPTIONS)
     if repository_value is None and is_gh_repository_set:
         return UnreadOriginDraft(body, GH_REPO_SET_FOLLOWUP_REASON_TEMPLATE)
-    if repository_value is not None:
-        repository = named_repository(repository_value)
-    else:
-        remote_url = _origin_remote_url(working_directory)
-        if remote_url is None:
-            return UnreadOriginDraft(body)
-        repository = _github_repository(remote_url)
+    if repository_value is None:
+        return _origin_draft(body, working_directory)
+    repository = named_repository(repository_value)
     return None if repository is None else PullRequestDraft(repository[0], repository[1], body)
+
+
+def _origin_draft(body: str, working_directory: str) -> PullRequestDraft | UnreadOriginDraft | None:
+    remote_url = _origin_remote_url(working_directory)
+    if remote_url is None:
+        return UnreadOriginDraft(body)
+    repository = _github_repository(remote_url)
+    return None if repository is None else PullRequestDraft(repository[0], repository[1], body)
+
+
+def _is_prefix_named_create(all_segment_tokens: list[str]) -> bool:
+    program, all_arguments = segment_program_and_arguments(all_segment_tokens)
+    if program != GH_PROGRAM_NAME or prefix_repository(all_segment_tokens) is None:
+        return False
+    all_action_arguments = _gh_action_arguments(all_arguments, ALL_GH_CREATE_WORDS)
+    return all_action_arguments is not None and option_value(all_action_arguments, ALL_REPOSITORY_OPTIONS) is None
 
 
 def sets_gh_repository(command: str) -> bool:
@@ -492,12 +514,45 @@ def _assigned_name(argument: str) -> str:
 
 
 def _shell_followup_drafts(command: str, working_directory: str) -> list[PullRequestDraft | UnreadOriginDraft]:
+    """Return the follow-up draft of each create in a shell command, in command order.
+
+    ::
+
+        gh pr create --repo o/r --body "Follow-up to #7"                 -> [o/r]
+        GH_REPO=o/r env -u GH_REPO gh pr create --body "Follow-up to #7" -> [o/r, origin]
+
+    A create whose repository comes only from a ``GH_REPO=`` prefix also
+    gets an origin draft, since a wrapper such as ``env -u GH_REPO`` can drop
+    the prefix before gh runs. A prefix value that names no repository, such
+    as ``GH_REPO=nonsense``, still gets the origin draft. That origin draft is
+    left out when the origin remote gives no GitHub repository, since gh then
+    has none to open in.
+
+    Args:
+        command: The shell command text.
+        working_directory: The folder the command runs in.
+    """
     is_gh_repository_set = sets_gh_repository(command)
-    all_drafts = (
-        _arguments_draft(all_arguments, working_directory, is_gh_repository_set)
-        for all_arguments in all_create_argument_lists(command)
-    )
+    all_drafts: list[PullRequestDraft | UnreadOriginDraft | None] = []
+    for each_segment in all_command_segments(command):
+        all_arguments = create_arguments(each_segment)
+        if all_arguments is None:
+            continue
+        draft = _arguments_draft(all_arguments, working_directory, is_gh_repository_set)
+        all_drafts.append(draft)
+        if not isinstance(draft, UnreadOriginDraft) and _is_prefix_named_create(each_segment):
+            all_drafts.append(_prefix_origin_draft(all_arguments, working_directory))
     return list(dict.fromkeys(each_draft for each_draft in all_drafts if each_draft is not None))
+
+
+def _prefix_origin_draft(all_arguments: list[str], working_directory: str) -> PullRequestDraft | None:
+    body = body_from_arguments(all_arguments, working_directory)
+    if body is None or followup_parent_number(body) is None:
+        return None
+    origin_draft = _origin_draft(body, working_directory)
+    if not isinstance(origin_draft, PullRequestDraft):
+        return None
+    return PullRequestDraft(origin_draft.owner, origin_draft.repo, body, is_prefix_origin_check=True)
 
 
 def shell_command(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -641,6 +696,7 @@ def duplicate_followup_reason(
     ::
 
         open pull request #9 says "Follow-up to #7"      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
+        that #9 is in origin, found for a GH_REPO= prefix -> PREFIX_ORIGIN_FOLLOWUP_SENTENCE + the same
         the read gives no answer inside its allowance   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         the read answers with a GitHub server error     -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         no --repo, and the origin read gives nothing    -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
@@ -672,6 +728,8 @@ def duplicate_followup_reason(
         if answer is UnreadOpenPullRequests.FAILED:
             continue
         reason = _reason_for_parent(parent_number, answer)
+        if reason is not None and each_draft.is_prefix_origin_check:
+            return PREFIX_ORIGIN_FOLLOWUP_SENTENCE + reason
         if reason is not None:
             return reason
     return None

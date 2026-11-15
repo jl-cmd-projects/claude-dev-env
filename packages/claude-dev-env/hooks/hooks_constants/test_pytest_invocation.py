@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from hooks_constants.pytest_invocation import (
+    all_tokens_after_wrappers,
     segment_reports_a_pytest_exit_code,
     segment_runs_pytest,
 )
@@ -134,3 +135,27 @@ def test_should_not_false_classify_option_value_named_pytest() -> None:
 def test_should_not_false_classify_script_argument_named_pytest() -> None:
     all_tokens = _first_segment_tokens("python myscript.py -m pytest")
     assert segment_runs_pytest(all_tokens) is False
+
+
+@pytest.mark.parametrize(
+    ("all_segment_tokens", "all_expected_tokens"),
+    [
+        (["nohup", "env", "-u", "GH_REPO", "gh", "pr"], ["gh", "pr"]),
+        (["GH_REPO=o/r", "nice", "env", "-u", "GH_REPO", "gh", "pr"], ["gh", "pr"]),
+        (
+            ["nice", "-n", "5", "env", "-u", "GH_REPO", "stdbuf", "-o0", "gh", "pr"],
+            ["stdbuf", "-o0", "gh", "pr"],
+        ),
+        (["stdbuf", "-o0", "env", "-u", "FOO", "gh", "pr"], ["gh", "pr"]),
+        (["time", "nohup", "env", "--unset", "FOO", "nice", "gh", "pr"], ["nice", "gh", "pr"]),
+        (["env", "nice", "env", "-u", "FOO", "gh", "pr"], ["gh", "pr"]),
+        (["nohup", "timeout", "-s", "KILL", "60", "gh", "pr"], ["gh", "pr"]),
+        (["setsid", "sudo", "-u", "ci", "gh", "pr"], ["gh", "pr"]),
+        (["nohup", "gh", "pr"], ["nohup", "gh", "pr"]),
+        (["gh", "pr"], ["gh", "pr"]),
+    ],
+)
+def test_all_tokens_after_wrappers_should_step_over_an_option_reading_wrapper_behind_launchers(
+    all_segment_tokens: list[str], all_expected_tokens: list[str]
+) -> None:
+    assert all_tokens_after_wrappers(all_segment_tokens) == all_expected_tokens
