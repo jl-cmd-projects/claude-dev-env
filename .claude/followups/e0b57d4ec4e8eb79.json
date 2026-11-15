@@ -1,8 +1,0 @@
-{
-  "rule_id": "validators",
-  "file_path": "packages/claude-dev-env/hooks/blocking/sent_file_question_detector.py",
-  "message": "packages/claude-dev-env/hooks/blocking/sent_file_question_detector.py:1: File is 407 lines (max 400) - consider splitting",
-  "check_id": "validators/file-length",
-  "severity": "smell",
-  "origin_commit": "65765aee93de368c29a825beff4c32ebe099b869"
-}

@@ -10,7 +10,6 @@ module keeps the tool call, the file read, and the refusal::
 
 from __future__ import annotations
 
-import html
 import sys
 from pathlib import Path
 
@@ -24,11 +23,6 @@ if blocking_directory not in sys.path:
 from final_reply_gate import prose_paragraphs_with_code_as
 from hooks_constants.sent_file_question_gate_constants import (
     SPACE,
-    PLAIN_HEADING_BREAK,
-    BLOCK_BREAK,
-    CLOSING_TAG_MARK,
-    TAG_CLOSE,
-    TAG_OPEN,
     MAXIMUM_SENTENCE_CHARACTERS,
     REPLY_REQUEST_PATTERN,
     CHECK_BLOCK_WORD_PATTERN,
@@ -77,11 +71,7 @@ from hooks_constants.sent_file_question_gate_constants import (
     WH_CHOICE_PATTERN,
 )
 from hooks_constants.user_step_wording_constants import (
-    ALL_HTML_HEADING_TAGS,
-    ALL_HTML_HIDDEN_TAGS,
-    ALL_HTML_INLINE_TAGS,
     CODE_SPAN_STAND_IN,
-    HTML_LINE_BREAK_TAG,
 )
 from user_step_wording import html_text_blocks
 
@@ -344,64 +334,3 @@ def _later_answer_flags(all_units: list[str]) -> list[bool]:
             ANSWER_LABEL_PATTERN.match(all_units[each_index])
         )
     return all_flags
-
-
-def _tag_name(tag_body: str) -> str:
-    all_name_words = tag_body.lstrip(CLOSING_TAG_MARK).split(None, 1)
-    return all_name_words[0].rstrip(CLOSING_TAG_MARK).lower() if all_name_words else ""
-
-
-def _after_tag(tag_body: str, hidden_tag_name: str) -> tuple[str, str]:
-    is_closing = tag_body.startswith(CLOSING_TAG_MARK)
-    tag_name = _tag_name(tag_body)
-    if hidden_tag_name:
-        return ("" if is_closing and tag_name == hidden_tag_name else hidden_tag_name), ""
-    if not is_closing and tag_name in ALL_HTML_HIDDEN_TAGS:
-        return tag_name, ""
-    if tag_name in ALL_HTML_HEADING_TAGS and not is_closing:
-        return "", PLAIN_HEADING_BREAK
-    if tag_name == HTML_LINE_BREAK_TAG:
-        return "", LINE_BREAK
-    if tag_name in ALL_HTML_INLINE_TAGS:
-        return "", ""
-    return "", BLOCK_BREAK
-
-
-def plain_page_text(page_markup: str) -> str:
-    """Return the shown text of an HTML page through one pass over its tags, with no parser.
-
-    ::
-
-        <h2>Plan</h2><p>Should I merge it?</p>   -> "\\n\\n# Plan\\n\\n\\n\\nShould I merge it?\\n\\n"
-        <script>var x = 'Should I?'</script>      -> ""
-        <script <script <script ...               -> "" (an unclosed tag ends the text)
-
-    The gate falls back to this read when the HTML parser does not finish in
-    time. Each character is visited once. A heading or ``summary`` starts a
-    "# " line, another block tag starts a paragraph, and the contents of
-    script, style, code, pre, blockquote, and the other hidden tags are left
-    out. Character references are decoded.
-
-    Args:
-        page_markup: The HTML page source.
-
-    Returns:
-        The shown text as Markdown-like paragraphs.
-    """
-    all_parts: list[str] = []
-    hidden_tag_name = ""
-    position = 0
-    while position < len(page_markup):
-        tag_start = page_markup.find(TAG_OPEN, position)
-        text_end = len(page_markup) if tag_start == -1 else tag_start
-        if not hidden_tag_name:
-            all_parts.append(SPACE_RUN_PATTERN.sub(SPACE, page_markup[position:text_end]))
-        tag_end = -1 if tag_start == -1 else page_markup.find(TAG_CLOSE, tag_start)
-        if tag_end == -1:
-            break
-        hidden_tag_name, tag_break = _after_tag(
-            page_markup[tag_start + 1 : tag_end].strip(), hidden_tag_name
-        )
-        all_parts.append(tag_break)
-        position = tag_end + 1
-    return html.unescape("".join(all_parts))

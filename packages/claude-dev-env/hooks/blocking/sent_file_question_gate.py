@@ -113,8 +113,8 @@ from hooks_constants.sent_file_question_gate_constants import (
     TOOL_NAME_KEY,
 )
 from open_tasks_transcript_records import send_call_file_paths
-from sent_file_question_detector import plain_page_text, question_for_user
-from sent_file_scan import sent_file_is_partly_read, sent_file_scan_text
+from sent_file_question_detector import question_for_user
+from sent_file_scan import plain_page_text, sent_file_is_partly_read, sent_file_scan_text
 from user_step_wording import is_html_file_path
 
 

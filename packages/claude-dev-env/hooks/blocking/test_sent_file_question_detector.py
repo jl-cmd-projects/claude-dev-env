@@ -54,32 +54,6 @@ def test_question_for_user_should_read_long_space_runs_in_linear_time(file_text:
     assert time.perf_counter() - started_at < 1
 
 
-def test_plain_page_text_should_strip_tags_in_one_pass() -> None:
-    page_markup = (
-        "<h2>Plan</h2><p>Should I <b>merge</b> it?</p>"
-        "<script>var x = 'Do you want this?';</script><pre>Can I go?</pre><p>A &amp; B</p>"
-    )
-    plain_text = sent_file_question_detector.plain_page_text(page_markup)
-    assert "# Plan" in plain_text
-    assert "Should I merge it?" in plain_text
-    assert "Do you want this?" not in plain_text
-    assert "Can I go?" not in plain_text
-    assert "A & B" in plain_text
-    assert (
-        sent_file_question_detector.question_for_user(plain_text, is_html=False)
-        == "Should I merge it?"
-    )
-
-
-def test_plain_page_text_should_read_unclosed_script_openers_in_linear_time() -> None:
-    started_at = time.perf_counter()
-    plain_text = sent_file_question_detector.plain_page_text(
-        "<p>Should I merge it?</p>" + "<script " * 30000
-    )
-    assert time.perf_counter() - started_at < 1
-    assert "Should I merge it?" in plain_text
-
-
 @pytest.mark.parametrize(
     "file_text",
     [

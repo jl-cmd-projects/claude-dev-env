@@ -1,5 +1,7 @@
+import time
 from pathlib import Path
 
+import sent_file_question_detector
 import sent_file_scan
 
 
@@ -36,3 +38,27 @@ def test_sent_file_is_partly_read_should_name_only_a_text_file_over_the_limit(
     assert sent_file_scan.sent_file_is_partly_read("limit.md", str(tmp_path)) is False
     assert sent_file_scan.sent_file_is_partly_read("large.png", str(tmp_path)) is False
     assert sent_file_scan.sent_file_is_partly_read("missing.md", str(tmp_path)) is False
+
+
+def test_plain_page_text_should_strip_tags_in_one_pass() -> None:
+    page_markup = (
+        "<h2>Plan</h2><p>Should I <b>merge</b> it?</p>"
+        "<script>var x = 'Do you want this?';</script><pre>Can I go?</pre><p>A &amp; B</p>"
+    )
+    plain_text = sent_file_scan.plain_page_text(page_markup)
+    assert "# Plan" in plain_text
+    assert "Should I merge it?" in plain_text
+    assert "Do you want this?" not in plain_text
+    assert "Can I go?" not in plain_text
+    assert "A & B" in plain_text
+    assert (
+        sent_file_question_detector.question_for_user(plain_text, is_html=False)
+        == "Should I merge it?"
+    )
+
+
+def test_plain_page_text_should_read_unclosed_script_openers_in_linear_time() -> None:
+    started_at = time.perf_counter()
+    plain_text = sent_file_scan.plain_page_text("<p>Should I merge it?</p>" + "<script " * 30000)
+    assert time.perf_counter() - started_at < 1
+    assert "Should I merge it?" in plain_text

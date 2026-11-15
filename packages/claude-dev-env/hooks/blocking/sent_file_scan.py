@@ -7,11 +7,15 @@ fast::
     a 3 KB notes.md                  -> its whole text
     a 2 MB report.md                 -> its first 128 KB, a blank line, its last 128 KB
     a .md file holding binary data   -> None
+
+``plain_page_text`` turns an HTML page into its shown text in one pass over
+its tags, with no parser, for the gate's second read.
 """
 
 from __future__ import annotations
 
 import codecs
+import html
 import os
 import sys
 from pathlib import Path
@@ -25,6 +29,14 @@ if blocking_directory not in sys.path:
 
 from hooks_constants.sent_file_question_gate_constants import (
     BINARY_READ_MODE,
+    BLOCK_BREAK,
+    CLOSING_TAG_MARK,
+    LINE_BREAK,
+    PLAIN_HEADING_BREAK,
+    SPACE,
+    SPACE_RUN_PATTERN,
+    TAG_CLOSE,
+    TAG_OPEN,
     FILE_PART_BYTES,
     FILE_PARTS_SEPARATOR,
     MAXIMUM_UTF8_CONTINUATION_BYTES,
@@ -32,6 +44,12 @@ from hooks_constants.sent_file_question_gate_constants import (
     NUL_BYTE,
     UTF8_CONTINUATION_BYTES,
     UTF8_ENCODING,
+)
+from hooks_constants.user_step_wording_constants import (
+    ALL_HTML_HEADING_TAGS,
+    ALL_HTML_HIDDEN_TAGS,
+    ALL_HTML_INLINE_TAGS,
+    HTML_LINE_BREAK_TAG,
 )
 from user_step_wording import sent_file_location
 
@@ -123,3 +141,64 @@ def sent_file_is_partly_read(file_path_text: str, working_directory: object) -> 
         return file_path.stat().st_size > MAXIMUM_WHOLE_FILE_BYTES
     except OSError:
         return False
+
+
+def _tag_name(tag_body: str) -> str:
+    all_name_words = tag_body.lstrip(CLOSING_TAG_MARK).split(None, 1)
+    return all_name_words[0].rstrip(CLOSING_TAG_MARK).lower() if all_name_words else ""
+
+
+def _after_tag(tag_body: str, hidden_tag_name: str) -> tuple[str, str]:
+    is_closing = tag_body.startswith(CLOSING_TAG_MARK)
+    tag_name = _tag_name(tag_body)
+    if hidden_tag_name:
+        return ("" if is_closing and tag_name == hidden_tag_name else hidden_tag_name), ""
+    if not is_closing and tag_name in ALL_HTML_HIDDEN_TAGS:
+        return tag_name, ""
+    if tag_name in ALL_HTML_HEADING_TAGS and not is_closing:
+        return "", PLAIN_HEADING_BREAK
+    if tag_name == HTML_LINE_BREAK_TAG:
+        return "", LINE_BREAK
+    if tag_name in ALL_HTML_INLINE_TAGS:
+        return "", ""
+    return "", BLOCK_BREAK
+
+
+def plain_page_text(page_markup: str) -> str:
+    """Return the shown text of an HTML page through one pass over its tags, with no parser.
+
+    ::
+
+        <h2>Plan</h2><p>Should I merge it?</p>   -> "\\n\\n# Plan\\n\\n\\n\\nShould I merge it?\\n\\n"
+        <script>var x = 'Should I?'</script>      -> ""
+        <script <script <script ...               -> "" (an unclosed tag ends the text)
+
+    The gate falls back to this read when the HTML parser does not finish in
+    time. Each character is visited once. A heading or ``summary`` starts a
+    "# " line, another block tag starts a paragraph, and the contents of
+    script, style, code, pre, blockquote, and the other hidden tags are left
+    out. Character references are decoded.
+
+    Args:
+        page_markup: The HTML page source.
+
+    Returns:
+        The shown text as Markdown-like paragraphs.
+    """
+    all_parts: list[str] = []
+    hidden_tag_name = ""
+    position = 0
+    while position < len(page_markup):
+        tag_start = page_markup.find(TAG_OPEN, position)
+        text_end = len(page_markup) if tag_start == -1 else tag_start
+        if not hidden_tag_name:
+            all_parts.append(SPACE_RUN_PATTERN.sub(SPACE, page_markup[position:text_end]))
+        tag_end = -1 if tag_start == -1 else page_markup.find(TAG_CLOSE, tag_start)
+        if tag_end == -1:
+            break
+        hidden_tag_name, tag_break = _after_tag(
+            page_markup[tag_start + 1 : tag_end].strip(), hidden_tag_name
+        )
+        all_parts.append(tag_break)
+        position = tag_end + 1
+    return html.unescape("".join(all_parts))
