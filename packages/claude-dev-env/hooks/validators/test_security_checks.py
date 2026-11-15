@@ -53,6 +53,29 @@ password_key = "password"
 ''',
 )
 
+MESSAGE_VALUE_SOURCE_FIXTURES = (
+    'FAIL_NO_TOKENS = "No tokens were found in the response."',
+    'SECRET_MISSING_MESSAGE = "Set the secret in the environment before the run."',
+    'AUTH_FAILURE_TEMPLATE = "Sign-in failed for {account_name}: try again"',
+    'AUTHOR_LABEL = "Written By"',
+    'token_hint = "Paste a token below"',
+    'TOKEN_SETUP_MESSAGE = "Set SERVICE_API_TOKEN before the run."',
+    'TOKEN_VARIABLE_NAME = "SERVICE_API_TOKEN"',
+    'MAXIMUM_TOKENS_FLAG = "--max-tokens"',
+)
+
+SECRET_VALUE_UNDER_MESSAGE_NAME_SOURCE_FIXTURES = (
+    'FAIL_NO_TOKENS = "sk-abc123xyz789"',
+    'TOKEN_MESSAGE = "Send the token ghp_0123456789abcdefABCDEF with each call."',
+    'AUTH_HINT = "Open the page with ?access_token=abcdef to sign in."',
+    'SECRET_PHRASE = "correct horse battery staple"',
+    'TOKEN_MESSAGE = "Token: ABCDEFGHIJKLMNOP"',
+    'TOKEN_MESSAGE = "{prefix} deadbeefcafebabe"',
+    'PASSWORD_MESSAGE = "The store is https://admin:hunterpass@example.test/db."',
+    'TOKEN_VARIABLE_NAME = "SERVICE_API_TOKEN_0a1b2c3d"',
+    'AUTH_FAILURE_TEMPLATE = "Sign-in failed for {account_name} with hunter2hunter2"',
+)
+
 GOOD_PARAMETERIZED_SQL = '''
 def get_user(user_id):
     cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
@@ -130,6 +153,22 @@ class TestHardcodedSecrets:
     )
     def test_token_endpoint_credentials_fail(self, endpoint: str) -> None:
         tree = ast.parse(f'TOKEN_ENDPOINT_TEMPLATE = "{endpoint}"')
+        violations = check_hardcoded_secrets(tree, "test.py")
+        assert len(violations) == 1
+
+    @pytest.mark.parametrize("source_fixture", MESSAGE_VALUE_SOURCE_FIXTURES)
+    def test_message_value_under_sensitive_name_passes(
+        self, source_fixture: str
+    ) -> None:
+        tree = ast.parse(source_fixture)
+        violations = check_hardcoded_secrets(tree, "test.py")
+        assert violations == []
+
+    @pytest.mark.parametrize(
+        "source_fixture", SECRET_VALUE_UNDER_MESSAGE_NAME_SOURCE_FIXTURES
+    )
+    def test_secret_value_under_message_name_fails(self, source_fixture: str) -> None:
+        tree = ast.parse(source_fixture)
         violations = check_hardcoded_secrets(tree, "test.py")
         assert len(violations) == 1
 
