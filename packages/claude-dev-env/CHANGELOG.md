@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.126.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.0...claude-dev-env-v8.126.1) (2026-11-16)
+
+
+### Documentation
+
+* **rules:** describe the closing question round ([#2393](https://github.com/jl-cmd-projects/claude-dev-env/issues/2393)) ([3837046](https://github.com/jl-cmd-projects/claude-dev-env/commit/3837046a3ee688df29f174fd0be69f1e4f5bf87c))
+
 ## [8.126.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.125.0...claude-dev-env-v8.126.0) (2026-11-16)
 
 
