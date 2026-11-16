@@ -70,17 +70,12 @@ The runner writes one summary line with the selected account, exit code, and
 report path.
 
 When the command exits 3 and the report has `"account": "wait"`, read the
-picker's reason. "no account has room" means each account is below its usage
-floor: report the reason and reset time, and do not fall back to the Agent
-tool. "no readable account has room" means each read account is below its
-floor, and the reason names the unread ones:
-run the command once more after the reset time, then report in the same way. "no account
-meter could be read" means the meter reads failed, often with HTTP 429, so
-usage may be left: run the command once more after the reset time. When the
-meters are still unread in a cloud session, the session's own account has
-usage, so run the work with the Agent tool, in its own worktree when it edits
-code, and report each unread reason. Outside a cloud session, report the
-second wait with its reason and reset time.
+picker's reason and follow the exit 3 steps in
+[Proof before a pull request](~/.claude/docs/rule-guides/proof-before-pull-request.md).
+A reason that says an account has no room is a wait on usage: report the
+reason and reset time, and do not fall back to the Agent tool. A reason that
+says no account meter could be read is a failed read, and the guide says when
+the Agent tool takes the work.
 Claude can also return exit 3 after a worker starts. When the
 report account is `main`, `second`, or `extra_2` and later, report the child's
 exit code and result. Exit 124 with reason `timeout` means the worker ran past
