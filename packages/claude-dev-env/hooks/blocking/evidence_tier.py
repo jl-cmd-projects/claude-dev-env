@@ -33,6 +33,7 @@ from hooks_constants.evidence_tier_constants import (
     ALL_AGENT_SURFACE_DIRECTORY_NAMES,
     ALL_AGENT_SURFACE_FILE_NAME_GLOBS,
     ALL_AGENT_SURFACE_FILE_NAMES,
+    ALL_CODE_TEXT_FILE_NAME_GLOBS,
     ALL_DOCS_DATA_EXTENSIONS,
     ALL_DOCS_DIRECTORY_NAMES,
     ALL_DOCS_EXTENSIONS,
@@ -108,11 +109,17 @@ def is_docs_or_test_path(repository_path: str) -> bool:
         README.md, art/logo.png, docs/table.json       -> True
         tests/x.py, src/test_x.py, a.spec.ts, conftest.py -> True
         src/gate.py, data/table.json                   -> False
+        requirements-dev.txt, constraints.txt          -> False
+
+    A requirements or constraints file ends in .txt, and it is code: it sets
+    what gets installed. Its name matches in any case.
 
     Args:
         repository_path: A path relative to the repository root, with forward slashes.
     """
     path = PurePosixPath(repository_path)
+    if any(fnmatch.fnmatchcase(path.name.lower(), each_glob) for each_glob in ALL_CODE_TEXT_FILE_NAME_GLOBS):
+        return is_test_path(repository_path)
     if path.suffix.lower() in ALL_DOCS_EXTENSIONS:
         return True
     if path.suffix.lower() in ALL_DOCS_DATA_EXTENSIONS and any(

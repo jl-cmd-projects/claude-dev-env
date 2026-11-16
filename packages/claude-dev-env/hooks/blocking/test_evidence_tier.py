@@ -48,6 +48,15 @@ def test_is_docs_or_test_path_should_reject_code(path: str) -> None:
 
 @pytest.mark.parametrize(
     "path",
+    ["requirements.txt", "requirements-dev.txt", "pkg/Requirements.txt", "constraints.txt", "ci/constraints-py312.txt"],
+)
+def test_is_docs_or_test_path_should_read_a_requirements_or_constraints_file_as_code(path: str) -> None:
+    assert not is_docs_or_test_path(path)
+    assert choose_tier([path], DECLARED_GLOBS) == TierChoice(TierCause.CODE_WITHOUT_LIVE_SURFACE, path)
+
+
+@pytest.mark.parametrize(
+    "path",
     ["tests/test_gate.py", "src/test_gate.py", "src/gate_test.py", "bin/a.test.js", "conftest.py"],
 )
 def test_is_test_path_should_accept_test_files(path: str) -> None:
