@@ -29,7 +29,10 @@ me which.", "Send me your pick.") counts too, as does a sentence that opens
 with reply, answer, respond, choose, pick, select, or decide and offers yes
 or no, one of two, three, four, both, these, those, or them, or a choice
 between labels that are one letter, one digit, or "option" and a word
-("Choose A or B."), unless it ends with a colon. "Select one or more
+("Choose A or B."), unless it ends with a colon. Reply, answer, respond,
+choose, or pick after "please" or a comma, a few words before "yes or no",
+counts too ("Please answer yes or no.", "When it ends, reply with yes or
+no."). "Select one or more
 archives." and "Choose Color or Image." are steps and pass. A list marker
 and a task box ("- [ ]", or a checkbox ``input`` in a page) before it are
 skipped. A checklist item, a list item with a task box or next to another
@@ -199,7 +202,8 @@ def findings_within_budget(
     all_file_paths: list[str],
     working_directory: object,
     budget_seconds: float,
-    is_plain_page_read: bool = False,
+    *,
+    is_plain_page_read: bool,
 ) -> list[tuple[str, str | None, bool]] | None:
     """Read the sent files on a worker thread, and give up when the budget runs out.
 
@@ -282,7 +286,7 @@ def main() -> int:
         return ALLOW_EXIT_CODE
     working_directory = hook_input.get(CWD_KEY)
     all_findings = findings_within_budget(
-        all_file_paths, working_directory, PARSED_READ_BUDGET_SECONDS
+        all_file_paths, working_directory, PARSED_READ_BUDGET_SECONDS, is_plain_page_read=False
     )
     if all_findings is None:
         all_findings = findings_within_budget(

@@ -28,6 +28,7 @@ from hooks_constants.sent_file_question_gate_constants import (
     CHECK_BLOCK_WORD_PATTERN,
     CHOICE_COMMAND_PATTERN,
     LABEL_CHOICE_PATTERN,
+    YES_OR_NO_REQUEST_PATTERN,
     TASK_BOX_MARK,
     REPLY_OPTION_PATTERN,
     SENTENCE_EDGE_CHARACTERS,
@@ -125,6 +126,8 @@ def _sentence_edges(sentence: str) -> str:
 
 def _is_reply_request(sentence: str) -> bool:
     if REPLY_REQUEST_PATTERN.match(sentence) is not None:
+        return True
+    if YES_OR_NO_REQUEST_PATTERN.search(sentence) is not None:
         return True
     if CHOICE_COMMAND_PATTERN.match(sentence) is None or sentence.endswith(LABEL_COLON):
         return False

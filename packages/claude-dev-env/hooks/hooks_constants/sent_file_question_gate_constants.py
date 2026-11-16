@@ -87,6 +87,7 @@ __all__ = [
     "UTF8_ENCODING",
     "WH_CHOICE_PATTERN",
     "WRITER_VOICE_HEADING_PATTERN",
+    "YES_OR_NO_REQUEST_PATTERN",
 ]
 
 ALLOW_EXIT_CODE = 0
@@ -211,6 +212,10 @@ CHOICE_COMMAND_PATTERN = re.compile(
 )
 REPLY_OPTION_PATTERN = re.compile(
     r"\byes\s+or\s+no\b|\bone\s+of\s+(?:the\s+)?(?:two|three|four|both|these|those|them)\b",
+    re.IGNORECASE,
+)
+YES_OR_NO_REQUEST_PATTERN = re.compile(
+    r"(?:^|,\s*|\bplease\s+)(?:reply|answer|respond|choose|pick)\s+(?:\w+\s+){0,3}?yes\s+or\s+no\b",
     re.IGNORECASE,
 )
 LABEL_CHOICE_PATTERN = re.compile(

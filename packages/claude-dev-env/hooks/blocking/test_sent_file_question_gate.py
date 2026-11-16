@@ -200,6 +200,16 @@ ASKING_FILES = [
         "Given the runner logs",
     ),
     (
+        "late_yes_no.md",
+        "When the run ends, reply with yes or no.\n",
+        "When the run ends, reply with yes or no.",
+    ),
+    (
+        "please_yes_no.md",
+        "The patch is ready. Please answer yes or no.\n",
+        "Please answer yes or no.",
+    ),
+    (
         "box_confirm_plan.md",
         "- [ ] Did you read it and confirm the plan?\n",
         "Did you read it and confirm the plan?",
@@ -240,6 +250,7 @@ CLEAN_FILES = [
     ("pick_from_list.md", "Pick one of the themes in the list and press Save.\n"),
     ("send_message.md", "Send me a message to start it.\n"),
     ("please_survey.md", "Please answer the survey.\n"),
+    ("describes_yes_no.md", "The prompt asks the user to answer yes or no.\n"),
     ("html_box_check.html", '<ul><li><input type="checkbox"> Did you run the tests?</li></ul>'),
     (
         "html_box_checks.html",
@@ -624,10 +635,17 @@ def test_findings_within_budget_should_give_up_when_the_read_runs_long(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     written_file(tmp_path, "status.md", "Should I archive the old branches?\n")
-    findings = sent_file_question_gate.findings_within_budget(["status.md"], str(tmp_path), 5)
+    findings = sent_file_question_gate.findings_within_budget(
+        ["status.md"], str(tmp_path), 5, is_plain_page_read=False
+    )
     assert findings == [("status.md", "Should I archive the old branches?", False)]
     monkeypatch.setattr(sent_file_question_gate, "question_for_user", slow_question_for_user)
-    assert sent_file_question_gate.findings_within_budget(["status.md"], str(tmp_path), 0.2) is None
+    assert (
+        sent_file_question_gate.findings_within_budget(
+            ["status.md"], str(tmp_path), 0.2, is_plain_page_read=False
+        )
+        is None
+    )
 
 
 def test_should_say_so_when_the_read_runs_past_its_budget(
