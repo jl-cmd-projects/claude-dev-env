@@ -1,4 +1,16 @@
-"""Deny a new pull request whose body lacks a 'Proof in practice' or an 'Existing work' section, or a feature pull request whose body lacks an 'Eval' section."""
+"""Deny a pull request body that lacks the proof, 'Existing work' or 'Eval' section its changes owe.
+
+The changed paths give an evidence tier (see ``evidence_tier``). A none-tier
+create needs no proof section, a checked-tier proof names a command, and a
+live-tier proof names a run beyond a test command. A feature owes an 'Eval'
+section only when it changes a file agents read or load, or when its file list
+is unread.
+
+Run as a script, it prints the sections a checkout's changes owe::
+
+    python pull_request_proof.py <checkout>
+    {"needs_proof_section": true, "needs_eval_section_for_a_feature": false}
+"""
 
 from __future__ import annotations
 
@@ -56,6 +68,7 @@ from hooks_constants.pull_request_proof_constants import (
     ONLY_DOCS_AND_TESTS_TIER_SENTENCE,
     UNREAD_FILE_LIST_EVAL_SENTENCE,
     UNREAD_FILE_LIST_TIER_SENTENCE,
+    NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE,
     GIT_URL_SUFFIX,
     REMOTE_LINE_FIELD_COUNT,
     RUN_WORD_PATTERN,
@@ -568,6 +581,7 @@ def tier_sentence(tier_choice: TierChoice) -> str:
         LIVE_SURFACE, "skills/a/SKILL.md"      -> LIVE_SURFACE_TIER_SENTENCE naming the path
         NO_DECLARED_SURFACES, "src/a.py"       -> NO_DECLARED_SURFACES_TIER_SENTENCE naming the path
         UNREAD_FILE_LIST, None                 -> UNREAD_FILE_LIST_TIER_SENTENCE
+        NAMED_PULL_REQUEST_EDIT, None          -> NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE
         CODE_WITHOUT_LIVE_SURFACE, "src/a.py"  -> CODE_WITHOUT_LIVE_SURFACE_TIER_SENTENCE naming the path
         ONLY_DOCS_AND_TESTS, None              -> ONLY_DOCS_AND_TESTS_TIER_SENTENCE
 
@@ -578,6 +592,7 @@ def tier_sentence(tier_choice: TierChoice) -> str:
         TierCause.LIVE_SURFACE: LIVE_SURFACE_TIER_SENTENCE,
         TierCause.NO_DECLARED_SURFACES: NO_DECLARED_SURFACES_TIER_SENTENCE,
         TierCause.UNREAD_FILE_LIST: UNREAD_FILE_LIST_TIER_SENTENCE,
+        TierCause.NAMED_PULL_REQUEST_EDIT: NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE,
         TierCause.CODE_WITHOUT_LIVE_SURFACE: CODE_WITHOUT_LIVE_SURFACE_TIER_SENTENCE,
         TierCause.ONLY_DOCS_AND_TESTS: ONLY_DOCS_AND_TESTS_TIER_SENTENCE,
     }
@@ -733,7 +748,9 @@ def edit_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
 
 
 def _edit_tier_choice(edit_call: EditCall) -> TierChoice:
-    if edit_call.names_pull_request or not edit_call.working_directory:
+    if edit_call.names_pull_request:
+        return TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
+    if not edit_call.working_directory:
         return choose_tier(None, None)
     return _tier_choice(edit_call.working_directory, edit_call.repository, None, None)
 

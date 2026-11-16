@@ -62,6 +62,7 @@ class TierCause(Enum):
     LIVE_SURFACE = ("a live surface", EvidenceTier.LIVE)
     NO_DECLARED_SURFACES = ("code with no declared surfaces", EvidenceTier.LIVE)
     UNREAD_FILE_LIST = ("an unread file list", EvidenceTier.LIVE)
+    NAMED_PULL_REQUEST_EDIT = ("an edit that names its pull request", EvidenceTier.LIVE)
 
     @property
     def tier(self) -> EvidenceTier:

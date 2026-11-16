@@ -427,10 +427,10 @@ def _missing_build_eval_reason(all_fields: dict[str, object], run: GateRun) -> s
     if not proof.is_feature_pull_request(all_fields):
         return None
     cut_scan_count_before = run.cut_scan_count
-    if not is_build_eval_missing(all_fields):
-        return None
     need_sentence = proof.eval_need_sentence(all_fields)
     if need_sentence is None:
+        return None
+    if not is_build_eval_missing(all_fields):
         return None
     return MISSING_BUILD_EVAL_REASON + need_sentence + _scan_note(run, cut_scan_count_before)
 

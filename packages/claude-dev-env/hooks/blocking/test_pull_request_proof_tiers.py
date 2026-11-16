@@ -388,7 +388,27 @@ def test_should_apply_the_live_rule_to_an_edit_that_names_another_pull_request(
     clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
     reason = gate.edit_proof_reason(_edit_from(clone_path, TEST_RUN_PROOF_BODY, "7"))
     assert reason == TEST_ONLY_PROOF_REASON + gate.tier_sentence(
-        TierChoice(TierCause.UNREAD_FILE_LIST, None)
+        TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
+    )
+    assert "gh pr edit" in reason
+
+
+def test_should_apply_the_live_rule_to_a_script_edit_of_a_checked_tier_pull_request(tmp_path: Path) -> None:
+    clone_path = _clone_with_branch(
+        tmp_path, {"src/gate.py": "x = 2\n"}, {".claude/live-surfaces.txt": DECLARED_SURFACES}
+    )
+    body_path = clone_path.parent / "edit-body.md"
+    body_path.write_text(TEST_RUN_PROOF_BODY, encoding="utf-8")
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {
+            "command": f'python pull_request.py edit --repo o/r --number 7 --body-file "{body_path}"'
+        },
+        "cwd": str(clone_path),
+    }
+    assert gate.missing_proof_reason(_create_from(clone_path, TEST_RUN_PROOF_BODY)) is None
+    assert gate.edit_proof_reason(payload) == TEST_ONLY_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
     )
 
 
@@ -399,7 +419,7 @@ def test_should_apply_the_live_rule_to_an_update_tool_edit() -> None:
     }
     reason = gate.edit_proof_reason(payload)
     assert reason == TEST_ONLY_PROOF_REASON + gate.tier_sentence(
-        TierChoice(TierCause.UNREAD_FILE_LIST, None)
+        TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
     )
 
 
@@ -430,3 +450,15 @@ def test_checkout_sections_should_ask_for_both_sections_when_the_list_cannot_be_
         "needs_proof_section": True,
         "needs_eval_section_for_a_feature": True,
     }
+
+
+def test_should_skip_the_build_eval_scan_for_a_feature_that_owes_no_eval(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _clone_with_branch(
+        tmp_path, {"src/gate.py": "x = 2\n"}, {".claude/live-surfaces.txt": DECLARED_SURFACES}
+    )
+    all_scanned_payloads: list[dict[str, object]] = []
+    monkeypatch.setattr(lifecycle_gate, "is_build_eval_missing", all_scanned_payloads.append)
+    assert lifecycle_gate.decision_for(_gate_payload(clone_path, "feat: add a check")) is None
+    assert all_scanned_payloads == []

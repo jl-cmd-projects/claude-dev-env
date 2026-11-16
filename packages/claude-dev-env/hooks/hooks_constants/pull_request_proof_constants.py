@@ -49,6 +49,12 @@ UNREAD_FILE_LIST_TIER_SENTENCE = (
     " fetched, or name the repository and head branch with --repo and --head, so the"
     " gate can set the tier from the changed files."
 )
+NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE = (
+    " Evidence tier: live, because this edit names its pull request by number or comes"
+    " from the update tool, so the gate cannot tell that the checkout holds that pull"
+    " request's head. Run gh pr edit with no number and --body-file from a checkout of"
+    " the head branch, so the gate can set the tier from the changed files."
+)
 CODE_WITHOUT_LIVE_SURFACE_TIER_SENTENCE = (
     " Evidence tier: checked, because this pull request changes {path} and no changed"
     " path is a live surface. A test run counts as the command."
