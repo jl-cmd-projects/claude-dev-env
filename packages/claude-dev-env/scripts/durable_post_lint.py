@@ -63,6 +63,7 @@ _hooks_directory = str(Path(__file__).resolve().parents[1] / "hooks")
 if _hooks_directory not in sys.path:
     sys.path.insert(0, _hooks_directory)
 
+from blocking.gate_run_reads import gate_run
 from blocking.pull_request_proof import (
     has_flowchart_under_what_this_does,
     checkout_is_for,
@@ -196,11 +197,12 @@ def _pull_request_proof_findings(
         },
         "cwd": _checkout_directory(head_branch, repository),
     }
-    all_reasons = (
-        missing_proof_reason(create_payload),
-        missing_existing_work_reason(create_payload),
-        missing_eval_section_reason(create_payload),
-    )
+    with gate_run():
+        all_reasons = (
+            missing_proof_reason(create_payload),
+            missing_existing_work_reason(create_payload),
+            missing_eval_section_reason(create_payload),
+        )
     return [
         DurablePostFinding(code=PULL_REQUEST_PROOF_FINDING_CODE, message=each_reason)
         for each_reason in all_reasons

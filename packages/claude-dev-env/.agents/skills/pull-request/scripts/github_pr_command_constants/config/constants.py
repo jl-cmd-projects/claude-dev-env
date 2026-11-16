@@ -17,6 +17,10 @@ ALL_BODY_TEMPLATE_HEADINGS: tuple[str, ...] = (
     "How to revert",
 )
 FEATURE_BODY_TEMPLATE_HEADING_FOLLOWS = "Proof in practice"
+PROOF_BODY_TEMPLATE_HEADING = "Proof in practice"
+ALL_PROOF_GATE_RELATIVE_PATH_PARTS = ("hooks", "blocking", "pull_request_proof.py")
+NEEDS_PROOF_SECTION_KEY = "needs_proof_section"
+NEEDS_EVAL_SECTION_KEY = "needs_eval_section_for_a_feature"
 FEATURE_BODY_TEMPLATE_HEADING = "Eval"
 FEATURE_TITLE_PATTERN: re.Pattern[str] = re.compile(r"^\s*feat(\([^)]*\))?!?:")
 BODY_TEMPLATE_HEADING_FORMAT = "## {heading}"

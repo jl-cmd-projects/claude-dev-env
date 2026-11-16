@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 
 import durable_post_lint
+from blocking.evidence_tier import TierCause, TierChoice
+from blocking.pull_request_proof import agent_surface_sentence, tier_sentence
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 from hooks_constants.pull_request_proof_constants import (
     MISSING_EVAL_SECTION_REASON,
@@ -17,6 +19,8 @@ from hooks_constants.pull_request_proof_constants import (
     TEST_ONLY_PROOF_REASON,
 )
 
+UNREAD_LIVE_TIER = tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
+UNREAD_EVAL_NEED = agent_surface_sentence(None)
 SCRIPT_PATH = Path(__file__).resolve().parent / "durable_post_lint.py"
 FLOWCHART_BLOCK = """```mermaid
 flowchart LR
@@ -387,7 +391,7 @@ def should_report_a_create_body_whose_proof_runs_only_tests() -> None:
         body_text=body_text,
     )
     assert [each_finding.message for each_finding in all_findings] == [
-        TEST_ONLY_PROOF_REASON
+        TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
     ]
 
 
@@ -399,7 +403,7 @@ def should_report_a_feature_create_body_with_no_eval_section() -> None:
         body_text=body_text,
     )
     assert [each_finding.message for each_finding in all_findings] == [
-        MISSING_EVAL_SECTION_REASON
+        MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
     ]
 
 
@@ -992,3 +996,35 @@ def should_report_an_unproven_run_when_the_after_merge_section_names_another_wor
         durable_post_lint.PULL_REQUEST_PROOF_FINDING_CODE
     ]
     assert "Not proven here: the live GitHub Actions run." in all_findings[0].message
+
+
+def _repository_changing_a_guide(tmp_path: Path) -> Path:
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
+    repository_path = tmp_path / "repository"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(repository_path)], check=True)
+    (repository_path / "readme.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repository_path), *git_identity, "commit", "-q", "-m", "base"], check=True)
+    subprocess.run(["git", "-C", str(repository_path), "checkout", "-q", "-b", "feature"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repository_path), "remote", "add", "origin", "https://github.com/o/r.git"], check=True
+    )
+    (repository_path / "guide.md").write_text("new words\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repository_path), *git_identity, "commit", "-q", "-m", "change"], check=True)
+    return repository_path
+
+
+def should_accept_a_docs_only_create_body_with_no_proof_section(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(_repository_changing_a_guide(tmp_path))
+    body_text = VALID_PR_BODY.split("## Proof in practice")[0]
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="docs: reword the guide",
+        body_text=body_text,
+        head_branch="feature",
+        repository="o/r",
+    )
+    assert [each_finding.code for each_finding in all_findings] == []

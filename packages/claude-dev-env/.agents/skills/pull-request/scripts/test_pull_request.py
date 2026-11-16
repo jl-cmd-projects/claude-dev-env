@@ -520,7 +520,7 @@ def should_write_a_template_that_clears_the_linter_and_proof_headings(tmp_path: 
         text=True,
     )
     assert exit_code == 0
-    assert command_runner.call_count == 0
+    assert command_runner.call_count == 1
     assert "missing-pr-description-heading" not in lint.stdout + lint.stderr
     assert all(
         _body_has_heading(body_text, each_pattern)
@@ -561,3 +561,57 @@ def should_write_the_reader_headings_in_order_with_eval_after_the_proof(tmp_path
         "## Risk",
         "## How to revert",
     ]
+
+
+def _run_template_for_checkout(body_path: Path, title: str, sections_json: str) -> Mock:
+    command_runner = Mock(return_value=_completion([], 0, sections_json))
+    pull_request.main(
+        ["template", "--body-file", str(body_path), "--title", title],
+        all_environment={},
+        command_runner=command_runner,
+    )
+    return command_runner
+
+
+def _heading_lines(body_path: Path) -> list[str]:
+    return [each_line for each_line in body_path.read_text(encoding="utf-8").splitlines() if each_line.startswith("## ")]
+
+
+def should_ask_the_proof_gate_what_the_current_checkout_owes(tmp_path: Path) -> None:
+    command_runner = _run_template_for_checkout(
+        tmp_path / BODY_FILENAME, PR_TITLE, '{"needs_proof_section": true, "needs_eval_section_for_a_feature": true}'
+    )
+    all_arguments = command_runner.call_args.args[0]
+    assert all_arguments[0] == sys.executable
+    assert Path(all_arguments[1]).parts[-3:] == ("hooks", "blocking", "pull_request_proof.py")
+    assert all_arguments[2] == str(Path.cwd())
+
+
+def should_leave_out_the_proof_and_eval_headings_a_docs_only_checkout_does_not_owe(tmp_path: Path) -> None:
+    body_path = tmp_path / BODY_FILENAME
+    _run_template_for_checkout(
+        body_path, PR_TITLE, '{"needs_proof_section": false, "needs_eval_section_for_a_feature": false}'
+    )
+    assert _heading_lines(body_path) == [
+        "## What this does",
+        "## What changed",
+        "## Existing work",
+        "## Risk",
+        "## How to revert",
+    ]
+
+
+def should_leave_out_the_eval_heading_for_a_feature_that_changes_no_agent_surface(tmp_path: Path) -> None:
+    body_path = tmp_path / BODY_FILENAME
+    _run_template_for_checkout(
+        body_path, PR_TITLE, '{"needs_proof_section": true, "needs_eval_section_for_a_feature": false}'
+    )
+    assert "## Eval" not in _heading_lines(body_path)
+    assert "## Proof in practice" in _heading_lines(body_path)
+
+
+def should_keep_every_heading_when_the_proof_gate_gives_no_answer(tmp_path: Path) -> None:
+    body_path = tmp_path / BODY_FILENAME
+    _run_template_for_checkout(body_path, PR_TITLE, "not json")
+    assert "## Proof in practice" in _heading_lines(body_path)
+    assert "## Eval" in _heading_lines(body_path)

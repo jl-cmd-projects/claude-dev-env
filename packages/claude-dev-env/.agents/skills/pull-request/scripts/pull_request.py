@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -20,6 +21,7 @@ from github_pr_command_constants.config.constants import (
     ACTION_REVIEW,
     ACTION_TEMPLATE,
     ALL_BODY_TEMPLATE_HEADINGS,
+    ALL_PROOF_GATE_RELATIVE_PATH_PARTS,
     ALL_DURABLE_POST_LINTER_RELATIVE_PATH_PARTS,
     BODY_TEMPLATE_BLOCK_SEPARATOR,
     BODY_TEMPLATE_ENCODING,
@@ -34,6 +36,9 @@ from github_pr_command_constants.config.constants import (
     CONFIG_DIR_OVERRIDE_ENVIRONMENT_KEY,
     DEFAULT_MANAGED_ROOT_DIRECTORY_NAME,
     GH_TOKEN_ENVIRONMENT_KEY,
+    NEEDS_EVAL_SECTION_KEY,
+    NEEDS_PROOF_SECTION_KEY,
+    PROOF_BODY_TEMPLATE_HEADING,
     GITHUB_TOKEN_ENVIRONMENT_KEY,
     PACKAGE_ROOT_PARENT_INDEX,
     REVIEW_EVENT_COMMENT,
@@ -77,27 +82,76 @@ def _build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _template_headings(title: str) -> list[str]:
+def _template_headings(title: str, all_sections_owed: Mapping[str, bool]) -> list[str]:
     all_heading_names = list(ALL_BODY_TEMPLATE_HEADINGS)
-    if FEATURE_TITLE_PATTERN.match(title):
+    if FEATURE_TITLE_PATTERN.match(title) and all_sections_owed[NEEDS_EVAL_SECTION_KEY]:
         eval_position = all_heading_names.index(FEATURE_BODY_TEMPLATE_HEADING_FOLLOWS) + 1
         all_heading_names.insert(eval_position, FEATURE_BODY_TEMPLATE_HEADING)
+    if not all_sections_owed[NEEDS_PROOF_SECTION_KEY]:
+        all_heading_names.remove(PROOF_BODY_TEMPLATE_HEADING)
     return [BODY_TEMPLATE_HEADING_FORMAT.format(heading=each_heading) for each_heading in all_heading_names]
 
 
-def write_body_template(body_file: Path, title: str) -> list[str]:
+def _proof_gate_path(all_environment: Mapping[str, str]) -> Path:
+    return _linter_path(all_environment).parents[1].joinpath(*ALL_PROOF_GATE_RELATIVE_PATH_PARTS)
+
+
+def checkout_sections_owed(
+    all_environment: Mapping[str, str], command_runner: CommandRunner
+) -> dict[str, bool]:
+    """Ask the proof gate which proof sections a pull request from the current checkout owes.
+
+    ::
+
+        docs-only branch                -> {"needs_proof_section": False, "needs_eval_section_for_a_feature": False}
+        branch changes a SKILL.md       -> {"needs_proof_section": True, "needs_eval_section_for_a_feature": True}
+        gate exits non-zero or prints no JSON object -> both True
+
+    The gate runs as ``<root>/hooks/blocking/pull_request_proof.py <cwd>``, where
+    root is the folder that holds the linter. A key the answer leaves out, or
+    sets to anything but false, stays owed.
+
+    Args:
+        all_environment: The process environment, which locates the managed root.
+        command_runner: The runner that starts the gate process.
+
+    Returns:
+        Whether the proof section and, for a feat title, the Eval section are owed.
+    """
+    all_owed_by_default = {NEEDS_PROOF_SECTION_KEY: True, NEEDS_EVAL_SECTION_KEY: True}
+    completed = command_runner(
+        [sys.executable, str(_proof_gate_path(all_environment)), str(Path.cwd())],
+        check=False,
+        shell=False,
+        capture_output=True,
+        text=True,
+    )
+    if completed.returncode != 0:
+        return all_owed_by_default
+    try:
+        all_answered = json.loads(completed.stdout)
+    except (TypeError, ValueError):
+        return all_owed_by_default
+    if not isinstance(all_answered, dict):
+        return all_owed_by_default
+    return {each_key: all_answered.get(each_key) is not False for each_key in all_owed_by_default}
+
+
+def write_body_template(body_file: Path, title: str, all_sections_owed: Mapping[str, bool]) -> list[str]:
     """Append each required heading the body file lacks and return the added headings.
 
     ::
 
-        new file, title "fix: x"   -> ["## What this does", "## What changed", "## Existing work",
-                                       "## Proof in practice", "## Risk", "## How to revert"]
-        new file, title "feat: x"  -> the same with "## Eval" after "## Proof in practice"
-        file already has them all  -> [] and the file is unchanged
+        new file, title "fix: x", both owed  -> ["## What this does", "## What changed", "## Existing work",
+                                                 "## Proof in practice", "## Risk", "## How to revert"]
+        new file, title "feat: x", both owed -> the same with "## Eval" after "## Proof in practice"
+        new file, title "feat: x", neither   -> the first list without "## Proof in practice"
+        file already has them all            -> [] and the file is unchanged
 
     Args:
         body_file: The pull request body file, created when absent.
-        title: The pull request title, which decides whether the Eval heading is required.
+        title: The pull request title; a feat title gets the Eval heading when it is owed.
+        all_sections_owed: The checkout_sections_owed answer for the head checkout.
 
     Returns:
         The heading lines appended to the file.
@@ -105,7 +159,9 @@ def write_body_template(body_file: Path, title: str) -> list[str]:
     body_text = body_file.read_text(encoding=BODY_TEMPLATE_ENCODING) if body_file.is_file() else ""
     all_present_lines = {each_line.strip() for each_line in body_text.splitlines()}
     all_missing_headings = [
-        each_heading for each_heading in _template_headings(title) if each_heading not in all_present_lines
+        each_heading
+        for each_heading in _template_headings(title, all_sections_owed)
+        if each_heading not in all_present_lines
     ]
     if not all_missing_headings:
         return []
@@ -306,7 +362,8 @@ def main(
     """Run one validated pull request action."""
     arguments = _build_parser().parse_args(list(all_arguments))
     if arguments.action == ACTION_TEMPLATE:
-        for each_heading in write_body_template(arguments.body_file, arguments.title):
+        all_sections_owed = checkout_sections_owed(all_environment, command_runner)
+        for each_heading in write_body_template(arguments.body_file, arguments.title, all_sections_owed):
             sys.stdout.write(each_heading + "\n")
         return 0
     completed_lint = command_runner(
