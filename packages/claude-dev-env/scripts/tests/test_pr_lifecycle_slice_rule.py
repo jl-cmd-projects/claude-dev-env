@@ -39,7 +39,7 @@ def test_the_reference_merges_cosmetic_cuts_back_and_allows_one_pull_request() -
         in reference_text
     )
     assert (
-        "Fewer slices is a valid answer, and so is one pull request with a stated reason."
+        "Fewer slices is a valid answer, and so is one pull request with a stated reason"
         in reference_text
     )
 
@@ -85,28 +85,44 @@ def test_the_retro_split_links_the_stack_level_proof_and_does_not_copy_it() -> N
     assert "CI runs only on the stack tip" in reference_text
 
 
-
 def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
     reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
     fourth_test_position = reference_text.index("4. One sentence states its purpose")
     size_bar_position = reference_text.index("## Size bar")
     assert fourth_test_position < size_bar_position
     size_bar = reference_text[size_bar_position:].split("\n## ", 1)[0]
-    assert "Apply the bar to each slice that passes the four tests." in size_bar
-    assert "without the generated or data files" in size_bar
-    assert "About 100 lines reads well. One review holds 200 to 400 lines." in size_bar
-    assert "Over 400 lines, look for another seam that passes the four tests." in size_bar
-    assert "When no seam passes the four tests, keep the slice whole" in size_bar
-    assert 'under a "Why one pull request" heading' in size_bar
-    assert "google.github.io/eng-practices/review/developer/small-cls.html" in size_bar
+    all_required_phrases = (
+        "Apply the bar to each slice that passes the four tests.",
+        "Count added plus deleted lines, tests included, without lockfiles",
+        "About 100 lines reads well. One review holds 200 to 400 lines.",
+        "Over 400 lines, look for another seam that passes the four tests.",
+        "When none passes, keep the slice whole.",
+        'Over 1,000 lines, a slice kept whole gives its reason under a "Why one pull request" heading.',
+        "google.github.io/eng-practices/review/developer/small-cls.html",
+        "smartbear.com/learn/code-review/best-practices-for-peer-code-review",
+    )
+    for each_phrase in all_required_phrases:
+        assert each_phrase in size_bar
 
 
-def test_the_reference_orders_constants_and_review_rules_by_their_code() -> None:
+def test_the_reference_names_one_heading_for_the_one_pull_request_reason() -> None:
+    reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
+    assert (
+        'one pull request with a stated reason under a "Why one pull request" heading.'
+        in reference_text
+    )
+
+
+def test_the_reference_puts_review_rules_below_the_code_they_judge() -> None:
     reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
     level_order = reference_text.split("## Level order", 1)[1].split("\n## ", 1)[0]
     assert "(../SKILL.md#each-stack-level-stands-on-its-own)" in level_order
     assert '"Sort hunks by purpose" step below' in level_order
-    assert "each level carries only the constants its own code uses" in level_order
-    assert "A review rule or review doc that judges code sits at or below that code's level" in level_order
-    assert "A test or eval that imports the code stays at the code's level" in level_order
-    assert "Decide the slices" not in level_order
+    assert (
+        "A review rule or review doc that judges code goes one level below that code"
+        in level_order
+    )
+    assert "review reads its rules from the pull request's base branch" in level_order
+    assert (
+        "A test or eval that imports the code stays at the code's level" in level_order
+    )
