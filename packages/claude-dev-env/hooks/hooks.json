@@ -275,6 +275,16 @@
         ]
       },
       {
+        "matcher": "SendUserFile|Artifact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/sent_file_question_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "AskUserQuestion",
         "hooks": [
           {

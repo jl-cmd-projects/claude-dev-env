@@ -87,6 +87,7 @@ export const EVER_REGISTERED_HOOK_RELATIVE_PATHS = new Set([
     'blocking/route_review_spawn_permit.py',
     'blocking/send_user_file_open_locally_blocker.py',
     'blocking/send_user_file_worktree_root_gate.py',
+    'blocking/sent_file_question_gate.py',
     'blocking/sensitive-file-protector.py',
     'blocking/sensitive_file_protector.py',
     'blocking/session_edit_stage_gate.py',

@@ -70,6 +70,10 @@ ALL_HTML_INLINE_TAGS = frozenset(
     }
 )
 HTML_LINE_BREAK_TAG = "br"
+HTML_INPUT_TAG = "input"
+HTML_INPUT_TYPE_ATTRIBUTE = "type"
+HTML_CHECKBOX_INPUT_TYPE = "checkbox"
+ALL_HTML_HEADING_TAGS = frozenset({"h1", "h2", "h3", "h4", "h5", "h6", "summary", "dt"})
 HTML_SOURCE_SPACE_PATTERN = re.compile(r"[ \t\r\n\f]+")
 HTML_SOURCE_SPACE = " "
 HTML_BLOCK_SEPARATOR = "\n\n"

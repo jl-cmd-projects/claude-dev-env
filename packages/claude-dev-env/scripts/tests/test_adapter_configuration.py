@@ -178,6 +178,14 @@ def test_new_send_user_file_gate_registration_is_clean(tmp_path: Path) -> None:
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
 
 
+def test_new_sent_file_question_gate_registration_is_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        ["hooks/blocking/sent_file_question_gate.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
 def test_new_question_brief_gate_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/question_brief_gate.py"],
