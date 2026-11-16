@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.125.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.124.0...claude-dev-env-v8.125.0) (2026-11-16)
+
+
+### Features
+
+* **hooks:** judge Claude Code closing replies with one model call ([#2382](https://github.com/jl-cmd-projects/claude-dev-env/issues/2382)) ([c3e0fdc](https://github.com/jl-cmd-projects/claude-dev-env/commit/c3e0fdc77a647a2252fbab052420c191147b7106))
+
 ## [8.124.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.123.0...claude-dev-env-v8.124.0) (2026-11-16)
 
 
