@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import time
 from pathlib import Path
 
@@ -17,6 +18,9 @@ from hooks_constants.hook_time_budget import call_timeout, remaining_seconds, ti
 HOOKS_JSON_PATH = Path(__file__).resolve().parent.parent / "hooks.json"
 MINIMUM_MARGIN_SECONDS = 5
 EXIT_MARGIN_SECONDS = 2
+MINIMUM_SHELL_HOOK_TIMEOUT_SECONDS = 30
+SHELL_TOOL_NAME = "Bash"
+ALL_MATCH_EVERY_TOOL_MATCHERS = ("", "*")
 
 
 def registered_timeout(event_name: str, script_relative_path: str) -> int:
@@ -109,3 +113,17 @@ def test_should_register_the_open_tasks_gate_with_a_45_second_timeout() -> None:
     gate_timeout = registered_timeout("Stop", "blocking/open_tasks_stop_gate.py")
     assert gate_timeout == 45
     assert gate_timeout - closing_reply_judge_constants.JUDGE_TIMEOUT_SECONDS >= MINIMUM_MARGIN_SECONDS
+
+
+def test_should_give_every_shell_pre_tool_hook_at_least_30_seconds() -> None:
+    all_groups = json.loads(HOOKS_JSON_PATH.read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
+    all_short_hooks = [
+        (each_hook["command"], each_hook["timeout"])
+        for each_group in all_groups
+        if each_group.get("matcher", "") in ALL_MATCH_EVERY_TOOL_MATCHERS
+        or re.fullmatch(each_group["matcher"], SHELL_TOOL_NAME)
+        for each_hook in each_group["hooks"]
+        if each_hook.get("type") == "command"
+        and each_hook["timeout"] < MINIMUM_SHELL_HOOK_TIMEOUT_SECONDS
+    ]
+    assert all_short_hooks == []
