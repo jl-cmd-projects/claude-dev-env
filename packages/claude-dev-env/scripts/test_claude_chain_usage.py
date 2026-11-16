@@ -8,6 +8,7 @@ import sys
 import urllib.error
 from datetime import datetime, timezone
 from collections.abc import Callable
+from email.message import Message
 from pathlib import Path
 
 import pytest
@@ -142,6 +143,27 @@ def test_probe_wraps_network_failure(monkeypatch: pytest.MonkeyPatch) -> None:
 
     with pytest.raises(usage.WeeklyUtilizationProbeError, match="unavailable"):
         usage.probe_account_meters(Path("account.json"))
+
+
+def test_probe_keeps_a_rate_limit_reply_as_the_cause(monkeypatch: pytest.MonkeyPatch) -> None:
+    headers = Message()
+    headers["Retry-After"] = "900"
+    rate_limit_reply = urllib.error.HTTPError("https://usage.invalid", 429, "Too Many Requests", headers, None)
+
+    class Resolver:
+        def read_oauth_access_token(self, credentials_path: Path, now: datetime) -> str:
+            return "fixture-token"
+
+        def _fetch_usage_payload(self, access_token: str) -> dict[str, object]:
+            raise rate_limit_reply
+
+    monkeypatch.setattr(usage, "_load_resolve_usage_window_module", lambda: Resolver())
+
+    with pytest.raises(usage.WeeklyUtilizationProbeError, match="HTTP Error 429") as probe_failure:
+        usage.probe_account_meters(Path("account.json"))
+
+    assert probe_failure.value.__cause__ is rate_limit_reply
+    assert probe_failure.value.__cause__.headers["Retry-After"] == "900"
 
 
 def test_failed_module_load_does_not_poison_cache(

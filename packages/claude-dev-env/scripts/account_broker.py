@@ -114,11 +114,20 @@ def choose_from_readings(
     return selected or _wait_decision(all_readings, now, all_spent_accounts, all_spent_resets or {})
 
 
-def decision_payload(decision: Decision) -> dict[str, object]:
-    """Serialize a choice.
+def decision_payload(decision: Decision, all_readings: Sequence[Reading]) -> dict[str, object]:
+    """Serialize a choice, with the accounts whose meter went unread.
+
+    ::
+
+        wait, main unread (HTTP 429), ev unread  ->  {..., "meter_unread": ["main", "ev"]}
+        wait, every meter read, none has room    ->  {..., "meter_unread": []}
+
+    ``meter_unread`` tells a wait on unread meters from a wait on spent usage
+    without parsing the reason text.
 
     Args:
         decision: Account choice.
+        all_readings: The readings the choice was made from.
 
     Returns:
         JSON-compatible decision fields.
@@ -131,6 +140,7 @@ def decision_payload(decision: Decision) -> dict[str, object]:
         "reason": decision.reason,
         "tier": decision.tier,
         "resets_at": _time_text(decision.resets_at),
+        "meter_unread": [each_reading.account.name for each_reading in all_readings if each_reading.meters is None],
     }
 
 
@@ -227,7 +237,7 @@ def _write_report(path: Path, report: Report) -> None:
         "product": report.product.value,
         "command": report.command,
         "events": report.events,
-        "final_decision": decision_payload(report.final_decision) if report.final_decision else None,
+        "final_decision": decision_payload(report.final_decision, report.all_readings) if report.final_decision else None,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=REPORT_INDENT_SPACES) + "\n", encoding="utf-8", newline="\n")
@@ -269,7 +279,7 @@ def _prepare_run(
     spent, all_spent_resets = _spent_for_readings(all_readings, all_state, now)
     stdin_bytes = stdin_text.encode(encoding, errors) if isinstance(stdin_text, str) else stdin_text
     return _RunContext(
-        product, list(all_argv), active, now, all_state, all_readings, Report(product, list(all_argv)),
+        product, list(all_argv), active, now, all_state, all_readings, Report(product, list(all_argv), all_readings=all_readings),
         stdin_bytes, timeout_seconds, cwd, encoding, errors, preferred, [], set(spent), all_spent_resets
     )
 
@@ -421,7 +431,7 @@ def _execute(
     while True:
         picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), all_attempted_accounts=frozenset(context.all_attempted_accounts), preferred_command=context.preferred_command, all_spent_resets=context.all_spent_resets)
         decision = _with_outside_spent_marks(picked, _outside_roster_resets(product, context.all_readings, context.all_state, now))
-        context.report.events.append({"type": "pick", "decision": decision_payload(decision)})
+        context.report.events.append({"type": "pick", "decision": decision_payload(decision, context.all_readings)})
         if decision.account is None:
             return _wait_outcome(context, decision), context.report
         outcome = _attempt_once(context, decision)
@@ -549,7 +559,7 @@ def _choose_cli(product: Product, parsed: argparse.Namespace) -> int:
     if parsed.home is None:
         decision = _with_outside_spent_marks(decision, _outside_roster_resets(product, all_readings, all_state, now))
     if parsed.action == "choose":
-        print(json.dumps({"decision": decision_payload(decision), "accounts": readings_payload(all_readings), "state_path": str(broker_state_path())}))
+        print(json.dumps({"decision": decision_payload(decision, all_readings), "accounts": readings_payload(all_readings), "state_path": str(broker_state_path())}))
     return WAIT_EXIT_CODE if decision.action == "wait" else 0
 
 
