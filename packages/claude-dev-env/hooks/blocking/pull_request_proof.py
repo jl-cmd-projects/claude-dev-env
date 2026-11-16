@@ -935,15 +935,25 @@ def _first_merge_base(working_directory: str, head_reference: str, base_branch: 
     return None
 
 
+def _commit_of(working_directory: str, reference: str) -> str | None:
+    all_commit_lines = _git_lines(working_directory, "rev-parse", "--verify", "--quiet", reference + "^{commit}")
+    return all_commit_lines[0] if all_commit_lines else None
+
+
 def _head_reference(working_directory: str, head_branch: object) -> str | None:
     if not isinstance(head_branch, str) or not head_branch:
         return "HEAD"
+    remote_reference = REMOTE_BRANCH_PREFIX + head_branch
+    remote_commit = _commit_of(working_directory, remote_reference)
     if _git_lines(working_directory, "branch", "--show-current") == [head_branch]:
-        return "HEAD"
-    for each_candidate in (head_branch, REMOTE_BRANCH_PREFIX + head_branch):
-        if _git_lines(working_directory, "rev-parse", "--verify", "--quiet", each_candidate + "^{commit}"):
-            return each_candidate
-    return None
+        local_reference = "HEAD"
+    elif _commit_of(working_directory, head_branch) is not None:
+        local_reference = head_branch
+    else:
+        return remote_reference if remote_commit is not None else None
+    if remote_commit is not None and _commit_of(working_directory, local_reference) != remote_commit:
+        return None
+    return local_reference
 
 
 def visible_changed_files(
@@ -962,6 +972,7 @@ def visible_changed_files(
         named head exists nowhere in the clone  -> None
         no base reference reachable             -> None
         named base exists nowhere in the clone  -> None
+        named head differs from origin/<head>   -> None
 
     A rename whose old and new blob ids match and whose old and new names end the
     same way, such as a.html to b/a.html, changes nothing people see. One that

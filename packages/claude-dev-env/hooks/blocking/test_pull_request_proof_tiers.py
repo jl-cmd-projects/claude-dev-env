@@ -667,6 +667,46 @@ def test_should_give_one_tier_for_the_same_surfaces_bytes_read_locally_or_remote
     assert remote_reason == expected_reason
 
 
+def _clone_whose_feature_differs_from_its_pushed_copy(tmp_path: Path) -> Path:
+    clone_path = _clone_with_branch(tmp_path, {"skills/ship/SKILL.md": "# Ship\n"})
+    _git(clone_path, "push", "-q", "origin", "feature")
+    _git(clone_path, "reset", "-q", "--hard", "main")
+    _write_files(clone_path, {"docs/guide.md": "new words\n"})
+    _git(clone_path, "add", ".")
+    _git(clone_path, "commit", "-q", "-m", "docs")
+    return clone_path
+
+
+def test_should_give_the_unread_tier_when_the_named_head_differs_from_its_origin_copy(
+    tmp_path: Path,
+) -> None:
+    clone_path = _clone_whose_feature_differs_from_its_pushed_copy(tmp_path)
+    command = _create_command(clone_path, NO_PROOF_BODY) + " --head feature"
+    reason = gate.missing_proof_reason(_payload_with_command(clone_path, command))
+    assert reason == MISSING_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.UNREAD_FILE_LIST, None)
+    )
+
+
+def test_should_give_the_unread_tier_when_a_named_head_off_the_checkout_differs_from_origin(
+    tmp_path: Path,
+) -> None:
+    clone_path = _clone_whose_feature_differs_from_its_pushed_copy(tmp_path)
+    _git(clone_path, "checkout", "-q", "main")
+    command = _create_command(clone_path, NO_PROOF_BODY) + " --head feature"
+    reason = gate.missing_proof_reason(_payload_with_command(clone_path, command))
+    assert reason == MISSING_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.UNREAD_FILE_LIST, None)
+    )
+
+
+def test_should_read_the_tier_when_the_named_head_matches_its_origin_copy(tmp_path: Path) -> None:
+    clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
+    _git(clone_path, "push", "-q", "origin", "feature")
+    command = _create_command(clone_path, NO_PROOF_BODY) + " --head feature"
+    assert gate.missing_proof_reason(_payload_with_command(clone_path, command)) is None
+
+
 def test_should_skip_the_build_eval_scan_for_a_feature_that_owes_no_eval(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
