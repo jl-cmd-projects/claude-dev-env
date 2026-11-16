@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.126.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.1...claude-dev-env-v8.126.2) (2026-11-16)
+
+
+### Documentation
+
+* **broker:** tell a failed meter read from spent usage on exit 3 ([#2400](https://github.com/jl-cmd-projects/claude-dev-env/issues/2400)) ([fdbcf4b](https://github.com/jl-cmd-projects/claude-dev-env/commit/fdbcf4bf8e37d8b406351a3f6ddf5cc93b9d22ba))
+
 ## [8.126.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.0...claude-dev-env-v8.126.1) (2026-11-16)
 
 
