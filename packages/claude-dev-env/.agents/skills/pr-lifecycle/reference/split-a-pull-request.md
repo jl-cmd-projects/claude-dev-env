@@ -13,6 +13,23 @@ Split when the change carries more than one purpose, or when one small part carr
 
 Try the cheaper move first. Mark generated or data files that swell the diff with a `linguist-generated` line in `.gitattributes`, then judge the size again.
 
+## Size bar
+
+Check size after the four tests pass. Count changed lines and leave out generated files.
+
+- About 100 lines reads well. One review holds 200 to 400 lines.
+- Over 400 lines, look for another seam that passes the four tests.
+- Over 1,000 lines, split, or state in a "Why one pull request" section why the slice stays whole.
+
+A cut that meets the bar and fails the tests is still cosmetic. Sources: [Google small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html) and [SmartBear code review practices](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/).
+
+## Level order
+
+Order levels by the import graph, as [each stack level stands on its own](../SKILL.md#each-stack-level-stands-on-its-own) and step 3 below describe. Two more rules:
+
+- Cut a shared constants file so each constant lands at the level of its first user.
+- A check, eval, or review rule sits at or below the level of the code it judges, so it is in force when that code is reviewed.
+
 Decide the slices when you write the plan. The Delivery section of `~/.claude/docs/rule-guides/verified-work.md` already commits each verified piece as its own level. The steps below repair a pull request where that did not happen.
 
 ## Split a pull request that is already open

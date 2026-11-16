@@ -83,3 +83,22 @@ def test_the_retro_split_links_the_stack_level_proof_and_does_not_copy_it() -> N
     assert "(../SKILL.md#each-stack-level-stands-on-its-own)" in reference_text
     assert "A symbol belongs at the level that first" not in reference_text
     assert "CI runs only on the stack tip" in reference_text
+
+
+def test_the_reference_sets_a_size_bar_that_follows_the_four_tests() -> None:
+    reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
+    size_bar = reference_text.split("## Size bar", 1)[1].split("\n## ", 1)[0]
+    assert "Check size after the four tests pass." in size_bar
+    assert "leave out generated files" in size_bar
+    assert "One review holds 200 to 400 lines." in size_bar
+    assert "Over 400 lines, look for another seam that passes the four tests." in size_bar
+    assert 'Over 1,000 lines, split, or state in a "Why one pull request" section' in size_bar
+    assert "A cut that meets the bar and fails the tests is still cosmetic." in size_bar
+
+
+def test_the_reference_places_constants_and_checks_by_their_users() -> None:
+    reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
+    level_order = reference_text.split("## Level order", 1)[1].split("\n## ", 1)[0]
+    assert "(../SKILL.md#each-stack-level-stands-on-its-own)" in level_order
+    assert "each constant lands at the level of its first user" in level_order
+    assert "sits at or below the level of the code it judges" in level_order
