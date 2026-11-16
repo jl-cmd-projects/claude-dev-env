@@ -1,0 +1,63 @@
+name: Restack after merge
+
+on:
+  pull_request:
+    types:
+      - closed
+
+concurrency:
+  group: restack-after-merge-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  restack:
+    name: Restack the pull requests stacked on the merged one
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch
+    permissions:
+      contents: read
+    steps:
+      - name: Mint an app token whose pushes start the stacked pull requests' workflows
+        id: app_token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+          token: ${{ steps.app_token.outputs.token }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set the committer identity for rebased commits
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Restack each open stack level onto its new base
+        env:
+          GH_TOKEN: ${{ steps.app_token.outputs.token }}
+          REPOSITORY: ${{ github.repository }}
+          MERGED_PR: ${{ github.event.pull_request.number }}
+          MERGED_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          MERGED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          MERGE_COMMIT_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          python .github/ci/restack_after_merge.py \
+            --repo "$REPOSITORY" \
+            --merged-pr "$MERGED_PR" \
+            --merged-head-ref "$MERGED_HEAD_REF" \
+            --merged-head-sha "$MERGED_HEAD_SHA" \
+            --merge-commit-sha "$MERGE_COMMIT_SHA" \
+            --base-ref "$BASE_REF"
