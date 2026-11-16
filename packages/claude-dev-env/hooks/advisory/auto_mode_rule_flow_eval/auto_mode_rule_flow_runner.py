@@ -682,7 +682,7 @@ def run_all_cases(
     case_file_path: Path,
     refusal_hook: Path,
     stop_hook: Path,
-    all_case_prefixes: tuple[str, ...] = (),
+    all_case_prefixes: tuple[str, ...],
 ) -> list[CaseOutcome]:
     """Run every case, or the cases whose id starts with one of the prefixes.
 
@@ -758,8 +758,8 @@ def calibration_problems(case_file_path: Path) -> list[str]:
     eval_directory = Path(__file__).resolve().parent
     allow_stub = eval_directory / ALLOW_STUB_FILE_NAME
     hold_stub = eval_directory / HOLD_STUB_FILE_NAME
-    allow_summary = score_summary(run_all_cases(case_file_path, allow_stub, allow_stub))
-    hold_summary = score_summary(run_all_cases(case_file_path, hold_stub, hold_stub))
+    allow_summary = score_summary(run_all_cases(case_file_path, allow_stub, allow_stub, ()))
+    hold_summary = score_summary(run_all_cases(case_file_path, hold_stub, hold_stub, ()))
     all_checks = (
         (ALLOW_STUB_FILE_NAME, SHOULD_ACT_PASSED_KEY, allow_summary),
         (HOLD_STUB_FILE_NAME, SHOULD_STAY_QUIET_PASSED_KEY, hold_summary),

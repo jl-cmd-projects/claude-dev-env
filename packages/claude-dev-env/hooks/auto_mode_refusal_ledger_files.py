@@ -20,6 +20,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeGuard
 
 from atomic_file_writer import write_text_atomically
 from hooks_constants.auto_mode_refusal_ledger_constants import (
@@ -142,11 +143,11 @@ def entry_id_for(tool_name: str, tool_input: object) -> str:
 
 
 
-def _is_integer(value: object) -> bool:
+def _is_integer(value: object) -> TypeGuard[int]:
     return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _is_count(value: object) -> bool:
+def _is_count(value: object) -> TypeGuard[int]:
     return _is_integer(value) and value >= 0
 
 
@@ -186,24 +187,26 @@ def parse_entry(json_object: JsonObject | None) -> LedgerEntry | None:
         return None
     all_text_fields = [json_object.get(each) for each in ("id", "tool_name", "rule_label")]
     all_text_fields.append(json_object.get("action_summary", ""))
+    all_text_values = [each for each in all_text_fields if isinstance(each, str)]
     sequence = json_object.get("sequence", 0)
     all_hold_counts = [
         json_object.get(each_name, 0) for each_name in (QUESTION_HOLDS_FIELD, RULE_HOLDS_FIELD)
     ]
+    all_count_values = [each for each in all_hold_counts if _is_count(each)]
     answer = json_object["answer"]
     is_question_asked = json_object.get(QUESTION_ASKED_FIELD, False)
     question_card_offset = json_object.get(QUESTION_CARD_OFFSET_FIELD)
     if not (
-        all(isinstance(each, str) for each in all_text_fields)
+        len(all_text_values) == len(all_text_fields)
         and _is_integer(sequence)
-        and all(_is_count(each) for each in all_hold_counts)
+        and len(all_count_values) == len(all_hold_counts)
         and (answer is None or answer in ALL_ANSWERS)
         and isinstance(is_question_asked, bool)
         and (question_card_offset is None or _is_count(question_card_offset))
     ):
         return None
-    entry_id, tool_name, rule_label, action_summary = all_text_fields
-    question_holds, rule_holds = all_hold_counts
+    entry_id, tool_name, rule_label, action_summary = all_text_values
+    question_holds, rule_holds = all_count_values
     return LedgerEntry(
         entry_id, tool_name, rule_label, action_summary, sequence, answer,
         question_holds, rule_holds, is_question_asked, question_card_offset,

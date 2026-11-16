@@ -37,7 +37,8 @@ CARD_QUESTION_TEMPLATE = "Should auto mode have refused this {tool_name} step?"
 
 BASH_TOOL_NAME = "Bash"
 COMMAND_INPUT_KEY = "command"
-RULE_ADD_COMMAND_MARKER = "add_auto_mode_rule.py add"
+RULE_ADD_SCRIPT_NAME = "add_auto_mode_rule.py"
+RULE_ADD_COMMAND_MARKER = RULE_ADD_SCRIPT_NAME + " add"
 
 QUESTION_SECTION_HEADER = (
     "Auto mode refused steps in this session that the user has not answered. "

@@ -27,7 +27,7 @@ def _cases_by_id() -> dict[str, dict[str, object]]:
 
 
 def test_should_score_no_should_act_case_when_the_hooks_never_act() -> None:
-    all_outcomes = runner.run_all_cases(case_file_path, allow_stub, allow_stub)
+    all_outcomes = runner.run_all_cases(case_file_path, allow_stub, allow_stub, ())
     summary = runner.score_summary(all_outcomes)
     assert summary["should_act_total"] > 0
     assert summary["should_act_passed"] == 0
@@ -35,7 +35,7 @@ def test_should_score_no_should_act_case_when_the_hooks_never_act() -> None:
 
 
 def test_should_score_no_should_stay_quiet_case_when_the_hooks_always_record_and_hold() -> None:
-    all_outcomes = runner.run_all_cases(case_file_path, hold_stub, hold_stub)
+    all_outcomes = runner.run_all_cases(case_file_path, hold_stub, hold_stub, ())
     summary = runner.score_summary(all_outcomes)
     assert summary["should_stay_quiet_total"] > 0
     assert summary["should_stay_quiet_passed"] == 0
