@@ -151,10 +151,8 @@ export function unparsedSettingsMayHoldGate(settingsPath, claudeHome) {
     );
 }
 
-function profileGateCommands(settingsPath, claudeHome, hookRelativePath) {
-    return stopHooks(settingsPath)
-        .filter((eachHook) => isGateHook(eachHook, claudeHome, [hookRelativePath]))
-        .map((eachHook) => eachHook.command);
+function profileGateHooks(settingsPath, claudeHome, hookRelativePath) {
+    return stopHooks(settingsPath).filter((eachHook) => isGateHook(eachHook, claudeHome, [hookRelativePath]));
 }
 
 /**
@@ -178,8 +176,8 @@ export function profileRunsItsOwnGate(settingsPath, claudeHome, hookRelativePath
 
 function staleGateRelativePaths(settingsPath, claudeHome, allWantedGates) {
     return allWantedGates
-        .filter(({ hookRelativePath, gateHook }) => profileGateCommands(settingsPath, claudeHome, hookRelativePath)
-            .some((eachCommand) => eachCommand !== gateHook.command))
+        .filter(({ hookRelativePath, gateHook }) => profileGateHooks(settingsPath, claudeHome, hookRelativePath)
+            .some((eachHook) => eachHook.command !== gateHook.command || eachHook.timeout !== gateHook.timeout))
         .map(({ hookRelativePath }) => hookRelativePath);
 }
 
@@ -189,7 +187,7 @@ function staleGateRelativePaths(settingsPath, claudeHome, allWantedGates) {
  * A profile keeps its own settings and hooks. Each gate is handled on its
  * own. The merge adds a gate entry, in the spelling the main settings use,
  * only where that gate is missing, so a profile that holds one gate gets the
- * other. An entry left with an older interpreter spelling is replaced. The
+ * other. An entry left with an older interpreter spelling or timeout is replaced. The
  * file as it was before either change is copied to a timestamped `.bak`. A
  * gate the profile already runs from its own copy of the script is left as
  * it is, and so is a gate the main settings do not hold.

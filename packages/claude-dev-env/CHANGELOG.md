@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.124.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.123.0...claude-dev-env-v8.124.0) (2026-11-16)
+
+
+### Features
+
+* **hooks:** refuse a page publish that draws one item twice or opens a second link ([#2376](https://github.com/jl-cmd-projects/claude-dev-env/issues/2376)) ([eedce28](https://github.com/jl-cmd-projects/claude-dev-env/commit/eedce28e77f7333721d79d9c76109474c2922a0b))
+
+
+### Bug Fixes
+
+* **hooks:** pass the task list hold in a session with no task tool ([#2390](https://github.com/jl-cmd-projects/claude-dev-env/issues/2390)) ([f641607](https://github.com/jl-cmd-projects/claude-dev-env/commit/f641607f79a29308b91c3b52afdec07715459eaf))
+
 ## [8.123.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.122.0...claude-dev-env-v8.123.0) (2026-11-16)
 
 

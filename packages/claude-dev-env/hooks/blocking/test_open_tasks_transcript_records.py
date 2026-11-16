@@ -13,6 +13,7 @@ from open_tasks_transcript_records import (
     normalized_text,
     parsed_object,
     send_call_file_paths,
+    stop_feedback_text,
 )
 
 
@@ -173,6 +174,19 @@ def test_should_count_a_codex_call_as_a_read_by_its_type_and_tool_name() -> None
     assert is_codex_read_call(codex_record({"type": "function_call", "name": "apply_patch"})) is False
     assert is_codex_read_call(codex_record({"type": "message", "name": "shell"})) is False
     assert is_codex_read_call({"type": "event_msg", "payload": {"type": "local_shell_call"}}) is False
+
+
+@pytest.mark.parametrize("is_meta", [True, False])
+def test_should_read_the_text_of_a_stop_hook_feedback_record(is_meta: bool) -> None:
+    feedback_text = "Stop hook feedback:\n[command hook 6]: There are uncommitted changes."
+    feedback_record = {"type": "user", "isMeta": is_meta, "message": {"role": "user", "content": feedback_text}}
+    assert stop_feedback_text(feedback_record) == feedback_text
+
+
+def test_should_read_no_feedback_from_a_typed_prompt_or_an_assistant_record() -> None:
+    assert stop_feedback_text({"type": "user", "message": {"role": "user", "content": "Fix the hook"}}) is None
+    assistant_record = {"type": "assistant", "message": {"content": "Stop hook feedback: quoted"}}
+    assert stop_feedback_text(assistant_record) is None
 
 
 def attachment_record(all_attachment_fields: dict[str, object]) -> dict[str, object]:

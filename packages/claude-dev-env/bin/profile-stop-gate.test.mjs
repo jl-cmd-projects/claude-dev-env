@@ -3,6 +3,9 @@ import { strict as assert } from 'node:assert';
 import { lstatSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { mergeHooksIntoSettings } from './install.mjs';
 
 import { ALL_PROFILE_STOP_GATE_HOOK_RELATIVE_PATHS } from './install-constants.mjs';
 import {
@@ -44,6 +47,13 @@ function makeTwoGateHome(context) {
 
 function backupFileNames(settingsPath) {
     return readdirSync(dirname(settingsPath)).filter((eachName) => eachName.endsWith('.bak'));
+}
+
+function gateTimeouts(settingsPath) {
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    return (settings.hooks?.Stop ?? []).flatMap((eachGroup) => eachGroup.hooks
+        .filter((eachHook) => eachHook.command.includes('open_tasks_stop_gate.py'))
+        .map((eachHook) => eachHook.timeout));
 }
 
 function writeProfile(homeDirectory, name, settings) {
@@ -369,4 +379,25 @@ test('a settings.json that does not parse may hold a gate when its text names on
 
     assert.equal(unparsedSettingsMayHoldGate(closingOnlyPath, claudeHome), true);
     assert.equal(unparsedSettingsMayHoldGate(otherHomePath, claudeHome), false);
+});
+
+test('should raise a profile gate timeout of 10 to 45 on install', (context) => {
+    const { homeDirectory, claudeHome, mainSettingsPath, gateCommand } = makeHome(context);
+    const profilePath = writeProfile(homeDirectory, 'older-install', {
+        hooks: { Stop: [{ hooks: [{ type: 'command', command: gateCommand, timeout: 10 }] }] },
+    });
+    const hooksConfigPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'hooks', 'hooks.json');
+    const hooksConfig = JSON.parse(readFileSync(hooksConfigPath, 'utf8'));
+    const mainSettings = JSON.parse(readFileSync(mainSettingsPath, 'utf8'));
+
+    mergeHooksIntoSettings(mainSettings, hooksConfig, claudeHome, 'python3', null, homeDirectory);
+    writeFileSync(mainSettingsPath, JSON.stringify(mainSettings, null, 4));
+    addStopGatesToProfiles({ mainSettingsPath, claudeHome, allProfileSettingsPaths: [profilePath], homeDirectory });
+
+    assert.deepEqual(gateTimeouts(mainSettingsPath), [45]);
+    assert.deepEqual(gateTimeouts(profilePath), [45]);
+    assert.deepEqual(
+        stopCommands(profilePath).filter((eachCommand) => eachCommand.includes('open_tasks_stop_gate.py')),
+        [gateCommand],
+    );
 });
