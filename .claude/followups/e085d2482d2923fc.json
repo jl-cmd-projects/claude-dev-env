@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/artifact_current_page_gate.py",
+  "message": "packages/claude-dev-env/hooks/blocking/artifact_current_page_gate.py:1: File is 418 lines (max 400) - consider splitting",
+  "check_id": "validators/file-length",
+  "severity": "smell",
+  "origin_commit": "66711620f7c991c637c048047406e10511d895db"
+}

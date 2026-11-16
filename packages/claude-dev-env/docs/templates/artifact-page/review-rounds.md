@@ -1,6 +1,6 @@
 # Marking what changed between review rounds
 
-A page that a reviewer reads more than once shows what changed since their last look. The template marks only the parts that changed: each one gets a thin bar on its left edge and a small "Changed" label at its start. The card around them stays as it is, and its board chip gets a dot in the same color. There is no diff and no list of changes.
+A page that a reviewer reads more than once shows what changed since their last look. The template marks only the parts that changed: each one gets a thin bar on its left edge and a small "Changed" label at its start. The card around them stays as it is, and its board chip gets a dot in the same color. There is no diff and no list of changes. A mark shows where the page changed; the page itself still holds only the current state, with each item once, as [Republish a page](README.md#republish-a-page) says.
 
 ## Data
 

@@ -149,8 +149,8 @@ details.what[open] summary::before { content: "▾" }
    "icon": "✨"
   }
  ],
- "items": [
-  {
+ "items": {
+  "pick-a-release-date": {
    "title": "Pick a release date",
    "owner": "web",
    "status": "open",
@@ -158,7 +158,9 @@ details.what[open] summary::before { content: "▾" }
    "card": true,
    "next": "choose between the two dates in the linked plan.",
    "changed_round": 3,
-   "changed_parts": ["next"],
+   "changed_parts": [
+    "next"
+   ],
    "summary": [
     "One release date everyone plans around",
     "The launch checklist dated backward from it",
@@ -173,14 +175,16 @@ details.what[open] summary::before { content: "▾" }
    ],
    "starter": "Pick a release date. Read the release plan, list both dates with what each one moves, and ask for the choice."
   },
-  {
+  "flaky-login-test": {
    "title": "Flaky login test",
    "owner": "web",
    "status": "blocked",
    "card": true,
    "next": "wait for the staging database to come back online.",
    "changed_round": 2,
-   "changed_parts": ["next"],
+   "changed_parts": [
+    "next"
+   ],
    "summary": [
     "The login test passes ten runs in a row",
     "The root cause written in the pull request"
@@ -194,14 +198,16 @@ details.what[open] summary::before { content: "▾" }
    ],
    "starter": "Fix the flaky login test. Reproduce it, find the cause, and open a draft pull request with the proof."
   },
-  {
+  "faster-search-page": {
    "title": "Faster search page",
    "owner": "platform",
    "status": "doing",
    "card": true,
    "next": "finish the index change and rerun the timing check.",
    "changed_round": 3,
-   "changed_parts": ["summary"],
+   "changed_parts": [
+    "summary"
+   ],
    "summary": [
     "Search answers in under one second",
     "A timing check that guards it",
@@ -216,7 +222,7 @@ details.what[open] summary::before { content: "▾" }
    ],
    "starter": "Make the search page faster. Measure first, change the index, and prove the new time."
   },
-  {
+  "setup-guide-refresh": {
    "title": "Setup guide refresh",
    "owner": "docs",
    "status": "open",
@@ -229,7 +235,7 @@ details.what[open] summary::before { content: "▾" }
    "added": "2026-01-15T16:45:00Z",
    "starter": "Refresh the setup guide. Run each step on a clean machine and fix every step that fails."
   },
-  {
+  "status-page": {
    "title": "Status page",
    "owner": "new-project",
    "status": "open",
@@ -250,7 +256,7 @@ details.what[open] summary::before { content: "▾" }
    ],
    "starter": "Set up the Status Page project from its brief, then build the first health check."
   },
-  {
+  "dark-mode-colors": {
    "title": "Dark mode colors",
    "owner": "web",
    "status": "done",
@@ -269,7 +275,7 @@ details.what[open] summary::before { content: "▾" }
     }
    ]
   },
-  {
+  "changelog-automation": {
    "title": "Changelog automation",
    "owner": "platform",
    "status": "done",
@@ -288,7 +294,7 @@ details.what[open] summary::before { content: "▾" }
     }
    ]
   }
- ]
+ }
 }
 </script>
 <script>
@@ -306,6 +312,7 @@ const state = { tab: "open", owner: "all", query: "" };
 try { const saved = JSON.parse(localStorage.getItem("work-tracker-view") || "{}"); if (saved.tab) state.tab = saved.tab; if (saved.owner) state.owner = saved.owner; } catch (e) {}
 const REVIEW_ROUND = Number(TRACKER.round) || 0;
 const CHANGE_BASELINE = changeBaseline();
+const ITEMS = Object.entries(TRACKER.items).map(([key, it]) => ({ key, ...it }));
 const ownerByKey = Object.fromEntries(TRACKER.owners.map(o => [o.key, o]));
 const isDone = it => it.status === "done";
 function stageOf(it) {
@@ -315,7 +322,7 @@ function stageOf(it) {
   if (it.status === "doing") return "doing";
   return "ready";
 }
-const slug = it => "item-" + it.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const slug = it => "item-" + it.key;
 const fmt = iso => { if (!iso) return ""; try { return new Date(iso).toLocaleString(undefined, { month: "long", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch (e) { return iso; } };
 const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
 function changeBaseline() {
@@ -387,7 +394,7 @@ function renderBoard(items) {
 }
 function renderFilters() {
   const f = document.getElementById("filters"); f.textContent = "";
-  const pool = TRACKER.items.filter(i => (state.tab === "done") === isDone(i));
+  const pool = ITEMS.filter(i => (state.tab === "done") === isDone(i));
   const opts = [{ key: "all", name: "All projects" }].concat(TRACKER.owners.filter(o => pool.some(i => i.owner === o.key)));
   if (!opts.some(o => o.key === state.owner)) state.owner = "all";
   for (const o of opts) {
@@ -437,6 +444,7 @@ function itemCard(it) {
   const key = stageOf(it), s = STAGE_BY_KEY[key], owner = ownerByKey[it.owner] || { name: it.owner };
   const card = el("article", "card " + key);
   card.id = slug(it);
+  card.dataset.item = it.key;
   const band = el("div", "band " + key);
   band.append(el("span", null, s.icon), el("span", null, s.label));
   const proj = el("span", "proj");
@@ -482,16 +490,16 @@ function itemCard(it) {
 }
 function render() {
   document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-pressed", String(t.dataset.tab === state.tab)));
-  const open = TRACKER.items.filter(i => !isDone(i));
+  const open = ITEMS.filter(i => !isDone(i));
   document.getElementById("stamp").textContent = "Updated " + fmt(TRACKER.updated);
   document.getElementById("n-open").textContent = open.length;
-  document.getElementById("n-done").textContent = TRACKER.items.length - open.length;
+  document.getElementById("n-done").textContent = ITEMS.length - open.length;
   renderFilters();
-  const items = TRACKER.items.filter(inView);
+  const items = ITEMS.filter(inView);
   renderBoard(items);
   const list = document.getElementById("list"); list.textContent = "";
   if (!items.length) {
-    list.append(el("div", "empty", TRACKER.items.length ? (state.tab === "done" ? "No finished items match." : "No open items match.") : "Nothing tracked yet. Add an item to the data block and it shows up here."));
+    list.append(el("div", "empty", ITEMS.length ? (state.tab === "done" ? "No finished items match." : "No open items match.") : "Nothing tracked yet. Add an item to the data block and it shows up here."));
     return;
   }
   const order = state.tab === "done" ? ["done"] : ["you", "blocked", "doing", "ready"];

@@ -1,0 +1,403 @@
+<title>Sample Theme</title>
+<style>
+:root {
+  --bg: #f3f6f2; --surface: #ffffff; --fg: #17241b; --muted: #4c5c51; --line: #d5dfd6;
+  --done: #14603a; --done-soft: #dff2e6; --wait: #6f4100; --wait-soft: #fbf0dc;
+  --yours: #1f3f9c; --yours-soft: #e4ebfb;
+  --font-body: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101612; --surface: #18211b; --fg: #e5ece6; --muted: #a9b8ad; --line: #2a372e;
+  --done: #74d6a2; --done-soft: #16301f; --wait: #f0b860; --wait-soft: #33280f;
+  --yours: #a9bfff; --yours-soft: #1c2742; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #101612; --surface: #18211b; --fg: #e5ece6; --muted: #a9b8ad; --line: #2a372e;
+  --done: #74d6a2; --done-soft: #16301f; --wait: #f0b860; --wait-soft: #33280f;
+  --yours: #a9bfff; --yours-soft: #1c2742; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 17px; line-height: 1.45;
+  padding-block: 24px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)) }
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 20px }
+h1 { font-size: 28px; font-weight: 800; margin: 0; text-wrap: balance }
+h2 { font-size: 21px; font-weight: 800; margin: 0; text-wrap: balance }
+p { margin: 0 }
+.stamp { font-size: 16px; font-weight: 700; color: var(--muted) }
+.steps { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0 }
+.steps li, .chip { font-size: 16px; font-weight: 700; padding: 4px 12px; border-radius: 999px }
+.done { background: var(--done-soft); color: var(--done) }
+.wait { background: var(--wait-soft); color: var(--wait) }
+.yours { background: var(--yours-soft); color: var(--yours) }
+.group { background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 16px; display: grid; gap: 12px; min-width: 0 }
+.group.pick { border-color: var(--yours) }
+.note { font-size: 16px; font-weight: 700; color: var(--muted) }
+.strips { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; align-items: start }
+.screens { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; align-items: start }
+figure { margin: 0; display: grid; gap: 8px; min-width: 0 }
+figure img { display: block; width: 100%; max-width: 100%; border-radius: 12px; border: 2px solid var(--line); background: var(--line) }
+.screens img { aspect-ratio: 9 / 16; object-fit: cover }
+.strips img { aspect-ratio: 144 / 87; object-fit: cover; object-position: bottom }
+.strips figure.whole img { aspect-ratio: 9 / 16 }
+.toggle { font: inherit; font-size: 16px; font-weight: 700; color: var(--yours); background: var(--yours-soft); border: 2px solid var(--yours);
+  border-radius: 999px; padding: 4px 12px; cursor: pointer; justify-self: start }
+.shot { position: relative }
+.flag { position: absolute; top: 8px; left: 8px; background: var(--wait-soft); color: var(--wait); border: 2px solid var(--wait);
+  border-radius: 999px; padding: 2px 10px; font-size: 16px; font-weight: 800 }
+figure.warned img { border-color: var(--wait) }
+figcaption { display: grid; gap: 6px; font-size: 16px }
+.name { font-size: 17px; font-weight: 800 }
+.chips { display: flex; flex-wrap: wrap; gap: 6px }
+.warns { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px }
+.warns li { border-left: 4px solid var(--wait); padding-left: 8px; display: grid; gap: 4px; font-weight: 700; color: var(--wait) }
+details { font-weight: 500; color: var(--muted) }
+summary { cursor: pointer; font-size: 16px }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 16px; overflow-wrap: anywhere; display: block; padding-top: 4px }
+.left { display: grid; gap: 8px }
+.left ul { margin: 0; padding-left: 20px; display: grid; gap: 6px }
+.foot { font-size: 16px; color: var(--muted) }
+</style>
+
+<div class="wrap">
+  <header class="left">
+    <h1>Sample Theme, first prototype run</h1>
+    <p class="stamp" id="stamp"></p>
+  </header>
+
+  <ul class="steps" id="steps"></ul>
+
+  <section class="group pick left">
+    <h2 id="pick-title"></h2>
+    <p class="note" id="pick-note"></p>
+    <div class="strips" id="pick-strips"></div>
+  </section>
+
+  <div id="sections" class="wrap"></div>
+
+  <section class="group left">
+    <h2>Warnings that no screen shows</h2>
+    <ul id="unseen"></ul>
+  </section>
+
+  <section class="group left">
+    <h2>What happens next</h2>
+    <ul id="next"></ul>
+  </section>
+
+  <p class="foot" id="foot"></p>
+</div>
+
+<script type="application/json" id="data">
+{
+ "folder": "screens/sample-theme/",
+ "stamp": "Updated 2026-01-15 12:00 UTC. Every screen below is from sample run 3 and shows once.",
+ "steps": [
+  [
+   "done",
+   "Step 1"
+  ],
+  [
+   "done",
+   "Step 2"
+  ],
+  [
+   "done",
+   "Step 3"
+  ],
+  [
+   "done",
+   "Step 4"
+  ],
+  [
+   "done",
+   "Step 5"
+  ],
+  [
+   "wait",
+   "Step 6"
+  ],
+  [
+   "wait",
+   "Step 7"
+  ],
+  [
+   "yours",
+   "Step 8"
+  ]
+ ],
+ "pick": {
+  "title": "Your pick: one of three draws",
+  "note": "Three draws of one screen.",
+  "strips": [
+   [
+    "screen-14",
+    "Draw 1",
+    "What draw 1 shows.",
+    [
+     "warning-01"
+    ]
+   ],
+   [
+    "screen-15",
+    "Draw 2",
+    "What draw 2 shows.",
+    []
+   ],
+   [
+    "screen-16",
+    "Draw 3",
+    "What draw 3 shows.",
+    []
+   ]
+  ]
+ },
+ "warnings": {
+  "warning-02": [
+   "What warning-02 means.",
+   "log line for warning-02"
+  ],
+  "warning-03": [
+   "What warning-03 means.",
+   "log line for warning-03"
+  ],
+  "warning-04": [
+   "What warning-04 means.",
+   "log line for warning-04"
+  ],
+  "warning-05": [
+   "What warning-05 means.",
+   "log line for warning-05"
+  ],
+  "warning-06": [
+   "What warning-06 means.",
+   "log line for warning-06"
+  ],
+  "warning-07": [
+   "What warning-07 means.",
+   "log line for warning-07"
+  ],
+  "warning-08": [
+   "What warning-08 means.",
+   "log line for warning-08"
+  ],
+  "warning-09": [
+   "What warning-09 means.",
+   "log line for warning-09"
+  ],
+  "warning-01": [
+   "What warning-01 means.",
+   "log line for warning-01"
+  ],
+  "warning-10": [
+   "What warning-10 means.",
+   "log line for warning-10"
+  ]
+ },
+ "sections": [
+  {
+   "title": "Section 1",
+   "screens": [
+    [
+     "screen-01",
+     "Screen 01",
+     "new",
+     [
+      "warning-05"
+     ]
+    ],
+    [
+     "screen-02",
+     "Screen 02",
+     "new",
+     [
+      "warning-06"
+     ]
+    ],
+    [
+     "screen-03",
+     "Screen 03",
+     "base",
+     [
+      "warning-07"
+     ]
+    ],
+    [
+     "screen-04",
+     "Screen 04",
+     "base",
+     [
+      "warning-07"
+     ]
+    ]
+   ]
+  },
+  {
+   "title": "Section 2",
+   "screens": [
+    [
+     "screen-05",
+     "Screen 05",
+     "new",
+     [
+      "warning-06"
+     ]
+    ],
+    [
+     "screen-06",
+     "Screen 06",
+     "new",
+     [
+      "warning-03"
+     ]
+    ],
+    [
+     "screen-18",
+     "Screen 18",
+     "new",
+     [
+      "warning-04"
+     ]
+    ],
+    [
+     "screen-07",
+     "Screen 07",
+     "new",
+     []
+    ],
+    [
+     "screen-08",
+     "Screen 08",
+     "new",
+     []
+    ],
+    [
+     "screen-19",
+     "Screen 19",
+     "new",
+     [
+      "warning-06"
+     ]
+    ],
+    [
+     "screen-09",
+     "Screen 09",
+     "new",
+     []
+    ],
+    [
+     "screen-17",
+     "Screen 17",
+     "new",
+     [
+      "warning-02"
+     ]
+    ],
+    [
+     "screen-20",
+     "Screen 20",
+     "new",
+     [
+      "warning-08"
+     ]
+    ]
+   ]
+  },
+  {
+   "title": "Section 3",
+   "screens": [
+    [
+     "screen-10",
+     "Screen 10",
+     "base",
+     [
+      "warning-10"
+     ]
+    ],
+    [
+     "screen-11",
+     "Screen 11",
+     "base",
+     [
+      "warning-10",
+      "warning-09"
+     ]
+    ],
+    [
+     "screen-12",
+     "Screen 12",
+     "base",
+     [
+      "warning-10",
+      "warning-06"
+     ]
+    ],
+    [
+     "screen-13",
+     "Screen 13",
+     "base",
+     [
+      "warning-10",
+      "warning-06"
+     ]
+    ]
+   ]
+  }
+ ],
+ "unseen": [
+  "Warning with no screen 1.",
+  "Warning with no screen 2.",
+  "Warning with no screen 3.",
+  "Warning with no screen 4."
+ ],
+ "next": [
+  "Next step 1.",
+  "Next step 2.",
+  "Next step 3.",
+  "Next step 4."
+ ],
+ "foot": "Every screen is a capture from sample run 3."
+}
+</script>
+<script>
+const data = JSON.parse(document.getElementById("data").textContent);
+const stateChips = { new: ["done", "New art"], base: ["wait", "Still the base theme"] };
+document.getElementById("stamp").textContent = data.stamp;
+document.getElementById("steps").innerHTML = data.steps.map(([state, label]) => `<li class="${state}">${label}</li>`).join("");
+document.getElementById("pick-title").textContent = data.pick.title;
+document.getElementById("pick-note").textContent = data.pick.note;
+const warningList = warningKeys => warningKeys.length ? `<ul class="warns">${warningKeys.map(key => `
+          <li><span>${data.warnings[key][0]}</span><details><summary>The run's log line</summary><code>${data.warnings[key][1]}</code></details></li>`).join("")}</ul>` : "";
+document.getElementById("pick-strips").innerHTML = data.pick.strips.map(([file, label, line, warningKeys]) => `
+  <figure>
+    <img src="${data.folder}${file}.png" alt="${label}: sample screen" loading="lazy">
+    <figcaption><span class="name">${label}</span><span>${line}</span>
+      <button class="toggle" type="button">Show the whole screen</button>
+      ${warningList(warningKeys)}
+    </figcaption>
+  </figure>`).join("");
+document.getElementById("pick-strips").addEventListener("click", event => {
+  const button = event.target.closest(".toggle");
+  if (!button) return;
+  const isWhole = button.closest("figure").classList.toggle("whole");
+  button.textContent = isWhole ? "Zoom in" : "Show the whole screen";
+});
+const screenCard = ([file, label, state, warningKeys]) => {
+  const [chipClass, chipText] = stateChips[state];
+  const countText = warningKeys.length === 1 ? "1 warning" : `${warningKeys.length} warnings`;
+  return `
+    <figure class="${warningKeys.length ? "warned" : ""}">
+      <div class="shot"><img src="${data.folder}${file}.png" alt="${label} screen" loading="lazy">${warningKeys.length ? `<span class="flag">Warning</span>` : ""}</div>
+      <figcaption>
+        <span class="name">${label}</span>
+        <span class="chips"><span class="chip ${chipClass}">${chipText}</span>${warningKeys.length ? `<span class="chip wait">${countText}</span>` : ""}</span>
+        ${warningList(warningKeys)}
+      </figcaption>
+    </figure>`;
+};
+document.getElementById("sections").innerHTML = data.sections.map(section => `
+  <section class="group">
+    <h2>${section.title}</h2>
+    <div class="screens">${section.screens.map(screenCard).join("")}</div>
+  </section>`).join("");
+document.getElementById("unseen").innerHTML = data.unseen.map(line => `<li>${line}</li>`).join("");
+document.getElementById("next").innerHTML = data.next.map(line => `<li>${line}</li>`).join("");
+document.getElementById("foot").textContent = data.foot;
+</script>
