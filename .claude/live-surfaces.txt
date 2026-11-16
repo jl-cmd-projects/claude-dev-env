@@ -1,0 +1,23 @@
+# Live surfaces for the pull request proof gate, one glob per line.
+# The built-in list already covers skills/, rules/, agents/, commands/,
+# system-prompts/, output-styles/, SKILL.md, AGENTS.md, CLAUDE.md, hooks.json,
+# settings*.json, .github/workflows/ and page files.
+
+# Rule text agents read as instructions outside rules/.
+packages/claude-dev-env/docs/rule-guides/
+packages/claude-dev-env/docs/agents-guidance/
+packages/claude-dev-env/docs/CODE_RULES.md
+packages/claude-dev-env/docs/code-rules/
+packages/claude-dev-env/codex-rules/
+
+# Text hooks inject into a session as context.
+packages/claude-dev-env/hooks/hooks_constants/*_prompt_constants.py
+
+# Hook registration outside hooks.json: the dispatcher lists.
+packages/claude-dev-env/hooks/hooks_constants/*dispatcher_constants.py
+
+# The installer that writes hooks, settings and skills into a user's config.
+packages/claude-dev-env/bin/
+
+# The session-start hook this repository runs for its own sessions.
+.claude/hooks/
