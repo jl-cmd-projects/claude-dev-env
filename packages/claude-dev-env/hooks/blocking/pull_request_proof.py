@@ -1506,7 +1506,9 @@ def tier_choice_for_create(create_call: CreateCall, working_directory: str) -> T
     cannot reach falls to the compare API. The declared globs come from
     .claude/live-surfaces.txt at that merge base for a local read, or on the
     base branch through the contents API for a remote read; the working
-    tree's copy is never read. The tier and every read
+    tree's copy is never read. Both reads take the file as UTF-8 and drop a
+    leading byte order mark; bytes that do not decode leave no declared
+    globs, so code stays live. The tier and every read
     behind it are read once per gate run.
 
     Args:

@@ -115,6 +115,37 @@ def test_declared_live_surface_globs_should_skip_comments_and_blank_lines() -> N
     assert declared_live_surface_globs(text) == DECLARED_GLOBS
 
 
+def test_declared_live_surface_globs_should_drop_a_leading_byte_order_mark() -> None:
+    assert declared_live_surface_globs("﻿src/\nportal/\n") == ("src/", "portal/")
+
+
+def test_declared_live_surface_globs_should_give_none_for_text_with_undecodable_bytes() -> None:
+    assert declared_live_surface_globs("�� src/\n") is None
+
+
+@pytest.mark.parametrize(
+    ("changed_path", "declared_line"),
+    [
+        ("src/a.py", "src"),
+        ("src/deep/a.py", "src"),
+        ("src", "src"),
+        ("packages/app/.claude/skills", "packages/app/.claude/skills"),
+    ],
+)
+def test_choose_tier_should_read_a_plain_declared_line_as_a_folder_or_a_file(
+    changed_path: str, declared_line: str
+) -> None:
+    assert choose_tier([changed_path], (declared_line,)) == TierChoice(
+        TierCause.LIVE_SURFACE, changed_path
+    )
+
+
+def test_choose_tier_should_not_stretch_a_plain_declared_line_over_a_longer_name() -> None:
+    assert choose_tier(["src2/a.py"], ("src",)) == TierChoice(
+        TierCause.CODE_WITHOUT_LIVE_SURFACE, "src2/a.py"
+    )
+
+
 def test_first_agent_surface_path_should_name_the_first_agent_surface() -> None:
     all_paths = [
         "src/gate.py",

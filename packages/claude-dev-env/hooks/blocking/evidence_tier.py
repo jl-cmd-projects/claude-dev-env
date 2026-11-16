@@ -35,15 +35,18 @@ from hooks_constants.evidence_tier_constants import (
     ALL_DOCS_DATA_EXTENSIONS,
     ALL_DOCS_DIRECTORY_NAMES,
     ALL_DOCS_EXTENSIONS,
+    ALL_GLOB_CHARACTERS,
     ALL_TEST_DIRECTORY_NAMES,
     ALL_TEST_FILE_INFIXES,
     ALL_TEST_FILE_NAMES,
     ALL_TEST_FILE_PREFIXES,
     ALL_TEST_FILE_SUFFIXES,
+    BYTE_ORDER_MARK,
     FOLDER_GLOB_SUFFIX,
     LIVE_SURFACES_COMMENT_MARKER,
     LIVE_SURFACES_FILE_PATH,
     ALL_WORKFLOW_DIRECTORY_PARTS,
+    UNDECODABLE_BYTE_MARK,
 )
 from hooks_constants.pull_request_proof_constants import ALL_VISIBLE_FILE_SUFFIXES
 
@@ -125,19 +128,28 @@ def is_docs_or_test_path(repository_path: str) -> bool:
     )
 
 
-def declared_live_surface_globs(surfaces_file_text: str) -> tuple[str, ...]:
-    """Return the globs a live-surfaces file declares, one per line.
+def declared_live_surface_globs(surfaces_file_text: str) -> tuple[str, ...] | None:
+    """Return the globs a live-surfaces file declares, one per line, or None for a file that is not UTF-8.
 
     ::
 
         "# prose agents read\\ndocs/rule-guides/\\n\\nportal/*.py\\n" -> ("docs/rule-guides/", "portal/*.py")
+        "\\ufeffsrc/\\n"                                          -> ("src/",)
+        text that holds a U+FFFD replacement character          -> None
 
-    A line that starts with '#' after its indent is a comment. Blank lines are skipped.
+    A line that starts with '#' after its indent is a comment. Blank lines are
+    skipped. A leading byte order mark is dropped. A replacement character
+    marks bytes that did not decode as UTF-8, so the file declares nothing and
+    code stays live.
 
     Args:
         surfaces_file_text: The text of the base branch's live-surfaces file.
     """
-    all_stripped_lines = (each_line.strip() for each_line in surfaces_file_text.splitlines())
+    if UNDECODABLE_BYTE_MARK in surfaces_file_text:
+        return None
+    all_stripped_lines = (
+        each_line.strip() for each_line in surfaces_file_text.removeprefix(BYTE_ORDER_MARK).splitlines()
+    )
     return tuple(
         each_line
         for each_line in all_stripped_lines
@@ -168,6 +180,8 @@ def _is_workflow_file(repository_path: str) -> bool:
 def _matches_declared_glob(repository_path: str, declared_glob: str) -> bool:
     if declared_glob.endswith(FOLDER_GLOB_SUFFIX):
         return repository_path.startswith(declared_glob)
+    if not any(each_character in declared_glob for each_character in ALL_GLOB_CHARACTERS):
+        return repository_path == declared_glob or repository_path.startswith(declared_glob + FOLDER_GLOB_SUFFIX)
     return fnmatch.fnmatchcase(repository_path, declared_glob)
 
 
@@ -199,8 +213,10 @@ def choose_tier(
         ["src/gate.py", "skills/x/SKILL.md"], globs   -> LIVE_SURFACE, "skills/x/SKILL.md"
         None or []                                    -> UNREAD_FILE_LIST, None
 
-    A glob that ends in '/' matches every path under that folder. Any other
-    glob matches the whole path with fnmatch, where '*' crosses folders.
+    A glob that ends in '/' matches every path under that folder. A line with
+    no '*', '?' or '[' matches that exact path, or every path under it as a
+    folder. Any other glob matches the whole path with fnmatch, where '*'
+    crosses folders.
 
     Args:
         all_changed_paths: Every path the pull request adds, edits, deletes or moves

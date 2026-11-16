@@ -591,6 +591,58 @@ def test_should_give_the_unread_tier_when_the_named_base_is_missing(tmp_path: Pa
     )
 
 
+def _clone_with_surfaces_bytes(tmp_path: Path, surfaces_bytes: bytes) -> Path:
+    origin_path = tmp_path / "origin"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    _write_files(origin_path, {"readme.md": "base\n"})
+    (origin_path / ".claude").mkdir()
+    (origin_path / ".claude" / "live-surfaces.txt").write_bytes(surfaces_bytes)
+    _git(origin_path, "add", ".")
+    _git(origin_path, "commit", "-q", "-m", "base")
+    clone_path = tmp_path / "clone"
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    _git(clone_path, "checkout", "-q", "-b", "feature")
+    _write_files(clone_path, {"src/gate.py": "x = 2\n"})
+    _git(clone_path, "add", ".")
+    _git(clone_path, "commit", "-q", "-m", "change")
+    return clone_path
+
+
+@pytest.mark.parametrize(
+    ("surfaces_bytes", "expected_choice"),
+    [
+        (b"\xff\xfe src/\n", TierChoice(TierCause.NO_DECLARED_SURFACES, "src/gate.py")),
+        ("src/\n".encode("utf-16"), TierChoice(TierCause.NO_DECLARED_SURFACES, "src/gate.py")),
+        ("﻿portal/\n".encode(), None),
+        (b"src\n", TierChoice(TierCause.LIVE_SURFACE, "src/gate.py")),
+        ("﻿src/\n".encode(), TierChoice(TierCause.LIVE_SURFACE, "src/gate.py")),
+    ],
+)
+def test_should_give_one_tier_for_the_same_surfaces_bytes_read_locally_or_remotely(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    surfaces_bytes: bytes,
+    expected_choice: TierChoice | None,
+) -> None:
+    expected_reason = (
+        None if expected_choice is None else TEST_ONLY_PROOF_REASON + gate.tier_sentence(expected_choice)
+    )
+    clone_path = _clone_with_surfaces_bytes(tmp_path / "local", surfaces_bytes)
+    local_reason = gate.missing_proof_reason(_create_from(clone_path, TEST_RUN_PROOF_BODY))
+    all_responses = {
+        "repos/o/r/compare/main...feature": [_compare_line("src/gate.py")],
+        "repos/o/r/contents/.claude/live-surfaces.txt?ref=main": [
+            base64.b64encode(surfaces_bytes).decode()
+        ],
+    }
+    monkeypatch.setattr(gate, "_gh_api_lines", lambda endpoint, query: all_responses.get(endpoint))
+    remote_folder = tmp_path / "remote"
+    remote_folder.mkdir()
+    remote_reason = gate.missing_proof_reason(_remote_create(remote_folder, TEST_RUN_PROOF_BODY))
+    assert local_reason == expected_reason
+    assert remote_reason == expected_reason
+
+
 def test_should_skip_the_build_eval_scan_for_a_feature_that_owes_no_eval(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

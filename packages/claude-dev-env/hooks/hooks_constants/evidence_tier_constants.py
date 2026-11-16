@@ -32,3 +32,6 @@ ALL_WORKFLOW_DIRECTORY_PARTS = (".github", "workflows")
 LIVE_SURFACES_FILE_PATH = ".claude/live-surfaces.txt"
 LIVE_SURFACES_COMMENT_MARKER = "#"
 FOLDER_GLOB_SUFFIX = "/"
+ALL_GLOB_CHARACTERS = ("*", "?", "[")
+BYTE_ORDER_MARK = "\ufeff"
+UNDECODABLE_BYTE_MARK = "\ufffd"
