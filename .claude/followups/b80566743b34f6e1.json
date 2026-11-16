@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/auto_mode_refusal_ledger.py",
+  "message": "packages/claude-dev-env/hooks/auto_mode_refusal_ledger.py:1: File is 481 lines (max 400) - consider splitting",
+  "check_id": "validators/file-length",
+  "severity": "smell",
+  "origin_commit": "9085edbf1e262c8dd3b449cf20ec837ad42bb707"
+}

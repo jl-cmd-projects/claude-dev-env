@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/advisory/auto_mode_rule_flow_eval/auto_mode_rule_flow_runner.py",
+  "message": "packages/claude-dev-env/hooks/advisory/auto_mode_rule_flow_eval/auto_mode_rule_flow_runner.py:1: File is 849 lines (max 400) - consider splitting",
+  "check_id": "validators/file-length",
+  "severity": "smell",
+  "origin_commit": "9085edbf1e262c8dd3b449cf20ec837ad42bb707"
+}
