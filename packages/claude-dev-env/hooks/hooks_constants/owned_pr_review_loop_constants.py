@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import re
 
+from hooks_constants.merge_review_gate_constants import DEFAULT_REVIEW_COMMAND
+
 __all__ = [
     "NAME_DIGEST_TEXT_ENCODING",
     "ALL_OWNED_OWNER_DIGESTS",
@@ -124,8 +126,9 @@ REVIEW_LOOP_CONTEXT_TEMPLATE: str = (
     "This repository has no automated review, so you own the review and the merge.\n"
     "Your task now runs past opening this PR to its merge, also when your brief\n"
     "asked for a draft or stopped at opening it.\n"
-    "1. Review loop. Load the efficient-review skill (/efficient-review). Review the\n"
-    "   branch, check each finding against the code, fix every one that holds, push,\n"
+    f"1. Review loop. In Claude Code, run {DEFAULT_REVIEW_COMMAND} {{number}}\n"
+    "   in this session. In Codex, load the efficient-review skill (/efficient-review).\n"
+    "   Check each finding against the code, fix every one that holds, push,\n"
     "   and review again. After three full passes, each later pass is\n"
     "   /code-review low --fix {number}; commit and push its fixes, then review the new head.\n"
     "   Repeat until a pass reports no findings.\n"
