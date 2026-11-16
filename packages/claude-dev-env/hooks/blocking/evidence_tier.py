@@ -19,6 +19,7 @@ surface.
 from __future__ import annotations
 
 import fnmatch
+import re
 import sys
 from collections.abc import Sequence
 from enum import Enum
@@ -48,6 +49,7 @@ from hooks_constants.evidence_tier_constants import (
     LIVE_SURFACES_COMMENT_MARKER,
     LIVE_SURFACES_FILE_PATH,
     GITHUB_DIRECTORY_NAME,
+    TRAILING_COMMENT_PATTERN,
     UNDECODABLE_BYTE_MARK,
 )
 from hooks_constants.pull_request_proof_constants import ALL_VISIBLE_FILE_SUFFIXES
@@ -158,10 +160,13 @@ def declared_live_surface_globs(surfaces_file_text: str) -> tuple[str, ...] | No
     ::
 
         "# prose agents read\\ndocs/rule-guides/\\n\\nportal/*.py\\n" -> ("docs/rule-guides/", "portal/*.py")
+        "portal/  # seller portal\\n"                            -> ("portal/",)
         "\\ufeffsrc/\\n"                                          -> ("src/",)
         text that holds a U+FFFD replacement character          -> None
 
-    A line that starts with '#' after its indent is a comment. Blank lines are
+    A line that starts with '#' after its indent is a comment. A '#' after a
+    space or a tab starts a comment that runs to the end of the line; a '#'
+    inside a glob, as in lib/c#/x.py, stays. Blank lines are
     skipped. A leading byte order mark is dropped. A replacement character
     marks bytes that did not decode as UTF-8, so the file declares nothing and
     code stays live.
@@ -172,7 +177,8 @@ def declared_live_surface_globs(surfaces_file_text: str) -> tuple[str, ...] | No
     if UNDECODABLE_BYTE_MARK in surfaces_file_text:
         return None
     all_stripped_lines = (
-        each_line.strip() for each_line in surfaces_file_text.removeprefix(BYTE_ORDER_MARK).splitlines()
+        re.split(TRAILING_COMMENT_PATTERN, each_line, maxsplit=1)[0].strip()
+        for each_line in surfaces_file_text.removeprefix(BYTE_ORDER_MARK).splitlines()
     )
     return tuple(
         each_line

@@ -154,6 +154,14 @@ def test_declared_live_surface_globs_should_skip_comments_and_blank_lines() -> N
     assert declared_live_surface_globs(text) == DECLARED_GLOBS
 
 
+def test_declared_live_surface_globs_should_drop_a_trailing_comment() -> None:
+    text = "portal/  # seller portal\nsrc/*.py\t# code that calls gh\nlib/c#/x.py\n"
+    assert declared_live_surface_globs(text) == ("portal/", "src/*.py", "lib/c#/x.py")
+    assert choose_tier(["portal/client.py"], declared_live_surface_globs(text)) == TierChoice(
+        TierCause.LIVE_SURFACE, "portal/client.py"
+    )
+
+
 def test_declared_live_surface_globs_should_drop_a_leading_byte_order_mark() -> None:
     assert declared_live_surface_globs("﻿src/\nportal/\n") == ("src/", "portal/")
 
