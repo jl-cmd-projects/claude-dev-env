@@ -52,8 +52,10 @@ usage endpoint returns as `null` holds no account back, but an account needs at
 least one window with a percent to have room.
 
 A wait whose reason starts "no account meter could be read" is a failed read,
-and the account may have usage left. An HTTP 429 from the usage endpoint holds
-that account's probe for 5 minutes.
+and the account may have usage left. The decision's `meter_unread` list names
+those accounts. An HTTP 429 from the usage endpoint holds that account's probe
+for the reply's `Retry-After`, at least 5 and at most 20 minutes, and 5 minutes
+when the reply has none.
 [Proof before a pull request](rule-guides/proof-before-pull-request.md) says
 what a session does next.
 
