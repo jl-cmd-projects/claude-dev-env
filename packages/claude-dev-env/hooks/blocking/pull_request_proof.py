@@ -135,15 +135,18 @@ def _lines_until_heading(all_lines: list[str], heading_level: int) -> list[str]:
     return all_lines
 
 
-def _section_text(body: str, heading_pattern: str) -> str | None:
+def _all_section_texts(body: str, heading_pattern: str) -> Iterator[str]:
     all_lines = body.splitlines()
     all_fenced_flags = fenced_line_flags(all_lines)
     for each_index, each_line in enumerate(all_lines):
         heading_level = None if all_fenced_flags[each_index] else _heading_level(each_line, heading_pattern)
         if heading_level is not None:
             all_section_lines = _lines_until_heading(all_lines[each_index + 1 :], heading_level)
-            return LINE_SEPARATOR.join(all_section_lines).strip()
-    return None
+            yield LINE_SEPARATOR.join(all_section_lines).strip()
+
+
+def _section_text(body: str, heading_pattern: str) -> str | None:
+    return next(_all_section_texts(body, heading_pattern), None)
 
 
 def proof_section(body: str) -> str | None:
@@ -955,17 +958,11 @@ def _read_added_workflow_files(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str]:
     all_workflow_paths = None
-    if _local_checkout_may_answer(working_directory, repository, head_branch):
+    if checkout_is_for(working_directory, repository):
         all_workflow_paths = added_workflow_files(working_directory, head_branch)
     if all_workflow_paths is None:
         all_workflow_paths = remote_added_workflow_files(repository, base_branch, head_branch)
     return all_workflow_paths or []
-
-
-def _local_checkout_may_answer(
-    working_directory: str, repository: str | None, head_branch: str | None
-) -> bool:
-    return not head_branch or checkout_is_for(working_directory, repository)
 
 
 def checkout_is_for(working_directory: str, repository: str | None) -> bool:

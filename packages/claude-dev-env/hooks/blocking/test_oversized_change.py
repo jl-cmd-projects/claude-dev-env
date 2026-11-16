@@ -227,3 +227,68 @@ def test_should_ask_git_for_the_head_once_when_the_proof_check_already_did(
         assert proof.visible_changed_files(str(large_branch), "feature") == []
         assert size.local_measured_line_count(str(large_branch), None, "feature") == 1500
     assert sum("--show-current" in each_command for each_command in all_started_commands) == 1
+
+
+def test_should_read_worktree_attributes_when_git_cannot_read_them_from_the_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _generated_schema_branch(tmp_path)
+    read_git = size._git_output
+
+    def git_without_attribute_source(
+        working_directory: str, *all_arguments: str, **all_options: object
+    ) -> str | None:
+        if any(each_argument.startswith("--source=") for each_argument in all_arguments):
+            return None
+        return read_git(working_directory, *all_arguments, **all_options)
+
+    monkeypatch.setattr(size, "_git_output", git_without_attribute_source)
+    assert size.local_measured_line_count(str(clone_path), None, None) == 41
+
+
+def test_should_measure_remotely_when_the_create_names_another_repository(
+    large_branch: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(size, "remote_measured_line_count", lambda *all_arguments: None)
+    payload = _create(large_branch, PLAIN_BODY, "--repo other-owner/other-repository")
+    assert size.oversized_pull_request_reason(payload) is None
+
+
+def test_should_find_the_merge_base_once_when_the_proof_check_already_did(
+    large_branch: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_started_commands: list[list[str]] = []
+    start_child = gate_run_reads.started_child
+
+    def recording_start(all_command_words: list[str], *all_arguments: object) -> object:
+        all_started_commands.append(list(all_command_words))
+        return start_child(all_command_words, *all_arguments)
+
+    monkeypatch.setattr(gate_run_reads, "started_child", recording_start)
+    with gate_run_reads.gate_run():
+        assert proof.visible_changed_files(str(large_branch), None) == []
+        assert size.local_measured_line_count(str(large_branch), None, None) == 1500
+    assert sum("merge-base" in each_command for each_command in all_started_commands) == 1
+
+
+def test_should_count_only_the_edited_lines_of_renames_past_the_rename_limit(
+    large_branch: Path,
+) -> None:
+    _commit_lines(large_branch, "other_tool.py", 100)
+    _git(large_branch, "push", "-q", "origin", "feature")
+    _git(large_branch, "checkout", "-q", "-b", "move")
+    _git(large_branch, "config", "diff.renameLimit", "1")
+    for each_name in ("tool.py", "other_tool.py"):
+        _git(large_branch, "mv", each_name, "moved_" + each_name)
+        with (large_branch / ("moved_" + each_name)).open("a", encoding="utf-8") as moved_file:
+            moved_file.write("one more line\n")
+    _git(large_branch, "commit", "-q", "-am", "move")
+    assert size.local_measured_line_count(str(large_branch), "feature", None) == 2
+
+
+def test_should_pass_when_a_later_reason_section_states_the_reason(large_branch: Path) -> None:
+    body = (
+        EMPTY_ONE_PULL_REQUEST_BODY
+        + "\n## Why one pull request\nThe schema and its reader land together.\n"
+    )
+    assert size.oversized_pull_request_reason(_create(large_branch, body)) is None

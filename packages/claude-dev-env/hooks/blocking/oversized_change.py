@@ -6,7 +6,8 @@
     same branch, body has a 'Why one pull request' section       -> None
     stacked level, --base parent, 200 lines of its own           -> None
     compare API at its file cap, listed files over the bar       -> OVERSIZED_PULL_REQUEST_REASON
-    size unreadable, compare API at its file cap, or no base     -> None
+    compare API at its file cap, listed files under the bar      -> None
+    size unreadable or no base                                   -> None
 
 Generated files, marked ``linguist-generated`` in ``.gitattributes``, and
 lockfiles are left out. A binary file counts zero lines.
@@ -26,17 +27,17 @@ if hooks_directory not in sys.path:
 from blocking.gate_run_reads import answer_once
 from blocking.pull_request_proof import (
     CreateCall,
+    _all_section_texts,
     _cached_head_reference,
     _compare_lines,
     _create_calls,
     _first_merge_base,
     _git_lines,
     _git_output,
-    _local_checkout_may_answer,
-    _section_text,
+    _merge_base_and_head,
+    checkout_is_for,
 )
 from hooks_constants.pull_request_proof_constants import (
-    ALL_DEFAULT_BRANCH_REFERENCES,
     COMPARE_FILE_LIST_LIMIT,
     REMOTE_BRANCH_PREFIX,
 )
@@ -52,6 +53,7 @@ from hooks_constants.oversized_change_constants import (
     NUMSTAT_FIELD_SEPARATOR,
     ONE_PULL_REQUEST_HEADING_PATTERN,
     OVERSIZED_PULL_REQUEST_REASON,
+    UNLIMITED_RENAME_DETECTION_OPTION,
 )
 
 
@@ -74,8 +76,8 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
     """
     working_directory = str(all_payload_fields.get("cwd") or "")
     for each_call in _create_calls(all_payload_fields):
-        if each_call.body is None or _section_text(
-            each_call.body, ONE_PULL_REQUEST_HEADING_PATTERN
+        if each_call.body is None or any(
+            _all_section_texts(each_call.body, ONE_PULL_REQUEST_HEADING_PATTERN)
         ):
             continue
         measured_line_count = _measured_line_count_for_create(each_call, working_directory)
@@ -102,7 +104,7 @@ def _read_measured_line_count(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> int | None:
     measured_line_count = None
-    if working_directory and _local_checkout_may_answer(working_directory, repository, head_branch):
+    if working_directory and checkout_is_for(working_directory, repository):
         measured_line_count = local_measured_line_count(working_directory, base_branch, head_branch)
     if measured_line_count is None:
         measured_line_count = remote_measured_line_count(repository, base_branch, head_branch)
@@ -130,19 +132,19 @@ def local_measured_line_count(
         base_branch: The base branch the create call names, or None.
         head_branch: The head branch the create call names, or None.
     """
-    head_reference = _cached_head_reference(working_directory, head_branch)
-    if head_reference is None:
+    merge_base_and_head = _merge_base_and_head_for_base(working_directory, base_branch, head_branch)
+    if merge_base_and_head is None:
         return None
-    all_base_references = (
-        (REMOTE_BRANCH_PREFIX + base_branch, base_branch)
-        if base_branch
-        else ALL_DEFAULT_BRANCH_REFERENCES
-    )
-    merge_base = _first_merge_base(working_directory, head_reference, all_base_references)
-    if merge_base is None:
-        return None
+    merge_base, head_reference = merge_base_and_head
     numstat_output = _git_output(
-        working_directory, "diff", "--numstat", "-z", "-M", merge_base, head_reference
+        working_directory,
+        "diff",
+        "--numstat",
+        "-z",
+        "-M",
+        UNLIMITED_RENAME_DETECTION_OPTION,
+        merge_base,
+        head_reference,
     )
     if numstat_output is None:
         return None
@@ -157,6 +159,20 @@ def local_measured_line_count(
         for each_path, each_count in count_by_path.items()
         if each_path not in all_generated_paths and not _is_lockfile(each_path)
     )
+
+
+def _merge_base_and_head_for_base(
+    working_directory: str, base_branch: str | None, head_branch: str | None
+) -> tuple[str, str] | None:
+    if not base_branch:
+        return _merge_base_and_head(working_directory, head_branch)
+    head_reference = _cached_head_reference(working_directory, head_branch)
+    if head_reference is None:
+        return None
+    merge_base = _first_merge_base(
+        working_directory, head_reference, (REMOTE_BRANCH_PREFIX + base_branch, base_branch)
+    )
+    return None if merge_base is None else (merge_base, head_reference)
 
 
 def _numstat_counts(numstat_output: str) -> dict[str, int] | None:
@@ -198,14 +214,8 @@ def _generated_paths(
     all_top_level_lines = _git_lines(working_directory, "rev-parse", "--show-toplevel")
     if not all_top_level_lines:
         return None
-    check_attr_output = _git_output(
-        all_top_level_lines[0],
-        "check-attr",
-        "-z",
-        "--stdin",
-        "--source=" + head_reference,
-        LINGUIST_GENERATED_ATTRIBUTE,
-        standard_input="".join(each_path + "\0" for each_path in all_paths),
+    check_attr_output = _generated_attribute_output(
+        all_top_level_lines[0], head_reference, all_paths
     )
     if check_attr_output is None:
         return None
@@ -217,6 +227,25 @@ def _generated_paths(
         )
         if all_fields[each_index + 2] in ALL_GENERATED_ATTRIBUTE_VALUES
     }
+
+
+def _generated_attribute_output(
+    top_level_directory: str, head_reference: str, all_paths: list[str]
+) -> str | None:
+    standard_input = "".join(each_path + "\0" for each_path in all_paths)
+    for each_source_arguments in (("--source=" + head_reference,), ()):
+        check_attr_output = _git_output(
+            top_level_directory,
+            "check-attr",
+            "-z",
+            "--stdin",
+            *each_source_arguments,
+            LINGUIST_GENERATED_ATTRIBUTE,
+            standard_input=standard_input,
+        )
+        if check_attr_output is not None:
+            return check_attr_output
+    return None
 
 
 def _is_lockfile(path: str) -> bool:
