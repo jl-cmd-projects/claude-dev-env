@@ -83,6 +83,7 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/final_reply_gate.py",
     "blocking/open_tasks_stop_gate.py",
     "blocking/auto_mode_refusal_stop_gate.py",
+    "blocking/closing_question_round_gate.py",
     "blocking/resolve_thread_reply_gate.py",
     "blocking/turn_review_gate.py",
     "blocking/wakeup_cap_gate.py",
