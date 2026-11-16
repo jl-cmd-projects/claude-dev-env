@@ -70,9 +70,10 @@ The runner writes one summary line with the selected account, exit code, and
 report path.
 
 When the command exits 3 and the report has `"account": "wait"`, read the
-picker's reason. "no account has room" or "no readable account has room" means
-every account the picker could read is spent: report the reason and reset time,
-and do not fall back to the Agent tool. "no account
+picker's reason. "no account has room" means every account is spent: report the
+reason and reset time, and do not fall back to the Agent tool. "no readable
+account has room" means the read accounts are spent and names the unread ones:
+run the command once more after the reset time, then report in the same way. "no account
 meter could be read" means the meter reads failed, often with HTTP 429, so
 usage may be left: run the command once more after the reset time. When the
 meters are still unread in a cloud session, the session's own account has

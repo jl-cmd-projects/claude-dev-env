@@ -54,7 +54,8 @@ least one window with a percent to have room.
 A wait whose reason starts "no account meter could be read" is a failed read,
 and the account may have usage left. An HTTP 429 from the usage endpoint holds
 that account's probe for 5 minutes. `resets_at` is then the soonest account
-reset or probe hold, and it is no usage reset when every meter is unread.
+reset or probe hold, or one hour out when the broker knows neither. It is no
+usage reset when every meter is unread.
 [Proof before a pull request](rule-guides/proof-before-pull-request.md) says
 what a session does next.
 
