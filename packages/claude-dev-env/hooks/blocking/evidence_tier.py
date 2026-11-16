@@ -5,7 +5,8 @@ how much proof the pull request gate asks for::
 
     none     every changed path is a doc or a test, and none is a live surface
     checked  code changed, and no changed path is a live surface
-    live     a changed path is a live surface, or the file list is unread
+    live     a changed path is a live surface, the file list is unread, or an
+             edit names its pull request
 
 A live surface is an agent surface, a workflow file, a page people see, the
 live-surfaces file itself, or a path a glob in the base branch's
@@ -80,6 +81,7 @@ class TierChoice(NamedTuple):
         TierChoice(CODE_WITHOUT_LIVE_SURFACE, "src/a.py")  the first code path
         TierChoice(ONLY_DOCS_AND_TESTS, None)
         TierChoice(UNREAD_FILE_LIST, None)
+        TierChoice(NAMED_PULL_REQUEST_EDIT, None)
     """
 
     cause: TierCause
