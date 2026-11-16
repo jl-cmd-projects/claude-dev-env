@@ -69,9 +69,12 @@ Read the JSON report and worker log after the process ends. The JSON fields are
 The runner writes one summary line with the selected account, exit code, and
 report path.
 
-When the command exits 3 and the report has `"account": "wait"`, no account is
-eligible. Report the picker's reason and reset time. Do not fall back to the
-Agent tool. Claude can also return exit 3 after a worker starts. When the
+When the command exits 3 and the report has `"account": "wait"`, read the
+picker's reason and follow the exit 3 steps in
+[Proof before a pull request](~/.claude/docs/rule-guides/proof-before-pull-request.md).
+Do not fall back to the Agent tool, except where those steps send the work
+there after a failed meter read.
+Claude can also return exit 3 after a worker starts. When the
 report account is `main`, `second`, or `extra_2` and later, report the child's
 exit code and result. Exit 124 with reason `timeout` means the worker ran past
 `--timeout-minutes`.

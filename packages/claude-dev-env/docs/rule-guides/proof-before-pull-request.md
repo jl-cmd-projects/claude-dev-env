@@ -30,7 +30,11 @@ For a change to Claude Code behavior, such as a hook, skill, rule, setting, prom
 - Start the broker from your own shell, with your environment as is. The broker reads the account meters with your session's credentials and starts Claude without your session's variables.
 - Leave out `--bare` and `claude plugin eval`. Both drop the hooks and settings the user runs with.
 - Read the broker report for the account it chose. Read the stream for the hook events and their output, `permission_denials`, the final result, and the token usage on the result event.
-- When the broker exits 3 with action "wait", no account has room. Treat that as a blocked proof and report its reason and `resets_at`. Spawn Claude only through the broker.
+- When the broker exits 3 with action "wait", read its reason. Start headless Claude only through the broker.
+  - "no account has room" means each account is below its usage floor. Treat that as a blocked proof and report the reason and `resets_at`.
+  - "no readable account has room" means each read account is below its usage floor, and the reason names the accounts whose meter went unread. Run the broker once more after `resets_at`. When it waits again, treat that as a blocked proof.
+  - "no account meter could be read" means the meter reads failed, often with HTTP 429. Usage may be left, and `resets_at` is when the broker checks again. Run the broker once more after `resets_at`.
+  - When that second run also says "no account meter could be read" in a cloud session, the session's own account has usage, because the session runs on it. Run the step with a subagent of the session, on the `--model` and `--effort` pair of the broker call, and in its own worktree when it edits code. In the proof, name the route and quote each account's unread reason. Outside a cloud session, a second wait is a blocked proof.
 
 Report it in the pull request body under "Proof in practice". List each command you ran, quote the output lines that show the effect, and state the difference between the runs with and without the change. The run on the target the change exists to fix belongs in this section before the pull request opens. List a condition the change does not target, such as an older data shape, under a "Not covered" heading at the same level.
 
