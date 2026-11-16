@@ -2066,6 +2066,63 @@
     ]
   },
   {
+    "id": "allow-a-marker-word-inside-a-file-name",
+    "group": "masked text",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Create todo.md with the line Ship the docs."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "todo.md"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I created todo.md with the line Ship the docs.\n\nOpen items: none."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
     "id": "allow-work-with-a-bold-declaration-in-the-payload",
     "group": "work",
     "expected": "allow",

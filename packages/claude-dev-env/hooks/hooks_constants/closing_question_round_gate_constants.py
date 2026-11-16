@@ -53,7 +53,7 @@ SEPARATOR_RUN_PATTERN = re.compile(r"[\s-]{2,}")
 HYPHEN_CHARACTER = "-"
 
 OPEN_ITEM_MARKER_PATTERN = re.compile(
-    r"(?<![^\W_])(?<![^\W_]_)(?<![^\W_]__)(?<![^\W_]___)(?:"
+    r"(?<![^\W_])(?<![^\W_]_)(?<![^\W_]__)(?<![^\W_]___)(?<![^\W_][./\\])(?:"
     r"deferred|defer|defers|deferring|deferrals?"
     r"|follow-?ups?"
     r"|(?:a|the|another|one)\s+follow\s+ups?"
@@ -99,7 +99,7 @@ OPEN_ITEM_MARKER_PATTERN = re.compile(
     r"|left\s+(?:it|this|that|them|these)\s+for\s+you"
     r"|for\s+you\s+to\s+decide"
     r"|(?:waiting|waits)\s+on\s+you"
-    r")(?![^\W_])(?!_{1,3}[^\W_])",
+    r")(?![^\W_])(?!_{1,3}[^\W_])(?![./\\][^\W_])",
     re.IGNORECASE,
 )
 INDENTED_CODE_LINE_PATTERN = re.compile(r"^(?: {4}|\t)")

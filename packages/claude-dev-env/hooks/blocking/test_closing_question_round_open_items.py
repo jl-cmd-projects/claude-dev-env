@@ -133,6 +133,27 @@ def test_marked_open_lines_should_not_read_a_marker_inside_a_snake_case_name(
     assert marked_open_lines([snake_case_line], NO_DEADLINE) == []
 
 
+@pytest.mark.parametrize(
+    "path_line",
+    [
+        "I'll create todo.md and check the file.",
+        "The notes live in docs/pending/notes.md now.",
+        "Run hooks\\blocked\\list.py once.",
+    ],
+)
+def test_marked_open_lines_should_not_read_a_marker_inside_a_file_name_or_path(
+    path_line: str,
+) -> None:
+    assert marked_open_lines([path_line], NO_DEADLINE) == []
+
+
+@pytest.mark.parametrize(
+    "marker_line", ["The retry is pending.", "That stays a todo. Ship it now.", "Left as a todo."]
+)
+def test_marked_open_lines_should_read_a_marker_before_a_full_stop(marker_line: str) -> None:
+    assert marked_open_lines([marker_line], NO_DEADLINE) == [marker_line]
+
+
 def test_marked_open_lines_should_not_read_a_snake_case_name_whose_underscore_ends_a_window() -> None:
     window_end = MARKER_SCAN_WINDOW_CHARACTERS + 128
     edge_text = "w" * (window_end - len(" deferred") - 1) + " deferred_flag is set."

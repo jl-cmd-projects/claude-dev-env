@@ -53,6 +53,8 @@ end of a window before the paragraph's end is dropped, and the next window
 reads it whole. A marker reads as a whole word, and one to three underscores
 around it count as emphasis, so ``_untested_`` and ``__untested__`` are
 markers, and ``retry_untested_flag`` and ``retry__untested__flag`` are none.
+A marker joined to a file name or path by a dot, slash, or backslash, such
+as ``todo.md`` or ``docs/pending/``, is none either.
 """
 
 from __future__ import annotations

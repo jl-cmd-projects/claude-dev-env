@@ -73,3 +73,18 @@ def test_declaration_line_pattern_should_leave_the_final_period_optional(
     declaration_line: str, is_declaration: bool
 ) -> None:
     assert (DECLARATION_LINE_PATTERN.fullmatch(declaration_line) is not None) is is_declaration
+
+
+@pytest.mark.parametrize(
+    ("marker_text", "is_marker"),
+    [
+        ("todo.md", False),
+        ("docs/pending/", False),
+        ("a todo.", True),
+        ("pending/", True),
+    ],
+)
+def test_open_item_marker_pattern_should_skip_a_marker_joined_to_a_file_name_or_path(
+    marker_text: str, is_marker: bool
+) -> None:
+    assert (OPEN_ITEM_MARKER_PATTERN.search(marker_text) is not None) is is_marker
