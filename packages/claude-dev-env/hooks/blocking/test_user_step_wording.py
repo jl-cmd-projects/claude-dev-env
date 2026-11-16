@@ -479,3 +479,49 @@ def test_should_never_open_a_sent_path_that_is_no_regular_file_or_cannot_be_a_pa
     assert user_step_wording.file_waiting_phrase(str(folder_path), None) is None
     assert user_step_wording.file_waiting_phrase("status\x00.md", str(tmp_path)) is None
     assert all_opened_paths == []
+
+
+def test_html_text_blocks_should_mark_each_shown_heading() -> None:
+    page_markup = "<h2>Open questions</h2><p>Run <code>x</code> now.</p><script><h3>hidden</h3></script>"
+    assert user_step_wording.html_text_blocks(page_markup, "# ") == ["# Open questions", "Run ￼ now."]
+
+
+def test_html_text_blocks_should_leave_headings_unmarked_with_an_empty_mark() -> None:
+    assert user_step_wording.html_text_blocks("<h1>Status</h1><p>Done.</p>", "") == ["Status", "Done."]
+
+
+def test_sent_file_text_should_read_a_relative_text_file_and_skip_other_suffixes(tmp_path: Path) -> None:
+    (tmp_path / "notes.md").write_bytes(b"Status: green \xff")
+    (tmp_path / "shot.png").write_text("Should I?", encoding="utf-8")
+    assert user_step_wording.sent_file_text("notes.md", str(tmp_path)) == "Status: green �"
+    assert user_step_wording.sent_file_text("shot.png", str(tmp_path)) is None
+    assert user_step_wording.sent_file_text("missing.md", str(tmp_path)) is None
+
+
+def test_is_html_file_path_should_match_html_suffixes_in_any_case() -> None:
+    assert [
+        user_step_wording.is_html_file_path(each_path) for each_path in ("a.HTML", "b.htm", "c.md", "d.html.txt")
+    ] == [True, True, False, False]
+
+
+def test_sent_file_location_should_resolve_a_relative_text_file_and_skip_the_rest(tmp_path: Path) -> None:
+    (tmp_path / "notes.md").write_text("Status: green", encoding="utf-8")
+    (tmp_path / "shot.png").write_text("Should I?", encoding="utf-8")
+    (tmp_path / "folder.md").mkdir()
+    assert user_step_wording.sent_file_location("notes.md", str(tmp_path)) == tmp_path / "notes.md"
+    assert user_step_wording.sent_file_location("shot.png", str(tmp_path)) is None
+    assert user_step_wording.sent_file_location("folder.md", str(tmp_path)) is None
+    assert user_step_wording.sent_file_location("missing.md", str(tmp_path)) is None
+
+
+def test_html_text_blocks_should_mark_a_checkbox_with_the_task_box_mark() -> None:
+    page_markup = '<ul><li><input type="checkbox"/> Saved?</li><li><input type="text"> Name</li></ul>'
+    assert user_step_wording.html_text_blocks(page_markup, "# ", task_box_mark="- [ ] ") == [
+        "- [ ]  Saved?",
+        "Name",
+    ]
+
+
+def test_html_text_blocks_should_mark_a_summary_label_as_a_heading() -> None:
+    page_markup = "<details><summary>Can I use it offline?</summary><p>After a sync.</p></details>"
+    assert user_step_wording.html_text_blocks(page_markup, "# ") == ["# Can I use it offline?", "After a sync."]

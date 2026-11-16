@@ -137,10 +137,12 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/task_subject_outcome_gate.py      -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
         hooks/blocking/send_user_file_worktree_root_gate.py -> exempt
+        hooks/blocking/sent_file_question_gate.py        -> exempt
         hooks/blocking/question_brief_gate.py            -> exempt
         hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
         hooks/blocking/final_reply_gate.py               -> exempt
         hooks/blocking/open_tasks_stop_gate.py           -> exempt
+        hooks/blocking/auto_mode_refusal_stop_gate.py    -> exempt
         hooks/blocking/resolve_thread_reply_gate.py      -> exempt
         hooks/blocking/turn_review_gate.py               -> exempt
         hooks/blocking/wakeup_cap_gate.py                -> exempt
@@ -188,6 +190,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     working directory, which the desktop file pane cannot open. It decides
     where a sent file sits and no code or safety policy.
 
+    The sent file question gate denies a sent file or page that asks the
+    user a question, so the question goes through the question tool. It
+    decides where a question is asked and no code or safety policy.
+
     The question brief gate denies a question call when the chat text before
     it in the same turn is too long to read at a glance. It decides the shape
     of a brief and no code or safety policy.
@@ -199,6 +205,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The open tasks Stop gate holds the end of a turn once when the turn worked
     on an ask and made no task list call. It decides when a turn may end and
     no code or safety policy.
+
+    The auto mode refusal Stop gate holds the end of a turn while a refused
+    step waits on the user's question or on its rule. It decides when a turn
+    may end and no code or safety policy.
 
     The resolve reply gate denies a review thread resolve until a reply on the
     thread has posted. It decides the order of two review calls and no code or

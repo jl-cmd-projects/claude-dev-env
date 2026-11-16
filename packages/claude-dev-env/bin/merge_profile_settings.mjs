@@ -15,7 +15,7 @@
  * every profile on this machine without writing anything.
  */
 
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -28,6 +28,7 @@ import {
     normalizePathForComparison,
 } from './resolve-install-root.mjs';
 import { resolveProfilesRootDirectory } from './select-install-targets.mjs';
+import { writeFileAtomically } from './write-file-atomically.mjs';
 
 export const DRY_RUN_FLAG = '--dry-run';
 export const RETIRED_SESSION_TITLE_GATE_FILE_NAME = 'session_title_status_gate.py';
@@ -195,7 +196,7 @@ export function mergeProfileSettingsFile(settingsPath, options) {
         copyFileSync(settingsPath, backupPath);
     }
     mkdirSync(dirname(settingsPath), { recursive: true });
-    writeFileSync(
+    writeFileAtomically(
         settingsPath,
         JSON.stringify(settings, null, hostConfigurationIndent(settingsText, DEFAULT_SETTINGS_INDENT)) + '\n',
     );

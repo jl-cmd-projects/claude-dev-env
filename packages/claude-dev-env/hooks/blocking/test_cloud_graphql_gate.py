@@ -116,6 +116,10 @@ def test_should_detect_a_github_graphql_call(command: str) -> None:
     assert gate.calls_github_graphql(command) is True
 
 
+def test_should_detect_a_graphql_call_behind_a_launcher_and_env_unset() -> None:
+    assert gate.calls_github_graphql("nohup env -u FOO gh api graphql -f query=x") is True
+
+
 @pytest.mark.parametrize(
     "command",
     [

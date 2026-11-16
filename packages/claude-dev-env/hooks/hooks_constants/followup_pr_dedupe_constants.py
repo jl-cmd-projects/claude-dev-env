@@ -16,6 +16,11 @@ DUPLICATE_FOLLOWUP_REASON_TEMPLATE = (
     " ({open_url}). Add this finding to the open follow-up pull request #{open_number}."
     " One combined follow-up pull request per parent pull request."
 )
+PREFIX_ORIGIN_FOLLOWUP_SENTENCE = (
+    "Name the repository with `--repo owner/name` on the create instead of a `GH_REPO=` prefix."
+    " A wrapper such as `env -u GH_REPO` can drop that prefix before gh runs, so the gate"
+    " also reads the origin repository, and there it found this: "
+)
 UNANSWERED_FOLLOWUP_REASON_TEMPLATE = (
     "The gate could not read the open pull requests of {owner}/{repo}: the read timed out"
     " or GitHub answered with a server error. So it cannot tell"

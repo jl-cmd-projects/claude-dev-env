@@ -288,3 +288,10 @@ def test_should_leave_unread_a_create_past_the_unwrap_depth(command: str) -> Non
 def test_should_read_no_create_in_text_past_the_unwrap_depth_that_holds_none() -> None:
     assert _placements("eval " * 18 + "'echo hi'") == []
 
+
+def test_should_keep_two_creates_apart_when_only_one_names_its_repository_with_a_gh_repo_prefix() -> None:
+    command = "gh pr create --repo o/r ; GH_REPO=o/r env -u GH_REPO gh pr create"
+    all_command_words = [each_create.all_command_words for each_create in all_placed_creates(command, START)]
+    assert len(all_command_words) == 2
+    assert all_command_words[1][0] == "GH_REPO=o/r"
+

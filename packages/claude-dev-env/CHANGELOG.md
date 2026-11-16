@@ -1,5 +1,41 @@
 # Changelog
 
+## [8.122.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.121.0...claude-dev-env-v8.122.0) (2026-11-16)
+
+
+### Features
+
+* **hooks:** refuse a sent file or page that asks the user a question ([#2386](https://github.com/jl-cmd-projects/claude-dev-env/issues/2386)) ([e1d55b2](https://github.com/jl-cmd-projects/claude-dev-env/commit/e1d55b254489306da8f09d3b979543c7b71d8795))
+
+## [8.121.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.120.0...claude-dev-env-v8.121.0) (2026-11-16)
+
+
+### Features
+
+* **hooks:** ask about each auto mode refusal, including an unexplained one ([#2384](https://github.com/jl-cmd-projects/claude-dev-env/issues/2384)) ([d30a279](https://github.com/jl-cmd-projects/claude-dev-env/commit/d30a27994473c8c68afa62a3d7a5ac4568b62e2a))
+
+## [8.120.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.119.2...claude-dev-env-v8.120.0) (2026-11-15)
+
+
+### Features
+
+* **hooks:** refuse gh watch commands, tight gh loops, and gh reads on a spent core limit ([#2377](https://github.com/jl-cmd-projects/claude-dev-env/issues/2377)) ([dca9fc0](https://github.com/jl-cmd-projects/claude-dev-env/commit/dca9fc0f7f5fe7dc3d530eed5f9c31026c6dc5aa))
+
+## [8.119.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.119.1...claude-dev-env-v8.119.2) (2026-11-15)
+
+
+### Bug Fixes
+
+* **hooks:** count a reply request script as a reply before a resolve ([#2372](https://github.com/jl-cmd-projects/claude-dev-env/issues/2372)) ([cb707f5](https://github.com/jl-cmd-projects/claude-dev-env/commit/cb707f530a8f063ddac79b7ef772fd927ace1981))
+* **validators:** judge the value in the hardcoded-secret check ([#2371](https://github.com/jl-cmd-projects/claude-dev-env/issues/2371)) ([4d1529f](https://github.com/jl-cmd-projects/claude-dev-env/commit/4d1529ff034437e043fd3f2f562ed2969461a525))
+
+## [8.119.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.119.0...claude-dev-env-v8.119.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **hooks:** tell the user every time the cloud refresh fails ([#2374](https://github.com/jl-cmd-projects/claude-dev-env/issues/2374)) ([d7a09a9](https://github.com/jl-cmd-projects/claude-dev-env/commit/d7a09a9f29056f7e268c3eacf4a8190bdf9a87b1))
+
 ## [8.119.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.118.1...claude-dev-env-v8.119.0) (2026-11-15)
 
 

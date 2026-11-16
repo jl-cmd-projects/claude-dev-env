@@ -532,3 +532,24 @@ def test_should_read_create_words_after_a_separator_inside_a_quoted_value(separa
 )
 def test_should_not_read_a_later_quoted_create(command: str) -> None:
     assert "two" not in _branches(command)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "GH_REPO=other/thing env -u GH_REPO gh pr create --head two",
+        "gh pr create --repo other/thing --head two ; GH_REPO=other/thing env -u GH_REPO gh pr create --head two",
+        "gh pr create --repo other/thing --head two && GH_REPO=other/thing gh pr create --head two",
+    ],
+)
+def test_should_add_an_origin_call_for_every_create_a_gh_repo_prefix_names(command: str) -> None:
+    payload = {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": MAIN_FLOOR_START}
+    all_calls = open_calls_from(payload)
+    assert ShellOpenCall(repository=("other", "thing"), branch="two", folder=MAIN_FLOOR_START) in all_calls
+    assert ShellOpenCall(repository=None, branch="two", folder=MAIN_FLOOR_START) in all_calls
+
+
+def test_should_add_no_origin_call_for_a_create_that_names_its_own_repository() -> None:
+    command = "GH_REPO=a/b gh pr create --repo other/thing --head two"
+    payload = {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": MAIN_FLOOR_START}
+    assert {each_call.repository for each_call in open_calls_from(payload)} == {("other", "thing")}

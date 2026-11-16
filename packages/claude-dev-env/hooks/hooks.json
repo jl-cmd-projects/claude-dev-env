@@ -275,6 +275,16 @@
         ]
       },
       {
+        "matcher": "SendUserFile|Artifact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/sent_file_question_gate.py",
+            "timeout": 10
+          }
+        ]
+      },
+      {
         "matcher": "AskUserQuestion",
         "hooks": [
           {
@@ -474,6 +484,11 @@
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/open_tasks_stop_gate.py",
             "timeout": 45
+          },
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/auto_mode_refusal_stop_gate.py",
+            "timeout": 10
           },
           {
             "type": "command",

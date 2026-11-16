@@ -196,13 +196,14 @@ function writeEvidence(filePath, evidenceRecord) {
 
 function runDoctor(paths = buildVerificationPaths()) {
     const doctorRecord = buildDoctorRecord(paths);
-    writeEvidence(paths.doctorPath, doctorRecord);
+    console.log(JSON.stringify(doctorRecord.checks, null, 2));
     console.log(`${DOCTOR_COMMAND_LABEL}: ${doctorRecord.isReady ? 'ready' : 'not ready'}`);
-    console.log(`${EVIDENCE_LABEL}: ${relative(paths.repositoryRoot, paths.doctorPath).replaceAll('\\', '/')}`);
     return doctorRecord.isReady ? SUCCESS_EXIT_STATUS : DRIVER_FAILURE_EXIT_STATUS;
 }
 
 function runInstaller(paths = buildVerificationPaths()) {
+    writeEvidence(paths.doctorPath, buildDoctorRecord(paths));
+    console.log(`${EVIDENCE_LABEL}: ${relative(paths.repositoryRoot, paths.doctorPath).replaceAll('\\', '/')}`);
     if (!pathHasType(paths.driverPath, 'isFile')) {
         const missingDriverRecord = buildTranscriptRecord({
             status: DRIVER_FAILURE_EXIT_STATUS,

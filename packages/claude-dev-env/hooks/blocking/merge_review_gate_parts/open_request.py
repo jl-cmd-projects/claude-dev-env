@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 hooks_directory = str(Path(__file__).resolve().parent.parent.parent)
@@ -100,12 +100,15 @@ class ShellOpenCall:
         folder: The folder in effect at the create, after each folder change before it.
         is_folder_followed: False when a folder change before it could not be followed,
             or when the create names no repository in a command that sets ``GH_REPO``.
+        is_prefix_origin_check: True for the origin call a create gets when only a
+            ``GH_REPO=`` prefix names its repository. Equal calls compare equal either way.
     """
 
     repository: tuple[str, str] | None
     branch: str
     folder: str | None
     is_folder_followed: bool = True
+    is_prefix_origin_check: bool = field(default=False, compare=False)
 
 
 OpenCall = ToolOpenCall | ShellOpenCall
@@ -121,6 +124,12 @@ def open_calls_from(all_payload_fields: dict[str, object]) -> list[OpenCall]:
         gh pr merge 12                                          -> []
 
     Each walked create gives one call per head it names, in its own folder.
+    A create whose repository comes only from a ``GH_REPO=`` prefix also gives
+    one origin call per head, since a wrapper such as ``env -u GH_REPO`` can
+    drop the prefix before gh runs::
+
+        GH_REPO=o/r env -u GH_REPO gh pr create -> [ShellOpenCall o/r, ShellOpenCall origin]
+
     The pattern reading of the first create adds one call no walk call equals.
 
     Args:
@@ -212,17 +221,33 @@ def _shell_open_calls(command: str, folder: str | None) -> list[OpenCall]:
 
 
 def _placed_open_calls(placed_create: PlacedCreate, is_gh_repository_set: bool) -> list[ShellOpenCall]:
-    repository = _placed_repository(placed_create)
+    flag_value = _flag_value(placed_create)
+    prefix_value = prefix_repository(list(placed_create.all_command_words)) if flag_value is None else None
+    repository_value = flag_value if flag_value is not None else prefix_value
+    repository = named_repository(repository_value) if repository_value is not None else None
     is_repository_read = repository is not None or not is_gh_repository_set
-    return [
-        ShellOpenCall(
-            repository=repository,
-            branch=each_head,
-            folder=placed_create.folder,
-            is_folder_followed=placed_create.is_folder_followed and is_repository_read,
+    all_calls: list[ShellOpenCall] = []
+    for each_head in _placed_heads(placed_create) or [CURRENT_HEAD_REFERENCE]:
+        all_calls.append(
+            ShellOpenCall(
+                repository=repository,
+                branch=each_head,
+                folder=placed_create.folder,
+                is_folder_followed=placed_create.is_folder_followed and is_repository_read,
+                is_prefix_origin_check=prefix_value is not None and repository is None,
+            )
         )
-        for each_head in _placed_heads(placed_create) or [CURRENT_HEAD_REFERENCE]
-    ]
+        if prefix_value is not None:
+            all_calls.append(
+                ShellOpenCall(
+                    repository=None,
+                    branch=each_head,
+                    folder=placed_create.folder,
+                    is_folder_followed=placed_create.is_folder_followed,
+                    is_prefix_origin_check=True,
+                )
+            )
+    return all_calls
 
 
 def _option_words(placed_create: PlacedCreate) -> list[str]:
@@ -230,10 +255,9 @@ def _option_words(placed_create: PlacedCreate) -> list[str]:
     return all_gh_words if program == GH_PROGRAM_NAME else list(placed_create.all_arguments)
 
 
-def _placed_repository(placed_create: PlacedCreate) -> tuple[str, str] | None:
+def _flag_value(placed_create: PlacedCreate) -> str | None:
     all_values = all_option_values(_option_words(placed_create), LONG_REPOSITORY_OPTION, REPOSITORY_SHORT_LETTER)
-    flag_value = all_values[-1] if all_values else prefix_repository(list(placed_create.all_command_words))
-    return named_repository(flag_value) if flag_value is not None else None
+    return all_values[-1] if all_values else None
 
 
 def _placed_heads(placed_create: PlacedCreate) -> list[str]:
@@ -249,8 +273,9 @@ def _floor_open_call(command: str, folder: str | None) -> ShellOpenCall | None:
 
         GH_REPO=o/r env -u GH_REPO gh pr create --fill  -> origin, HEAD
 
-    There gh opens in origin and the walk reads ``o/r``, so this call is the
-    one that asks for a clean pass on origin.
+    There gh opens in origin. The walk also asks for a clean pass on origin
+    for every create a ``GH_REPO=`` prefix names, so this call repeats that
+    check for the first create.
     """
     options_only = CREATE_TEXT_OPTION_PATTERN.sub(" ", command)
     create_match = GH_PR_CREATE_PATTERN.search(

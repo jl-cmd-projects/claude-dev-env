@@ -158,6 +158,7 @@ from hooks_constants.user_step_wording_constants import (
     ALL_CLAUSE_OPENING_NEGATORS,
     ALL_CONTRACTED_NEGATOR_ENDINGS,
     ALL_HTML_FILE_SUFFIXES,
+    ALL_HTML_HEADING_TAGS,
     ALL_HTML_HIDDEN_TAGS,
     ALL_HTML_INLINE_TAGS,
     ALL_INSTRUCTION_OPENERS,
@@ -173,6 +174,9 @@ from hooks_constants.user_step_wording_constants import (
     CODE_SPAN_STAND_IN,
     EMPHASIS_MARKS,
     HTML_BLOCK_SEPARATOR,
+    HTML_CHECKBOX_INPUT_TYPE,
+    HTML_INPUT_TAG,
+    HTML_INPUT_TYPE_ATTRIBUTE,
     HTML_LINE_BREAK_TAG,
     HTML_LITERAL_STAND_IN_TEXT,
     HTML_SOURCE_SPACE,
@@ -298,11 +302,21 @@ def _first_waiting_phrase(all_blocks: Iterable[str]) -> str | None:
     return next((each_phrase for each_phrase in all_phrases if each_phrase is not None), None)
 
 
+def _is_checkbox(all_attributes: list[tuple[str, str | None]]) -> bool:
+    return any(
+        each_name == HTML_INPUT_TYPE_ATTRIBUTE
+        and (each_value or "").strip().lower() == HTML_CHECKBOX_INPUT_TYPE
+        for each_name, each_value in all_attributes
+    )
+
+
 class _VisibleTextParser(HTMLParser):
-    def __init__(self) -> None:
+    def __init__(self, heading_mark: str, task_box_mark: str) -> None:
         super().__init__(convert_charrefs=True)
         self.all_text_runs: list[str] = []
         self.hidden_depth = 0
+        self.heading_mark = heading_mark
+        self.task_box_mark = task_box_mark
 
     def handle_starttag(self, tag: str, all_attributes: list[tuple[str, str | None]]) -> None:
         if tag in ALL_HTML_HIDDEN_TAGS:
@@ -313,11 +327,15 @@ class _VisibleTextParser(HTMLParser):
             self.all_text_runs.append(LINE_BREAK)
         elif tag not in ALL_HTML_INLINE_TAGS:
             self.all_text_runs.append(HTML_BLOCK_SEPARATOR)
+        if tag in ALL_HTML_HEADING_TAGS and not self.hidden_depth:
+            self.all_text_runs.append(self.heading_mark)
+        if tag == HTML_INPUT_TAG and not self.hidden_depth and _is_checkbox(all_attributes):
+            self.all_text_runs.append(self.task_box_mark)
 
     def handle_endtag(self, tag: str) -> None:
         if tag in ALL_HTML_HIDDEN_TAGS and self.hidden_depth:
             self.hidden_depth -= 1
-        if tag != HTML_LINE_BREAK_TAG and tag not in ALL_HTML_INLINE_TAGS:
+        if tag not in {HTML_LINE_BREAK_TAG, HTML_INPUT_TAG} and tag not in ALL_HTML_INLINE_TAGS:
             self.all_text_runs.append(HTML_BLOCK_SEPARATOR)
 
     def handle_data(self, data: str) -> None:
@@ -345,38 +363,118 @@ def html_visible_text(page_markup: str) -> str:
     return _html_text_with_code_marks(page_markup).replace(CODE_SPAN_STAND_IN, "")
 
 
-def _html_text_with_code_marks(page_markup: str) -> str:
-    text_parser = _VisibleTextParser()
+def _html_text_with_code_marks(
+    page_markup: str, heading_mark: str = "", task_box_mark: str = ""
+) -> str:
+    text_parser = _VisibleTextParser(heading_mark, task_box_mark)
     text_parser.feed(page_markup)
     text_parser.close()
     return "".join(text_parser.all_text_runs)
 
 
-def file_waiting_phrase(file_path_text: str, working_directory: object) -> str | None:
-    """Return the first waiting phrase in a text file the turn sent to the user, or None.
+def html_text_blocks(page_markup: str, heading_mark: str, task_box_mark: str = "") -> list[str]:
+    """Return the shown text of an HTML page as blocks, with a mark before each heading.
+
+    ::
+
+        <h2>Open questions</h2><p>Pick one.</p> with "# "  -> ["# Open questions", "Pick one."]
+        <p>Run <code>x</code> now.</p>                    -> ["Run \\ufffc now."]
+        <li><input type="checkbox"> Saved?</li> with "- [ ] " -> ["- [ ]  Saved?"]
+
+    The blocks are the ones ``file_waiting_phrase`` reads. The text of a code
+    element stays as the object replacement character.
+
+    Args:
+        page_markup: The HTML source of the page.
+        heading_mark: The text put before the text of each h1 to h6 element.
+        task_box_mark: The text put where a checkbox ``input`` element sits.
+
+    Returns:
+        Each block that holds shown text, with the white space at its ends removed.
+    """
+    all_blocks = _html_text_with_code_marks(page_markup, heading_mark, task_box_mark).split(
+        HTML_BLOCK_SEPARATOR
+    )
+    return [each_block.strip() for each_block in all_blocks if each_block.strip()]
+
+
+def is_html_file_path(file_path_text: str) -> bool:
+    """Return True when the path ends in .html or .htm, in any letter case.
+
+    >>> is_html_file_path("page.HTML")
+    True
+    >>> is_html_file_path("notes.md")
+    False
+    """
+    return Path(file_path_text).suffix.lower() in ALL_HTML_FILE_SUFFIXES
+
+
+def sent_file_location(file_path_text: str, working_directory: object) -> Path | None:
+    """Return the regular Markdown, text, or HTML file a sent path names, or None.
+
+    ::
+
+        "notes.md" with cwd "/work"  -> Path("/work/notes.md"), when it is a file
+        "/tmp/shot.png"              -> None
+
+    A path that is not absolute is resolved from the working directory. A path
+    with another suffix, and a path that is no regular file (a pipe, a device,
+    a directory, a missing file), give None.
+    """
+    file_path = Path(file_path_text)
+    if not file_path.is_absolute() and isinstance(working_directory, str):
+        file_path = Path(working_directory) / file_path
+    if file_path.suffix.lower() not in ALL_SENT_TEXT_FILE_SUFFIXES:
+        return None
+    try:
+        return file_path if file_path.is_file() else None
+    except (OSError, ValueError):
+        return None
+
+
+def sent_file_text(file_path_text: str, working_directory: object) -> str | None:
+    """Return the text of a Markdown, text, or HTML file sent to the user, or None.
+
+    ::
+
+        "notes.md" with cwd "/work"  -> the text of /work/notes.md
+        "/tmp/page.html"             -> the page source
+        "/tmp/shot.png"              -> None
 
     A path that is not absolute is read from the working directory. A file with
     another suffix, a path that is no regular file (a pipe, a device, a
     directory), a file over the size limit, and a file that cannot be read give
     None. The read stops one byte past the size limit.
+
+    Args:
+        file_path_text: The path the tool call names.
+        working_directory: The session's ``cwd`` from the hook payload.
+
+    Returns:
+        The file text decoded as UTF-8 with bad bytes replaced, or None.
     """
-    file_path = Path(file_path_text)
-    if not file_path.is_absolute() and isinstance(working_directory, str):
-        file_path = Path(working_directory) / file_path
-    file_suffix = file_path.suffix.lower()
-    if file_suffix not in ALL_SENT_TEXT_FILE_SUFFIXES:
+    file_path = sent_file_location(file_path_text, working_directory)
+    if file_path is None:
         return None
     try:
-        if not file_path.is_file():
-            return None
         with file_path.open(BINARY_READ_MODE) as sent_file:
             file_bytes = sent_file.read(MAXIMUM_SENT_FILE_BYTES + 1)
     except (OSError, ValueError):
         return None
     if len(file_bytes) > MAXIMUM_SENT_FILE_BYTES:
         return None
-    file_text = file_bytes.decode(UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
-    if file_suffix in ALL_HTML_FILE_SUFFIXES:
+    return file_bytes.decode(UTF8_ENCODING, errors=DECODE_ERRORS_POLICY)
+
+
+def file_waiting_phrase(file_path_text: str, working_directory: object) -> str | None:
+    """Return the first waiting phrase in a text file the turn sent to the user, or None.
+
+    The file is read through ``sent_file_text``, so each file it skips gives None.
+    """
+    file_text = sent_file_text(file_path_text, working_directory)
+    if file_text is None:
+        return None
+    if is_html_file_path(file_path_text):
         all_blocks = _html_text_with_code_marks(file_text).split(HTML_BLOCK_SEPARATOR)
         return _first_waiting_phrase(
             each_reading for each_block in all_blocks for each_reading in (each_block, each_block.replace(CODE_SPAN_STAND_IN, ""))

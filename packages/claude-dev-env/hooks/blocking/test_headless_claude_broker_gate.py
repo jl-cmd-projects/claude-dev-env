@@ -48,6 +48,10 @@ def test_headless_claude_without_the_broker_is_detected(command: str) -> None:
     assert gate.starts_unbrokered_headless_claude(command) is True
 
 
+def test_should_detect_headless_claude_behind_a_launcher_and_env_unset() -> None:
+    assert gate.starts_unbrokered_headless_claude("nohup env -u CLAUDECODE claude -p task") is True
+
+
 @pytest.mark.parametrize(
     "command",
     [
