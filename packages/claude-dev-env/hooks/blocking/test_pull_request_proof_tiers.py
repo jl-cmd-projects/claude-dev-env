@@ -524,6 +524,22 @@ def test_should_read_the_tier_for_a_create_that_runs_alone(tmp_path: Path, title
     assert gate.missing_proof_reason(_payload_with_command(clone_path, command)) is None
 
 
+@pytest.mark.parametrize(
+    "spelling",
+    [
+        'gh pr create \\\n  --title "docs: reword" \\\n  --body-file "{body}"',
+        'gh pr create --title "docs: say \\"hi\\"" --body-file "{body}"',
+        "gh pr create --title 'docs: it''s' --body-file '{body}'",
+    ],
+)
+def test_should_read_the_tier_for_a_lone_create_in_any_spelling(tmp_path: Path, spelling: str) -> None:
+    clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
+    body_path = clone_path.parent / "body.md"
+    body_path.write_text(NO_PROOF_BODY, encoding="utf-8")
+    command = spelling.format(body=body_path.as_posix())
+    assert gate.missing_proof_reason(_payload_with_command(clone_path, command)) is None
+
+
 def test_should_owe_an_eval_for_a_feature_create_that_shares_its_command(tmp_path: Path) -> None:
     clone_path = _clone_with_branch(
         tmp_path, {"src/gate.py": "x = 2\n"}, {".claude/live-surfaces.txt": DECLARED_SURFACES}

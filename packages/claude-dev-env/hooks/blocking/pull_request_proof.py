@@ -149,7 +149,13 @@ from hooks_constants.pytest_invocation import (
     segment_runs_pytest,
     unquoted_token,
 )
-from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
+from hooks_constants.shell_command_pipeline import (
+    all_operator_aware_tokenizations,
+    join_line_continuations,
+    pipeline_segments_for_command,
+    scannable_command_lines,
+    segments_with_following_operator,
+)
 from hooks_constants.shell_command_wrappers import all_wrapped_command_texts, segment_program_and_arguments
 
 
@@ -241,13 +247,15 @@ def _all_edit_argument_lists(command: str) -> Iterator[list[str]]:
 
 
 def _runs_one_call(command: str) -> bool:
-    if len(all_wrapped_command_texts(command)) != 1 or len(command.strip().splitlines()) != 1:
+    joined_command = join_line_continuations(command)
+    all_command_lines = [each_line for each_line in scannable_command_lines(joined_command) if each_line.strip()]
+    if len(all_wrapped_command_texts(joined_command)) != 1 or len(all_command_lines) != 1:
         return False
-    all_segment_keys = {
-        (tuple(unquoted_token(each_token) for each_token in each_segment), each_operator)
-        for each_segment, each_operator in pipeline_segments_for_command(command)
-    }
-    return len(all_segment_keys) == 1 and not next(iter(all_segment_keys))[1]
+    for each_tokenization in all_operator_aware_tokenizations(all_command_lines[0]):
+        all_segment_pairs = segments_with_following_operator(each_tokenization)
+        if len(all_segment_pairs) != 1 or not all_segment_pairs[0][0] or all_segment_pairs[0][1]:
+            return False
+    return True
 
 
 def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall]:
@@ -388,6 +396,7 @@ def eval_need_sentence(all_payload_fields: Mapping[str, object]) -> str | None:
         title "feat: x", branch changes skills/a/SKILL.md -> eval_owed_sentence("skills/a/SKILL.md")
         title "feat: x", branch changes only src/a.py     -> None
         title "feat: x", changed file list unread         -> eval_owed_sentence(None)
+        title "feat: x", git add && create                -> SHARED_COMMAND_EVAL_SENTENCE
         title "fix: y", any branch                        -> None
 
     Args:
@@ -411,14 +420,16 @@ def missing_eval_section_reason(all_payload_fields: Mapping[str, object]) -> str
         title "feat: x", body has the section                    -> None
         title "feat: x", changes skills/a/SKILL.md, no section   -> MISSING_EVAL_SECTION_REASON + why
         title "feat: x", changed file list unread, no section    -> MISSING_EVAL_SECTION_REASON + why
+        title "feat: x", create joined to another command        -> MISSING_EVAL_SECTION_REASON + why
         title "feat: x", changes only src/a.py, no section       -> None
         title "fix: y", body without it                          -> None
         title "feat: x", gh pr create --fill                     -> None
 
     The section is an 'Eval' heading whose text names at least one command in
     backticks. A feature owes it when a changed path is an agent surface, as
-    first_agent_surface_path names one, or when the changed file list cannot be
-    read. A body with the section reads no file list. A create command whose
+    first_agent_surface_path names one, when the changed file list cannot be
+    read, or when the shell command runs more than the create call. A body with
+    the section reads no file list. A create command whose
     body this gate cannot read passes here, because missing_proof_reason denies
     it first.
 
