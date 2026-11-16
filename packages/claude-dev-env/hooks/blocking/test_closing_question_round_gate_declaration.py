@@ -33,6 +33,12 @@ from test_closing_question_round_gate_work import (
 GATE_PATH = Path(__file__).resolve().parent / "closing_question_round_gate.py"
 
 
+@pytest.fixture(autouse=True)
+def scratch_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+
+
 @pytest.mark.parametrize(
     "closing_reply",
     [f"Done.\n\n* {DECLARATION}", f"Done.\n\n* **{DECLARATION}**", "Done.\n\nOpen_ items: none."],
