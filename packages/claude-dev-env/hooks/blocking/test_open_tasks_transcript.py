@@ -22,6 +22,40 @@ from open_tasks_transcript import (
 )
 
 
+def tool_listing_attachment(all_attachment_fields: dict[str, object]) -> dict[str, object]:
+    return {"type": "attachment", "attachment": all_attachment_fields}
+
+
+@pytest.mark.parametrize(
+    ("all_records", "expected_lists_no_tracker_tool"),
+    [
+        (
+            [
+                tool_listing_attachment({"type": "prompt_snapshot", "tools": [{"name": "Bash"}]}),
+                tool_listing_attachment({"type": "deferred_tools_delta", "addedNames": ["WebSearch"]}),
+            ],
+            True,
+        ),
+        (
+            [
+                tool_listing_attachment({"type": "prompt_snapshot", "tools": [{"name": "Bash"}]}),
+                tool_listing_attachment({"type": "deferred_tools_delta", "addedNames": ["TaskCreate"]}),
+                tool_listing_attachment({"type": "deferred_tools_delta", "addedNames": []}),
+            ],
+            False,
+        ),
+        ([tool_listing_attachment({"type": "deferred_tools_delta", "addedNames": ["WebSearch"]})], False),
+        ([], False),
+    ],
+    ids=["listings-without-tracker", "tracker-in-an-earlier-delta", "no-inline-listing", "no-listing"],
+)
+def test_should_note_a_session_that_lists_no_tracker_tool(
+    tmp_path: Path, all_records: list[dict[str, object]], expected_lists_no_tracker_tool: bool
+) -> None:
+    replay = replayed_transcript(str(write_transcript(tmp_path / "s.jsonl", all_records)))
+    assert replay.lists_no_tracker_tool is expected_lists_no_tracker_tool
+
+
 def write_transcript(transcript_path: Path, all_records: list[dict[str, object]]) -> Path:
     transcript_path.write_text("\n".join(json.dumps(each_record) for each_record in all_records), encoding="utf-8")
     return transcript_path

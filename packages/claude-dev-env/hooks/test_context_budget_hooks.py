@@ -31,6 +31,8 @@ UNMEASURED_REASON_BY_SCRIPT = {
     "session/plugin_change_warning.py": "emits only after a plugin changes on disk mid-session, "
     "once per plugin, naming plugin ids",
     "blocking/wakeup_cap_gate.py": "emits one fixed-template line only when it rewrites a wake delay",
+    "blocking/artifact_current_page_gate.py": "emits one fixed republish note only after a "
+    "Playwright render of the page, which the measuring run has no browser for",
 }
 
 

@@ -109,6 +109,70 @@ def test_should_block_a_work_turn_that_left_the_task_list_unchanged(
     assert "followup_message" not in block_output
 
 
+def prompt_snapshot_record(all_tool_names: list[str]) -> dict[str, object]:
+    all_tools = [{"name": each_name, "description": f"{each_name} tool"} for each_name in all_tool_names]
+    return {"type": "attachment", "attachment": {"type": "prompt_snapshot", "systemPrompt": "TaskCreate", "tools": all_tools}}
+
+
+def deferred_tools_delta_record(all_added_names: list[str]) -> dict[str, object]:
+    return {
+        "type": "attachment",
+        "attachment": {"type": "deferred_tools_delta", "addedNames": all_added_names, "removedNames": [], "readdedNames": []},
+    }
+
+
+def deferred_tools_record(all_loaded_names: list[str]) -> dict[str, object]:
+    all_entries = [{"name": each_name, "description": f"{each_name} tool"} for each_name in all_loaded_names]
+    return {"type": "attachment", "attachment": {"type": "deferred_tools_record", "entries": all_entries}}
+
+
+NO_TRACKER_TOOL_LISTING = [prompt_snapshot_record(["Bash", "Read", "Edit"]), deferred_tools_delta_record(["WebSearch", "TaskStop"])]
+
+
+def test_should_allow_a_work_turn_in_a_session_that_lists_no_task_tool(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [*NO_TRACKER_TOOL_LISTING, user_prompt_record(WORK_PROMPT), tool_call_record("Bash")]
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path) == {}
+
+
+@pytest.mark.parametrize(
+    "all_listing_records",
+    [
+        [prompt_snapshot_record(["Bash"]), deferred_tools_delta_record(["WebSearch", "TaskCreate", "TaskUpdate"])],
+        [prompt_snapshot_record(["Bash", "TodoWrite"]), deferred_tools_delta_record(["WebSearch"])],
+        [prompt_snapshot_record(["Bash", "mcp__ccd_turn__update_plan"]), deferred_tools_delta_record(["WebSearch"])],
+        [*NO_TRACKER_TOOL_LISTING, deferred_tools_record(["TaskCreate", "TaskUpdate"])],
+        [*NO_TRACKER_TOOL_LISTING, user_prompt_record("Port the hook"), tool_call_record("TaskCreate", {"subject": "Port"})],
+        [deferred_tools_delta_record(["WebSearch"])],
+        [prompt_snapshot_record(["Bash"])],
+    ],
+    ids=[
+        "deferred-task-tools",
+        "inline-todowrite",
+        "inline-desktop-plan",
+        "task-tools-loaded-by-tool-search",
+        "task-tool-called-in-an-earlier-turn",
+        "no-inline-tool-listing",
+        "no-deferred-tool-listing",
+    ],
+)
+def test_should_block_an_untracked_work_turn_unless_the_session_lists_no_task_tool(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_listing_records: list[dict[str, object]],
+) -> None:
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [*all_listing_records, user_prompt_record(WORK_PROMPT), tool_call_record("Bash")]
+    )
+    block_output = run_gate(monkeypatch, capsys, transcript_path)
+    assert block_output["decision"] == "block"
+    assert "left the task list unchanged" in block_output["reason"]
+
+
 @pytest.mark.parametrize(
     "tracker_record",
     [

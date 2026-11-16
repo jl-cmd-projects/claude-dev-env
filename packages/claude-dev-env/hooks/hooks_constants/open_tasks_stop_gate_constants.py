@@ -108,6 +108,14 @@ ALL_QUESTION_TOOL_NAMES = frozenset(
         "request_user_input_async",
     }
 )
+ALL_TRACKER_TOOL_LISTING_NAMES = frozenset({*ALL_TRACKER_TOOL_NAMES, CCD_PLAN_TOOL_NAME, CODEX_PLAN_TOOL_NAME})
+ATTACHMENT_KEY = "attachment"
+PROMPT_SNAPSHOT_ATTACHMENT_TYPE = "prompt_snapshot"
+PROMPT_SNAPSHOT_TOOLS_KEY = "tools"
+DEFERRED_TOOLS_DELTA_ATTACHMENT_TYPE = "deferred_tools_delta"
+ALL_DEFERRED_TOOLS_DELTA_NAME_KEYS = ("addedNames", "readdedNames", "surfacedNames", "loadedBeforeSummaryNames")
+DEFERRED_TOOLS_RECORD_ATTACHMENT_TYPE = "deferred_tools_record"
+DEFERRED_TOOLS_RECORD_ENTRIES_KEY = "entries"
 SESSION_TITLE_TOOL_SUFFIX = "__set_session_title"
 CODEX_LOCAL_SHELL_CALL_TYPE = "local_shell_call"
 ALL_CODEX_TOOL_CALL_TYPES = frozenset({CODEX_FUNCTION_CALL_TYPE, "custom_tool_call", CODEX_LOCAL_SHELL_CALL_TYPE})

@@ -11,6 +11,7 @@ __all__ = [
     "ARTIFACT_FILE_PATH_INPUT_KEY",
     "ARTIFACT_PUBLISH_ACTION",
     "ARTIFACT_TOOL_NAME",
+    "BLOCKING_HOOKS_DIRECTORY",
     "BLOCK_EXIT_CODE",
     "DARK_MODE_FAILURE_HEADER",
     "GATE_EVENT_NAME",
@@ -34,9 +35,8 @@ ARTIFACT_FILE_PATH_INPUT_KEY = "file_path"
 ALL_SKIPPED_PUBLISH_INPUT_KEYS = ("asset", "type_url")
 HTML_FILE_SUFFIX = ".html"
 GATE_EVENT_NAME = "PreToolUse"
-RENDERER_SCRIPT_PATH = (
-    Path(__file__).resolve().parent.parent / "blocking" / "artifact_dark_mode_render.cjs"
-)
+BLOCKING_HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent / "blocking"
+RENDERER_SCRIPT_PATH = BLOCKING_HOOKS_DIRECTORY / "artifact_dark_mode_render.cjs"
 PUBLISH_SKELETON_PREFIX = (
     "<!doctype html><html><head><meta charset=utf8>"
     '<meta name=viewport content="width=device-width,initial-scale=1">'
