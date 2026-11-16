@@ -5,6 +5,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     CLOSING_ROUND_INSTRUCTION,
     DECLARATION_LINE_PATTERN,
     ESCAPED_PRINTABLE_ASCII_PATTERN,
+    FILE_NAME_PATTERN,
     NO_OPEN_ITEMS_DECLARATION,
     OPEN_ITEM_MARKER_PATTERN,
     OUTPUT_WATCHDOG_SECONDS,
@@ -76,15 +77,10 @@ def test_declaration_line_pattern_should_leave_the_final_period_optional(
 
 
 @pytest.mark.parametrize(
-    ("marker_text", "is_marker"),
-    [
-        ("todo.md", False),
-        ("docs/pending/", False),
-        ("a todo.", True),
-        ("pending/", True),
-    ],
+    ("segment_text", "is_file_name"),
+    [("todo.md", True), ("notes.json", True), ("TODO.Ship", False), ("e.g.pending", False)],
 )
-def test_open_item_marker_pattern_should_skip_a_marker_joined_to_a_file_name_or_path(
-    marker_text: str, is_marker: bool
+def test_file_name_pattern_should_take_a_short_lower_case_extension(
+    segment_text: str, is_file_name: bool
 ) -> None:
-    assert (OPEN_ITEM_MARKER_PATTERN.search(marker_text) is not None) is is_marker
+    assert (FILE_NAME_PATTERN.fullmatch(segment_text) is not None) is is_file_name

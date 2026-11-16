@@ -139,6 +139,9 @@ def test_marked_open_lines_should_not_read_a_marker_inside_a_snake_case_name(
         "I'll create todo.md and check the file.",
         "The notes live in docs/pending/notes.md now.",
         "Run hooks\\blocked\\list.py once.",
+        "The steps are in notes/todo.md, as before.",
+        "The list (see todo.md) is short.",
+        "Open https://example.com/docs/pending/ to read it.",
     ],
 )
 def test_marked_open_lines_should_not_read_a_marker_inside_a_file_name_or_path(
@@ -148,7 +151,21 @@ def test_marked_open_lines_should_not_read_a_marker_inside_a_file_name_or_path(
 
 
 @pytest.mark.parametrize(
-    "marker_line", ["The retry is pending.", "That stays a todo. Ship it now.", "Left as a todo."]
+    "marker_line",
+    [
+        "The retry is pending.",
+        "That stays a todo. Ship it now.",
+        "Left as a todo.",
+        "The tests are skipped/untested.",
+        "Status is pending/blocked on CI.",
+        "TODO/FIXME remain.",
+        "The check is untested\\unverified.",
+        "Ship it, a TODO.Ship it.",
+        "Step 1.untested",
+        "Use e.g.pending items.",
+        "Use e.g.todo items.",
+        "One item stays pending/ for now.",
+    ],
 )
 def test_marked_open_lines_should_read_a_marker_before_a_full_stop(marker_line: str) -> None:
     assert marked_open_lines([marker_line], NO_DEADLINE) == [marker_line]

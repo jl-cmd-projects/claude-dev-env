@@ -53,7 +53,7 @@ SEPARATOR_RUN_PATTERN = re.compile(r"[\s-]{2,}")
 HYPHEN_CHARACTER = "-"
 
 OPEN_ITEM_MARKER_PATTERN = re.compile(
-    r"(?<![^\W_])(?<![^\W_]_)(?<![^\W_]__)(?<![^\W_]___)(?<![^\W_][./\\])(?:"
+    r"(?<![^\W_])(?<![^\W_]_)(?<![^\W_]__)(?<![^\W_]___)(?:"
     r"deferred|defer|defers|deferring|deferrals?"
     r"|follow-?ups?"
     r"|(?:a|the|another|one)\s+follow\s+ups?"
@@ -99,11 +99,18 @@ OPEN_ITEM_MARKER_PATTERN = re.compile(
     r"|left\s+(?:it|this|that|them|these)\s+for\s+you"
     r"|for\s+you\s+to\s+decide"
     r"|(?:waiting|waits)\s+on\s+you"
-    r")(?![^\W_])(?!_{1,3}[^\W_])(?![./\\][^\W_])",
+    r")(?![^\W_])(?!_{1,3}[^\W_])",
     re.IGNORECASE,
 )
 INDENTED_CODE_LINE_PATTERN = re.compile(r"^(?: {4}|\t)")
 LIST_ITEM_LINE_PATTERN = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]+\S")
+PATH_JOINING_CHARACTERS = "./\\"
+PATH_SEPARATOR_PATTERN = re.compile(r"[/\\]")
+PATH_BREAK_PATTERN = re.compile(r"\s")
+FILE_NAME_PATTERN = re.compile(r"[^\s/\\]+\.(?P<extension>[a-z0-9]{1,5})")
+PATH_EDGE_CHARACTERS = "\"'`()[]<>{},;:!?."
+PATH_REACH_CHARACTERS = 96
+MINIMUM_PATH_SEGMENT_COUNT = 2
 NO_OPEN_ITEMS_DECLARATION = "Open items: none."
 DECLARATION_LINE_PATTERN = re.compile(
     r"(?P<mark>\*\*|__|\*|_|)"

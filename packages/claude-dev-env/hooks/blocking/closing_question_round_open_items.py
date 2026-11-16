@@ -53,8 +53,11 @@ end of a window before the paragraph's end is dropped, and the next window
 reads it whole. A marker reads as a whole word, and one to three underscores
 around it count as emphasis, so ``_untested_`` and ``__untested__`` are
 markers, and ``retry_untested_flag`` and ``retry__untested__flag`` are none.
-A marker joined to a file name or path by a dot, slash, or backslash, such
-as ``todo.md`` or ``docs/pending/``, is none either.
+A marker inside a file name with a lower-case extension of 1 to 5 letters
+or digits, such as ``todo.md``, or inside a path of two or more names that
+ends in a slash or such a file name, such as ``docs/pending/``, is none
+either. A marker joined to another word, such as ``skipped/untested``, still
+counts, and so does a path token longer than 96 characters on either side.
 """
 
 from __future__ import annotations
@@ -76,13 +79,20 @@ from closing_question_round_lines import before_deadline, is_within_scan_cap
 from final_reply_gate import prose_paragraphs_with_code_as
 from hooks_constants.closing_question_round_gate_constants import (
     DECLARATION_LINE_PATTERN,
+    FILE_NAME_PATTERN,
     INDENTED_CODE_LINE_PATTERN,
     LIST_ITEM_LINE_PATTERN,
+    MINIMUM_PATH_SEGMENT_COUNT,
     HYPHEN_CHARACTER,
     MARKER_SCAN_LOOKAHEAD_CHARACTERS,
     MARKER_SCAN_OVERLAP_CHARACTERS,
     MARKER_SCAN_WINDOW_CHARACTERS,
     OPEN_ITEM_MARKER_PATTERN,
+    PATH_JOINING_CHARACTERS,
+    PATH_SEPARATOR_PATTERN,
+    PATH_EDGE_CHARACTERS,
+    PATH_REACH_CHARACTERS,
+    PATH_BREAK_PATTERN,
     SEPARATOR_RUN_PATTERN,
 )
 from hooks_constants.final_reply_gate_constants import QUESTION_MARK, TRAILING_MARKUP_CHARACTERS
@@ -159,6 +169,38 @@ def _original_position(
     return all_original_offsets[offset_index] + collapsed_position - all_collapsed_offsets[offset_index]
 
 
+def _is_inside_a_path(collapsed_text: str, marker_start: int, marker_end: int) -> bool:
+    neighbor_text = collapsed_text[max(marker_start - 1, 0) : marker_start] + collapsed_text[
+        marker_end : marker_end + 1
+    ]
+    if not any(each_character in PATH_JOINING_CHARACTERS for each_character in neighbor_text):
+        return False
+    reach_start = max(marker_start - PATH_REACH_CHARACTERS, 0)
+    reach_end = min(marker_end + PATH_REACH_CHARACTERS, len(collapsed_text))
+    leading_part = PATH_BREAK_PATTERN.split(collapsed_text[reach_start:marker_start])[-1]
+    trailing_part = PATH_BREAK_PATTERN.split(collapsed_text[marker_end:reach_end])[0]
+    is_token_cut_short = (
+        reach_start > 0 and len(leading_part) == marker_start - reach_start
+    ) or (reach_end < len(collapsed_text) and len(trailing_part) == reach_end - marker_end)
+    if is_token_cut_short:
+        return False
+    token = leading_part + collapsed_text[marker_start:marker_end] + trailing_part
+    left_stripped_token = token.lstrip(PATH_EDGE_CHARACTERS)
+    path_text = left_stripped_token.rstrip(PATH_EDGE_CHARACTERS)
+    marker_offset_end = len(leading_part) - (len(token) - len(left_stripped_token)) + (
+        marker_end - marker_start
+    )
+    if marker_offset_end > len(path_text):
+        return False
+    all_segments = PATH_SEPARATOR_PATTERN.split(path_text)
+    file_name_match = FILE_NAME_PATTERN.fullmatch(all_segments[-1])
+    if file_name_match is not None:
+        return marker_offset_end <= len(path_text) - len(file_name_match["extension"]) - 1
+    has_directory_shape = len(all_segments) > 1 and not all_segments[-1]
+    named_segment_count = sum(1 for each_segment in all_segments if each_segment)
+    return has_directory_shape and named_segment_count >= MINIMUM_PATH_SEGMENT_COUNT
+
+
 def _collapsed_marker_spans(collapsed_text: str, deadline_at: float) -> Iterator[tuple[int, int]]:
     all_window_starts = range(0, max(len(collapsed_text), 1), MARKER_SCAN_WINDOW_CHARACTERS)
     for each_window_start in before_deadline(all_window_starts, deadline_at):
@@ -170,7 +212,8 @@ def _collapsed_marker_spans(collapsed_text: str, deadline_at: float) -> Iterator
         yield from (
             each_match.span()
             for each_match in all_window_matches
-            if each_match.end() < window_end or scan_end >= len(collapsed_text)
+            if (each_match.end() < window_end or scan_end >= len(collapsed_text))
+            and not _is_inside_a_path(collapsed_text, *each_match.span())
         )
 
 
