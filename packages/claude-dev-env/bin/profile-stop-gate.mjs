@@ -141,10 +141,8 @@ function stopHooks(settingsPath) {
     return stopGroups.flatMap((eachGroup) => (Array.isArray(eachGroup?.hooks) ? eachGroup.hooks : []));
 }
 
-function profileGateCommands(settingsPath, claudeHome) {
-    return stopHooks(settingsPath)
-        .filter((eachHook) => isGateHook(eachHook, claudeHome))
-        .map((eachHook) => eachHook.command);
+function profileGateHooks(settingsPath, claudeHome) {
+    return stopHooks(settingsPath).filter((eachHook) => isGateHook(eachHook, claudeHome));
 }
 
 /**
@@ -170,7 +168,7 @@ export function profileRunsItsOwnGate(settingsPath, claudeHome) {
  *
  * A profile keeps its own settings and hooks. The merge adds the one gate
  * entry, in the spelling the main settings use, only where it is missing;
- * an entry left with an older interpreter spelling is replaced. The file as
+ * an entry left with an older interpreter spelling or timeout is replaced. The file as
  * it was before either change is copied to a timestamped `.bak`. A profile
  * that already runs its own copy of the gate script is left as it is.
  *
@@ -187,8 +185,8 @@ export function addOpenTasksGateToProfiles(options) {
         (eachPath) => !profileRunsItsOwnGate(eachPath, options.claudeHome),
     );
     const allStalePaths = allTargetPaths.filter(
-        (eachPath) => profileGateCommands(eachPath, options.claudeHome)
-            .some((eachCommand) => eachCommand !== gateHook.command),
+        (eachPath) => profileGateHooks(eachPath, options.claudeHome)
+            .some((eachHook) => eachHook.command !== gateHook.command || eachHook.timeout !== gateHook.timeout),
     );
     const originalTextByStalePath = new Map(allStalePaths.map((eachPath) => [eachPath, readFileSync(eachPath, 'utf8')]));
     removeOpenTasksGateFromProfiles({ claudeHome: options.claudeHome, allProfileSettingsPaths: allStalePaths });

@@ -1,25 +1,48 @@
+from __future__ import annotations
+
 import io
 import json
+import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
+import closing_reply_judge
 import open_tasks_stop_gate
 from open_tasks_transcript import TaskItem, replayed_transcript
+
+if TYPE_CHECKING:
+    from conftest import JudgeStub
 
 GATE_PATH = Path(open_tasks_stop_gate.__file__)
 SESSION_ID = "s-123"
 WORK_PROMPT = "Export the APKs and submit them"
 
 
+UNPINNED_WHICH = shutil.which
+
+
+def _which_without_claude(command_name: str, *all_arguments: object, **all_options: object) -> str | None:
+    if command_name == "claude":
+        return None
+    return UNPINNED_WHICH(command_name, *all_arguments, **all_options)
+
+
 @pytest.fixture(autouse=True)
 def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    marker_directory = tmp_path / "markers"
+    marker_directory.mkdir()
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(marker_directory))
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
     monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
     monkeypatch.delenv("CLAUDE_CODE_TASK_LIST_ID", raising=False)
+    monkeypatch.delenv("CLAUDE_TURN_REVIEW_CHILD", raising=False)
+    monkeypatch.setattr(shutil, "which", _which_without_claude)
 
 
 def user_prompt_record(prompt_text: str) -> dict[str, object]:
@@ -54,12 +77,14 @@ def run_gate(
     is_stop_hook_active: bool = False,
     reply_text: str = "Done.",
     working_directory: Path | None = None,
+    all_extra_fields: dict[str, object] | None = None,
 ) -> dict[str, str]:
     hook_input: dict[str, object] = {
         "hook_event_name": "Stop",
         "session_id": SESSION_ID,
         "stop_hook_active": is_stop_hook_active,
         "last_assistant_message": reply_text,
+        **(all_extra_fields or {}),
     }
     if working_directory is not None:
         hook_input["cwd"] = str(working_directory)
@@ -623,3 +648,540 @@ def test_should_block_a_work_turn_whose_transcript_holds_an_undecodable_byte(
     with transcript_path.open("ab") as transcript_file:
         transcript_file.write(b"\n\xff\n")
     assert run_gate(monkeypatch, capsys, transcript_path)["decision"] == "block"
+
+
+BED_PROMPT = "heading out now. handle whatever the nightly job returns"
+PROMISE_REPLY = (
+    "Both fix runs are armed, and a wake is set for the end of CI."
+    " The benchmark table will be posted when you get back."
+)
+DEFERRED_PROMPT = "You did a lot of work. I want to know what you put off."
+DEFERRED_REPLY = (
+    "What I deferred, checked against the build log:\n\n"
+    "1. The retry budget for the sync job.\n"
+    "2. The second fixture for the Windows path.\n"
+    "3. The docs page for the new flag.\n"
+    "4. The cleanup of the stale branch.\n"
+    "5. The follow-up issue for the timeout."
+)
+THREE_BULLETS = "- The retry budget.\n- The docs page.\n- The stale branch."
+WAKE_CALL = tool_call_record("mcp__scheduler__send_later", {"delay_minutes": 30})
+PROMISE_REASON_START = "The closing reply promises the user a later report"
+LIST_REASON_START = "The closing reply lists"
+REWORKED_REPLY_INSTRUCTION = "Then send the reworked reply and end the turn."
+SHORT_REPLY_INSTRUCTION = "Then send a short reply that names what you did and end the turn."
+PROMISE_KEEP_CONDITION = (
+    "Leave the promise as it is only when the reply already says that in one sentence, or when the user's"
+    " typed words in this turn asked for a report later."
+)
+LIST_KEEP_START = "Leave the list as it is only when every listed item is finished work or plain status"
+ASKED_ANSWER_SENTENCE = (
+    'A question such as "what did you defer?" asks for an answer, and the open decisions in that answer'
+    " still go out as question cards."
+)
+END_THE_TURN = "end the turn"
+
+
+def closing_turn(prompt_text: str, *all_turn_calls: dict[str, object]) -> list[dict[str, object]]:
+    return [user_prompt_record(prompt_text), TRACKER_CALL, *all_turn_calls]
+
+
+@pytest.mark.parametrize(
+    ("all_records", "reply_text", "reason_start"),
+    [
+        (closing_turn(BED_PROMPT, WAKE_CALL), PROMISE_REPLY, PROMISE_REASON_START),
+        (closing_turn(WORK_PROMPT, READ_CALL), "I'll report back once CI ends.", PROMISE_REASON_START),
+        (
+            closing_turn(DEFERRED_PROMPT, tool_call_record("Bash"), tool_call_record("Read")),
+            DEFERRED_REPLY,
+            LIST_REASON_START,
+        ),
+        (closing_turn(WORK_PROMPT, READ_CALL), f"## Next steps\n\n{THREE_BULLETS}", LIST_REASON_START),
+        (
+            closing_turn(WORK_PROMPT, READ_CALL),
+            "Open items:\n\n| Item | State |\n|---|---|\n| Retry | open |\n| Docs | open |\n| Branch | open |",
+            LIST_REASON_START,
+        ),
+        (
+            [user_prompt_record("<task-notification>summary: the run ended</task-notification>"), READ_CALL],
+            PROMISE_REPLY,
+            PROMISE_REASON_START,
+        ),
+        (
+            closing_turn(
+                "> The benchmark table will be posted when you get back.\n\n"
+                "don't need this; just see the fixes through",
+                READ_CALL,
+            ),
+            PROMISE_REPLY,
+            PROMISE_REASON_START,
+        ),
+        (closing_turn("no report needed, just finish", READ_CALL), PROMISE_REPLY, PROMISE_REASON_START),
+        (closing_turn("no list please, ask me instead", READ_CALL), DEFERRED_REPLY, LIST_REASON_START),
+    ],
+)
+def test_should_hold_a_closing_reply_that_promises_a_report_or_lists_open_items(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_records: list[dict[str, object]],
+    reply_text: str,
+    reason_start: str,
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", all_records)
+    block_output = run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text)
+    assert block_output["decision"] == "block"
+    assert block_output["reason"].startswith(reason_start)
+    assert block_output["reason"].lower().count(END_THE_TURN) == 1
+    assert block_output["reason"].endswith((PROMISE_KEEP_CONDITION, ASKED_ANSWER_SENTENCE))
+
+
+def test_should_quote_the_lead_and_the_item_count_in_the_list_reason(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(DEFERRED_PROMPT, READ_CALL))
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)["reason"]
+    assert 'lists 5 items under "What I deferred, checked' in block_reason
+    assert "AskUserQuestion" in block_reason
+    assert PROMISE_REASON_START not in block_reason
+
+
+def test_should_quote_the_promise_in_the_report_reason(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(BED_PROMPT, WAKE_CALL))
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["reason"]
+    assert '("when you get back")' in block_reason
+    assert LIST_REASON_START not in block_reason
+
+
+def test_should_hold_a_codex_closing_reply_that_lists_open_items(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    plan_arguments = json.dumps({"plan": [{"step": "Report the deferred work", "status": "completed"}]})
+    plan_call = codex_record({"type": "function_call", "name": "update_plan", "arguments": plan_arguments})
+    shell_call = codex_record({"type": "function_call", "name": "shell", "arguments": "{}"})
+    transcript_path = write_records(tmp_path / "rollout.jsonl", [codex_prompt(DEFERRED_PROMPT), plan_call, shell_call])
+    block_output = run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)
+    assert block_output["reason"].startswith(LIST_REASON_START)
+
+
+@pytest.mark.parametrize(
+    ("all_records", "reply_text"),
+    [
+        (closing_turn(DEFERRED_PROMPT, READ_CALL, QUESTION_CALL), DEFERRED_REPLY),
+        (
+            [
+                codex_prompt(DEFERRED_PROMPT),
+                codex_record({"type": "function_call", "name": "update_plan", "arguments": "{}"}),
+                codex_record({"type": "function_call", "name": "request_user_input", "arguments": "{}"}),
+            ],
+            DEFERRED_REPLY,
+        ),
+        (closing_turn(WORK_PROMPT, READ_CALL), f"Changed files:\n\n{THREE_BULLETS}\n- The hook.\n- The test."),
+        (closing_turn(WORK_PROMPT, READ_CALL), "Deferred:\n\n- The retry budget.\n- The docs page."),
+        (closing_turn(WORK_PROMPT, READ_CALL), f"Nothing deferred.\n\n{THREE_BULLETS}"),
+        (closing_turn("list the deferred items as bullets", READ_CALL), DEFERRED_REPLY),
+        (closing_turn(WORK_PROMPT, READ_CALL), f"Deferred:\n\n```\n{THREE_BULLETS}\n```"),
+        (closing_turn(WORK_PROMPT, READ_CALL), "No report will follow."),
+        (closing_turn(WORK_PROMPT, READ_CALL), "> I'll report back once CI ends."),
+        (closing_turn(WORK_PROMPT, READ_CALL), "The draft says `I'll report back once CI ends` today."),
+        (closing_turn("report back when the run ends", WAKE_CALL), PROMISE_REPLY),
+        (closing_turn(WORK_PROMPT, READ_CALL), f"Skipped, with reasons\n\n{THREE_BULLETS}\n- The hook."),
+        (closing_turn(WORK_PROMPT, READ_CALL), "I'll merge each lint fix once the bots report back."),
+        (closing_turn(WORK_PROMPT, READ_CALL), "Both checkers are running. I continue when they report."),
+    ],
+)
+def test_should_pass_a_closing_reply_with_no_unasked_report_or_open_item_list(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_records: list[dict[str, object]],
+    reply_text: str,
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", all_records)
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text) == {}
+
+
+def test_should_pass_a_promised_report_on_a_stop_the_gate_already_held(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(BED_PROMPT, WAKE_CALL))
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY) == {}
+
+
+def test_should_pass_a_closing_reply_when_the_transcript_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    missing_path = tmp_path / "missing.jsonl"
+    assert run_gate(monkeypatch, capsys, missing_path, reply_text=PROMISE_REPLY) == {}
+    assert run_gate(monkeypatch, capsys, missing_path, reply_text=DEFERRED_REPLY) == {}
+    hook_input = {"last_assistant_message": DEFERRED_REPLY, "transcript_path": str(missing_path)}
+    assert open_tasks_stop_gate.closing_reply_findings(hook_input, replayed_transcript(None)) == []
+
+
+def test_should_ask_for_a_reworked_reply_when_a_tracker_reason_and_a_closing_reason_combine(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record(BED_PROMPT), WAKE_CALL])
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["reason"]
+    assert block_reason.startswith("This turn worked on the user's ask and left the task list unchanged.")
+    assert block_reason.index("left the task list unchanged") < block_reason.index(PROMISE_REASON_START)
+    assert "Leave the reply as it stands" not in block_reason
+    assert "leave the reply as it stands" not in block_reason
+    assert block_reason.endswith(f"{REWORKED_REPLY_INSTRUCTION} {PROMISE_KEEP_CONDITION}")
+
+
+def test_should_name_the_steps_then_end_the_turn_then_the_keep_condition_for_a_promise(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(BED_PROMPT, WAKE_CALL))
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["reason"]
+    assert block_reason == (
+        'The closing reply promises the user a later report ("when you get back"), and no typed prompt in this'
+        " turn asked for one. Drop the promise and carry the work to completion. If work is still open, do it"
+        " now. If the turn waits on a run or a wake you armed, say in one sentence what runs and what you do"
+        f" when it ends. {REWORKED_REPLY_INSTRUCTION} {PROMISE_KEEP_CONDITION}"
+    )
+
+
+def test_should_keep_question_cards_for_a_list_sent_in_answer_to_what_was_deferred(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    deferred_question = "Which parts of the work did you put off or skip?"
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(deferred_question, READ_CALL))
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)["reason"]
+    assert block_reason.startswith('The closing reply lists 5 items under "What I deferred, checked')
+    assert block_reason.lower().count(END_THE_TURN) == 1
+    assert block_reason.index(SHORT_REPLY_INSTRUCTION) < block_reason.index(LIST_KEEP_START)
+    assert "asked for the items as a list or a table in chat" in block_reason
+    assert block_reason.endswith(ASKED_ANSWER_SENTENCE)
+
+
+@pytest.mark.parametrize(
+    ("all_records", "reply_text", "all_reason_parts"),
+    [
+        (
+            closing_turn(WORK_PROMPT, READ_CALL),
+            f"I'll report back once CI ends.\n\nWhat I deferred:\n{THREE_BULLETS}",
+            (PROMISE_REASON_START, LIST_REASON_START, SHORT_REPLY_INSTRUCTION, PROMISE_KEEP_CONDITION, LIST_KEEP_START),
+        ),
+        (
+            [user_prompt_record(BED_PROMPT), WAKE_CALL],
+            f"What I deferred:\n{THREE_BULLETS}",
+            ("left the task list unchanged", LIST_REASON_START, SHORT_REPLY_INSTRUCTION, LIST_KEEP_START),
+        ),
+        (
+            closing_turn(WORK_PROMPT, tool_call_record("Edit")),
+            f"Three items need you.\n\n{PROMISE_REPLY}",
+            ("waits on them", "The turn ran no read call.", PROMISE_REASON_START, REWORKED_REPLY_INSTRUCTION, PROMISE_KEEP_CONDITION),
+        ),
+    ],
+)
+def test_should_end_the_turn_once_when_findings_combine(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_records: list[dict[str, object]],
+    reply_text: str,
+    all_reason_parts: tuple[str, ...],
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", all_records)
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text)["reason"]
+    assert block_reason.lower().count(END_THE_TURN) == 1
+    all_positions = [block_reason.index(each_part) for each_part in all_reason_parts]
+    assert all_positions == sorted(all_positions)
+
+
+def test_should_hold_a_wait_on_a_running_agent_with_the_keep_condition(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    notification = "<task-notification>the reuse agent finished</task-notification>"
+    transcript_path = write_records(tmp_path / "s.jsonl", [user_prompt_record(notification), READ_CALL])
+    reply_text = "The lint job is still running, and I'll report once it finishes."
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text)["reason"]
+    assert '("I\'ll report once")' in block_reason
+    assert block_reason.endswith(PROMISE_KEEP_CONDITION)
+
+
+OTHER_HOOK_FEEDBACK = {
+    "type": "user",
+    "isMeta": True,
+    "uuid": "feedback-1",
+    "message": {
+        "role": "user",
+        "content": "Stop hook feedback:\n[command hook 2]: The build cache is out of date.",
+    },
+}
+
+
+def keyed_prompt_record(prompt_text: str, prompt_uuid: str) -> dict[str, object]:
+    return {**user_prompt_record(prompt_text), "uuid": prompt_uuid}
+
+
+def keyed_turn(prompt_uuid: str = "prompt-1") -> list[dict[str, object]]:
+    return [keyed_prompt_record(BED_PROMPT, prompt_uuid), TRACKER_CALL, WAKE_CALL, OTHER_HOOK_FEEDBACK]
+
+
+def test_should_hold_a_promise_once_after_another_stop_hook_held_the_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", keyed_turn())
+    all_outputs = [
+        run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY)
+        for _ in range(3)
+    ]
+    assert all_outputs[0]["reason"].startswith(PROMISE_REASON_START)
+    assert all_outputs[0]["reason"].endswith(PROMISE_KEEP_CONDITION)
+    assert all_outputs[1:] == [{}, {}]
+
+
+def test_should_hold_again_after_a_new_prompt_in_the_same_session(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    first_path = write_records(tmp_path / "s.jsonl", keyed_turn("prompt-1"))
+    assert run_gate(monkeypatch, capsys, first_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY)
+    second_path = write_records(tmp_path / "s.jsonl", [*keyed_turn("prompt-1"), *keyed_turn("prompt-2")])
+    second_output = run_gate(monkeypatch, capsys, second_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY)
+    assert second_output["reason"].startswith(PROMISE_REASON_START)
+
+
+def test_should_hold_a_list_once_after_another_stop_hook_held_the_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_records = [keyed_prompt_record(DEFERRED_PROMPT, "prompt-1"), TRACKER_CALL, READ_CALL, OTHER_HOOK_FEEDBACK]
+    transcript_path = write_records(tmp_path / "s.jsonl", all_records)
+    first_output = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DEFERRED_REPLY)
+    assert first_output["reason"].startswith(LIST_REASON_START)
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DEFERRED_REPLY) == {}
+
+
+def test_should_pass_a_held_stop_when_the_turn_marker_cannot_be_written(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(tmp_path / "absent_directory"))
+    transcript_path = write_records(tmp_path / "s.jsonl", keyed_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY) == {}
+
+
+def test_should_pass_a_held_stop_after_this_gate_held_the_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    unkept_path = tmp_path / "absent_directory"
+    monkeypatch.setattr(tempfile, "gettempdir", lambda: str(unkept_path))
+    transcript_path = write_records(tmp_path / "s.jsonl", keyed_turn()[:-1])
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["reason"]
+    own_feedback = {**OTHER_HOOK_FEEDBACK, "message": {"role": "user", "content": f"Stop hook feedback:\n{first_reason}"}}
+    write_records(transcript_path, [*keyed_turn()[:-1], own_feedback])
+    unkept_path.mkdir()
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY) == {}
+
+
+def test_should_pass_a_held_stop_after_this_gate_held_the_first_stop(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", keyed_turn()[:-1])
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["decision"] == "block"
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY) == {}
+
+
+def test_should_keep_skipping_a_held_codex_stop(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    plan_arguments = json.dumps({"plan": [{"step": "Report the run", "status": "in_progress"}]})
+    plan_call = codex_record({"type": "function_call", "name": "update_plan", "arguments": plan_arguments})
+    transcript_path = write_records(tmp_path / "rollout.jsonl", [codex_prompt(BED_PROMPT), plan_call])
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY) == {}
+
+
+def test_should_leave_the_tracker_reasons_off_a_held_stop(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_records = [keyed_prompt_record(WORK_PROMPT, "prompt-1"), tool_call_record("Bash"), OTHER_HOOK_FEEDBACK]
+    transcript_path = write_records(tmp_path / "s.jsonl", all_records)
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True) == {}
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PROMISE_REPLY)[
+        "reason"
+    ]
+    assert "left the task list unchanged" not in block_reason
+
+
+JUDGE_ONLY_PROMISE = "Once the soak test settles, the numbers go in this thread."
+JUDGE_ONLY_PROMISE_REPLY = f"Both soak runs are armed. {JUDGE_ONLY_PROMISE}"
+JUDGE_ONLY_LIST_LEAD = "Three calls are yours:"
+JUDGE_ONLY_LIST_REPLY = f"{JUDGE_ONLY_LIST_LEAD}\n\n{THREE_BULLETS}"
+JUDGE_LOG_NAME = Path(".claude") / "logs" / "closing-reply-judge.log"
+
+
+def judge_answer(promise_span: str = "", list_span: str = "") -> dict[str, object]:
+    return {
+        "promised_report": bool(promise_span),
+        "promise_span": promise_span,
+        "decisions_as_list": bool(list_span),
+        "list_span": list_span,
+    }
+
+
+def judged_turn(prompt_text: str = BED_PROMPT) -> list[dict[str, object]]:
+    return [keyed_prompt_record(prompt_text, "prompt-1"), TRACKER_CALL, WAKE_CALL]
+
+
+def assistant_text_record(reply_text: str) -> dict[str, object]:
+    return {
+        "type": "assistant",
+        "message": {"id": "reply-1", "role": "assistant", "content": [{"type": "text", "text": reply_text}]},
+    }
+
+
+def test_should_hold_when_judge_reports_a_promised_report(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY)["reason"]
+    assert block_reason.startswith(PROMISE_REASON_START)
+    assert f'("{JUDGE_ONLY_PROMISE}")' in block_reason
+    assert block_reason.endswith(PROMISE_KEEP_CONDITION)
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_hold_when_judge_reports_decisions_as_a_list(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(list_span=JUDGE_ONLY_LIST_LEAD))
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn("Clean up the release branch"))
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_LIST_REPLY)["reason"]
+    assert block_reason.startswith(f'The closing reply lists 3 items under "{JUDGE_ONLY_LIST_LEAD}"')
+    assert SHORT_REPLY_INSTRUCTION in block_reason
+
+
+def test_should_allow_the_stop_when_the_judge_times_out(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    judge_stub.sleep(5)
+    monkeypatch.setattr(closing_reply_judge, "JUDGE_TIMEOUT_SECONDS", 0.5)
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+    assert "the child timed out" in (tmp_path / JUDGE_LOG_NAME).read_text()
+
+
+def test_should_allow_the_stop_when_the_judge_answer_is_not_the_verdict_shape(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(result="The reply promises a report.")
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_allow_the_stop_when_the_span_is_not_in_the_reply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span="The numbers go in this thread tomorrow."))
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+
+
+def test_should_use_the_phrase_checks_when_claude_is_missing(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY)["reason"].startswith(
+        PROMISE_REASON_START
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+
+
+def test_should_not_hold_on_phrases_when_the_judge_gives_no_verdict(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.exit_code(1)
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PROMISE_REPLY) == {}
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_hold_once_per_turn_when_the_judge_holds_twice(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    transcript_path = write_records(tmp_path / "s.jsonl", [*judged_turn(), OTHER_HOOK_FEEDBACK])
+    all_outputs = [
+        run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=JUDGE_ONLY_PROMISE_REPLY)
+        for _ in range(3)
+    ]
+    assert all_outputs[0]["reason"].startswith(PROMISE_REASON_START)
+    assert all_outputs[1:] == [{}, {}]
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_not_call_the_judge_after_this_turn_was_held(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY)["decision"] == "block"
+    held_stop = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=JUDGE_ONLY_PROMISE_REPLY)
+    assert held_stop == {}
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_allow_the_stop_inside_a_judge_or_review_child(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    monkeypatch.setenv("CLAUDE_TURN_REVIEW_CHILD", "1")
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [keyed_prompt_record(WORK_PROMPT, "prompt-1"), tool_call_record("Bash")]
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+    assert judge_stub.calls() == []
+
+
+def test_should_not_call_the_judge_on_codex_or_cursor_payloads(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    plan_arguments = json.dumps({"plan": [{"step": "Report the run", "status": "in_progress"}]})
+    plan_call = codex_record({"type": "function_call", "name": "update_plan", "arguments": plan_arguments})
+    rollout_path = write_records(tmp_path / "rollout.jsonl", [codex_prompt(BED_PROMPT), plan_call])
+    codex_output = run_gate(
+        monkeypatch, capsys, rollout_path, reply_text=PROMISE_REPLY, all_extra_fields={"turn_id": "turn-1"}
+    )
+    assert codex_output["reason"].startswith(PROMISE_REASON_START)
+    assert run_gate(monkeypatch, capsys, rollout_path, reply_text=PROMISE_REPLY)["reason"].startswith(
+        PROMISE_REASON_START
+    )
+    cursor_path = write_records(tmp_path / "cursor.jsonl", judged_turn())
+    cursor_output = run_gate(
+        monkeypatch,
+        capsys,
+        cursor_path,
+        reply_text=JUDGE_ONLY_PROMISE_REPLY,
+        all_extra_fields={"conversation_id": "c-1", "status": "completed", "loop_count": 0},
+    )
+    assert cursor_output == {}
+    assert judge_stub.calls() == []
+
+
+def test_should_make_no_judge_call_when_the_transcript_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    assert run_gate(monkeypatch, capsys, tmp_path / "absent.jsonl", reply_text=JUDGE_ONLY_PROMISE_REPLY) == {}
+    assert judge_stub.calls() == []
+    assert "the transcript cannot be read" in (tmp_path / JUDGE_LOG_NAME).read_text()
+
+
+def test_should_read_the_reply_from_the_transcript_when_the_payload_has_none(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(promise_span=JUDGE_ONLY_PROMISE))
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [*judged_turn(), assistant_text_record(JUDGE_ONLY_PROMISE_REPLY)]
+    )
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text="")["reason"]
+    assert block_reason.startswith(PROMISE_REASON_START)
+    [judge_call] = judge_stub.calls()
+    assert json.dumps(JUDGE_ONLY_PROMISE_REPLY) in judge_call["stdin"]

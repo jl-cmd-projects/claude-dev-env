@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from hooks_constants import closing_reply_judge_constants
 from hooks_constants import nested_project_hooks_constants
 from hooks_constants import turn_review_gate_constants
 from hooks_constants.hook_time_budget import call_timeout, remaining_seconds, time_budget
@@ -102,3 +103,9 @@ def test_should_give_the_nested_hooks_a_budget_on_every_event_it_is_registered_o
         if each_hook.get("command", "").endswith("/hooks/lifecycle/nested_project_hooks.py")
     }
     assert set(nested_project_hooks_constants.ALL_RUN_BUDGET_SECONDS_BY_EVENT) == all_registered_events
+
+
+def test_should_register_the_open_tasks_gate_with_a_45_second_timeout() -> None:
+    gate_timeout = registered_timeout("Stop", "blocking/open_tasks_stop_gate.py")
+    assert gate_timeout == 45
+    assert gate_timeout - closing_reply_judge_constants.JUDGE_TIMEOUT_SECONDS >= MINIMUM_MARGIN_SECONDS

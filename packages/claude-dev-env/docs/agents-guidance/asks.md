@@ -45,7 +45,7 @@ The gate holds a turn once when all three hold:
 - The turn ran a work tool: any tool but a tracker call, the session title tool, `AskUserQuestion`, a hearthbot decision card, Codex `request_user_input`, `ToolSearch`, `TaskList`, or `TaskGet`. A turn that only asks the user a question passes.
 - The turn made no tracker call: TaskCreate, TaskUpdate, TodoWrite, the Codex `update_plan`, or the Claude Code desktop `mcp__ccd_turn__update_plan`.
 
-The gate never reads the reply text. A held turn passes, so the gate adds at most one step to a turn.
+It also holds a turn once when the closing reply promises a later report the prompt did not ask for, or lists open decisions in chat when the turn sent no question tool call. In Claude Code one small model call judges the reply, and Codex and Cursor use phrase checks. [Conduct gates](../../hooks/features/conduct-gates.md) describes both. A held turn passes, so the gate adds at most one step to a turn.
 
 In Claude Code, `task_subject_outcome_gate.py` denies a task list item named as a procedure step. [Conduct gates](../../hooks/features/conduct-gates.md) lists what it matches.
 

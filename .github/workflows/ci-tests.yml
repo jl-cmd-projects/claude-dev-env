@@ -206,6 +206,27 @@ jobs:
             -n auto \
             "${deselect_args[@]}"
 
+      - name: Closing reply judge eval suite
+        env:
+          JUDGE_SUITE_COLLECT_FLOOR: "26"
+        run: |
+          set -euo pipefail
+          python -m pytest .claude/hillclimb/closing-reply-judge --collect-only -q | tee judge-collect-only.txt
+          COLLECTED_COUNT=$(grep -E '[0-9]+ tests? collected' judge-collect-only.txt | tail -1 | grep -oE '^[0-9]+' || true)
+          case "${COLLECTED_COUNT}" in
+            ''|*[!0-9]*)
+              echo "Collected count is unreadable ('${COLLECTED_COUNT}') — refusing to pass the floor check" >&2
+              exit 1
+              ;;
+          esac
+          if [ "${COLLECTED_COUNT}" -lt "${JUDGE_SUITE_COLLECT_FLOOR}" ]; then
+            echo "Collected count ${COLLECTED_COUNT} is BELOW the floor ${JUDGE_SUITE_COLLECT_FLOOR} — tests went missing" >&2
+            exit 1
+          fi
+          python -m pytest .claude/hillclimb/closing-reply-judge \
+            --basetemp="$RUNNER_TEMP/pytest-basetemp-judge" \
+            -q
+
   javascript:
     name: JS suite (ubuntu)
     needs: changes

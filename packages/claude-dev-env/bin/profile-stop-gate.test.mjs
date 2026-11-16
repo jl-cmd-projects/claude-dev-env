@@ -2,7 +2,10 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { lstatSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { mergeHooksIntoSettings } from './install.mjs';
 
 import {
     addOpenTasksGateToProfiles,
@@ -23,6 +26,13 @@ function makeHome(context) {
         hooks: { Stop: [{ hooks: [{ type: 'command', command: gateCommand, timeout: 10 }] }] },
     }, null, 4));
     return { homeDirectory, claudeHome, mainSettingsPath, gateCommand };
+}
+
+function gateTimeouts(settingsPath) {
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+    return (settings.hooks?.Stop ?? []).flatMap((eachGroup) => eachGroup.hooks
+        .filter((eachHook) => eachHook.command.includes('open_tasks_stop_gate.py'))
+        .map((eachHook) => eachHook.timeout));
 }
 
 function writeProfile(homeDirectory, name, settings) {
@@ -182,4 +192,22 @@ test('a settings.json that does not parse may hold the gate when its text names 
     assert.equal(unparsedSettingsMayHoldGate(otherHomePath, claudeHome), false);
     assert.equal(unparsedSettingsMayHoldGate(noGatePath, claudeHome), false);
     assert.equal(unparsedSettingsMayHoldGate(join(homeDirectory, 'missing', 'settings.json'), claudeHome), true);
+});
+
+test('should raise a profile gate timeout of 10 to 45 on install', (context) => {
+    const { homeDirectory, claudeHome, mainSettingsPath, gateCommand } = makeHome(context);
+    const profilePath = writeProfile(homeDirectory, 'older-install', {
+        hooks: { Stop: [{ hooks: [{ type: 'command', command: gateCommand, timeout: 10 }] }] },
+    });
+    const hooksConfigPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'hooks', 'hooks.json');
+    const hooksConfig = JSON.parse(readFileSync(hooksConfigPath, 'utf8'));
+    const mainSettings = JSON.parse(readFileSync(mainSettingsPath, 'utf8'));
+
+    mergeHooksIntoSettings(mainSettings, hooksConfig, claudeHome, 'python3', null, homeDirectory);
+    writeFileSync(mainSettingsPath, JSON.stringify(mainSettings, null, 4));
+    addOpenTasksGateToProfiles({ mainSettingsPath, claudeHome, allProfileSettingsPaths: [profilePath], homeDirectory });
+
+    assert.deepEqual(gateTimeouts(mainSettingsPath), [45]);
+    assert.deepEqual(gateTimeouts(profilePath), [45]);
+    assert.deepEqual(stopCommands(profilePath), [gateCommand]);
 });

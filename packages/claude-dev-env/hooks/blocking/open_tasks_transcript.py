@@ -31,6 +31,12 @@ The replay also notes what the current turn did::
                              word such as ``get``, ``list`` or ``read`` and no
                              write word such as ``update``
     turn_sent_file_paths     the paths the turn's SendUserFile calls sent
+    turn_key                 the ``uuid`` of the Claude Code prompt record that
+                             started the turn, or None for a Codex turn or a
+                             record with no ``uuid``
+    turn_stop_feedback_texts the text of each ``Stop hook feedback`` record
+                             the turn holds
+    is_codex_turn            a Codex ``response_item`` user message started the turn
 
 Across the whole session, the replay also notes whether a tracker tool exists::
 
@@ -91,6 +97,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     PENDING_STATUS,
     PROMPT_SNAPSHOT_ATTACHMENT_TYPE,
     RECORD_TYPE_KEY,
+    RECORD_UUID_KEY,
     TASK_CREATED_PATTERN,
     TASK_CREATE_TOOL_NAME,
     TASK_ID_KEY,
@@ -125,6 +132,7 @@ from open_tasks_transcript_records import (
     is_read_tool_name,
     send_call_file_paths,
     is_assistant_record,
+    stop_feedback_text,
     listed_tool_names,
 )
 
@@ -250,6 +258,9 @@ class TranscriptReplay:
         self.has_turn_question_tool = False
         self.has_turn_read_tool = False
         self.turn_sent_file_paths: list[str] = []
+        self.turn_key: str | None = None
+        self.turn_stop_feedback_texts: list[str] = []
+        self.is_codex_turn = False
         self.all_tool_listing_types: set[str] = set()
         self.has_tracker_tool = False
 
@@ -271,13 +282,25 @@ class TranscriptReplay:
         self.has_turn_question_tool = False
         self.has_turn_read_tool = False
         self.turn_sent_file_paths = []
+        self.turn_key = None
+        self.turn_stop_feedback_texts = []
+        self.is_codex_turn = False
 
     def apply_record(self, all_record_fields: dict[str, object]) -> None:
         prompt_text = codex_prompt_text(all_record_fields)
-        if prompt_text is None:
-            prompt_text = claude_prompt_text(all_record_fields)
         if prompt_text is not None:
             self.start_turn(prompt_text)
+            self.is_codex_turn = True
+            return
+        prompt_text = claude_prompt_text(all_record_fields)
+        if prompt_text is not None:
+            self.start_turn(prompt_text)
+            prompt_uuid = all_record_fields.get(RECORD_UUID_KEY)
+            self.turn_key = prompt_uuid if isinstance(prompt_uuid, str) and prompt_uuid else None
+            return
+        feedback_text = stop_feedback_text(all_record_fields)
+        if feedback_text is not None:
+            self.turn_stop_feedback_texts.append(feedback_text)
             return
         tool_listing = listed_tool_names(all_record_fields)
         if tool_listing is not None:
