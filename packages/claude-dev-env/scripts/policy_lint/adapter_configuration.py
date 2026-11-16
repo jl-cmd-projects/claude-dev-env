@@ -137,6 +137,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/task_subject_outcome_gate.py      -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
         hooks/blocking/send_user_file_worktree_root_gate.py -> exempt
+        hooks/blocking/sent_file_question_gate.py        -> exempt
         hooks/blocking/question_brief_gate.py            -> exempt
         hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
         hooks/blocking/final_reply_gate.py               -> exempt
@@ -188,6 +189,10 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The send user file gate denies a SendUserFile path outside the session's
     working directory, which the desktop file pane cannot open. It decides
     where a sent file sits and no code or safety policy.
+
+    The sent file question gate denies a sent file or page that asks the
+    user a question, so the question goes through the question tool. It
+    decides where a question is asked and no code or safety policy.
 
     The question brief gate denies a question call when the chat text before
     it in the same turn is too long to read at a glance. It decides the shape
