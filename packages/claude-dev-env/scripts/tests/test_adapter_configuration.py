@@ -90,6 +90,14 @@ def test_new_open_tasks_stop_gate_registration_is_clean(tmp_path: Path) -> None:
     assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
 
 
+def test_new_auto_mode_refusal_stop_gate_registration_is_clean(tmp_path: Path) -> None:
+    current_document = _hook_document(
+        ["hooks/blocking/auto_mode_refusal_stop_gate.py"],
+        '{"hooks": {}}',
+    )
+    assert adapters.hook_configuration_diagnostics(current_document, tmp_path) == ()
+
+
 def test_new_closing_question_round_gate_registration_is_clean(tmp_path: Path) -> None:
     current_document = _hook_document(
         ["hooks/blocking/closing_question_round_gate.py"],

@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/auto_mode_refusal_stop_gate.py",
+  "message": "packages/claude-dev-env/hooks/blocking/auto_mode_refusal_stop_gate.py:318: Function 'hold_reason_for_stop' is 32 lines (max 30)",
+  "check_id": "validators/function-line-cap",
+  "severity": "smell",
+  "origin_commit": "9085edbf1e262c8dd3b449cf20ec837ad42bb707"
+}

@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/advisory/auto_mode_denial_quick_fix.py",
+  "message": "packages/claude-dev-env/hooks/advisory/auto_mode_denial_quick_fix.py:1: File is 439 lines (max 400) - consider splitting",
+  "check_id": "validators/file-length",
+  "severity": "smell",
+  "origin_commit": "b90b0dca8a4b82f06fb88b57013bfdbed8bee030"
+}

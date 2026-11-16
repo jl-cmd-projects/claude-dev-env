@@ -10,6 +10,7 @@ export const EVER_REGISTERED_HOOK_RELATIVE_PATHS = new Set([
     'advisory/refactor_guard.py',
     'blocking/agent-execution-intent-gate.py',
     'blocking/artifact_dark_mode_gate.py',
+    'blocking/auto_mode_refusal_stop_gate.py',
     'blocking/artifact_look_gate.py',
     'blocking/ask_user_question_shape_blocker.py',
     'blocking/ask_user_question_style_blocker.py',
