@@ -22,3 +22,23 @@ packages/claude-dev-env/bin/
 
 # The session-start hook this repository runs for its own sessions.
 .claude/hooks/
+
+# Plugin manifests the installer and the marketplace read.
+.claude-plugin/
+
+# Links a session follows to the package's skills and agents.
+packages/claude-dev-env/.claude/skills
+packages/claude-dev-env/.claude/agents
+
+# Git hooks git runs on a commit or a push.
+packages/claude-dev-env/hooks/git-hooks/
+
+# The pull request review loop, whose scripts call gh.
+packages/claude-dev-env/_shared/pr-loop/
+
+# Hook files that call gh or make an HTTP request at run time.
+packages/claude-dev-env/hooks/blocking/pull_request_proof.py
+packages/claude-dev-env/hooks/blocking/followup_pr_dedupe.py
+packages/claude-dev-env/hooks/advisory/pr_done_reminder.py
+packages/claude-dev-env/hooks/hooks_constants/gh_api_budget.py
+packages/claude-dev-env/hooks/routing/usage_pace.py
