@@ -35,7 +35,7 @@ def test_the_reference_lists_the_four_slice_tests_in_order() -> None:
 def test_the_reference_merges_cosmetic_cuts_back_and_allows_one_pull_request() -> None:
     reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
     assert (
-        "A cut by folder, file count, or line cap that fails these tests is cosmetic. Merge it back."
+        "A cut by folder, file count, or line cap that fails these tests is cosmetic, and the [size bar](#size-bar) only says when to look for a seam. Merge it back."
         in reference_text
     )
     assert (
@@ -87,7 +87,10 @@ def test_the_retro_split_links_the_stack_level_proof_and_does_not_copy_it() -> N
 
 def test_the_decision_tree_points_every_pull_request_at_the_size_bar() -> None:
     decision_tree = _decision_tree(PR_LIFECYCLE_PATH.read_text(encoding="utf-8"))
-    assert "(reference/split-a-pull-request.md#size-bar)" in decision_tree
+    assert (
+        "Every PR, stacked or not, checks [the size bar](reference/split-a-pull-request.md#size-bar)."
+        in decision_tree
+    )
 
 
 def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
@@ -108,7 +111,7 @@ def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
         "Count added plus deleted lines, tests included, without lockfiles",
         "without files marked `linguist-generated`",
         "Up to 400 lines fits one review, and about 100 lines reads best.",
-        "Over 400 lines, look for another seam that passes the four tests.",
+        "Over 400 lines, look for a seam that passes the four tests.",
         "When none passes, keep the slice whole and state the reason in the pull request body.",
         "Over 1,000 lines, put that reason under a `## Why one pull request` heading.",
         "google.github.io/eng-practices/review/developer/small-cls.html",

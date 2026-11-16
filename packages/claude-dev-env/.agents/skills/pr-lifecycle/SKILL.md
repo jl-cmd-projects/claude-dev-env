@@ -11,7 +11,7 @@ User-level rule: applies to **every** git repo that uses GitHub with `gh`. Small
 
 ### Workflow decision tree
 
-**When to use stacked PRs:** Feature B depends on Feature A's implementation. See the Delivery section of `~/.claude/docs/rule-guides/verified-work.md`. To decide where to cut, or to split an open PR, read [the slice test](reference/split-a-pull-request.md). Every PR, stacked or not, checks [the size bar](reference/split-a-pull-request.md#size-bar) first.
+**When to use stacked PRs:** Feature B depends on Feature A's implementation. See the Delivery section of `~/.claude/docs/rule-guides/verified-work.md`. To decide where to cut, or to split an open PR, read [the slice test](reference/split-a-pull-request.md). Every PR, stacked or not, checks [the size bar](reference/split-a-pull-request.md#size-bar).
 
 **When to extract shared infrastructure first:** Multiple features need same utilities/helpers
 
