@@ -70,6 +70,24 @@ def test_timestamped_asset_name_prefixes_basename() -> None:
     assert len(asset_name) > len("_contact_sheet.png")
 
 
+@pytest.mark.parametrize(
+    "source_path",
+    [
+        r"C:\stage\nested\contact_sheet.png",
+        "/stage/nested/contact_sheet.png",
+        "C:/stage/nested/contact_sheet.png",
+    ],
+)
+def test_timestamped_asset_name_should_keep_only_the_basename_for_either_slash(
+    source_path: str,
+) -> None:
+    asset_name = mod.timestamped_asset_name(source_path)
+    date_part, time_part, basename = asset_name.split("_", 2)
+    assert date_part.isdigit()
+    assert time_part.isdigit()
+    assert basename == "contact_sheet.png"
+
+
 def test_upload_artifact_returns_the_readback_url(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -25,7 +25,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from dev_env_scripts_constants.gh_artifact_upload_constants import (
     ALL_OXIPNG_LOSSLESS_ARGUMENTS,
@@ -123,7 +123,7 @@ def ensure_artifacts_release(repository: str) -> None:
 
 
 def timestamped_asset_name(file_path: str) -> str:
-    """Return ``YYYYMMDD_HHMMSS_<basename>`` for the given file path.
+    """Return ``YYYYMMDD_HHMMSS_<basename>`` for a path with either slash direction.
 
     Args:
         file_path: The source file to be uploaded.
@@ -133,7 +133,7 @@ def timestamped_asset_name(file_path: str) -> str:
     """
     current_timestamp = datetime.datetime.now().strftime(ASSET_NAME_TIMESTAMP_FORMAT)
     return ASSET_NAME_TEMPLATE.format(
-        timestamp=current_timestamp, basename=Path(file_path).name
+        timestamp=current_timestamp, basename=PureWindowsPath(file_path).name
     )
 
 
