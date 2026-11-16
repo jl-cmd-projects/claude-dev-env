@@ -7,7 +7,7 @@ This family decides whether an agent's file mutation can run.
 - `blocking/pre_tool_use_dispatcher.py` runs its native description check and returns one permission decision, or a hosted hook's `systemMessage` alone when no hook decides.
 - `blocking/state_description_blocker.py` rejects historical or comparative prose in supported comments, docstrings, and Markdown.
 - `blocking/context_budget_blocker.py` rejects a write that grows a skill entry, `AGENTS.md`, `CLAUDE.md`, or rule file past its context budget.
-- `blocking/pull_request_proof_edit_gate.py` rejects an edit to the pull request proof gate, its constants, this edit gate, or the dispatcher roster while the proof gate's last deny of a create call in the session has no passing create call after it.
+- `blocking/pull_request_proof_edit_gate.py` rejects an edit to the pull request proof gate, its constants, the evidence tier module and its constants, this edit gate, or the dispatcher roster while the proof gate's last deny of a create call in the session has no passing create call after it.
 
 ## When it fires
 

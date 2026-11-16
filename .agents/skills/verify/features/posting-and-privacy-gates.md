@@ -36,7 +36,7 @@ Expected results:
 |---|---|---|
 | Conventional title, `pr-create` body with every section in the pull-request skill's `reference/body-sections.md` | nothing | 0 |
 | Title `Add a map` | `pull request title does not use the repository Conventional Commit form` | 1 |
-| `pr-create` body with none of those sections | `body is missing required heading: What this does`, then `Risk`, then `How to revert`, then the proof gate's Proof in practice and Existing work messages | 1 |
+| `pr-create` body with none of those sections | `body is missing required heading: What this does`, then `Risk`, then `How to revert`, then the proof gate's Proof in practice message when the evidence tier asks for the section, and its Existing work message | 1 |
 | `pr-create` or `pr-edit` body whose `## What this does` section holds no closed `mermaid` block that starts with `flowchart` and joins two nodes with an arrow | `## What this does needs a mermaid flowchart that draws the flow before and after the change` | 1 |
 | Body naming `/tmp/run/log.txt` | `body contains a volatile local artifact path` | 1 |
 | Body line `We park it rather than fix it.` | `Contrast framing (substitution-rather-than): ...` | 1 |

@@ -31,7 +31,7 @@ One task gives a hint. Use the steps above before you change a default.
 ## Tools in this repo
 
 - [Report task usage](https://github.com/jl-cmd-projects/claude-dev-env/blob/main/docs/guides/task-usage-report.md): record token use, cost and pass or fail for each attempt. The script is [task_usage_report.py](../../scripts/task_usage_report.py).
-- [Proof before pull request](../rule-guides/proof-before-pull-request.md): spawn headless runs through the account broker, with `--model` and `--effort` on every call.
+- [Proof before pull request](../rule-guides/proof-before-pull-request.md): for a live-tier proof, spawn headless runs through the account broker, with `--model` and `--effort` on every call.
 - [build-eval skill](../../.agents/skills/build-eval/SKILL.md): design an eval with labeled cases and fixed grading.
 - [Subagent effort routing eval](https://github.com/jl-cmd-projects/claude-dev-env/blob/main/.claude/hillclimb/subagent-effort-routing/results.md): a worked example. It runs each case as a fresh headless session and grades the pair that each child ran at. Its metrics are in [metrics.md](https://github.com/jl-cmd-projects/claude-dev-env/blob/main/.claude/hillclimb/subagent-effort-routing/metrics.md).
 
