@@ -26,6 +26,9 @@ DECLARATION = "Open items: none."
 def scratch_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ATTENDED", "1")
+
+
 WORK_FEEDBACK_TEXT = f"Stop hook feedback:\n{WORK_REASON_LEAD}\nRead the task list."
 
 
