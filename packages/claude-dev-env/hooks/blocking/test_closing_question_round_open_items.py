@@ -143,6 +143,7 @@ def test_marked_open_lines_should_not_read_a_marker_inside_a_snake_case_name(
         "The list (see todo.md) is short.",
         "Open https://example.com/docs/pending/ to read it.",
         "Read **todo.md** first.",
+        "Read \u2039todo.md\u203a first.",
         "The steps are in a/" + "b" * 90 + "/todo.md now.",
     ],
 )
@@ -174,6 +175,20 @@ def test_marked_open_lines_should_not_read_a_marker_inside_a_file_name_or_path(
 )
 def test_marked_open_lines_should_read_a_marker_before_a_full_stop(marker_line: str) -> None:
     assert marked_open_lines([marker_line], NO_DEADLINE) == [marker_line]
+
+
+@pytest.mark.parametrize(
+    "long_path_line",
+    [
+        "Read " + "a" * 40 + "-" * 56 + "/todo.md now.",
+        "Read todo/" + "x" * 40 + "-" * 53 + ".md now.",
+        "Read docs/" + "-" * 200 + "/todo.md now.",
+    ],
+)
+def test_marked_open_lines_should_count_each_hyphen_of_a_path_toward_the_reach(
+    long_path_line: str,
+) -> None:
+    assert marked_open_lines([long_path_line], NO_DEADLINE) == [long_path_line]
 
 
 def test_marked_open_lines_should_not_read_a_snake_case_name_whose_underscore_ends_a_window() -> None:

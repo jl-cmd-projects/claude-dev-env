@@ -88,5 +88,5 @@ def test_file_name_pattern_should_take_a_short_lower_case_extension(
 
 
 def test_path_edge_characters_should_strip_quotes_and_emphasis_around_a_file_name() -> None:
-    for each_wrapped_name in ["**todo.md**", "_todo.md_", "~~todo.md~~", "\u201ctodo.md\u201d", "(todo.md)."]:
+    for each_wrapped_name in ["**todo.md**", "_todo.md_", "~~todo.md~~", "\u201ctodo.md\u201d", "\u2039todo.md\u203a", "(todo.md)."]:
         assert each_wrapped_name.strip(PATH_EDGE_CHARACTERS) == "todo.md"

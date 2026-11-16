@@ -58,8 +58,9 @@ or digits, such as ``todo.md``, or inside a path of two or more names that
 ends in a slash or such a file name, such as ``docs/pending/``, is none
 either. A marker joined to another word, such as ``skipped/untested``, still
 counts, and so do a marker of two or more words and a path that reaches
-more than 96 characters past the marker on either side. Outer quotes,
-brackets, and emphasis marks around the word are stripped first.
+more than 96 characters past the marker on either side, each hyphen of a
+run counted as written. Outer quotes, brackets, and emphasis marks around
+the word are stripped first.
 """
 
 from __future__ import annotations
@@ -171,37 +172,19 @@ def _original_position(
     return all_original_offsets[offset_index] + collapsed_position - all_collapsed_offsets[offset_index]
 
 
-def _is_inside_a_path(collapsed_text: str, marker_start: int, marker_end: int) -> bool:
-    neighbor_text = collapsed_text[max(marker_start - 1, 0) : marker_start] + collapsed_text[
-        marker_end : marker_end + 1
-    ]
-    if not any(each_character in PATH_JOINING_CHARACTERS for each_character in neighbor_text):
-        return False
-    if PATH_BREAK_PATTERN.search(collapsed_text, marker_start, marker_end):
-        return False
-    reach_start = max(marker_start - PATH_REACH_CHARACTERS, 0)
-    reach_end = min(marker_end + PATH_REACH_CHARACTERS, len(collapsed_text))
-    leading_part = PATH_BREAK_PATTERN.split(collapsed_text[reach_start:marker_start])[-1]
-    trailing_part = PATH_BREAK_PATTERN.split(collapsed_text[marker_end:reach_end])[0]
-    is_token_cut_short = (
-        len(leading_part) == marker_start - reach_start
-        and reach_start > 0
-        and not PATH_BREAK_PATTERN.match(collapsed_text, reach_start - 1)
-    ) or (
-        len(trailing_part) == reach_end - marker_end
-        and reach_end < len(collapsed_text)
-        and not PATH_BREAK_PATTERN.match(collapsed_text, reach_end)
-    )
-    if is_token_cut_short:
-        return False
-    token = leading_part + collapsed_text[marker_start:marker_end] + trailing_part
-    left_stripped_token = token.lstrip(PATH_EDGE_CHARACTERS)
-    path_text = left_stripped_token.rstrip(PATH_EDGE_CHARACTERS)
-    marker_offset_end = len(leading_part) - (len(token) - len(left_stripped_token)) + (
-        marker_end - marker_start
-    )
-    if marker_offset_end > len(path_text):
-        return False
+def _word_parts_around(text: str, marker_start: int, marker_end: int) -> tuple[str, str] | None:
+    leading_part = PATH_BREAK_PATTERN.split(
+        text[max(marker_start - PATH_REACH_CHARACTERS - 1, 0) : marker_start]
+    )[-1]
+    trailing_part = PATH_BREAK_PATTERN.split(
+        text[marker_end : marker_end + PATH_REACH_CHARACTERS + 1]
+    )[0]
+    if max(len(leading_part), len(trailing_part)) > PATH_REACH_CHARACTERS:
+        return None
+    return leading_part, trailing_part
+
+
+def _has_path_shape(path_text: str, marker_offset_end: int) -> bool:
     all_segments = PATH_SEPARATOR_PATTERN.split(path_text)
     file_name_match = FILE_NAME_PATTERN.fullmatch(all_segments[-1])
     if file_name_match is not None:
@@ -209,6 +192,24 @@ def _is_inside_a_path(collapsed_text: str, marker_start: int, marker_end: int) -
     has_directory_shape = len(all_segments) > 1 and not all_segments[-1]
     named_segment_count = sum(1 for each_segment in all_segments if each_segment)
     return has_directory_shape and named_segment_count >= MINIMUM_PATH_SEGMENT_COUNT
+
+
+def _is_inside_a_path(text: str, marker_start: int, marker_end: int) -> bool:
+    neighbor_text = text[max(marker_start - 1, 0) : marker_start] + text[marker_end : marker_end + 1]
+    if not any(each_character in PATH_JOINING_CHARACTERS for each_character in neighbor_text):
+        return False
+    if PATH_BREAK_PATTERN.search(text, marker_start, marker_end):
+        return False
+    word_parts = _word_parts_around(text, marker_start, marker_end)
+    if word_parts is None:
+        return False
+    leading_part, trailing_part = word_parts
+    left_stripped_word = (leading_part + text[marker_start:marker_end] + trailing_part).lstrip(
+        PATH_EDGE_CHARACTERS
+    )
+    path_text = left_stripped_word.rstrip(PATH_EDGE_CHARACTERS)
+    marker_offset_end = len(left_stripped_word) - len(trailing_part)
+    return marker_offset_end <= len(path_text) and _has_path_shape(path_text, marker_offset_end)
 
 
 def _collapsed_marker_spans(collapsed_text: str, deadline_at: float) -> Iterator[tuple[int, int]]:
@@ -222,8 +223,7 @@ def _collapsed_marker_spans(collapsed_text: str, deadline_at: float) -> Iterator
         yield from (
             each_match.span()
             for each_match in all_window_matches
-            if (each_match.end() < window_end or scan_end >= len(collapsed_text))
-            and not _is_inside_a_path(collapsed_text, *each_match.span())
+            if each_match.end() < window_end or scan_end >= len(collapsed_text)
         )
 
 
@@ -232,10 +232,14 @@ def _marker_spans(folded_text: str, deadline_at: float) -> Iterator[tuple[int, i
         folded_text, deadline_at
     )
     for each_marker_start, each_marker_end in _collapsed_marker_spans(collapsed_text, deadline_at):
-        yield (
-            _original_position(each_marker_start, all_collapsed_offsets, all_original_offsets),
-            _original_position(each_marker_end - 1, all_collapsed_offsets, all_original_offsets) + 1,
+        original_start = _original_position(
+            each_marker_start, all_collapsed_offsets, all_original_offsets
         )
+        original_end = (
+            _original_position(each_marker_end - 1, all_collapsed_offsets, all_original_offsets) + 1
+        )
+        if not _is_inside_a_path(folded_text, original_start, original_end):
+            yield original_start, original_end
 
 
 def _paragraph_quotes(paragraph_text: str, deadline_at: float) -> list[str]:
