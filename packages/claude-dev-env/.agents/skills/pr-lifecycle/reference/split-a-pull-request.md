@@ -17,7 +17,7 @@ Decide the slices when you write the plan. The Delivery section of `~/.claude/do
 
 ## Size bar
 
-Apply the bar to each pull request, including each stack level. The bar only says when to look for a seam. Every cut still passes the four tests. Count added plus deleted lines, tests included, without lockfiles and without files marked `linguist-generated`. A renamed or moved file counts only its edited lines.
+Apply the bar to each pull request, including each stack level. The bar only says when to look for a seam. Every cut still passes the four tests. Count added plus deleted lines, tests included, without lockfiles and without files marked `linguist-generated`. A renamed or moved file counts only its edited lines. Count a stack level against the branch below it.
 
 - Up to 400 lines fits one review, and about 100 lines reads best.
 - Over 400 lines, look for another seam that passes the four tests. When none passes, keep the slice whole and state the reason in the pull request body.

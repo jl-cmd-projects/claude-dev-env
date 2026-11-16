@@ -99,6 +99,7 @@ def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
     all_required_phrases = (
         "Apply the bar to each pull request, including each stack level.",
         "A renamed or moved file counts only its edited lines.",
+        "Count a stack level against the branch below it.",
         "Every cut still passes the four tests.",
         "Count added plus deleted lines, tests included, without lockfiles",
         "without files marked `linguist-generated`",
@@ -111,3 +112,9 @@ def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
     )
     for each_phrase in all_required_phrases:
         assert each_phrase in size_bar
+    all_bullet_positions = [
+        size_bar.index("- Up to 400 lines"),
+        size_bar.index("- Over 400 lines"),
+        size_bar.index("- Over 1,000 lines"),
+    ]
+    assert all_bullet_positions == sorted(all_bullet_positions)
