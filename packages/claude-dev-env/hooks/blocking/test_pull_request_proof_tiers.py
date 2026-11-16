@@ -520,6 +520,77 @@ def test_should_give_the_live_tier_to_an_edit_that_shares_its_command(tmp_path: 
     )
 
 
+def _clone_on_release(
+    tmp_path: Path,
+    all_main_texts_by_path: dict[str, str],
+    all_release_texts_by_path: dict[str, str],
+    all_branch_texts_by_path: dict[str, str],
+) -> Path:
+    origin_path = tmp_path / "origin"
+    clone_path = tmp_path / "clone"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    _write_files(origin_path, {"readme.md": "base\n"})
+    _git(origin_path, "add", ".")
+    _git(origin_path, "commit", "-q", "-m", "base")
+    _git(origin_path, "checkout", "-q", "-b", "release")
+    _write_files(origin_path, all_release_texts_by_path)
+    _git(origin_path, "add", ".")
+    _git(origin_path, "commit", "-q", "--allow-empty", "-m", "release")
+    _git(origin_path, "checkout", "-q", "main")
+    _write_files(origin_path, all_main_texts_by_path)
+    _git(origin_path, "add", ".")
+    _git(origin_path, "commit", "-q", "--allow-empty", "-m", "main")
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    _git(clone_path, "checkout", "-q", "-b", "feature", "origin/release")
+    _write_files(clone_path, all_branch_texts_by_path)
+    _git(clone_path, "add", ".")
+    _git(clone_path, "commit", "-q", "-m", "change")
+    return clone_path
+
+
+def test_should_read_the_changed_paths_against_the_named_base(tmp_path: Path) -> None:
+    origin_path = tmp_path / "origin"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    _write_files(origin_path, {"readme.md": "base\n"})
+    _git(origin_path, "add", ".")
+    _git(origin_path, "commit", "-q", "-m", "base")
+    _git(origin_path, "branch", "release")
+    _write_files(origin_path, {"skills/ship/SKILL.md": "# Ship\n"})
+    _git(origin_path, "add", ".")
+    _git(origin_path, "commit", "-q", "-m", "skill on main")
+    clone_path = tmp_path / "clone"
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    _git(clone_path, "checkout", "-q", "-b", "feature")
+    _write_files(clone_path, {"docs/guide.md": "new words\n"})
+    _git(clone_path, "add", ".")
+    _git(clone_path, "commit", "-q", "-m", "docs")
+    command = _create_command(clone_path, NO_PROOF_BODY) + " --base release"
+    reason = gate.missing_proof_reason(_payload_with_command(clone_path, command))
+    assert reason == MISSING_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.LIVE_SURFACE, "skills/ship/SKILL.md")
+    )
+
+
+def test_should_read_the_declared_surfaces_at_the_named_base(tmp_path: Path) -> None:
+    clone_path = _clone_on_release(
+        tmp_path,
+        {".claude/live-surfaces.txt": "src/\n"},
+        {".claude/live-surfaces.txt": DECLARED_SURFACES},
+        {"src/gate.py": "x = 2\n"},
+    )
+    command = _create_command(clone_path, TEST_RUN_PROOF_BODY) + " --base release"
+    assert gate.missing_proof_reason(_payload_with_command(clone_path, command)) is None
+
+
+def test_should_give_the_unread_tier_when_the_named_base_is_missing(tmp_path: Path) -> None:
+    clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
+    command = _create_command(clone_path, NO_PROOF_BODY) + " --base no-such-branch"
+    reason = gate.missing_proof_reason(_payload_with_command(clone_path, command))
+    assert reason == MISSING_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.UNREAD_FILE_LIST, None)
+    )
+
+
 def test_should_skip_the_build_eval_scan_for_a_feature_that_owes_no_eval(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

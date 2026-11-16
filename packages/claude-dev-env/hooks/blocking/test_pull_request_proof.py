@@ -1190,9 +1190,9 @@ def test_one_gate_run_should_resolve_the_merge_base_once_for_the_waiver_and_look
     all_head_references: list[str] = []
     original_first_merge_base = gate._first_merge_base
 
-    def counted_first_merge_base(working_directory: str, head_reference: str) -> str | None:
+    def counted_first_merge_base(working_directory: str, head_reference: str, base_branch: str | None) -> str | None:
         all_head_references.append(head_reference)
-        return original_first_merge_base(working_directory, head_reference)
+        return original_first_merge_base(working_directory, head_reference, base_branch)
 
     monkeypatch.setattr(gate, "_first_merge_base", counted_first_merge_base)
     payload = _mcp_create_on_branch(WAIVER_BODY, clone_path)
