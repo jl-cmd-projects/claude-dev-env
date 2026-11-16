@@ -1,0 +1,8 @@
+{
+  "rule_id": "test-pairing",
+  "file_path": "packages/claude-dev-env/hooks/blocking/auto_mode_refusal_stop_gate.py",
+  "message": "Changed production file has no changed matching test",
+  "check_id": "test-pairing",
+  "severity": "smell",
+  "origin_commit": "5765b4819af7925a294c0253a3395f8adcf7216a"
+}

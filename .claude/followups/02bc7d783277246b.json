@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/auto_mode_refusal_stop_gate.py",
+  "message": "packages/claude-dev-env/hooks/blocking/auto_mode_refusal_stop_gate.py:149: Function '_asked_entry_ids' is 32 lines (max 30)",
+  "check_id": "validators/function-line-cap",
+  "severity": "smell",
+  "origin_commit": "90230399fe3cd9f3094497e7f16f6bff779d9ce1"
+}

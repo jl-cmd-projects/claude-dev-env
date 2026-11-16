@@ -10,7 +10,15 @@ from __future__ import annotations
 
 __all__ = [
     "HOOK_EVENT_NAME",
-    "RULE_LABEL_PATTERN",
+    "ALL_NO_VERDICT_REASON_PREFIXES",
+    "UNEXPLAINED_VERDICT_REASON_PREFIX",
+    "UNEXPLAINED_RULE_LABEL",
+    "BRACKETED_LABEL_PATTERN",
+    "BARE_LABEL_PATTERN",
+    "SENTENCE_END_PATTERN",
+    "RULE_LABEL_DISALLOWED_CHARACTER_PATTERN",
+    "ALL_POWERSHELL_SINGLE_QUOTE_CHARACTERS",
+    "MAXIMUM_PROSE_RULE_NAME_CHARACTERS",
     "UNNAMED_RULE_LABEL",
     "MAXIMUM_ACTION_SUMMARY_CHARACTERS",
     "TRUNCATION_MARKER",
@@ -18,13 +26,36 @@ __all__ = [
     "ALL_COMMAND_INPUT_KEYS",
     "ALLOW_ENTRY_TEMPLATE",
     "POWERSHELL_BLOCK_TEMPLATE",
+    "LABELLED_RULE_WORDING_COMMAND_TEMPLATE",
+    "UNLABELLED_RULE_WORDING_COMMAND",
+    "LABELLED_RULE_WORDING_LINE_TEMPLATE",
+    "UNLABELLED_RULE_WORDING_LINE_TEMPLATE",
     "VERDICT_CONTEXT_TEMPLATE",
     "NO_VERDICT_CONTEXT_TEMPLATE",
     "USER_MESSAGE_TEMPLATE",
+    "CLASSIFIER_REASON_PREFIX_PATTERN",
+    "QUESTION_CONTEXT_TEMPLATE",
+    "DEFAULT_TOOL_NAME",
 ]
 
 HOOK_EVENT_NAME = "PermissionDenied"
-RULE_LABEL_PATTERN = r"\[([^\]]+)\]"
+DEFAULT_TOOL_NAME = "tool"
+ALL_NO_VERDICT_REASON_PREFIXES = (
+    "auto mode could not evaluate this action",
+    "classifier unavailable",
+    "the server-side auto mode classifier gave no verdict",
+    "a hook changed this call's input after auto mode reviewed it",
+)
+UNEXPLAINED_VERDICT_REASON_PREFIX = "the server-side auto mode classifier judged this action dangerous"
+UNEXPLAINED_RULE_LABEL = "Unexplained"
+BRACKETED_LABEL_PATTERN = r"^\s*\[(?P<label>[^\]]+)\]\s*(?P<prose>.*)$"
+BARE_LABEL_PATTERN = (
+    r"^\s*(?P<label>[A-Z][\w-]*(?:\s+[A-Z][\w-]*)+)\s*(?:[,:;.]|\s-\s|$)\s*(?P<prose>.*)$"
+)
+SENTENCE_END_PATTERN = r"[.!?](?:\s+|$)"
+RULE_LABEL_DISALLOWED_CHARACTER_PATTERN = r"[^A-Za-z0-9 _/-]"
+ALL_POWERSHELL_SINGLE_QUOTE_CHARACTERS = ("'", "\u2018", "\u2019", "\u201a", "\u201b")
+MAXIMUM_PROSE_RULE_NAME_CHARACTERS = 80
 UNNAMED_RULE_LABEL = "unnamed rule"
 MAXIMUM_ACTION_SUMMARY_CHARACTERS = 160
 TRUNCATION_MARKER = "..."
@@ -64,7 +95,12 @@ In your next message to the user, propose these two fixes. Do not retry and do n
 ```
 
 For cloud sessions, the same entry must land in the ~/.claude/settings.json that the session's setup installs.
-Read the rule wording with: claude auto-mode defaults --label '{rule_label}'"""
+{rule_wording_line}"""
+
+LABELLED_RULE_WORDING_COMMAND_TEMPLATE = "claude auto-mode defaults --label '{escaped_label}'"
+UNLABELLED_RULE_WORDING_COMMAND = "claude auto-mode defaults"
+LABELLED_RULE_WORDING_LINE_TEMPLATE = "Read the rule wording with: {command}"
+UNLABELLED_RULE_WORDING_LINE_TEMPLATE = "Find the matching rule with: {command}"
 
 NO_VERDICT_CONTEXT_TEMPLATE = """\
 === AUTO MODE DENIAL QUICK FIX ===
@@ -77,3 +113,15 @@ An autoMode.allow entry cannot clear a denial with no verdict. Tell the user the
 USER_MESSAGE_TEMPLATE = (
     "Auto mode blocked {tool_name} [{rule_label}]. Claude will propose a quick fix."
 )
+
+CLASSIFIER_REASON_PREFIX_PATTERN = (
+    r"^\s*(?:Permission for this action was denied by the Claude Code auto mode classifier\.\s*)?"
+    r"(?:Reason:\s*)?"
+)
+
+QUESTION_CONTEXT_TEMPLATE = """
+
+=== AUTO MODE QUESTION ===
+Ask this question in place of the two fixes above, and do not write them out. Before you end the turn, ask the user this question with one AskUserQuestion call. Copy the question word for word, use the header `Auto mode`, and give the options `Keep refusing` and `Allow it`:
+{question}
+On Allow it, follow {playbook_path}: retry the step once and add one allow rule for this kind of step. On Keep refusing, go on with other work."""

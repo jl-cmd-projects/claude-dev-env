@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/auto_mode_refusal_stop_gate.py",
+  "message": "packages/claude-dev-env/hooks/blocking/auto_mode_refusal_stop_gate.py:123: Function '_card_offset_by_id' has nesting depth 3 (max 2)",
+  "check_id": "validators/nesting-depth",
+  "severity": "smell",
+  "origin_commit": "90230399fe3cd9f3094497e7f16f6bff779d9ce1"
+}
