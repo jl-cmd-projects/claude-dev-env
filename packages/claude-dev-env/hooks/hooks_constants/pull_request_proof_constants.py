@@ -89,6 +89,7 @@ DECLARED_SURFACES_FILE_ENCODING = "utf-8"
 ALL_GH_EDIT_BOOLEAN_FLAGS = frozenset({"--remove-milestone"})
 ALL_EDIT_NUMBER_FLAGS = frozenset({"--number"})
 FLAG_PREFIX = "-"
+END_OF_OPTIONS_MARKER = "--"
 FLAG_ASSIGNMENT_MARKER = "="
 NEEDS_PROOF_SECTION_KEY = "needs_proof_section"
 NEEDS_EVAL_SECTION_KEY = "needs_eval_section_for_a_feature"

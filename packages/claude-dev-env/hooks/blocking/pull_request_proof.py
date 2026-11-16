@@ -58,6 +58,7 @@ from hooks_constants.pull_request_proof_constants import (
     CONTENTS_ENDPOINT_TEMPLATE,
     CONTENTS_QUERY,
     FLAG_ASSIGNMENT_MARKER,
+    END_OF_OPTIONS_MARKER,
     FLAG_PREFIX,
     LIVE_SURFACE_TIER_SENTENCE,
     DECLARED_SURFACES_FILE_ENCODING,
@@ -788,11 +789,13 @@ def _edit_tier_choice(edit_call: EditCall) -> TierChoice:
 
 def _edit_names_a_pull_request(all_edit_arguments: list[str]) -> bool:
     is_flag_value = False
-    for each_argument in all_edit_arguments:
+    for each_position, each_argument in enumerate(all_edit_arguments):
         word = unquoted_token(each_argument)
         if is_flag_value:
             is_flag_value = False
             continue
+        if word == END_OF_OPTIONS_MARKER:
+            return each_position + 1 < len(all_edit_arguments)
         if word.partition(FLAG_ASSIGNMENT_MARKER)[0] in ALL_EDIT_NUMBER_FLAGS or not word.startswith(FLAG_PREFIX):
             return True
         is_flag_value = FLAG_ASSIGNMENT_MARKER not in word and word not in ALL_GH_EDIT_BOOLEAN_FLAGS

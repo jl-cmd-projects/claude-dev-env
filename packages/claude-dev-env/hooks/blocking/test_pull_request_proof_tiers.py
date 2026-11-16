@@ -394,6 +394,30 @@ def test_should_apply_the_live_rule_to_an_edit_that_names_another_pull_request(
     assert "gh pr edit" in reason
 
 
+@pytest.mark.parametrize("selector_tail", [" -- 7", " -- feature", " --add-label x -- 7"])
+def test_should_apply_the_live_rule_to_an_edit_that_names_its_pull_request_after_the_option_end(
+    tmp_path: Path, selector_tail: str
+) -> None:
+    clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
+    body_path = clone_path.parent / "edit-body.md"
+    body_path.write_text(TEST_RUN_PROOF_BODY, encoding="utf-8")
+    command = f'gh pr edit --body-file "{body_path}"{selector_tail}'
+    reason = gate.edit_proof_reason(_payload_with_command(clone_path, command))
+    assert reason == TEST_ONLY_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
+    )
+
+
+def test_should_take_the_checkout_tier_for_an_edit_that_ends_its_options_and_names_nothing(
+    tmp_path: Path,
+) -> None:
+    clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
+    body_path = clone_path.parent / "edit-body.md"
+    body_path.write_text(TEST_RUN_PROOF_BODY, encoding="utf-8")
+    command = f'gh pr edit --body-file "{body_path}" --'
+    assert gate.edit_proof_reason(_payload_with_command(clone_path, command)) is None
+
+
 def test_should_apply_the_live_rule_to_a_script_edit_of_a_checked_tier_pull_request(tmp_path: Path) -> None:
     clone_path = _clone_with_branch(
         tmp_path, {"src/gate.py": "x = 2\n"}, {".claude/live-surfaces.txt": DECLARED_SURFACES}
