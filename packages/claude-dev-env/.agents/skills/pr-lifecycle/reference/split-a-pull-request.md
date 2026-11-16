@@ -7,7 +7,7 @@ A slice is worth its own pull request when all four tests hold:
 3. It reverts alone.
 4. One sentence states its purpose, and a reviewer can judge it without reading later levels. A slice that needs two sentences is usually two slices.
 
-A cut by folder, file count, or line cap that fails these tests is cosmetic. Merge it back. Fewer slices is a valid answer, and so is one pull request with a stated reason under a "Why one pull request" heading.
+A cut by folder, file count, or line cap that fails these tests is cosmetic. Merge it back. Fewer slices is a valid answer, and so is one pull request with a stated reason.
 
 Split when the change carries more than one purpose, or when one small part carries the behaviour change and its risk while the rest is library, data, or docs. Isolate the part that switches the behaviour on, so its revert is small.
 
@@ -17,17 +17,13 @@ Decide the slices when you write the plan. The Delivery section of `~/.claude/do
 
 ## Size bar
 
-Apply the bar to each slice that passes the four tests. Count added plus deleted lines, tests included, without lockfiles and without the generated or data files from the cheaper move above.
+Apply the bar to each slice that passes the four tests. Count added plus deleted lines, tests included, without lockfiles and without files marked `linguist-generated`.
 
 - About 100 lines reads well. One review holds 200 to 400 lines.
 - Over 400 lines, look for another seam that passes the four tests. When none passes, keep the slice whole.
-- Over 1,000 lines, a slice kept whole gives its reason under a "Why one pull request" heading.
+- Over 1,000 lines, a slice kept whole gives its stated reason under a "Why one pull request" heading in the pull request body.
 
 Sources: [Google small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html) and [SmartBear code review practices](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/).
-
-## Level order
-
-Order levels by the import graph, as [each stack level stands on its own](../SKILL.md#each-stack-level-stands-on-its-own) and the "Sort hunks by purpose" step below describe. A review rule or review doc that judges code goes one level below that code, because review reads its rules from the pull request's base branch. A test or eval that imports the code stays at the code's level as that slice's proof.
 
 ## Split a pull request that is already open
 

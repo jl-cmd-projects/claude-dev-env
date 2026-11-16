@@ -39,7 +39,7 @@ def test_the_reference_merges_cosmetic_cuts_back_and_allows_one_pull_request() -
         in reference_text
     )
     assert (
-        "Fewer slices is a valid answer, and so is one pull request with a stated reason"
+        "Fewer slices is a valid answer, and so is one pull request with a stated reason."
         in reference_text
     )
 
@@ -94,35 +94,13 @@ def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
     all_required_phrases = (
         "Apply the bar to each slice that passes the four tests.",
         "Count added plus deleted lines, tests included, without lockfiles",
+        "without files marked `linguist-generated`",
         "About 100 lines reads well. One review holds 200 to 400 lines.",
         "Over 400 lines, look for another seam that passes the four tests.",
         "When none passes, keep the slice whole.",
-        'Over 1,000 lines, a slice kept whole gives its reason under a "Why one pull request" heading.',
+        'Over 1,000 lines, a slice kept whole gives its stated reason under a "Why one pull request" heading in the pull request body.',
         "google.github.io/eng-practices/review/developer/small-cls.html",
         "smartbear.com/learn/code-review/best-practices-for-peer-code-review",
     )
     for each_phrase in all_required_phrases:
         assert each_phrase in size_bar
-
-
-def test_the_reference_names_one_heading_for_the_one_pull_request_reason() -> None:
-    reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
-    assert (
-        'one pull request with a stated reason under a "Why one pull request" heading.'
-        in reference_text
-    )
-
-
-def test_the_reference_puts_review_rules_below_the_code_they_judge() -> None:
-    reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
-    level_order = reference_text.split("## Level order", 1)[1].split("\n## ", 1)[0]
-    assert "(../SKILL.md#each-stack-level-stands-on-its-own)" in level_order
-    assert '"Sort hunks by purpose" step below' in level_order
-    assert (
-        "A review rule or review doc that judges code goes one level below that code"
-        in level_order
-    )
-    assert "review reads its rules from the pull request's base branch" in level_order
-    assert (
-        "A test or eval that imports the code stays at the code's level" in level_order
-    )
