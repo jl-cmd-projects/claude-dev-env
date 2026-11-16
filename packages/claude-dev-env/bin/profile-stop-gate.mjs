@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH } from './install-constants.mjs';
+import { ALL_PROFILE_STOP_GATE_HOOK_RELATIVE_PATHS } from './install-constants.mjs';
 import {
     discoverProfileSettingsPaths,
     hostConfigurationIndent,
@@ -28,36 +28,52 @@ function comparableCommand(command) {
 }
 
 /**
- * Return the gate script's path under a Claude home, in the spelling hook commands compare by.
+ * Return one gate script's path under a Claude home, in the spelling hook commands compare by.
  *
  * @param {string} claudeHome
+ * @param {readonly string[]} hookRelativePath The script's path segments under the hooks directory.
  * @returns {string}
  */
-export function gateScriptCommandFragment(claudeHome) {
-    return comparableCommand(join(claudeHome, MANAGED_HOOKS_DIRECTORY_NAME, ...CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH));
+export function gateScriptCommandFragment(claudeHome, hookRelativePath) {
+    return comparableCommand(join(claudeHome, MANAGED_HOOKS_DIRECTORY_NAME, ...hookRelativePath));
 }
 
-function isGateHook(eachHook, claudeHome) {
-    return typeof eachHook?.command === 'string'
-        && comparableCommand(eachHook.command).includes(gateScriptCommandFragment(claudeHome));
+function isGateHook(eachHook, claudeHome, allHookRelativePaths = ALL_PROFILE_STOP_GATE_HOOK_RELATIVE_PATHS) {
+    if (typeof eachHook?.command !== 'string') return false;
+    const command = comparableCommand(eachHook.command);
+    return allHookRelativePaths.some(
+        (eachRelativePath) => command.includes(gateScriptCommandFragment(claudeHome, eachRelativePath)),
+    );
+}
+
+function stopHooks(settingsPath) {
+    const settingsText = readFileSync(settingsPath, 'utf8');
+    if (!settingsText.trim()) return [];
+    const settings = JSON.parse(settingsText);
+    const stopGroups = settings?.hooks?.[STOP_EVENT_NAME];
+    if (!Array.isArray(stopGroups)) return [];
+    return stopGroups.flatMap((eachGroup) => (Array.isArray(eachGroup?.hooks) ? eachGroup.hooks : []));
 }
 
 /**
- * Find the open-tasks Stop gate hook the install wrote into the main settings.
+ * Find each profile Stop gate hook the install wrote into the main settings.
+ *
+ * The gates come back in the order of ALL_PROFILE_STOP_GATE_HOOK_RELATIVE_PATHS.
+ * A gate the main settings do not hold is left out.
  *
  * @param {string} mainSettingsPath
  * @param {string} claudeHome
- * @returns {Record<string, unknown>|null} A copy of the hook entry, or null when the main settings hold none.
+ * @returns {{ hookRelativePath: readonly string[], gateHook: Record<string, unknown> }[]} A copy of each hook entry.
  */
-export function mainOpenTasksGateHook(mainSettingsPath, claudeHome) {
-    if (!existsSync(mainSettingsPath)) return null;
-    const settings = JSON.parse(readFileSync(mainSettingsPath, 'utf8'));
-    for (const eachGroup of settings?.hooks?.[STOP_EVENT_NAME] ?? []) {
-        for (const eachHook of eachGroup?.hooks ?? []) {
-            if (isGateHook(eachHook, claudeHome)) return structuredClone(eachHook);
-        }
+export function mainStopGateHooks(mainSettingsPath, claudeHome) {
+    if (!existsSync(mainSettingsPath)) return [];
+    const allMainStopHooks = stopHooks(mainSettingsPath);
+    const allMainGates = [];
+    for (const eachRelativePath of ALL_PROFILE_STOP_GATE_HOOK_RELATIVE_PATHS) {
+        const gateHook = allMainStopHooks.find((eachHook) => isGateHook(eachHook, claudeHome, [eachRelativePath]));
+        if (gateHook) allMainGates.push({ hookRelativePath: eachRelativePath, gateHook: structuredClone(gateHook) });
     }
-    return null;
+    return allMainGates;
 }
 
 /**
@@ -112,11 +128,11 @@ export function splitUnreadableProfileSettings(allProfileSettingsPaths) {
 }
 
 /**
- * True when a settings.json that does not parse may still hold this Claude home's open-tasks gate.
+ * True when a settings.json that does not parse may still hold one of this Claude home's profile Stop gates.
  *
- * The raw text is searched for the gate script path, with JSON-escaped
+ * The raw text is searched for each gate script path, with JSON-escaped
  * backslashes read as path separators. A file that cannot be read counts as
- * one that may hold the gate.
+ * one that may hold a gate.
  *
  * @param {string} settingsPath
  * @param {string} claudeHome
@@ -129,93 +145,106 @@ export function unparsedSettingsMayHoldGate(settingsPath, claudeHome) {
     } catch {
         return true;
     }
-    return comparableCommand(settingsText.replace(/\\\\/g, '/')).includes(gateScriptCommandFragment(claudeHome));
+    const comparableText = comparableCommand(settingsText.replace(/\\\\/g, '/'));
+    return ALL_PROFILE_STOP_GATE_HOOK_RELATIVE_PATHS.some(
+        (eachRelativePath) => comparableText.includes(gateScriptCommandFragment(claudeHome, eachRelativePath)),
+    );
 }
 
-function stopHooks(settingsPath) {
-    const settingsText = readFileSync(settingsPath, 'utf8');
-    if (!settingsText.trim()) return [];
-    const settings = JSON.parse(settingsText);
-    const stopGroups = settings?.hooks?.[STOP_EVENT_NAME];
-    if (!Array.isArray(stopGroups)) return [];
-    return stopGroups.flatMap((eachGroup) => (Array.isArray(eachGroup?.hooks) ? eachGroup.hooks : []));
-}
-
-function profileGateCommands(settingsPath, claudeHome) {
+function profileGateCommands(settingsPath, claudeHome, hookRelativePath) {
     return stopHooks(settingsPath)
-        .filter((eachHook) => isGateHook(eachHook, claudeHome))
+        .filter((eachHook) => isGateHook(eachHook, claudeHome, [hookRelativePath]))
         .map((eachHook) => eachHook.command);
 }
 
 /**
- * True when a profile's settings.json already runs a gate script from another Claude home.
+ * True when a profile's settings.json already runs one gate script from another Claude home.
  *
  * An install with CLAUDE_CONFIG_DIR set to the profile writes a gate entry
  * for the profile's own copy of the script, and a second entry for the main
- * home's copy would run the gate twice on every stop.
+ * home's copy would run that gate twice on every stop.
  *
  * @param {string} settingsPath
  * @param {string} claudeHome
+ * @param {readonly string[]} hookRelativePath The gate script's path segments under the hooks directory.
  * @returns {boolean}
  */
-export function profileRunsItsOwnGate(settingsPath, claudeHome) {
-    const scriptPathSuffix = `/${comparableCommand(join(MANAGED_HOOKS_DIRECTORY_NAME, ...CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH))}`;
+export function profileRunsItsOwnGate(settingsPath, claudeHome, hookRelativePath) {
+    const scriptPathSuffix = `/${comparableCommand(join(MANAGED_HOOKS_DIRECTORY_NAME, ...hookRelativePath))}`;
     return stopHooks(settingsPath).some((eachHook) => typeof eachHook?.command === 'string'
         && comparableCommand(eachHook.command).includes(scriptPathSuffix)
-        && !isGateHook(eachHook, claudeHome));
+        && !isGateHook(eachHook, claudeHome, [hookRelativePath]));
+}
+
+function staleGateRelativePaths(settingsPath, claudeHome, allWantedGates) {
+    return allWantedGates
+        .filter(({ hookRelativePath, gateHook }) => profileGateCommands(settingsPath, claudeHome, hookRelativePath)
+            .some((eachCommand) => eachCommand !== gateHook.command))
+        .map(({ hookRelativePath }) => hookRelativePath);
 }
 
 /**
- * Add the main settings' open-tasks Stop gate to every other profile's settings.json.
+ * Add each of the main settings' profile Stop gates to every other profile's settings.json.
  *
- * A profile keeps its own settings and hooks. The merge adds the one gate
- * entry, in the spelling the main settings use, only where it is missing;
- * an entry left with an older interpreter spelling is replaced. The file as
- * it was before either change is copied to a timestamped `.bak`. A profile
- * that already runs its own copy of the gate script is left as it is.
+ * A profile keeps its own settings and hooks. Each gate is handled on its
+ * own. The merge adds a gate entry, in the spelling the main settings use,
+ * only where that gate is missing, so a profile that holds one gate gets the
+ * other. An entry left with an older interpreter spelling is replaced. The
+ * file as it was before either change is copied to a timestamped `.bak`. A
+ * gate the profile already runs from its own copy of the script is left as
+ * it is, and so is a gate the main settings do not hold.
  *
  * @param {{ mainSettingsPath: string, claudeHome: string, allProfileSettingsPaths: string[],
  *   homeDirectory: string, now?: Date }} options
  * @returns {{ settingsPath: string, additions: string[], backupPath: string|null }[]}
  */
-export function addOpenTasksGateToProfiles(options) {
-    const gateHook = mainOpenTasksGateHook(options.mainSettingsPath, options.claudeHome);
-    if (!gateHook) return [];
+export function addStopGatesToProfiles(options) {
+    const allMainGates = mainStopGateHooks(options.mainSettingsPath, options.claudeHome);
     const timestamp = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
-    const declaredSettings = [{ keyPath: ['hooks', STOP_EVENT_NAME], items: [{ hooks: [gateHook] }] }];
-    const allTargetPaths = options.allProfileSettingsPaths.filter(
-        (eachPath) => !profileRunsItsOwnGate(eachPath, options.claudeHome),
-    );
-    const allStalePaths = allTargetPaths.filter(
-        (eachPath) => profileGateCommands(eachPath, options.claudeHome)
-            .some((eachCommand) => eachCommand !== gateHook.command),
-    );
-    const originalTextByStalePath = new Map(allStalePaths.map((eachPath) => [eachPath, readFileSync(eachPath, 'utf8')]));
-    removeOpenTasksGateFromProfiles({ claudeHome: options.claudeHome, allProfileSettingsPaths: allStalePaths });
-    return allTargetPaths.map((eachPath) => {
+    const allOutcomes = [];
+    for (const eachPath of options.allProfileSettingsPaths) {
+        const allWantedGates = allMainGates.filter(
+            ({ hookRelativePath }) => !profileRunsItsOwnGate(eachPath, options.claudeHome, hookRelativePath),
+        );
+        if (allWantedGates.length === 0) continue;
+        const allStaleRelativePaths = staleGateRelativePaths(eachPath, options.claudeHome, allWantedGates);
+        const originalText = readFileSync(eachPath, 'utf8');
+        removeStopGatesFromProfiles({
+            claudeHome: options.claudeHome,
+            allProfileSettingsPaths: [eachPath],
+            allHookRelativePaths: allStaleRelativePaths,
+        });
         const outcome = mergeProfileSettingsFile(eachPath, {
             dryRun: false,
             homeDirectory: options.homeDirectory,
             timestamp,
-            declaredSettings,
+            declaredSettings: [{
+                keyPath: ['hooks', STOP_EVENT_NAME],
+                items: allWantedGates.map(({ gateHook }) => ({ hooks: [gateHook] })),
+            }],
         });
-        if (outcome.backupPath && originalTextByStalePath.has(eachPath)) {
-            writeFileSync(outcome.backupPath, originalTextByStalePath.get(eachPath));
+        if (outcome.backupPath && allStaleRelativePaths.length > 0) {
+            writeFileSync(outcome.backupPath, originalText);
         }
-        return outcome;
-    });
+        allOutcomes.push(outcome);
+    }
+    return allOutcomes;
 }
 
 /**
- * Remove the gate entry that points at the main Claude home from each listed profile settings path.
+ * Remove the gate entries that point at the main Claude home from each listed profile settings path.
  *
- * Only a hook whose command runs the main home's gate script goes. A Stop
- * group left empty goes too, and so does an emptied Stop list or hooks object.
+ * Only a hook whose command runs one of the main home's gate scripts goes. A
+ * Stop group left empty goes too, and so does an emptied Stop list or hooks
+ * object.
  *
- * @param {{ claudeHome: string, allProfileSettingsPaths: string[] }} options
+ * @param {{ claudeHome: string, allProfileSettingsPaths: string[],
+ *   allHookRelativePaths?: readonly (readonly string[])[] }} options
+ *   allHookRelativePaths limits the removal to those gates. Every profile Stop gate goes without it.
  * @returns {string[]} The settings paths that changed.
  */
-export function removeOpenTasksGateFromProfiles(options) {
+export function removeStopGatesFromProfiles(options) {
+    const allHookRelativePaths = options.allHookRelativePaths ?? ALL_PROFILE_STOP_GATE_HOOK_RELATIVE_PATHS;
     const allChangedPaths = [];
     for (const eachPath of options.allProfileSettingsPaths) {
         const settingsText = readFileSync(eachPath, 'utf8');
@@ -226,7 +255,9 @@ export function removeOpenTasksGateFromProfiles(options) {
         let removedCount = 0;
         for (const eachGroup of stopGroups) {
             if (!Array.isArray(eachGroup?.hooks)) continue;
-            const keptHooks = eachGroup.hooks.filter((eachHook) => !isGateHook(eachHook, options.claudeHome));
+            const keptHooks = eachGroup.hooks.filter(
+                (eachHook) => !isGateHook(eachHook, options.claudeHome, allHookRelativePaths),
+            );
             removedCount += eachGroup.hooks.length - keptHooks.length;
             eachGroup.hooks = keptHooks;
         }

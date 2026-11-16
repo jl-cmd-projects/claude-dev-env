@@ -22,6 +22,7 @@ export const EVER_REGISTERED_HOOK_RELATIVE_PATHS = new Set([
     'blocking/build_eval_before_eval_write_gate.py',
     'blocking/chat_reply_gate.py',
     'blocking/claude_md_orphan_file_blocker.py',
+    'blocking/closing_question_round_gate.py',
     'blocking/code-rules-enforcer.py',
     'blocking/code_review_pr_create_gate.py',
     'blocking/code_rules_enforcer.py',

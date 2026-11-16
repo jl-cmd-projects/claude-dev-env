@@ -143,6 +143,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/final_reply_gate.py               -> exempt
         hooks/blocking/open_tasks_stop_gate.py           -> exempt
         hooks/blocking/auto_mode_refusal_stop_gate.py    -> exempt
+        hooks/blocking/closing_question_round_gate.py    -> exempt
         hooks/blocking/resolve_thread_reply_gate.py      -> exempt
         hooks/blocking/turn_review_gate.py               -> exempt
         hooks/blocking/wakeup_cap_gate.py                -> exempt
@@ -209,6 +210,11 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The auto mode refusal Stop gate holds the end of a turn while a refused
     step waits on the user's question or on its rule. It decides when a turn
     may end and no code or safety policy.
+
+    The closing question round Stop gate holds the end of a turn when a
+    session a person started wrote about an open item and sent no question
+    card after it. It decides when a turn may end and no code or safety
+    policy.
 
     The resolve reply gate denies a review thread resolve until a reply on the
     thread has posted. It decides the order of two review calls and no code or
