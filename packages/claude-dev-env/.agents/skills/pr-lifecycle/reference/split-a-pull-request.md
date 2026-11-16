@@ -17,11 +17,11 @@ Decide the slices when you write the plan. The Delivery section of `~/.claude/do
 
 ## Size bar
 
-Apply the bar to each slice that passes the four tests. Count added plus deleted lines, tests included, without lockfiles and without files marked `linguist-generated`.
+Apply the bar to each slice that passes the four tests. The bar says when to look for a seam. A cut made only to get under it is the line-cap cut above, so merge it back. Count added plus deleted lines, tests included, without lockfiles and without files marked `linguist-generated`.
 
-- About 100 lines reads well. One review holds 200 to 400 lines.
-- Over 400 lines, look for another seam that passes the four tests. When none passes, keep the slice whole.
-- Over 1,000 lines, a slice kept whole gives its stated reason under a "Why one pull request" heading in the pull request body.
+- Up to 400 lines fits one review, and about 100 lines reads best.
+- Over 400 lines, look for another seam that passes the four tests. When none passes, keep the slice whole and state the reason in the pull request body.
+- Over 1,000 lines, put that reason under a `## Why one pull request` heading.
 
 Sources: [Google small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html) and [SmartBear code review practices](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/).
 

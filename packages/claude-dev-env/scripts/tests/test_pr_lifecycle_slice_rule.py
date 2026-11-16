@@ -1,4 +1,4 @@
-"""The pr-lifecycle skill points at the slice rule, and the reference carries the four tests and the retro-split steps."""
+"""The pr-lifecycle skill points at the slice rule, and the reference carries the four tests, the size bar, and the retro-split steps."""
 
 from pathlib import Path
 
@@ -93,12 +93,13 @@ def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
     size_bar = reference_text[size_bar_position:].split("\n## ", 1)[0]
     all_required_phrases = (
         "Apply the bar to each slice that passes the four tests.",
+        "A cut made only to get under it is the line-cap cut above, so merge it back.",
         "Count added plus deleted lines, tests included, without lockfiles",
         "without files marked `linguist-generated`",
-        "About 100 lines reads well. One review holds 200 to 400 lines.",
+        "Up to 400 lines fits one review, and about 100 lines reads best.",
         "Over 400 lines, look for another seam that passes the four tests.",
-        "When none passes, keep the slice whole.",
-        'Over 1,000 lines, a slice kept whole gives its stated reason under a "Why one pull request" heading in the pull request body.',
+        "When none passes, keep the slice whole and state the reason in the pull request body.",
+        "Over 1,000 lines, put that reason under a `## Why one pull request` heading.",
         "google.github.io/eng-practices/review/developer/small-cls.html",
         "smartbear.com/learn/code-review/best-practices-for-peer-code-review",
     )
