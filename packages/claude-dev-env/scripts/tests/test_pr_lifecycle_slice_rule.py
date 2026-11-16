@@ -15,7 +15,6 @@ def _decision_tree(skill_text: str) -> str:
 def test_the_decision_tree_points_at_the_slice_reference() -> None:
     decision_tree = _decision_tree(PR_LIFECYCLE_PATH.read_text(encoding="utf-8"))
     assert "(reference/split-a-pull-request.md)" in decision_tree
-    assert "how large a pull request may be" in decision_tree
 
 
 def test_the_reference_lists_the_four_slice_tests_in_order() -> None:
@@ -86,6 +85,11 @@ def test_the_retro_split_links_the_stack_level_proof_and_does_not_copy_it() -> N
     assert "CI runs only on the stack tip" in reference_text
 
 
+def test_the_decision_tree_points_every_pull_request_at_the_size_bar() -> None:
+    decision_tree = _decision_tree(PR_LIFECYCLE_PATH.read_text(encoding="utf-8"))
+    assert "(reference/split-a-pull-request.md#size-bar)" in decision_tree
+
+
 def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
     reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
     fourth_test_position = reference_text.index("4. One sentence states its purpose")
@@ -99,7 +103,7 @@ def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
     all_required_phrases = (
         "Apply the bar to each pull request, including each stack level.",
         "A renamed or moved file counts only its edited lines.",
-        "Count a stack level against the branch below it.",
+        "Count against the merge base with the target branch, which for a stack level is the branch below it.",
         "Every cut still passes the four tests.",
         "Count added plus deleted lines, tests included, without lockfiles",
         "without files marked `linguist-generated`",
@@ -111,7 +115,7 @@ def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
         "smartbear.com/learn/code-review/best-practices-for-peer-code-review",
     )
     for each_phrase in all_required_phrases:
-        assert each_phrase in size_bar
+        assert each_phrase in size_bar, each_phrase
     all_bullet_positions = [
         size_bar.index("- Up to 400 lines"),
         size_bar.index("- Over 400 lines"),

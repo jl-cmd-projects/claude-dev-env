@@ -11,13 +11,13 @@ A cut by folder, file count, or line cap that fails these tests is cosmetic. Mer
 
 Split when the change carries more than one purpose, or when one small part carries the behaviour change and its risk while the rest is library, data, or docs. Isolate the part that switches the behaviour on, so its revert is small.
 
-Try the cheaper move first. Mark generated or data files that swell the diff with a `linguist-generated` line in `.gitattributes`, then judge the size again.
+Try the cheaper move first. Mark generated or data files that swell the diff with a `linguist-generated` line in `.gitattributes`, then judge the size again against the [size bar](#size-bar).
 
 Decide the slices when you write the plan. The Delivery section of `~/.claude/docs/rule-guides/verified-work.md` already commits each verified piece as its own level. The steps in [Split a pull request that is already open](#split-a-pull-request-that-is-already-open) repair a pull request where that did not happen.
 
 ## Size bar
 
-Apply the bar to each pull request, including each stack level. The bar only says when to look for a seam. Every cut still passes the four tests. Count added plus deleted lines, tests included, without lockfiles and without files marked `linguist-generated`. A renamed or moved file counts only its edited lines. Count a stack level against the branch below it.
+Apply the bar to each pull request, including each stack level. The bar only says when to look for a seam. Every cut still passes the four tests. Count added plus deleted lines, tests included, without lockfiles and without files marked `linguist-generated`. A renamed or moved file counts only its edited lines. Count against the merge base with the target branch, which for a stack level is the branch below it.
 
 - Up to 400 lines fits one review, and about 100 lines reads best.
 - Over 400 lines, look for another seam that passes the four tests. When none passes, keep the slice whole and state the reason in the pull request body.
