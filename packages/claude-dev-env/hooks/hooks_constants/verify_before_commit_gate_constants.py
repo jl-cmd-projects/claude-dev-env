@@ -31,26 +31,3 @@ ALL_WORKING_TREE_PATHS_ARGUMENTS = (
     "--full-name",
     "--",
 )
-ALL_DOCS_EXTENSIONS = frozenset(
-    {
-        ".md",
-        ".mdx",
-        ".txt",
-        ".rst",
-        ".adoc",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".gif",
-        ".svg",
-        ".webp",
-        ".ico",
-    }
-)
-ALL_DOCS_DIRECTORY_NAMES = frozenset({"docs"})
-ALL_DOCS_DATA_EXTENSIONS = frozenset({".json", ".jsonl", ".yaml", ".yml", ".csv"})
-ALL_TEST_DIRECTORY_NAMES = frozenset({"tests", "test", "__tests__"})
-ALL_TEST_FILE_PREFIXES = ("test_",)
-ALL_TEST_FILE_SUFFIXES = ("_test.py",)
-ALL_TEST_FILE_INFIXES = (".test.", ".spec.")
-ALL_TEST_FILE_NAMES = frozenset({"conftest.py"})
