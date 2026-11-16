@@ -81,13 +81,11 @@ draft. Record the target before any write.
 
 ### 2. Author the title and body
 
-For create, run `pull_request.py template --body-file <path> --title <title>`
-first, from the checkout of the head branch. It asks the proof gate which
-sections that checkout owes and appends each heading the linter and proof gate
-require that the file lacks. Then fill the body, or invoke `pstack:poteto-agent` with the
-diff-specific writing instructions to draft it. A comment or
-review may use a supplied body file when it does not rewrite the pull request
-description.
+For create, run `pull_request.py template --body-file <path> --title <title>` first, from the checkout of the
+head branch. It asks the proof gate which sections that checkout owes and appends each heading the linter and
+proof gate require that the file lacks. Then fill the body, or invoke `pstack:poteto-agent` with the
+diff-specific writing instructions to draft it. A comment or review may use a supplied body file when it does
+not rewrite the pull request description.
 
 Check each behavior claim against the final diff and verification evidence.
 Preserve whether a rule is added, removed, or narrowed, and distinguish tests

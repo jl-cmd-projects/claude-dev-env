@@ -38,7 +38,7 @@ from hooks_constants.pull_request_proof_constants import (
 )
 
 UNREAD_LIVE_TIER = gate.proof.tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
-UNREAD_EVAL_NEED = gate.proof.agent_surface_sentence(None)
+UNREAD_EVAL_NEED = gate.proof.eval_owed_sentence(None)
 WHAT_THIS_DOES_SECTION = (
     "## What this does\nDraws the flow before and after.\n\n"
     "```mermaid\nflowchart LR\n    before --> after\n```\n\n"

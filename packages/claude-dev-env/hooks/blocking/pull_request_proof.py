@@ -317,7 +317,7 @@ def is_feature_pull_request(all_payload_fields: Mapping[str, object]) -> bool:
     return any(_is_feature_title(each_call.title) for each_call in _create_calls(all_payload_fields))
 
 
-def agent_surface_sentence(agent_surface_path: str | None) -> str:
+def eval_owed_sentence(agent_surface_path: str | None) -> str:
     """Return the sentence that says why a feature owes an eval.
 
     ::
@@ -336,9 +336,9 @@ def agent_surface_sentence(agent_surface_path: str | None) -> str:
 
 def _eval_need_sentence(path_read: ChangedPathRead | None) -> str | None:
     if path_read is None or not path_read.all_paths:
-        return agent_surface_sentence(None)
+        return eval_owed_sentence(None)
     agent_surface_path = first_agent_surface_path(path_read.all_paths)
-    return None if agent_surface_path is None else agent_surface_sentence(agent_surface_path)
+    return None if agent_surface_path is None else eval_owed_sentence(agent_surface_path)
 
 
 def eval_need_sentence(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -346,9 +346,9 @@ def eval_need_sentence(all_payload_fields: Mapping[str, object]) -> str | None:
 
     ::
 
-        title "feat: x", branch changes skills/a/SKILL.md -> agent_surface_sentence("skills/a/SKILL.md")
+        title "feat: x", branch changes skills/a/SKILL.md -> eval_owed_sentence("skills/a/SKILL.md")
         title "feat: x", branch changes only src/a.py     -> None
-        title "feat: x", changed file list unread         -> agent_surface_sentence(None)
+        title "feat: x", changed file list unread         -> eval_owed_sentence(None)
         title "fix: y", any branch                        -> None
 
     Args:

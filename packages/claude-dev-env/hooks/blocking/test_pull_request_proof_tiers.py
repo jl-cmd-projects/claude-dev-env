@@ -314,7 +314,7 @@ def test_should_deny_a_feature_that_changes_a_skill_without_an_eval_section(tmp_
     reason = gate.missing_eval_section_reason(
         _create_from(clone_path, EVAL_LESS_BODY, "feat: add a check")
     )
-    assert reason == MISSING_EVAL_SECTION_REASON + gate.agent_surface_sentence(
+    assert reason == MISSING_EVAL_SECTION_REASON + gate.eval_owed_sentence(
         "skills/ship/SKILL.md"
     )
 
@@ -324,7 +324,7 @@ def test_should_keep_the_eval_section_for_a_feature_whose_file_list_cannot_be_re
 ) -> None:
     payload = _create_from(tmp_path / "not-a-repository", EVAL_LESS_BODY, "feat: add a check")
     reason = gate.missing_eval_section_reason(payload)
-    assert reason == MISSING_EVAL_SECTION_REASON + gate.agent_surface_sentence(None)
+    assert reason == MISSING_EVAL_SECTION_REASON + gate.eval_owed_sentence(None)
 
 
 SKILL_LOAD_LINE = json.dumps(
@@ -365,7 +365,7 @@ def test_should_ask_for_build_eval_on_a_feature_that_changes_a_rule(tmp_path: Pa
     decision = lifecycle_gate.decision_for(payload)
     assert decision is not None
     assert decision["hookSpecificOutput"]["permissionDecisionReason"] == (
-        MISSING_BUILD_EVAL_REASON + gate.agent_surface_sentence("rules/ship.md")
+        MISSING_BUILD_EVAL_REASON + gate.eval_owed_sentence("rules/ship.md")
     )
 
 

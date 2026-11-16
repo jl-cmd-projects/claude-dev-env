@@ -31,7 +31,7 @@ from hooks_constants.pull_request_proof_constants import (
 )
 
 UNREAD_LIVE_TIER = gate.tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
-UNREAD_EVAL_NEED = gate.agent_surface_sentence(None)
+UNREAD_EVAL_NEED = gate.eval_owed_sentence(None)
 PROVEN_BODY = "## Summary\nAdds a gate.\n\n## Proof in practice\nRan `python run.py`.\n> denied\n"
 UNPROVEN_BODY = "## Summary\nAdds a gate.\n\n## Verification\nUnit tests pass.\n"
 SEARCHED_BODY = (

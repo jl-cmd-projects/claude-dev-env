@@ -11,7 +11,7 @@ import pytest
 
 import durable_post_lint
 from blocking.evidence_tier import TierCause, TierChoice
-from blocking.pull_request_proof import agent_surface_sentence, tier_sentence
+from blocking.pull_request_proof import eval_owed_sentence, tier_sentence
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 from hooks_constants.pull_request_proof_constants import (
     MISSING_EVAL_SECTION_REASON,
@@ -20,7 +20,7 @@ from hooks_constants.pull_request_proof_constants import (
 )
 
 UNREAD_LIVE_TIER = tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
-UNREAD_EVAL_NEED = agent_surface_sentence(None)
+UNREAD_EVAL_NEED = eval_owed_sentence(None)
 SCRIPT_PATH = Path(__file__).resolve().parent / "durable_post_lint.py"
 FLOWCHART_BLOCK = """```mermaid
 flowchart LR
