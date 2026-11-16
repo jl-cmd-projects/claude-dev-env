@@ -385,15 +385,16 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     ::
 
         pr-lifecycle skill not loaded                     -> DENY_REASON
-        new pull request with no proof section            -> MISSING_PROOF_REASON
+        live or checked tier, no proof section            -> MISSING_PROOF_REASON or MISSING_CHECKED_PROOF_REASON, + tier
         proof, or a body edit, says not run               -> UNPROVEN_PROOF_REASON
         proof, or a body edit, holds a merge word         -> DEFERRED_PROOF_REASON
-        body edit whose proof has no command or only tests -> MISSING_PROOF_REASON or TEST_ONLY_PROOF_REASON
+        body edit whose proof has no command              -> MISSING_PROOF_REASON or MISSING_CHECKED_PROOF_REASON, + tier
+        live tier, proof or body edit runs only tests     -> TEST_ONLY_PROOF_REASON + tier
         new pull request with no existing-work section    -> MISSING_EXISTING_WORK_REASON
         pull request with no flowchart in What this does  -> MISSING_FLOWCHART_REASON
-        feature pull request with no eval section         -> MISSING_EVAL_SECTION_REASON
+        feature changing an agent surface, no eval section -> MISSING_EVAL_SECTION_REASON + why
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
-        feature pull request, no /claude-api build-eval   -> MISSING_BUILD_EVAL_REASON
+        feature changing an agent surface, no build-eval  -> MISSING_BUILD_EVAL_REASON + why
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
         follow-up read of open pull requests unanswered   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         follow-up with no repository, origin unread       -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
@@ -428,7 +429,10 @@ def _missing_build_eval_reason(all_fields: dict[str, object], run: GateRun) -> s
     cut_scan_count_before = run.cut_scan_count
     if not is_build_eval_missing(all_fields):
         return None
-    return MISSING_BUILD_EVAL_REASON + _scan_note(run, cut_scan_count_before)
+    need_sentence = proof.eval_need_sentence(all_fields)
+    if need_sentence is None:
+        return None
+    return MISSING_BUILD_EVAL_REASON + need_sentence + _scan_note(run, cut_scan_count_before)
 
 
 def _first_broken_rule_reason(all_fields: dict[str, object], run: GateRun) -> str | None:

@@ -27,6 +27,53 @@ MISSING_PROOF_REASON = (
     " prove the change, leave the pull request unopened and tell the user what you could"
     " not run. Read " + PROOF_GUIDE_PATH + " for the full rule."
 )
+MISSING_CHECKED_PROOF_REASON = (
+    "This pull request body has no 'Proof in practice' section that names a command."
+    " Add a 'Proof in practice' heading that lists, in backticks, each command you ran"
+    " to check the change, such as the test run that covers it, and quote the output"
+    " lines that show the result. Read " + PROOF_GUIDE_PATH + " for the full rule."
+)
+LIVE_SURFACE_TIER_SENTENCE = (
+    " Evidence tier: live, because this pull request changes {path}, a live surface."
+    " A live proof is for behavior a test process cannot reproduce."
+)
+NO_DECLARED_SURFACES_TIER_SENTENCE = (
+    " Evidence tier: live, because this pull request changes {path} and its base branch"
+    " gives no readable .claude/live-surfaces.txt, so every path that is not a doc or a"
+    " test is a live surface. A repository that lists its live surfaces in that file on"
+    " its default branch lets other code pass with a test run."
+)
+UNREAD_FILE_LIST_TIER_SENTENCE = (
+    " Evidence tier: live, because the gate could not read the full list of files this"
+    " pull request changes. Run the call from a checkout of the head branch with origin"
+    " fetched, or name the repository and head branch with --repo and --head, so the"
+    " gate can set the tier from the changed files."
+)
+CODE_WITHOUT_LIVE_SURFACE_TIER_SENTENCE = (
+    " Evidence tier: checked, because this pull request changes {path} and no changed"
+    " path is a live surface. A test run counts as the command."
+)
+ONLY_DOCS_AND_TESTS_TIER_SENTENCE = (
+    " Evidence tier: none, because every changed path is a doc or a test. Leave the"
+    " 'Proof in practice' section out, or keep it with a command in backticks."
+)
+AGENT_SURFACE_EVAL_SENTENCE = (
+    " This feature changes {path}, which agents read or load, so its behavior is agent"
+    " behavior that only an eval measures."
+)
+UNREAD_FILE_LIST_EVAL_SENTENCE = (
+    " The gate could not read the full list of files this pull request changes, so it"
+    " cannot rule out a change to a file agents read or load."
+)
+CONTENTS_ENDPOINT_TEMPLATE = "repos/{repository}/contents/{path}?ref={reference}"
+CONTENTS_QUERY = ".content"
+DECLARED_SURFACES_FILE_ENCODING = "utf-8"
+ALL_GH_EDIT_BOOLEAN_FLAGS = frozenset({"--remove-milestone"})
+ALL_EDIT_NUMBER_FLAGS = frozenset({"--number"})
+FLAG_PREFIX = "-"
+FLAG_ASSIGNMENT_MARKER = "="
+NEEDS_PROOF_SECTION_KEY = "needs_proof_section"
+NEEDS_EVAL_SECTION_KEY = "needs_eval_section_for_a_feature"
 INLINE_COMMAND_PATTERN = r"(?<!`)`([^`\n]+)`(?!`)"
 CODE_FENCE_MARKER = "```"
 FENCED_COMMAND_PROMPT = "$ "
@@ -178,8 +225,9 @@ FEATURE_TITLE_PATTERN = r"^\s*feat(\([^)]*\))?!?:"
 EVAL_HEADING_PATTERN = r"^(#{1,6})[ \t]+evals?[ \t]*#*[ \t]*$"
 EVAL_GUIDE_PATH = "~/.claude/docs/rule-guides/features-start-with-an-eval.md"
 MISSING_EVAL_SECTION_REASON = (
-    "This feature pull request has no 'Eval' section naming its eval. A new feature is"
-    " built against an eval. Invoke the Skill tool with skill 'claude-api' and args"
+    "This feature pull request has no 'Eval' section naming its eval. A feature that"
+    " changes what agents read or load is built against an eval. Invoke the Skill tool"
+    " with skill 'claude-api' and args"
     " 'build-eval', build or reuse the eval it leads you to, and run it. Then add an"
     " 'Eval' heading to the body that names the eval's cases and grader, gives the"
     " command that runs it in backticks, and quotes its result. Read "
@@ -188,7 +236,8 @@ MISSING_EVAL_SECTION_REASON = (
 )
 MISSING_BUILD_EVAL_REASON = (
     "This feature pull request comes from a session that never invoked /claude-api"
-    " build-eval. A new feature starts with that command. Invoke the Skill tool with"
+    " build-eval. A feature that changes what agents read or load starts with that"
+    " command. Invoke the Skill tool with"
     " skill 'claude-api' and args 'build-eval', check the eval named in the 'Eval'"
     " section with it, then run the same command again. Read "
     + EVAL_GUIDE_PATH
@@ -199,6 +248,8 @@ ALL_PROOF_GATE_FILE_NAMES = frozenset(
     {
         "pull_request_proof.py",
         "pull_request_proof_constants.py",
+        "evidence_tier.py",
+        "evidence_tier_constants.py",
         "pull_request_proof_edit_gate.py",
         "pre_tool_use_dispatcher_constants.py",
     }

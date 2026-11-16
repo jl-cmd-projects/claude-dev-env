@@ -16,6 +16,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import followup_pr_dedupe as gate_dedupe
 from blocking import gate_run_reads
 from blocking import pr_lifecycle_skill_gate as gate
+from blocking.evidence_tier import TierCause, TierChoice
 from blocking.gate_run_reads import read_deadlines_started
 from hooks_constants.followup_pr_dedupe_constants import (
     ALL_GIT_REMOTE_COMMAND_WORDS,
@@ -36,6 +37,8 @@ from hooks_constants.pull_request_proof_constants import (
     UNREADABLE_CHANGES_REASON,
 )
 
+UNREAD_LIVE_TIER = gate.proof.tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
+UNREAD_EVAL_NEED = gate.proof.agent_surface_sentence(None)
 WHAT_THIS_DOES_SECTION = (
     "## What this does\nDraws the flow before and after.\n\n"
     "```mermaid\nflowchart LR\n    before --> after\n```\n\n"
@@ -44,6 +47,11 @@ PROVEN_FOLLOWUP_BODY = (
     "Follow-up to #1731\n\n" + WHAT_THIS_DOES_SECTION + "## Existing work\nNothing found in open or merged pull requests.\n\n"
     "## Proof in practice\nRan `python probe.py`.\n"
 )
+
+
+@pytest.fixture(autouse=True)
+def _no_github_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(gate.proof, "_gh_api_lines", lambda endpoint, query: None)
 
 
 def _transcript(tmp_path: Path, skill_name: str | None = None, compact: bool = False) -> Path:
@@ -532,7 +540,7 @@ def test_deny_should_keep_its_reason_when_every_read_had_time(tmp_path: Path) ->
 def test_loaded_skill_still_denies_a_new_pull_request_without_proof(tmp_path: Path) -> None:
     exit_code, output = _run_main(_payload("gh pr create --body 'Adds a gate.'", _transcript(tmp_path, "pr-lifecycle")))
     assert exit_code == 0
-    assert json.loads(output)["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON
+    assert json.loads(output)["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_loaded_skill_denies_a_body_edit_that_adds_an_unrun_proof_line(tmp_path: Path) -> None:
@@ -590,7 +598,7 @@ def _assert_denied_with(payload: dict[str, object], reason: str) -> None:
 
 def test_feature_pull_request_without_build_eval_invocation_should_be_denied(tmp_path: Path) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
-    _assert_denied_with(_create_payload(tmp_path, "feat: add a gate", transcript_path), MISSING_BUILD_EVAL_REASON)
+    _assert_denied_with(_create_payload(tmp_path, "feat: add a gate", transcript_path), MISSING_BUILD_EVAL_REASON + UNREAD_EVAL_NEED)
 
 
 def test_feature_pull_request_with_build_eval_invocation_should_pass(tmp_path: Path) -> None:
@@ -620,7 +628,7 @@ def test_build_eval_check_should_ignore_an_unreadable_transcript_beside_a_readab
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
     payload = _create_payload(tmp_path, "feat: add a gate", transcript_path)
     payload["agent_transcript_path"] = str(tmp_path / "missing-agent.jsonl")
-    _assert_denied_with(payload, MISSING_BUILD_EVAL_REASON)
+    _assert_denied_with(payload, MISSING_BUILD_EVAL_REASON + UNREAD_EVAL_NEED)
 
 
 def test_build_eval_invocation_in_the_agent_transcript_should_pass(tmp_path: Path) -> None:
@@ -650,7 +658,7 @@ def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_
 def test_feature_dispatch_without_build_eval_invocation_should_be_denied(tmp_path: Path) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
     all_inputs = {"head": "main", "title": "feat: add a gate", "body": EVALUATED_BODY}
-    _assert_denied_with(_dispatch_payload(tmp_path, all_inputs, transcript_path), MISSING_BUILD_EVAL_REASON)
+    _assert_denied_with(_dispatch_payload(tmp_path, all_inputs, transcript_path), MISSING_BUILD_EVAL_REASON + UNREAD_EVAL_NEED)
 
 
 def test_feature_dispatch_with_build_eval_invocation_should_pass(tmp_path: Path) -> None:
@@ -840,7 +848,9 @@ def test_build_eval_scan_cut_by_the_deadline_should_deny_with_the_scan_sentence(
     with read_deadlines_started(clock):
         decision = gate.decision_for(payload)
     assert decision is not None
-    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_BUILD_EVAL_REASON + SCAN_RAN_OUT_SENTENCE
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == (
+        MISSING_BUILD_EVAL_REASON + UNREAD_EVAL_NEED + SCAN_RAN_OUT_SENTENCE + READS_RAN_OUT_SENTENCE
+    )
 
 
 def test_check_that_raises_should_deny_with_a_reason_that_names_the_error(
