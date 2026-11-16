@@ -142,6 +142,8 @@ def test_marked_open_lines_should_not_read_a_marker_inside_a_snake_case_name(
         "The steps are in notes/todo.md, as before.",
         "The list (see todo.md) is short.",
         "Open https://example.com/docs/pending/ to read it.",
+        "Read **todo.md** first.",
+        "The steps are in a/" + "b" * 90 + "/todo.md now.",
     ],
 )
 def test_marked_open_lines_should_not_read_a_marker_inside_a_file_name_or_path(
@@ -165,6 +167,9 @@ def test_marked_open_lines_should_not_read_a_marker_inside_a_file_name_or_path(
         "Use e.g.pending items.",
         "Use e.g.todo items.",
         "One item stays pending/ for now.",
+        "Linux passes. Windows/not tested/.",
+        "The parser/not covered/ cases stay as they are.",
+        "It is not covered/x.md yet.",
     ],
 )
 def test_marked_open_lines_should_read_a_marker_before_a_full_stop(marker_line: str) -> None:
