@@ -9,7 +9,7 @@ how much proof the pull request gate asks for::
              command runs more than the pull request call, or an edit names
              its pull request
 
-A live surface is an agent surface, a workflow file, a page people see, the
+A live surface is an agent surface, a file under .github/, a page people see, the
 live-surfaces file itself, or a path a glob in the base branch's
 ``.claude/live-surfaces.txt`` names, unless that path is a test. When the
 base has no such file, every path that is not a doc or a test is a live
@@ -47,7 +47,7 @@ from hooks_constants.evidence_tier_constants import (
     FOLDER_GLOB_SUFFIX,
     LIVE_SURFACES_COMMENT_MARKER,
     LIVE_SURFACES_FILE_PATH,
-    ALL_WORKFLOW_DIRECTORY_PARTS,
+    GITHUB_DIRECTORY_NAME,
     UNDECODABLE_BYTE_MARK,
 )
 from hooks_constants.pull_request_proof_constants import ALL_VISIBLE_FILE_SUFFIXES
@@ -192,13 +192,8 @@ def _is_agent_surface(repository_path: str) -> bool:
     return any(each_part in ALL_AGENT_SURFACE_DIRECTORY_NAMES for each_part in path.parts[:-1])
 
 
-def _is_workflow_file(repository_path: str) -> bool:
-    all_directory_parts = PurePosixPath(repository_path).parts[:-1]
-    part_count = len(ALL_WORKFLOW_DIRECTORY_PARTS)
-    return any(
-        all_directory_parts[each_index : each_index + part_count] == ALL_WORKFLOW_DIRECTORY_PARTS
-        for each_index in range(len(all_directory_parts))
-    )
+def _is_github_file(repository_path: str) -> bool:
+    return GITHUB_DIRECTORY_NAME in PurePosixPath(repository_path).parts[:-1]
 
 
 def _matches_declared_glob(repository_path: str, declared_glob: str) -> bool:
@@ -213,7 +208,7 @@ def _is_built_in_live_surface(repository_path: str) -> bool:
     return (
         repository_path == LIVE_SURFACES_FILE_PATH
         or _is_agent_surface(repository_path)
-        or _is_workflow_file(repository_path)
+        or _is_github_file(repository_path)
         or repository_path.lower().endswith(ALL_VISIBLE_FILE_SUFFIXES)
     )
 

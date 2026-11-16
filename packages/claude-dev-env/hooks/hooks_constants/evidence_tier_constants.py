@@ -39,7 +39,7 @@ ALL_AGENT_SURFACE_FILE_NAME_GLOBS = ("settings*.json",)
 ALL_AGENT_SURFACE_DIRECTORY_NAMES = frozenset(
     {"skills", "rules", "agents", "commands", "system-prompts", "system_prompts", "output-styles"}
 )
-ALL_WORKFLOW_DIRECTORY_PARTS = (".github", "workflows")
+GITHUB_DIRECTORY_NAME = ".github"
 LIVE_SURFACES_FILE_PATH = ".claude/live-surfaces.txt"
 LIVE_SURFACES_COMMENT_MARKER = "#"
 FOLDER_GLOB_SUFFIX = "/"

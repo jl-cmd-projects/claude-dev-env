@@ -2,7 +2,7 @@
 # The built-in list already covers skills/, rules/, agents/, commands/,
 # system-prompts/, output-styles/, SKILL.md, AGENTS.md, CLAUDE.md,
 # CLAUDE.local.md, copilot-instructions.md, hooks.json, .mcp.json,
-# settings*.json in any case, .github/workflows/ and page files.
+# settings*.json in any case, every file under .github/ and page files.
 
 # Rule text agents read as instructions outside rules/.
 packages/claude-dev-env/docs/rule-guides/

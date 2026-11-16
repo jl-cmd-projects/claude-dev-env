@@ -22,7 +22,7 @@ Before you open a pull request, find its tier, then give the proof that tier ask
 
 A live surface is a path whose behavior depends on something a test process cannot reproduce:
 - An agent surface: a `SKILL.md`, `AGENTS.md`, `CLAUDE.md`, `CLAUDE.local.md`, `copilot-instructions.md`, `hooks.json`, `.mcp.json` or `settings*.json` file, or a file under a `skills`, `rules`, `agents`, `commands`, `system-prompts` or `output-styles` folder. Names match in any case, so `Skills/x/skill.md` counts.
-- A workflow file under `.github/workflows/`.
+- Any file under a `.github/` folder, such as a workflow, an action, `CODEOWNERS` or `dependabot.yml`.
 - A page people see: `.html`, `.htm`, `.css`, `.scss`, `.tsx`, `.jsx`, `.vue` or `.svelte`.
 - The `.claude/live-surfaces.txt` file itself, and each path a glob in the base branch's copy of that file names, except a test file. A test under a built-in live surface, such as `skills/`, stays live.
 
