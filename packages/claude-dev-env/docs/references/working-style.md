@@ -42,3 +42,4 @@ The SessionStart hook `hooks/session/working_style_prompt.py` points every sessi
 - Use a clearly stated low-risk assumption when the intended result remains stable.
 - Pause for the user's choice before making a high-impact decision.
 - Hand the user a step as its own question, with the command block to paste or the link to open inside it. Leave long guides out.
+- End a session the user started with a round of question cards, one for each item it leaves open. Brief every item in chat before the first card. When nothing is open, end the closing reply with the line `Open items: none.`
