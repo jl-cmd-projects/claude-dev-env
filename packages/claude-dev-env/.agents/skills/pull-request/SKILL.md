@@ -93,7 +93,7 @@ added from tests run. Refresh these claims after a rebase or correction.
 
 Write the body in the section order `reference/body-sections.md` gives: What
 this does, What changed, Existing work, Proof in practice when the evidence
-tier asks for it, Eval for a `feat` title that changes an agent surface, Risk,
+tier asks for it, Eval for a `feat` title that changes a file agents load, Risk,
 How to revert. Include only claims supported by the final diff.
 
 Keep substantive review and test evidence. Put extensive logs, raw diffs, token
