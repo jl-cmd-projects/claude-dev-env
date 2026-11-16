@@ -24,7 +24,7 @@ A live surface is a path whose behavior depends on something a test process cann
 - An agent surface: a `SKILL.md`, `AGENTS.md`, `CLAUDE.md`, `CLAUDE.local.md`, `copilot-instructions.md`, `hooks.json`, `.mcp.json` or `settings*.json` file, or a file under a `skills`, `rules`, `agents`, `commands`, `system-prompts` or `output-styles` folder. Names match in any case, so `Skills/x/skill.md` counts.
 - A workflow file under `.github/workflows/`.
 - A page people see: `.html`, `.htm`, `.css`, `.scss`, `.tsx`, `.jsx`, `.vue` or `.svelte`.
-- The `.claude/live-surfaces.txt` file itself, and each path a glob in the base branch's copy of that file names.
+- The `.claude/live-surfaces.txt` file itself, and each path a glob in the base branch's copy of that file names, except a test file. A test under a built-in live surface, such as `skills/`, stays live.
 
 A repository names its other live surfaces in `.claude/live-surfaces.txt` at its root: one glob per line, with `#` comment lines and blank lines skipped. A line that ends in `/` covers every path under that folder. Any other line matches the whole path, and `*` crosses folders. The gate reads the base branch's copy, so a pull request cannot lower its own tier. A repository with no such file keeps every path that is not a doc or a test on the live tier.
 

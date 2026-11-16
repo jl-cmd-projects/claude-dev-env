@@ -11,8 +11,9 @@ how much proof the pull request gate asks for::
 
 A live surface is an agent surface, a workflow file, a page people see, the
 live-surfaces file itself, or a path a glob in the base branch's
-``.claude/live-surfaces.txt`` names. When the base has no such file, every
-path that is not a doc or a test is a live surface.
+``.claude/live-surfaces.txt`` names, unless that path is a test. When the
+base has no such file, every path that is not a doc or a test is a live
+surface.
 """
 
 from __future__ import annotations
@@ -112,14 +113,30 @@ def is_docs_or_test_path(repository_path: str) -> bool:
         repository_path: A path relative to the repository root, with forward slashes.
     """
     path = PurePosixPath(repository_path)
-    if path.suffix.lower() in ALL_DOCS_EXTENSIONS or path.name in ALL_TEST_FILE_NAMES:
+    if path.suffix.lower() in ALL_DOCS_EXTENSIONS:
         return True
-    all_directory_parts = path.parts[:-1]
     if path.suffix.lower() in ALL_DOCS_DATA_EXTENSIONS and any(
-        each_part in ALL_DOCS_DIRECTORY_NAMES for each_part in all_directory_parts
+        each_part in ALL_DOCS_DIRECTORY_NAMES for each_part in path.parts[:-1]
     ):
         return True
-    if any(each_part in ALL_TEST_DIRECTORY_NAMES for each_part in all_directory_parts):
+    return is_test_path(repository_path)
+
+
+def is_test_path(repository_path: str) -> bool:
+    """Return whether a repository path is a test file or sits under a test folder.
+
+    ::
+
+        tests/x.py, src/test_x.py, src/x_test.py, a.spec.ts, bin/a.test.js, conftest.py -> True
+        README.md, docs/table.json, src/gate.py                                        -> False
+
+    Args:
+        repository_path: A path relative to the repository root, with forward slashes.
+    """
+    path = PurePosixPath(repository_path)
+    if path.name in ALL_TEST_FILE_NAMES:
+        return True
+    if any(each_part in ALL_TEST_DIRECTORY_NAMES for each_part in path.parts[:-1]):
         return True
     return (
         path.name.startswith(ALL_TEST_FILE_PREFIXES)
@@ -195,7 +212,9 @@ def _is_built_in_live_surface(repository_path: str) -> bool:
 
 
 def _is_live_surface(repository_path: str, all_declared_globs: Sequence[str]) -> bool:
-    return _is_built_in_live_surface(repository_path) or any(
+    if _is_built_in_live_surface(repository_path):
+        return True
+    return not is_test_path(repository_path) and any(
         _matches_declared_glob(repository_path, each_glob) for each_glob in all_declared_globs
     )
 
@@ -216,7 +235,9 @@ def choose_tier(
     A glob that ends in '/' matches every path under that folder. A line with
     no '*', '?' or '[' matches that exact path, or every path under it as a
     folder. Any other glob matches the whole path with fnmatch, where '*'
-    crosses folders.
+    crosses folders. A declared glob never makes a test path live, as
+    is_test_path reads one; a built-in live surface, such as a test under
+    skills/, stays live.
 
     Args:
         all_changed_paths: Every path the pull request adds, edits, deletes or moves

@@ -18,6 +18,7 @@ from blocking.evidence_tier import (
     first_agent_surface_path,
     is_docs_or_test_path,
 )
+from blocking import evidence_tier
 
 DECLARED_GLOBS = ("packages/app/docs/rule-guides/", "portal/*_client.py")
 
@@ -43,6 +44,31 @@ def test_is_docs_or_test_path_should_accept_docs_data_and_test_files(path: str) 
 @pytest.mark.parametrize("path", ["src/gate.py", "data/table.json", "scripts/run.sh"])
 def test_is_docs_or_test_path_should_reject_code(path: str) -> None:
     assert not is_docs_or_test_path(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["tests/test_gate.py", "src/test_gate.py", "src/gate_test.py", "bin/a.test.js", "conftest.py"],
+)
+def test_is_test_path_should_accept_test_files(path: str) -> None:
+    assert evidence_tier.is_test_path(path)
+
+
+@pytest.mark.parametrize("path", ["README.md", "docs/table.json", "src/gate.py"])
+def test_is_test_path_should_reject_docs_and_code(path: str) -> None:
+    assert not evidence_tier.is_test_path(path)
+
+
+def test_choose_tier_should_not_apply_a_declared_glob_to_a_test_path() -> None:
+    all_globs = ("packages/app/bin/", "portal/*.js")
+    all_paths = ["packages/app/bin/install.test.js", "portal/client.spec.js"]
+    assert choose_tier(all_paths, all_globs) == TierChoice(TierCause.ONLY_DOCS_AND_TESTS, None)
+
+
+def test_choose_tier_should_keep_a_test_inside_a_built_in_surface_live() -> None:
+    assert choose_tier(["skills/ship/test_ship.py"], ("packages/app/bin/",)) == TierChoice(
+        TierCause.LIVE_SURFACE, "skills/ship/test_ship.py"
+    )
 
 
 def test_choose_tier_should_give_none_when_every_path_is_a_doc_or_a_test() -> None:
