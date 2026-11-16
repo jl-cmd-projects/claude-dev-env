@@ -306,7 +306,9 @@ def test_gh_create_with_fill_should_ask_for_a_body() -> None:
 
 def test_wrapped_gh_create_should_be_read() -> None:
     payload = _shell("bash -c 'gh pr create --body \"no proof\"'")
-    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.SHARED_COMMAND, None)
+    )
 
 
 def test_pull_request_script_create_should_be_read(tmp_path: Path) -> None:

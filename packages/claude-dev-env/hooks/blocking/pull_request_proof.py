@@ -69,6 +69,8 @@ from hooks_constants.pull_request_proof_constants import (
     UNREAD_FILE_LIST_EVAL_SENTENCE,
     UNREAD_FILE_LIST_TIER_SENTENCE,
     NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE,
+    SHARED_COMMAND_EVAL_SENTENCE,
+    SHARED_COMMAND_TIER_SENTENCE,
     GIT_URL_SUFFIX,
     REMOTE_LINE_FIELD_COUNT,
     RUN_WORD_PATTERN,
@@ -147,7 +149,7 @@ from hooks_constants.pytest_invocation import (
     unquoted_token,
 )
 from hooks_constants.shell_command_pipeline import pipeline_segments_for_command
-from hooks_constants.shell_command_wrappers import segment_program_and_arguments
+from hooks_constants.shell_command_wrappers import all_wrapped_command_texts, segment_program_and_arguments
 
 
 class CreateCall(NamedTuple):
@@ -155,6 +157,8 @@ class CreateCall(NamedTuple):
 
     None in title or body marks a value this gate cannot read. None in head,
     base or repository marks a value the create does not name.
+    ``shares_its_command`` is True when the shell command runs more than this
+    one call, so the checkout can change before the call runs.
     """
 
     title: str | None
@@ -162,6 +166,7 @@ class CreateCall(NamedTuple):
     head: str | None
     base: str | None
     repository: str | None
+    shares_its_command: bool = False
 
 
 def _heading_level(line: str, heading_pattern: str) -> int | None:
@@ -234,7 +239,18 @@ def _all_edit_argument_lists(command: str) -> Iterator[list[str]]:
     return all_pull_request_argument_lists(command, ALL_GH_EDIT_WORDS, PULL_REQUEST_SCRIPT_EDIT_WORD)
 
 
+def _runs_one_call(command: str) -> bool:
+    if len(all_wrapped_command_texts(command)) != 1 or len(command.strip().splitlines()) != 1:
+        return False
+    all_segment_keys = {
+        (tuple(unquoted_token(each_token) for each_token in each_segment), each_operator)
+        for each_segment, each_operator in pipeline_segments_for_command(command)
+    }
+    return len(all_segment_keys) == 1 and not next(iter(all_segment_keys))[1]
+
+
 def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall]:
+    shares_its_command = not _runs_one_call(command)
     return [
         CreateCall(
             title_from_arguments(all_create_arguments),
@@ -242,6 +258,7 @@ def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall
             _flag_value(all_create_arguments, ALL_HEAD_FLAGS, HEAD_FLAG_ASSIGNMENT_PREFIX) or None,
             _flag_value(all_create_arguments, ALL_BASE_FLAGS, BASE_FLAG_ASSIGNMENT_PREFIX) or None,
             _flag_value(all_create_arguments, ALL_REPOSITORY_FLAGS, REPOSITORY_FLAG_ASSIGNMENT_PREFIX) or None,
+            shares_its_command,
         )
         for all_create_arguments in all_create_argument_lists(command)
     ]
@@ -354,6 +371,14 @@ def _eval_need_sentence(path_read: ChangedPathRead | None) -> str | None:
     return None if agent_surface_path is None else eval_owed_sentence(agent_surface_path)
 
 
+def _create_eval_need_sentence(create_call: CreateCall, working_directory: str) -> str | None:
+    if create_call.shares_its_command:
+        return SHARED_COMMAND_EVAL_SENTENCE
+    return _eval_need_sentence(
+        _changed_path_read(working_directory, create_call.repository, create_call.base, create_call.head)
+    )
+
+
 def eval_need_sentence(all_payload_fields: Mapping[str, object]) -> str | None:
     """Return why a feature create in the payload owes an eval, or None when none owes one.
 
@@ -371,7 +396,7 @@ def eval_need_sentence(all_payload_fields: Mapping[str, object]) -> str | None:
     for each_call in _create_calls(all_payload_fields):
         if not _is_feature_title(each_call.title):
             continue
-        need_sentence = _eval_need_sentence(_changed_path_read_for_create(each_call, working_directory))
+        need_sentence = _create_eval_need_sentence(each_call, working_directory)
         if need_sentence is not None:
             return need_sentence
     return None
@@ -406,7 +431,7 @@ def missing_eval_section_reason(all_payload_fields: Mapping[str, object]) -> str
         section = _section_text(each_call.body, EVAL_HEADING_PATTERN)
         if section and COMMAND_MARKER in section:
             continue
-        need_sentence = _eval_need_sentence(_changed_path_read_for_create(each_call, working_directory))
+        need_sentence = _create_eval_need_sentence(each_call, working_directory)
         if need_sentence is not None:
             return MISSING_EVAL_SECTION_REASON + need_sentence
     return None
@@ -581,6 +606,7 @@ def tier_sentence(tier_choice: TierChoice) -> str:
         LIVE_SURFACE, "skills/a/SKILL.md"      -> LIVE_SURFACE_TIER_SENTENCE naming the path
         NO_DECLARED_SURFACES, "src/a.py"       -> NO_DECLARED_SURFACES_TIER_SENTENCE naming the path
         UNREAD_FILE_LIST, None                 -> UNREAD_FILE_LIST_TIER_SENTENCE
+        SHARED_COMMAND, None                   -> SHARED_COMMAND_TIER_SENTENCE
         NAMED_PULL_REQUEST_EDIT, None          -> NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE
         CODE_WITHOUT_LIVE_SURFACE, "src/a.py"  -> CODE_WITHOUT_LIVE_SURFACE_TIER_SENTENCE naming the path
         ONLY_DOCS_AND_TESTS, None              -> ONLY_DOCS_AND_TESTS_TIER_SENTENCE
@@ -592,6 +618,7 @@ def tier_sentence(tier_choice: TierChoice) -> str:
         TierCause.LIVE_SURFACE: LIVE_SURFACE_TIER_SENTENCE,
         TierCause.NO_DECLARED_SURFACES: NO_DECLARED_SURFACES_TIER_SENTENCE,
         TierCause.UNREAD_FILE_LIST: UNREAD_FILE_LIST_TIER_SENTENCE,
+        TierCause.SHARED_COMMAND: SHARED_COMMAND_TIER_SENTENCE,
         TierCause.NAMED_PULL_REQUEST_EDIT: NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE,
         TierCause.CODE_WITHOUT_LIVE_SURFACE: CODE_WITHOUT_LIVE_SURFACE_TIER_SENTENCE,
         TierCause.ONLY_DOCS_AND_TESTS: ONLY_DOCS_AND_TESTS_TIER_SENTENCE,
@@ -701,13 +728,15 @@ class EditCall(NamedTuple):
 
     ``names_pull_request`` is True when the edit names a pull request by number,
     URL or branch, or comes from the update tool, so the checkout cannot be
-    taken as that pull request's head.
+    taken as that pull request's head. ``shares_its_command`` is True when the
+    shell command runs more than this one call.
     """
 
     body: str
     working_directory: str
     repository: str | None
     names_pull_request: bool
+    shares_its_command: bool = False
 
 
 def edit_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -748,6 +777,8 @@ def edit_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
 
 
 def _edit_tier_choice(edit_call: EditCall) -> TierChoice:
+    if edit_call.shares_its_command:
+        return TierChoice(TierCause.SHARED_COMMAND, None)
     if edit_call.names_pull_request:
         return TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
     if not edit_call.working_directory:
@@ -780,12 +811,21 @@ def _edit_calls(all_payload_fields: Mapping[str, object]) -> list[EditCall]:
     raw_working_directory = all_payload_fields.get("cwd")
     working_directory = raw_working_directory if isinstance(raw_working_directory, str) else ""
     all_edit_calls = []
+    shares_its_command = not _runs_one_call(command)
     for each_arguments in _all_edit_argument_lists(command):
         body = body_from_arguments(each_arguments, working_directory)
         if body is None:
             continue
         repository = _flag_value(each_arguments, ALL_REPOSITORY_FLAGS, REPOSITORY_FLAG_ASSIGNMENT_PREFIX) or None
-        all_edit_calls.append(EditCall(body, working_directory, repository, _edit_names_a_pull_request(each_arguments)))
+        all_edit_calls.append(
+            EditCall(
+                body,
+                working_directory,
+                repository,
+                _edit_names_a_pull_request(each_arguments),
+                shares_its_command,
+            )
+        )
     return all_edit_calls
 
 
@@ -1359,10 +1399,6 @@ def _read_changed_paths(
     return None if all_remote_changes is None else ChangedPathRead(_changed_paths(all_remote_changes), is_local=False)
 
 
-def _changed_path_read_for_create(create_call: CreateCall, working_directory: str) -> ChangedPathRead | None:
-    return _changed_path_read(working_directory, create_call.repository, create_call.base, create_call.head)
-
-
 def _local_surfaces_file_text(working_directory: str, head_branch: str | None) -> str | None:
     merge_base_and_head = _merge_base_and_head(working_directory, head_branch)
     if merge_base_and_head is None:
@@ -1432,7 +1468,12 @@ def tier_choice_for_create(create_call: CreateCall, working_directory: str) -> T
         skills/a/SKILL.md changed                              -> LIVE_SURFACE, "skills/a/SKILL.md"
         no checkout of the repository, compare API unread     -> UNREAD_FILE_LIST
         compare API returns its 300-file cap                   -> UNREAD_FILE_LIST
+        cd x && gh pr create, or git commit && gh pr create     -> SHARED_COMMAND
 
+    A shell command that runs anything besides the one create call, joined by
+    &&, ;, ||, a pipe, a new line, a subshell or a wrapper such as bash -c,
+    gets the live tier with no read, because that other part can change the
+    checkout before the call runs.
     The changed paths come from git in the working directory when that
     checkout's origin is the repository the create names, else from the GitHub
     compare API. A rename or a copy adds the path it came from too. The
@@ -1445,6 +1486,8 @@ def tier_choice_for_create(create_call: CreateCall, working_directory: str) -> T
         create_call: The create whose head, base and repository are read.
         working_directory: The session directory the hook payload names.
     """
+    if create_call.shares_its_command:
+        return TierChoice(TierCause.SHARED_COMMAND, None)
     return _tier_choice(working_directory, create_call.repository, create_call.base, create_call.head)
 
 

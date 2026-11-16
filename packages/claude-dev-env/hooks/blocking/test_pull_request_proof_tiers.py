@@ -24,6 +24,7 @@ from hooks_constants.pull_request_proof_constants import (
     MISSING_PROOF_REASON,
     TEST_ONLY_PROOF_REASON,
 )
+from hooks_constants import pull_request_proof_constants as proof_constants
 
 GIT_IDENTITY = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
 TEST_RUN_PROOF_BODY = "## Proof in practice\nRan `python -m pytest tests -q`.\n> 3 passed\n"
@@ -450,6 +451,73 @@ def test_checkout_sections_should_ask_for_both_sections_when_the_list_cannot_be_
         "needs_proof_section": True,
         "needs_eval_section_for_a_feature": True,
     }
+
+
+def _payload_with_command(clone_path: Path, command: str) -> dict[str, object]:
+    return {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": str(clone_path)}
+
+
+def _create_command(clone_path: Path, body: str, title: str = "fix: tighten a check") -> str:
+    body_path = clone_path.parent / "body.md"
+    body_path.write_text(body, encoding="utf-8")
+    return f'gh pr create --title "{title}" --body-file "{body_path}"'
+
+
+@pytest.mark.parametrize(
+    ("prefix", "suffix"),
+    [
+        ('git commit -q -m "skill" && ', ""),
+        ("git checkout -q main && ", ""),
+        ('cd "{clone}" && ', ""),
+        ("git add -A; ", ""),
+        ("git add -A\n", ""),
+        ("", " || true"),
+        ("", " | tee out.txt"),
+        ("(", ")"),
+        ('bash -c "', '"'),
+    ],
+)
+def test_should_give_the_live_tier_to_a_create_that_shares_its_command(
+    tmp_path: Path, prefix: str, suffix: str
+) -> None:
+    clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
+    create_command = _create_command(clone_path, NO_PROOF_BODY).replace('"', "'")
+    command = prefix.format(clone=clone_path) + create_command + suffix
+    reason = gate.missing_proof_reason(_payload_with_command(clone_path, command))
+    assert reason == MISSING_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.SHARED_COMMAND, None)
+    )
+    assert "alone" in reason
+
+
+@pytest.mark.parametrize(
+    "title",
+    ["docs: a && b; c | d", "docs: reword the guide"],
+)
+def test_should_read_the_tier_for_a_create_that_runs_alone(tmp_path: Path, title: str) -> None:
+    clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
+    command = _create_command(clone_path, NO_PROOF_BODY, title) + "\n"
+    assert gate.missing_proof_reason(_payload_with_command(clone_path, command)) is None
+
+
+def test_should_owe_an_eval_for_a_feature_create_that_shares_its_command(tmp_path: Path) -> None:
+    clone_path = _clone_with_branch(
+        tmp_path, {"src/gate.py": "x = 2\n"}, {".claude/live-surfaces.txt": DECLARED_SURFACES}
+    )
+    command = "git add -A && " + _create_command(clone_path, EVAL_LESS_BODY, "feat: add a check")
+    reason = gate.missing_eval_section_reason(_payload_with_command(clone_path, command))
+    assert reason == MISSING_EVAL_SECTION_REASON + proof_constants.SHARED_COMMAND_EVAL_SENTENCE
+
+
+def test_should_give_the_live_tier_to_an_edit_that_shares_its_command(tmp_path: Path) -> None:
+    clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
+    body_path = clone_path.parent / "edit-body.md"
+    body_path.write_text(TEST_RUN_PROOF_BODY, encoding="utf-8")
+    command = f'cd "{clone_path}" && gh pr edit --body-file "{body_path}"'
+    reason = gate.edit_proof_reason(_payload_with_command(clone_path, command))
+    assert reason == TEST_ONLY_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.SHARED_COMMAND, None)
+    )
 
 
 def test_should_skip_the_build_eval_scan_for_a_feature_that_owes_no_eval(

@@ -55,6 +55,18 @@ NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE = (
     " request's head. Run gh pr edit with no number and --body-file from a checkout of"
     " the head branch, so the gate can set the tier from the changed files."
 )
+SHARED_COMMAND_TIER_SENTENCE = (
+    " Evidence tier: live, because this command runs more than the pull request call,"
+    " such as a cd, a commit or a checkout joined by &&, ;, ||, a pipe or a new line,"
+    " so the gate cannot tell which files the call sends. Run the gh call alone, as a"
+    " command of its own, from a checkout of the head branch or with --repo and --head,"
+    " so the gate can set the tier from the changed files."
+)
+SHARED_COMMAND_EVAL_SENTENCE = (
+    " This command runs more than the pull request call, so the gate cannot tell which"
+    " files the call sends and cannot rule out a change to a file agents read or load."
+    " Run the gh call alone, as a command of its own."
+)
 CODE_WITHOUT_LIVE_SURFACE_TIER_SENTENCE = (
     " Evidence tier: checked, because this pull request changes {path} and no changed"
     " path is a live surface. A test run counts as the command."
