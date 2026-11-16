@@ -251,7 +251,9 @@ def listed_tool_names(all_record_fields: dict[str, object]) -> tuple[str, list[s
         all_delta_names = [
             each_name
             for each_key in ALL_DEFERRED_TOOLS_DELTA_NAME_KEYS
-            for each_name in (attachment_body.get(each_key) if isinstance(attachment_body.get(each_key), list) else [])
+            for each_delta_value in [attachment_body.get(each_key)]
+            if isinstance(each_delta_value, list)
+            for each_name in each_delta_value
             if isinstance(each_name, str)
         ]
         return attachment_type, all_delta_names
