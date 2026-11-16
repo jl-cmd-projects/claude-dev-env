@@ -182,6 +182,7 @@ def _pull_request_proof_findings(
     body_text: str,
     head_branch: str | None = None,
     repository: str | None = None,
+    base_branch: str | None = None,
 ) -> list[DurablePostFinding]:
     owner, _separator, repository_name = (repository or "").partition(
         REPOSITORY_OWNER_SEPARATOR
@@ -192,6 +193,7 @@ def _pull_request_proof_findings(
             "title": title,
             "body": body_text,
             "head": head_branch,
+            "base": base_branch,
             "owner": owner,
             "repo": repository_name,
         },
@@ -277,6 +279,7 @@ def _body_findings(
     head_branch: str | None = None,
     title: str | None = None,
     repository: str | None = None,
+    base_branch: str | None = None,
 ) -> list[DurablePostFinding]:
     if body_text is None:
         return []
@@ -294,7 +297,7 @@ def _body_findings(
         if action == ACTION_PR_CREATE:
             all_findings.extend(_description_heading_findings(body_text))
             all_findings.extend(
-                _pull_request_proof_findings(title, body_text, head_branch, repository)
+                _pull_request_proof_findings(title, body_text, head_branch, repository, base_branch)
             )
         if action in (ACTION_PR_CREATE, ACTION_PR_EDIT):
             all_findings.extend(_description_flowchart_findings(body_text)
@@ -316,6 +319,7 @@ def lint_durable_post(
     body_text: str | None,
     head_branch: str | None = None,
     repository: str | None = None,
+    base_branch: str | None = None,
 ) -> tuple[DurablePostFinding, ...]:
     """Return content findings for one locally valid GitHub post request.
 
@@ -328,6 +332,9 @@ def lint_durable_post(
         body_text: The post body, when the action carries one.
         head_branch: The pull request head branch, when known.
         repository: The ``owner/name`` the post targets, when known.
+        base_branch: The pull request base branch, when known. The proof
+            checks read the changed paths against it, else against the
+            default branch.
 
     Returns:
         Every finding, title findings first.
@@ -336,7 +343,7 @@ def lint_durable_post(
     return (
         *_title_findings(title),
         *_private_term_findings(title, repository),
-        *_body_findings(action, body_text, head_branch, title, repository),
+        *_body_findings(action, body_text, head_branch, title, repository, base_branch),
         *_private_term_findings(body_text, repository),
     )
 
@@ -348,6 +355,7 @@ def _parse_arguments(all_arguments: Sequence[str]) -> argparse.Namespace:
     parser.add_argument("--body-file", type=Path)
     parser.add_argument("--head-branch")
     parser.add_argument("--repository")
+    parser.add_argument("--base-branch")
     return parser.parse_args(list(all_arguments))
 
 
@@ -366,6 +374,7 @@ def main(all_arguments: Sequence[str]) -> int:
             body_text=body_text,
             head_branch=arguments.head_branch,
             repository=arguments.repository,
+            base_branch=arguments.base_branch,
         )
     except (DurablePostInputError, DurablePostUsageError) as error:
         sys.stderr.write(f"{error}\n")

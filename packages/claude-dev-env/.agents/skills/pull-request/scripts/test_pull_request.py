@@ -222,6 +222,11 @@ def test_actions_run_exact_linter_then_gh_arguments(
         if "--head" in all_cli_arguments
         else []
     )
+    base_arguments = (
+        ["--base-branch", all_cli_arguments[all_cli_arguments.index("--base") + 1]]
+        if "--base" in all_cli_arguments
+        else []
+    )
     expected_linter = [
         sys.executable,
         str(LINTER_PATH),
@@ -231,6 +236,7 @@ def test_actions_run_exact_linter_then_gh_arguments(
         "--body-file",
         BODY_FILENAME,
         *head_arguments,
+        *base_arguments,
         "--repository",
         all_cli_arguments[all_cli_arguments.index("--repo") + 1],
     ]
@@ -463,6 +469,29 @@ def should_hand_the_head_branch_to_the_linter_on_create(body_file: Path) -> None
         linter_command[linter_command.index("--head-branch") + 1]
         == "release-please--branches--main--components--package"
     )
+
+
+def should_hand_the_base_branch_to_the_linter_on_create(body_file: Path) -> None:
+    command_runner = Mock(side_effect=[_completion([]), _completion([])])
+    pull_request.main(
+        [
+            "create",
+            "--repo",
+            "owner/repo",
+            "--base",
+            "feature",
+            "--head",
+            "feature-part-two",
+            "--title",
+            PR_TITLE,
+            "--body-file",
+            str(body_file),
+        ],
+        all_environment={},
+        command_runner=command_runner,
+    )
+    linter_command = _calls(command_runner)[0]
+    assert linter_command[linter_command.index("--base-branch") + 1] == "feature"
 
 
 PROOF_CONSTANTS_PATH = (
