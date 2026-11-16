@@ -13,24 +13,24 @@ Split when the change carries more than one purpose, or when one small part carr
 
 Try the cheaper move first. Mark generated or data files that swell the diff with a `linguist-generated` line in `.gitattributes`, then judge the size again.
 
+Decide the slices when you write the plan. The Delivery section of `~/.claude/docs/rule-guides/verified-work.md` already commits each verified piece as its own level. The steps below repair a pull request where that did not happen.
+
 ## Size bar
 
-Check size after the four tests pass. Count changed lines and leave out generated files.
+Apply the bar to each slice that passes the four tests. Count its changed lines without the generated or data files from the cheaper move above.
 
 - About 100 lines reads well. One review holds 200 to 400 lines.
 - Over 400 lines, look for another seam that passes the four tests.
-- Over 1,000 lines, split, or state in a "Why one pull request" section why the slice stays whole.
+- Over 1,000 lines, look harder. When no seam passes the four tests, keep the slice whole and give the stated reason under a "Why one pull request" heading.
 
-A cut that meets the bar and fails the tests is still cosmetic. Sources: [Google small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html) and [SmartBear code review practices](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/).
+Sources: [Google small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html) and [SmartBear code review practices](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/).
 
 ## Level order
 
-Order levels by the import graph, as [each stack level stands on its own](../SKILL.md#each-stack-level-stands-on-its-own) and step 3 below describe. Two more rules:
+Order levels by the import graph, as [each stack level stands on its own](../SKILL.md#each-stack-level-stands-on-its-own) and the "Sort hunks by purpose" step below describe. Two cases follow from that:
 
-- Cut a shared constants file so each constant lands at the level of its first user.
-- A check, eval, or review rule sits at or below the level of the code it judges, so it is in force when that code is reviewed.
-
-Decide the slices when you write the plan. The Delivery section of `~/.claude/docs/rule-guides/verified-work.md` already commits each verified piece as its own level. The steps below repair a pull request where that did not happen.
+- A shared constants file is cut too, so each level carries only the constants its own code uses.
+- A review rule or review doc that judges code sits at or below that code's level, so it is in force when that code is reviewed. A test or eval that imports the code stays at the code's level as that slice's proof.
 
 ## Split a pull request that is already open
 
