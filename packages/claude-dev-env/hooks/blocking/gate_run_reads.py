@@ -55,7 +55,6 @@ if hooks_directory not in sys.path:
 
 from blocking.gate_child_process import close_job, job_holding, started_child, stop_child
 from hooks_constants.gate_run_reads_constants import (
-    EVAL_WRITE_SCAN_SECONDS,
     FOLLOWUP_READS_SECONDS,
     PROOF_AND_LOOK_READS_SECONDS,
 )
@@ -68,13 +67,11 @@ AnswerType = TypeVar("AnswerType")
 class ReadSlice(Enum):
     """Which deadline a read answers to, as seconds from the start of the gate process.
 
-    The lifecycle gate reads in ``PROOF_AND_LOOK`` and then ``FOLLOWUP``. The
-    eval-write gate scans its transcripts in ``EVAL_WRITE``.
+    The lifecycle gate reads in ``PROOF_AND_LOOK`` and then ``FOLLOWUP``.
     """
 
     PROOF_AND_LOOK = PROOF_AND_LOOK_READS_SECONDS
     FOLLOWUP = PROOF_AND_LOOK_READS_SECONDS + FOLLOWUP_READS_SECONDS
-    EVAL_WRITE = EVAL_WRITE_SCAN_SECONDS
 
 
 @dataclass

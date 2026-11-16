@@ -79,7 +79,6 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/sent_file_question_gate.py",
     "blocking/question_brief_gate.py",
     "blocking/haiku_spawn_slim_gate.py",
-    "blocking/build_eval_before_eval_write_gate.py",
     "blocking/final_reply_gate.py",
     "blocking/open_tasks_stop_gate.py",
     "blocking/auto_mode_refusal_stop_gate.py",

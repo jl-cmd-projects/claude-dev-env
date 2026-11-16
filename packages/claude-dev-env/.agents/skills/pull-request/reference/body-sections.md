@@ -9,7 +9,7 @@ A reviewer reads the body in place of the code. The body says what the change do
 | `## Existing work` | What already did part of the job, with a link or file and line, and what this change adds. Or the places searched. |
 | `## Proof in practice` | Each command in backticks and its output, as the evidence tier asks. Live tier: the output without the change and with it, and the run on the target the change exists to fix, here before the pull request opens. Checked tier: a test run counts. None tier: optional. |
 | `## Not covered` | Optional. A condition the change does not target and the runs left out, such as an older data shape. |
-| `## Eval` | Only for a `feat` title that changes a file agents read or load. The eval's cases and grader, the command, and its result. |
+| `## Eval` | Only for a `feat` title that changes a file agents read or load. The eval's cases and grader, the command that runs it in backticks, and its result quoted. |
 | `## Risk` | What could break, for whom, and how anyone would notice. `Low` and one reason for a doc or test change. |
 | `## How to revert` | The exact undo step, and any data or state a plain revert leaves behind. |
 

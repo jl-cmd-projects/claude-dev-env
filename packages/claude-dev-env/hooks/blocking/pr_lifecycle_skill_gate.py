@@ -4,7 +4,7 @@ A gate silent at its 30 s ``hooks.json`` timeout lets the call through, so its g
 and its transcript scans end by 21 s. ``blocking/gate_run_reads.py`` draws that budget.
 A deny from a run that cut a read short says a second run may pass.
 Each transcript scan reads the newest line first, so a recent skill load answers early.
-A deny from a scan the deadline stopped says to load the skill, or call build-eval, again.
+A deny from a scan the deadline stopped says to load the skill again.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ if hooks_directory not in sys.path:
 from hooks_constants.pr_lifecycle_skill_gate_constants import (
     AGENT_ID_FIELD,
     AGENT_ID_PATTERN,
-    ALL_BUILD_EVAL_SKILL_NAMES,
     ALL_API_ACTION_NAMES,
     ALL_COMMAND_PREFIX_WORDS,
     ALL_GH_PULL_REQUEST_READ_SUBCOMMANDS,
@@ -34,8 +33,6 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import (
     ALL_SHELL_WRAPPER_EXECUTABLES,
     ALL_SLASH_COMMAND_MARKERS,
     ALL_TRANSCRIPT_PATH_FIELDS,
-    BUILD_EVAL_ARGUMENT_WORD,
-    BUILD_EVAL_COMMAND_MARKER,
     COMMAND_PIECE_PATTERN,
     BACKTICK_SUBSTITUTION_GROUP,
     COMMAND_SUBSTITUTION_PATTERN,
@@ -94,9 +91,7 @@ from blocking.gate_run_reads import (
 from hooks_constants.gate_fault import gate_fault_reason
 from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
 from blocking import pull_request_proof as proof
-from hooks_constants.pull_request_proof_constants import MISSING_BUILD_EVAL_REASON
 from transcript_skill_scan import (
-    invokes_skill_with_argument,
     is_skill_loaded_after_last_compaction_newest_first,
 )
 
@@ -355,15 +350,6 @@ def _shows_skill_load(all_lines_newest_first: Iterable[str]) -> bool:
     )
 
 
-def _shows_build_eval(all_transcript_lines: Iterable[str]) -> bool:
-    return invokes_skill_with_argument(
-        all_transcript_lines,
-        ALL_BUILD_EVAL_SKILL_NAMES,
-        BUILD_EVAL_ARGUMENT_WORD,
-        BUILD_EVAL_COMMAND_MARKER,
-    )
-
-
 def _subagent_transcript_path(all_payload_fields: dict[str, object]) -> str | None:
     session_path = all_payload_fields.get(SESSION_TRANSCRIPT_PATH_FIELD)
     agent_id = all_payload_fields.get(AGENT_ID_FIELD)
@@ -394,11 +380,10 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         pull request with no flowchart in What this does  -> MISSING_FLOWCHART_REASON
         feature changing an agent surface, no eval section -> MISSING_EVAL_SECTION_REASON + why
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
-        feature changing an agent surface, no build-eval  -> MISSING_BUILD_EVAL_REASON + why
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
         follow-up read of open pull requests unanswered   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         follow-up with no repository, origin unread       -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
-        skill or build-eval deny from a scan the deadline stopped -> that reason + SCAN_RAN_OUT_SENTENCE
+        skill deny from a scan the deadline stopped       -> that reason + SCAN_RAN_OUT_SENTENCE
         any deny above in a run whose deadline cut a read -> that reason + READS_RAN_OUT_SENTENCE
         a check raises once the call is known governed   -> gate_fault_reason naming the error
 
@@ -423,18 +408,6 @@ def _scan_note(run: GateRun, cut_scan_count_before: int) -> str:
     return SCAN_RAN_OUT_SENTENCE if run.cut_scan_count > cut_scan_count_before else ""
 
 
-def _missing_build_eval_reason(all_fields: dict[str, object], run: GateRun) -> str | None:
-    if not proof.is_feature_pull_request(all_fields):
-        return None
-    cut_scan_count_before = run.cut_scan_count
-    need_sentence = proof.eval_need_sentence(all_fields)
-    if need_sentence is None:
-        return None
-    if not is_build_eval_missing(all_fields):
-        return None
-    return MISSING_BUILD_EVAL_REASON + need_sentence + _scan_note(run, cut_scan_count_before)
-
-
 def _first_broken_rule_reason(all_fields: dict[str, object], run: GateRun) -> str | None:
     cut_scan_count_before = run.cut_scan_count
     if _is_skill_unloaded(all_fields):
@@ -446,7 +419,6 @@ def _first_broken_rule_reason(all_fields: dict[str, object], run: GateRun) -> st
         or proof.missing_flowchart_reason(all_fields)
         or proof.missing_eval_section_reason(all_fields)
         or proof.missing_look_reason(all_fields)
-        or _missing_build_eval_reason(all_fields, run)
         or duplicate_followup_reason(all_fields)
     )
 
@@ -473,43 +445,6 @@ def _is_skill_unloaded(all_payload_fields: dict[str, object]) -> bool:
         return False
     statuses = [_scanned_transcript(path, _shows_skill_load, ReadSlice.PROOF_AND_LOOK) for path in readable_paths]
     return not any(status is None or status for status in statuses)
-
-
-def eval_skill_call_status(
-    all_payload_fields: dict[str, object], read_slice: ReadSlice = ReadSlice.FOLLOWUP
-) -> bool | None:
-    """Return whether the session's transcripts show a /claude-api build-eval call.
-
-    ::
-
-        one transcript shows the call         -> True
-        transcripts read, none shows the call -> False
-        no transcript could be read           -> None
-        the slice's deadline stopped a scan   -> False, unless another transcript shows the call
-
-    Each scan reads the newest line first and stops at the slice's deadline
-    once the gate process started its read deadlines.
-
-    Args:
-        all_payload_fields: The parsed PreToolUse input.
-        read_slice: The slice whose deadline each scan answers to.
-    """
-    has_read_transcript = False
-    for each_path in transcript_paths(all_payload_fields):
-        status = _scanned_transcript(each_path, _shows_build_eval, read_slice)
-        if status:
-            return True
-        has_read_transcript = has_read_transcript or status is not None
-    return False if has_read_transcript else None
-
-
-def is_build_eval_missing(all_payload_fields: dict[str, object]) -> bool:
-    """Return whether every readable transcript lacks a /claude-api build-eval call.
-
-    Args:
-        all_payload_fields: The parsed PreToolUse input.
-    """
-    return eval_skill_call_status(all_payload_fields) is False
 
 
 def deny_decision(reason: str) -> dict[str, object]:

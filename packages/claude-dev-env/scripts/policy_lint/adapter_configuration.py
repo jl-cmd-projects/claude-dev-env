@@ -140,7 +140,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/send_user_file_worktree_root_gate.py -> exempt
         hooks/blocking/sent_file_question_gate.py        -> exempt
         hooks/blocking/question_brief_gate.py            -> exempt
-        hooks/blocking/build_eval_before_eval_write_gate.py -> exempt
         hooks/blocking/final_reply_gate.py               -> exempt
         hooks/blocking/open_tasks_stop_gate.py           -> exempt
         hooks/blocking/auto_mode_refusal_stop_gate.py    -> exempt
@@ -199,10 +198,6 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The question brief gate denies a question call when the chat text before
     it in the same turn is too long to read at a glance. It decides the shape
     of a brief and no code or safety policy.
-
-    The eval write gate denies a write to an eval file until the session
-    invokes ``/claude-api build-eval``. It holds eval writes until a skill
-    loads, and it judges no code or safety content.
 
     The open tasks Stop gate holds the end of a turn once when the turn worked
     on an ask and made no task list call. It decides when a turn may end and

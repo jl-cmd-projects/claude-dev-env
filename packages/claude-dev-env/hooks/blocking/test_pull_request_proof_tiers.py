@@ -18,7 +18,6 @@ from blocking.evidence_tier import TierCause, TierChoice
 from blocking.gate_run_reads import gate_run
 from hooks_constants.pull_request_proof_constants import (
     COMPARE_FILE_LIST_LIMIT,
-    MISSING_BUILD_EVAL_REASON,
     MISSING_CHECKED_PROOF_REASON,
     MISSING_EVAL_SECTION_REASON,
     MISSING_PROOF_REASON,
@@ -347,7 +346,7 @@ def _gate_payload(clone_path: Path, title: str) -> dict[str, object]:
     return payload
 
 
-def test_should_not_ask_for_build_eval_on_a_feature_that_changes_only_plain_code(
+def test_should_pass_a_feature_that_changes_only_plain_code_with_no_eval_section(
     tmp_path: Path,
 ) -> None:
     clone_path = _clone_with_branch(
@@ -356,18 +355,14 @@ def test_should_not_ask_for_build_eval_on_a_feature_that_changes_only_plain_code
     assert lifecycle_gate.decision_for(_gate_payload(clone_path, "feat: add a check")) is None
 
 
-def test_should_ask_for_build_eval_on_a_feature_that_changes_a_rule(tmp_path: Path) -> None:
+def test_should_pass_a_feature_that_changes_a_rule_once_its_body_has_an_eval_section(tmp_path: Path) -> None:
     clone_path = _clone_with_branch(tmp_path, {"rules/ship.md": "Ship it.\n"})
     payload = _gate_payload(clone_path, "feat: add a rule")
     (clone_path.parent / "body.md").write_text(
         LIVE_PROOF_BODY + FULL_BODY_TAIL + "\n## Eval\nTen cases. Ran `python grade.py`: 10/10.\n",
         encoding="utf-8",
     )
-    decision = lifecycle_gate.decision_for(payload)
-    assert decision is not None
-    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == (
-        MISSING_BUILD_EVAL_REASON + gate.eval_owed_sentence("rules/ship.md")
-    )
+    assert lifecycle_gate.decision_for(payload) is None
 
 
 def test_should_take_an_edit_tier_from_the_checkout_of_the_pull_request(tmp_path: Path) -> None:
@@ -721,15 +716,3 @@ def test_should_read_the_tier_when_the_named_head_matches_its_origin_copy(tmp_pa
     _git(clone_path, "push", "-q", "origin", "feature")
     command = _create_command(clone_path, NO_PROOF_BODY) + " --head feature"
     assert gate.missing_proof_reason(_payload_with_command(clone_path, command)) is None
-
-
-def test_should_skip_the_build_eval_scan_for_a_feature_that_owes_no_eval(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    clone_path = _clone_with_branch(
-        tmp_path, {"src/gate.py": "x = 2\n"}, {".claude/live-surfaces.txt": DECLARED_SURFACES}
-    )
-    all_scanned_payloads: list[dict[str, object]] = []
-    monkeypatch.setattr(lifecycle_gate, "is_build_eval_missing", all_scanned_payloads.append)
-    assert lifecycle_gate.decision_for(_gate_payload(clone_path, "feat: add a check")) is None
-    assert all_scanned_payloads == []

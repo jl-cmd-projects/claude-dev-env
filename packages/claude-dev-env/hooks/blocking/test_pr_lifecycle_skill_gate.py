@@ -25,20 +25,17 @@ from hooks_constants.followup_pr_dedupe_constants import (
 )
 from hooks_constants.gate_fault import gate_fault_reason
 from hooks_constants.gate_run_reads_constants import (
-    FOLLOWUP_READS_SECONDS,
     PROOF_AND_LOOK_READS_SECONDS,
     READS_RAN_OUT_SENTENCE,
 )
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON, SCAN_RAN_OUT_SENTENCE
 from hooks_constants.pull_request_proof_constants import (
-    MISSING_BUILD_EVAL_REASON,
     MISSING_PROOF_REASON,
     UNPROVEN_PROOF_REASON,
     UNREADABLE_CHANGES_REASON,
 )
 
 UNREAD_LIVE_TIER = gate.proof.tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
-UNREAD_EVAL_NEED = gate.proof.eval_owed_sentence(None)
 WHAT_THIS_DOES_SECTION = (
     "## What this does\nDraws the flow before and after.\n\n"
     "```mermaid\nflowchart LR\n    before --> after\n```\n\n"
@@ -564,16 +561,6 @@ EVALUATED_BODY = (
 SKILL_LOAD_LINE = json.dumps(
     {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "pr-lifecycle"}}]}}
 )
-BUILD_EVAL_LINE = json.dumps(
-    {
-        "type": "assistant",
-        "message": {
-            "content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "claude-api", "args": "build-eval"}}]
-        },
-    }
-)
-
-
 def _transcript_with_lines(tmp_path: Path, file_name: str, all_lines: list[str]) -> Path:
     transcript_path = tmp_path / file_name
     transcript_path.write_text("\n".join(all_lines) + "\n", encoding="utf-8")
@@ -596,47 +583,16 @@ def _assert_denied_with(payload: dict[str, object], reason: str) -> None:
     assert decision["hookSpecificOutput"]["permissionDecisionReason"] == reason
 
 
-def test_feature_pull_request_without_build_eval_invocation_should_be_denied(tmp_path: Path) -> None:
+def test_feature_pull_request_with_an_eval_section_should_pass_with_no_skill_call_for_the_eval(
+    tmp_path: Path,
+) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
-    _assert_denied_with(_create_payload(tmp_path, "feat: add a gate", transcript_path), MISSING_BUILD_EVAL_REASON + UNREAD_EVAL_NEED)
-
-
-def test_feature_pull_request_with_build_eval_invocation_should_pass(tmp_path: Path) -> None:
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE, SKILL_LOAD_LINE])
     assert gate.decision_for(_create_payload(tmp_path, "feat: add a gate", transcript_path)) is None
 
 
-def test_is_build_eval_missing_should_follow_the_transcript(tmp_path: Path) -> None:
-    without_call = _transcript_with_lines(tmp_path, "without.jsonl", [SKILL_LOAD_LINE])
-    with_call = _transcript_with_lines(tmp_path, "with.jsonl", [BUILD_EVAL_LINE])
-    assert gate.is_build_eval_missing({"transcript_path": str(without_call)})
-    assert not gate.is_build_eval_missing({"transcript_path": str(with_call)})
-    assert not gate.is_build_eval_missing({"transcript_path": str(tmp_path / "missing.jsonl")})
-
-
-def test_non_feature_pull_request_without_build_eval_invocation_should_pass(tmp_path: Path) -> None:
+def test_non_feature_pull_request_should_pass(tmp_path: Path) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
     assert gate.decision_for(_create_payload(tmp_path, "fix: repair a gate", transcript_path)) is None
-
-
-def test_feature_pull_request_with_no_readable_transcript_should_pass(tmp_path: Path) -> None:
-    payload = _create_payload(tmp_path, "feat: add a gate", tmp_path / "missing.jsonl")
-    assert gate.decision_for(payload) is None
-
-
-def test_build_eval_check_should_ignore_an_unreadable_transcript_beside_a_readable_one(tmp_path: Path) -> None:
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
-    payload = _create_payload(tmp_path, "feat: add a gate", transcript_path)
-    payload["agent_transcript_path"] = str(tmp_path / "missing-agent.jsonl")
-    _assert_denied_with(payload, MISSING_BUILD_EVAL_REASON + UNREAD_EVAL_NEED)
-
-
-def test_build_eval_invocation_in_the_agent_transcript_should_pass(tmp_path: Path) -> None:
-    session_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
-    agent_path = _transcript_with_lines(tmp_path, "agent.jsonl", [BUILD_EVAL_LINE])
-    payload = _create_payload(tmp_path, "feat: add a gate", session_path)
-    payload["agent_transcript_path"] = str(agent_path)
-    assert gate.decision_for(payload) is None
 
 
 def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_path: Path) -> dict[str, object]:
@@ -655,38 +611,23 @@ def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_
     }
 
 
-def test_feature_dispatch_without_build_eval_invocation_should_be_denied(tmp_path: Path) -> None:
+def test_feature_dispatch_with_an_eval_section_should_pass_with_no_skill_call_for_the_eval(
+    tmp_path: Path,
+) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
-    all_inputs = {"head": "main", "title": "feat: add a gate", "body": EVALUATED_BODY}
-    _assert_denied_with(_dispatch_payload(tmp_path, all_inputs, transcript_path), MISSING_BUILD_EVAL_REASON + UNREAD_EVAL_NEED)
-
-
-def test_feature_dispatch_with_build_eval_invocation_should_pass(tmp_path: Path) -> None:
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE, SKILL_LOAD_LINE])
     all_inputs = {"head": "main", "title": "feat: add a gate", "body": EVALUATED_BODY}
     assert gate.decision_for(_dispatch_payload(tmp_path, all_inputs, transcript_path)) is None
 
 
 def test_pull_request_dispatch_without_the_skill_loaded_should_be_denied(tmp_path: Path) -> None:
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE])
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [UNRELATED_LINE])
     all_inputs = {"head": "main", "title": "fix: repair a gate", "body": EVALUATED_BODY}
     _assert_denied_with(_dispatch_payload(tmp_path, all_inputs, transcript_path), DENY_REASON)
 
 
 def test_dispatch_that_opens_no_pull_request_should_pass_without_the_skill(tmp_path: Path) -> None:
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE])
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [UNRELATED_LINE])
     assert gate.decision_for(_dispatch_payload(tmp_path, {"work_order": "wo-1"}, transcript_path)) is None
-
-
-def test_eval_skill_call_status_should_separate_called_missing_and_unreadable(tmp_path: Path) -> None:
-    called_path = tmp_path / "called.jsonl"
-    skill_call = {"type": "tool_use", "name": "Skill", "input": {"skill": "claude-api", "args": "build-eval"}}
-    called_path.write_text(
-        json.dumps({"type": "assistant", "message": {"content": [skill_call]}}) + "\n", encoding="utf-8"
-    )
-    assert gate.eval_skill_call_status(_payload("git status", called_path)) is True
-    assert gate.eval_skill_call_status(_payload("git status", _transcript(tmp_path))) is False
-    assert gate.eval_skill_call_status(_payload("git status", tmp_path / "missing.jsonl")) is None
 
 
 def test_deny_decision_should_carry_the_reason_as_a_deny() -> None:
@@ -830,27 +771,6 @@ def test_skill_scan_should_find_a_recent_load_before_the_deadline(tmp_path: Path
     )
     with read_deadlines_started(TickingClock()):
         assert gate.decision_for(_payload("git push", transcript_path)) is None
-
-
-def test_build_eval_scan_cut_by_the_deadline_should_deny_with_the_scan_sentence(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    clock = SettableClock()
-    is_feature_on_this_tree = gate.proof.is_feature_pull_request
-
-    def feature_check_that_spends_the_followup_slice(all_fields: dict[str, object]) -> bool:
-        clock.seconds = float(PROOF_AND_LOOK_READS_SECONDS + FOLLOWUP_READS_SECONDS)
-        return is_feature_on_this_tree(all_fields)
-
-    monkeypatch.setattr(gate.proof, "is_feature_pull_request", feature_check_that_spends_the_followup_slice)
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE, SKILL_LOAD_LINE])
-    payload = _create_payload(tmp_path, "feat: add a gate", transcript_path)
-    with read_deadlines_started(clock):
-        decision = gate.decision_for(payload)
-    assert decision is not None
-    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == (
-        MISSING_BUILD_EVAL_REASON + UNREAD_EVAL_NEED + SCAN_RAN_OUT_SENTENCE + READS_RAN_OUT_SENTENCE
-    )
 
 
 def test_check_that_raises_should_deny_with_a_reason_that_names_the_error(
