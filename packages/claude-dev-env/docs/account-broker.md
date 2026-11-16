@@ -31,7 +31,7 @@ The broker stores cached meters, spent marks, and Claude session bindings in one
 | Code | Meaning |
 | --- | --- |
 | `0` | `choose` or `check` found an account, or the job exited successfully. |
-| `3` | Wait. No account clears its floor, or no account meter could be read. The reason says which. The decision includes `resets_at`, the time the broker checks again: the soonest account reset or probe hold, or one hour out when it knows neither. |
+| `3` | Wait. No account clears its floor, no read account clears its floor while other meters went unread, or no account meter could be read. The reason says which. The decision includes `resets_at`, the time the broker checks again: the soonest account reset or probe hold, or one hour out when it knows neither. |
 | `4` | A Claude job stopped with `advisor_blocked`, or every Claude account was unusable: each had no token or was signed out. |
 | `127` | A Codex job timed out, its command could not start while no Codex roster is configured, or the command could not start on any account in the roster. |
 | Other command code | `run` returns the command's exit code after a served response. |

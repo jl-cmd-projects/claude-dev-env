@@ -31,8 +31,8 @@ For a change to Claude Code behavior, such as a hook, skill, rule, setting, prom
 - Leave out `--bare` and `claude plugin eval`. Both drop the hooks and settings the user runs with.
 - Read the broker report for the account it chose. Read the stream for the hook events and their output, `permission_denials`, the final result, and the token usage on the result event.
 - When the broker exits 3 with action "wait", read its reason. Start headless Claude only through the broker.
-  - "no account has room" means usage is spent. Treat that as a blocked proof and report the reason and `resets_at`.
-  - "no readable account has room" means the read accounts are spent and names the accounts whose meter went unread. Run the broker once more after `resets_at`. When it waits again, treat that as a blocked proof.
+  - "no account has room" means each account is below its usage floor. Treat that as a blocked proof and report the reason and `resets_at`.
+  - "no readable account has room" means each read account is below its usage floor, and the reason names the accounts whose meter went unread. Run the broker once more after `resets_at`. When it waits again, treat that as a blocked proof.
   - "no account meter could be read" means the meter reads failed, often with HTTP 429. Usage may be left, and `resets_at` is when the broker checks again. Run the broker once more after `resets_at`.
   - When that second run also reports unread meters in a cloud session, the session's own account has usage, because the session runs on it. Run the step with a subagent of the session, on the model and effort of the same pair, and in its own worktree when it edits code. In the proof, name the route and quote each account's unread reason.
 
