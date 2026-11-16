@@ -27,15 +27,19 @@ with "or" in ten words or fewer. A sentence that asks for a reply on its own
 ("Let me know which you prefer.", "Please advise which one to apply.", "Tell
 me which.", "Send me your pick.") counts too, as does a sentence that opens
 with reply, answer, respond, choose, pick, select, or decide and offers yes
-or no, "one of", or a choice with "or" in six words or fewer ("Choose A or
-B."), unless it ends with a colon. A list marker and a task box ("- [ ]")
-before it are skipped. A checklist item, a list item with a task box or next
-to another question item, passes only when it asks whether the reader did a
-piece of work: it opens with "Did you" or "Have you" and a verb such as
-saved, ran, tested, pushed, committed, updated, added, removed, checked,
-read, installed, restarted, closed, or filled in ("Did you run the
-tests?"), and holds none of ok, fine, good, signed off, approve, happy,
-ready, want, prefer, decide, agree, go ahead, ship, merge, or delete.
+or no, one of two, three, four, both, these, those, or them, or a choice
+between labels that are one letter, one digit, or "option" and a word
+("Choose A or B."), unless it ends with a colon. "Select one or more
+archives." and "Choose Color or Image." are steps and pass. A list marker
+and a task box ("- [ ]", or a checkbox ``input`` in a page) before it are
+skipped. A checklist item, a list item with a task box or next to another
+question item, passes only when it asks whether the reader did a piece of
+work: it opens with "Did you" or "Have you" and a verb such as saved, ran,
+tested, pushed, committed, updated, added, removed, checked, read,
+installed, restarted, closed, or filled in ("Did you run the tests?"), and
+holds none of ok, fine, good, signed off, approve, happy, ready, want,
+prefer, decide, agree, go ahead, ship, merge, delete, confirm, choice, or
+choose.
 
 Quotes, fenced and indented code, and preformatted text are not read. A
 heading, a ``summary`` label, or a ``dt`` label is refused when it opens a

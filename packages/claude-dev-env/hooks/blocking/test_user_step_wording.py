@@ -514,6 +514,14 @@ def test_sent_file_location_should_resolve_a_relative_text_file_and_skip_the_res
     assert user_step_wording.sent_file_location("missing.md", str(tmp_path)) is None
 
 
+def test_html_text_blocks_should_mark_a_checkbox_with_the_task_box_mark() -> None:
+    page_markup = '<ul><li><input type="checkbox"/> Saved?</li><li><input type="text"> Name</li></ul>'
+    assert user_step_wording.html_text_blocks(page_markup, "# ", task_box_mark="- [ ] ") == [
+        "- [ ]  Saved?",
+        "Name",
+    ]
+
+
 def test_html_text_blocks_should_mark_a_summary_label_as_a_heading() -> None:
     page_markup = "<details><summary>Can I use it offline?</summary><p>After a sync.</p></details>"
     assert user_step_wording.html_text_blocks(page_markup, "# ") == ["# Can I use it offline?", "After a sync."]

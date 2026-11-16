@@ -199,6 +199,26 @@ ASKING_FILES = [
         + "and the cache?\n",
         "Given the runner logs",
     ),
+    (
+        "box_confirm_plan.md",
+        "- [ ] Did you read it and confirm the plan?\n",
+        "Did you read it and confirm the plan?",
+    ),
+    (
+        "list_confirm_output.md",
+        "- Did you run the tests and confirm the output?\n- Did you push the branch?\n",
+        "Did you run the tests and confirm the output?",
+    ),
+    (
+        "box_choice.md",
+        "- [ ] Did you check the choice I made?\n",
+        "Did you check the choice I made?",
+    ),
+    (
+        "html_box_ask.html",
+        '<ul><li><input type="checkbox"> Should I archive the old logs?</li></ul>',
+        "Should I archive the old logs?",
+    ),
 ]
 
 CLEAN_FILES = [
@@ -214,6 +234,18 @@ CLEAN_FILES = [
     ("q_and_a_split.md", "Q: Can you run it offline?\n\nA: Yes.\n"),
     ("faq_heading_can_i.md", "## Can I run it offline?\n\nIt runs offline after the first sync.\n"),
     ("choose_instruction.md", "Choose IDs that contain no personal or secret text.\n"),
+    ("select_one_or_more.md", "Select one or more archives.\n"),
+    ("choose_named_options.md", "Choose Color or Image.\n"),
+    ("select_file_or_folder.md", "Select the file or folder.\n"),
+    ("pick_from_list.md", "Pick one of the themes in the list and press Save.\n"),
+    ("send_message.md", "Send me a message to start it.\n"),
+    ("please_survey.md", "Please answer the survey.\n"),
+    ("html_box_check.html", '<ul><li><input type="checkbox"> Did you run the tests?</li></ul>'),
+    (
+        "html_box_checks.html",
+        '<ul><li><input type="checkbox" /> Did you run the tests?</li>'
+        "<li><input type='checkbox'> Did you push the branch?</li></ul>",
+    ),
     ("pick_instruction.md", "Pick one of two widths:\n\n- 640\n- 1280\n"),
     ("reply_instruction.md", "Reply to the sender, by name.\n"),
     ("subject_heading.md", "## What does the gate read?\n\nIt reads the sent file.\n"),
@@ -620,7 +652,7 @@ def test_should_say_so_when_the_read_runs_past_its_budget(
     assert "AskUserQuestion" in system_message
 
 
-def slow_html_text_blocks(page_markup: str, heading_mark: str) -> list[str]:
+def slow_html_text_blocks(page_markup: str, heading_mark: str, task_box_mark: str) -> list[str]:
     time.sleep(2)
     return []
 

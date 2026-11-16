@@ -34,11 +34,11 @@ __all__ = [
     "HEADING_CLOSE_MARKS",
     "HEADING_MARK",
     "HEADING_OPENER_PATTERN",
+    "LABEL_CHOICE_PATTERN",
     "LABEL_COLON",
     "LINE_BREAK",
     "LIST_MARKER_PATTERN",
     "MAXIMUM_CHOICE_WORDS",
-    "MAXIMUM_COMMAND_CHOICE_WORDS",
     "MAXIMUM_QUOTED_CHARACTERS",
     "MAXIMUM_SENTENCE_CHARACTERS",
     "MAXIMUM_UTF8_CONTINUATION_BYTES",
@@ -75,6 +75,7 @@ __all__ = [
     "TABLE_ROW_PATTERN",
     "TAG_CLOSE",
     "TAG_OPEN",
+    "TASK_BOX_MARK",
     "TASK_BOX_PATTERN",
     "TASK_CHECK_PATTERN",
     "TOOL_INPUT_KEY",
@@ -108,7 +109,6 @@ TABLE_CELL_SEPARATOR = "|"
 TRAILING_CLOSERS = "*_)] \t"
 ALL_QUOTED_QUESTION_ENDINGS = ('?"', "?'", "?’", "?”")
 MAXIMUM_CHOICE_WORDS = 10
-MAXIMUM_COMMAND_CHOICE_WORDS = 6
 QUOTED_SPAN_PATTERN = re.compile(r'"[^"\n]{1,400}"|“[^”\n]{1,400}”')
 HEADING_OPENER_PATTERN = re.compile(r"#{1,6}(?:[ \t]|$)")
 HEADING_CLOSE_MARKS = "#"
@@ -193,20 +193,30 @@ TASK_CHECK_PATTERN = re.compile(
 )
 CHECK_BLOCK_WORD_PATTERN = re.compile(
     r"\b(?:ok|okay|fine|good|sign(?:s|ed)?\s+off|approv\w*|happy|ready|want\w*|prefer\w*"
-    r"|decid\w*|decision|agree\w*|go\s+ahead|ship\w*|merg\w*|delet\w*)\b",
+    r"|decid\w*|decision|agree\w*|go\s+ahead|ship\w*|merg\w*|delet\w*"
+    r"|confirm\w*|choice\w*|choos\w*|chose\w*)\b",
     re.IGNORECASE,
 )
 REPLY_REQUEST_PATTERN = re.compile(
     r"^(?:please\s+)?(?:let\s+(?:me|us)\s+know|get\s+back\s+to\s+(?:me|us)"
     r"|advise\s+(?:me|us|which|whether|if|on|how|when)"
-    r"|send\s+(?:me|us)|tell\s+(?:me|us)|give\s+(?:me|us)\s+your)\b"
-    r"|^please\s+(?:advise|confirm|choose|pick|select|decide|approve|reply|respond|answer)\b",
+    r"|send\s+(?:me|us)\s+(?:your|(?:a|an|the)\s+(?:pick|choice|answer|reply|decision|preference|vote))"
+    r"|tell\s+(?:me|us)\s+(?:which|what|whether|if|how|when|where|who|your)"
+    r"|give\s+(?:me|us)\s+your)\b"
+    r"|^please\s+(?:advise|confirm|choose|pick|select|decide|approve|reply|respond)\b",
     re.IGNORECASE,
 )
 CHOICE_COMMAND_PATTERN = re.compile(
     r"^(?:reply|answer|respond|choose|pick|select|decide)\b", re.IGNORECASE
 )
-REPLY_OPTION_PATTERN = re.compile(r"\byes\s+or\s+no\b|\bone\s+of\b", re.IGNORECASE)
+REPLY_OPTION_PATTERN = re.compile(
+    r"\byes\s+or\s+no\b|\bone\s+of\s+(?:the\s+)?(?:two|three|four|both|these|those|them)\b",
+    re.IGNORECASE,
+)
+LABEL_CHOICE_PATTERN = re.compile(
+    r"\b(?:[A-Z0-9]|[Oo]ption\s+\w+)\s+or\s+(?:[A-Z0-9]|[Oo]ption\s+\w+)\b"
+)
+TASK_BOX_MARK = "- [ ] "
 WRITER_VOICE_HEADING_PATTERN = re.compile(
     r"\b(?:should|shall)\s+(?:i|we)\b|\b(?:do|would|will|can)\s+you\b"
     r"|\bwant\s+me\b|\byour\b|\bprefer\w*",

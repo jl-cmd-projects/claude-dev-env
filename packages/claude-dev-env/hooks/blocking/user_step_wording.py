@@ -174,6 +174,9 @@ from hooks_constants.user_step_wording_constants import (
     CODE_SPAN_STAND_IN,
     EMPHASIS_MARKS,
     HTML_BLOCK_SEPARATOR,
+    HTML_CHECKBOX_INPUT_TYPE,
+    HTML_INPUT_TAG,
+    HTML_INPUT_TYPE_ATTRIBUTE,
     HTML_LINE_BREAK_TAG,
     HTML_LITERAL_STAND_IN_TEXT,
     HTML_SOURCE_SPACE,
@@ -299,12 +302,21 @@ def _first_waiting_phrase(all_blocks: Iterable[str]) -> str | None:
     return next((each_phrase for each_phrase in all_phrases if each_phrase is not None), None)
 
 
+def _is_checkbox(all_attributes: list[tuple[str, str | None]]) -> bool:
+    return any(
+        each_name == HTML_INPUT_TYPE_ATTRIBUTE
+        and (each_value or "").strip().lower() == HTML_CHECKBOX_INPUT_TYPE
+        for each_name, each_value in all_attributes
+    )
+
+
 class _VisibleTextParser(HTMLParser):
-    def __init__(self, heading_mark: str) -> None:
+    def __init__(self, heading_mark: str, task_box_mark: str) -> None:
         super().__init__(convert_charrefs=True)
         self.all_text_runs: list[str] = []
         self.hidden_depth = 0
         self.heading_mark = heading_mark
+        self.task_box_mark = task_box_mark
 
     def handle_starttag(self, tag: str, all_attributes: list[tuple[str, str | None]]) -> None:
         if tag in ALL_HTML_HIDDEN_TAGS:
@@ -317,11 +329,13 @@ class _VisibleTextParser(HTMLParser):
             self.all_text_runs.append(HTML_BLOCK_SEPARATOR)
         if tag in ALL_HTML_HEADING_TAGS and not self.hidden_depth:
             self.all_text_runs.append(self.heading_mark)
+        if tag == HTML_INPUT_TAG and not self.hidden_depth and _is_checkbox(all_attributes):
+            self.all_text_runs.append(self.task_box_mark)
 
     def handle_endtag(self, tag: str) -> None:
         if tag in ALL_HTML_HIDDEN_TAGS and self.hidden_depth:
             self.hidden_depth -= 1
-        if tag != HTML_LINE_BREAK_TAG and tag not in ALL_HTML_INLINE_TAGS:
+        if tag not in {HTML_LINE_BREAK_TAG, HTML_INPUT_TAG} and tag not in ALL_HTML_INLINE_TAGS:
             self.all_text_runs.append(HTML_BLOCK_SEPARATOR)
 
     def handle_data(self, data: str) -> None:
@@ -349,20 +363,23 @@ def html_visible_text(page_markup: str) -> str:
     return _html_text_with_code_marks(page_markup).replace(CODE_SPAN_STAND_IN, "")
 
 
-def _html_text_with_code_marks(page_markup: str, heading_mark: str = "") -> str:
-    text_parser = _VisibleTextParser(heading_mark)
+def _html_text_with_code_marks(
+    page_markup: str, heading_mark: str = "", task_box_mark: str = ""
+) -> str:
+    text_parser = _VisibleTextParser(heading_mark, task_box_mark)
     text_parser.feed(page_markup)
     text_parser.close()
     return "".join(text_parser.all_text_runs)
 
 
-def html_text_blocks(page_markup: str, heading_mark: str) -> list[str]:
+def html_text_blocks(page_markup: str, heading_mark: str, task_box_mark: str = "") -> list[str]:
     """Return the shown text of an HTML page as blocks, with a mark before each heading.
 
     ::
 
         <h2>Open questions</h2><p>Pick one.</p> with "# "  -> ["# Open questions", "Pick one."]
         <p>Run <code>x</code> now.</p>                    -> ["Run \\ufffc now."]
+        <li><input type="checkbox"> Saved?</li> with "- [ ] " -> ["- [ ]  Saved?"]
 
     The blocks are the ones ``file_waiting_phrase`` reads. The text of a code
     element stays as the object replacement character.
@@ -370,11 +387,14 @@ def html_text_blocks(page_markup: str, heading_mark: str) -> list[str]:
     Args:
         page_markup: The HTML source of the page.
         heading_mark: The text put before the text of each h1 to h6 element.
+        task_box_mark: The text put where a checkbox ``input`` element sits.
 
     Returns:
         Each block that holds shown text, with the white space at its ends removed.
     """
-    all_blocks = _html_text_with_code_marks(page_markup, heading_mark).split(HTML_BLOCK_SEPARATOR)
+    all_blocks = _html_text_with_code_marks(page_markup, heading_mark, task_box_mark).split(
+        HTML_BLOCK_SEPARATOR
+    )
     return [each_block.strip() for each_block in all_blocks if each_block.strip()]
 
 

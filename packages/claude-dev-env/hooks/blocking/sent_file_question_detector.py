@@ -27,7 +27,8 @@ from hooks_constants.sent_file_question_gate_constants import (
     REPLY_REQUEST_PATTERN,
     CHECK_BLOCK_WORD_PATTERN,
     CHOICE_COMMAND_PATTERN,
-    MAXIMUM_COMMAND_CHOICE_WORDS,
+    LABEL_CHOICE_PATTERN,
+    TASK_BOX_MARK,
     REPLY_OPTION_PATTERN,
     SENTENCE_EDGE_CHARACTERS,
     SENTENCE_EDGE_JOIN,
@@ -127,9 +128,9 @@ def _is_reply_request(sentence: str) -> bool:
         return True
     if CHOICE_COMMAND_PATTERN.match(sentence) is None or sentence.endswith(LABEL_COLON):
         return False
-    return REPLY_OPTION_PATTERN.search(sentence) is not None or (
-        READER_CHOICE_PATTERN.search(sentence) is not None
-        and len(sentence.split()) <= MAXIMUM_COMMAND_CHOICE_WORDS
+    return (
+        REPLY_OPTION_PATTERN.search(sentence) is not None
+        or LABEL_CHOICE_PATTERN.search(sentence) is not None
     )
 
 
@@ -307,7 +308,7 @@ def question_for_user(file_text: str, is_html: bool) -> str | None:
     for each_mark in ALL_FULL_WIDTH_QUESTION_MARKS:
         file_text = file_text.replace(each_mark, QUESTION_MARK)
     if is_html:
-        all_blocks = html_text_blocks(file_text, HEADING_MARK)
+        all_blocks = html_text_blocks(file_text, HEADING_MARK, task_box_mark=TASK_BOX_MARK)
     else:
         all_blocks = prose_paragraphs_with_code_as(
             _without_indented_code(file_text), CODE_SPAN_STAND_IN

@@ -37,6 +37,7 @@ from hooks_constants.sent_file_question_gate_constants import (
     SPACE_RUN_PATTERN,
     TAG_CLOSE,
     TAG_OPEN,
+    TASK_BOX_MARK,
     FILE_PART_BYTES,
     FILE_PARTS_SEPARATOR,
     MAXIMUM_UTF8_CONTINUATION_BYTES,
@@ -49,6 +50,8 @@ from hooks_constants.user_step_wording_constants import (
     ALL_HTML_HEADING_TAGS,
     ALL_HTML_HIDDEN_TAGS,
     ALL_HTML_INLINE_TAGS,
+    HTML_CHECKBOX_INPUT_TYPE,
+    HTML_INPUT_TAG,
     HTML_LINE_BREAK_TAG,
 )
 from user_step_wording import sent_file_location
@@ -157,6 +160,8 @@ def _after_tag(tag_body: str, hidden_tag_name: str) -> tuple[str, str]:
         return tag_name, ""
     if tag_name in ALL_HTML_HEADING_TAGS and not is_closing:
         return "", PLAIN_HEADING_BREAK
+    if tag_name == HTML_INPUT_TAG and HTML_CHECKBOX_INPUT_TYPE in tag_body.lower():
+        return "", BLOCK_BREAK + TASK_BOX_MARK
     if tag_name == HTML_LINE_BREAK_TAG:
         return "", LINE_BREAK
     if tag_name in ALL_HTML_INLINE_TAGS:

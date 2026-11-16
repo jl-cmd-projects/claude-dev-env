@@ -62,3 +62,10 @@ def test_plain_page_text_should_read_unclosed_script_openers_in_linear_time() ->
     plain_text = sent_file_scan.plain_page_text("<p>Should I merge it?</p>" + "<script " * 30000)
     assert time.perf_counter() - started_at < 1
     assert "Should I merge it?" in plain_text
+
+
+def test_plain_page_text_should_mark_a_checkbox_as_a_task_box() -> None:
+    plain_text = sent_file_scan.plain_page_text(
+        '<ul><li><input type="checkbox"> Did you run the tests?</li></ul>'
+    )
+    assert "- [ ]  Did you run the tests?" in plain_text
