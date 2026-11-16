@@ -13,11 +13,11 @@ Split when the change carries more than one purpose, or when one small part carr
 
 Try the cheaper move first. Mark generated or data files that swell the diff with a `linguist-generated` line in `.gitattributes`, then judge the size again.
 
-Decide the slices when you write the plan. The Delivery section of `~/.claude/docs/rule-guides/verified-work.md` already commits each verified piece as its own level. The steps below repair a pull request where that did not happen.
+Decide the slices when you write the plan. The Delivery section of `~/.claude/docs/rule-guides/verified-work.md` already commits each verified piece as its own level. The steps under "Split a pull request that is already open" repair a pull request where that did not happen.
 
 ## Size bar
 
-Apply the bar to each slice that passes the four tests. The bar says when to look for a seam. A cut made only to get under it is the line-cap cut above, so merge it back. Count added plus deleted lines, tests included, without lockfiles and without files marked `linguist-generated`.
+Apply the bar to each pull request, and to each slice that passes the four tests. The bar only says when to look for a seam. Every cut still passes the four tests. Count added plus deleted lines, tests included, without lockfiles and without files marked `linguist-generated`.
 
 - Up to 400 lines fits one review, and about 100 lines reads best.
 - Over 400 lines, look for another seam that passes the four tests. When none passes, keep the slice whole and state the reason in the pull request body.

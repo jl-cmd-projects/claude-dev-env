@@ -15,6 +15,7 @@ def _decision_tree(skill_text: str) -> str:
 def test_the_decision_tree_points_at_the_slice_reference() -> None:
     decision_tree = _decision_tree(PR_LIFECYCLE_PATH.read_text(encoding="utf-8"))
     assert "(reference/split-a-pull-request.md)" in decision_tree
+    assert "how large a pull request may be" in decision_tree
 
 
 def test_the_reference_lists_the_four_slice_tests_in_order() -> None:
@@ -92,8 +93,8 @@ def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
     assert fourth_test_position < size_bar_position
     size_bar = reference_text[size_bar_position:].split("\n## ", 1)[0]
     all_required_phrases = (
-        "Apply the bar to each slice that passes the four tests.",
-        "A cut made only to get under it is the line-cap cut above, so merge it back.",
+        "Apply the bar to each pull request, and to each slice that passes the four tests.",
+        "Every cut still passes the four tests.",
         "Count added plus deleted lines, tests included, without lockfiles",
         "without files marked `linguist-generated`",
         "Up to 400 lines fits one review, and about 100 lines reads best.",
