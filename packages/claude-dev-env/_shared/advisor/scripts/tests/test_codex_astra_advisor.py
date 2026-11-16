@@ -505,7 +505,7 @@ def _broker_completion(
         Product.CODEX, all_readings, now=BROKER_CLOCK, required_tier=required_tier
     )
     answer = {
-        "decision": decision_payload(decision),
+        "decision": decision_payload(decision, all_readings),
         "accounts": readings_payload(all_readings),
     }
     exit_code = BROKER_WAIT_EXIT_CODE if decision.action == "wait" else 0

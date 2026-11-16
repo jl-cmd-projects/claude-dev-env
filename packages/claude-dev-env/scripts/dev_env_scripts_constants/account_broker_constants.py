@@ -61,6 +61,8 @@ METER_READ_DELAY_FACTOR = 2.0
 METER_READ_MAX_DELAY_SECONDS = 8.0
 LAST_GOOD_METER_MAX_AGE_SECONDS = 1800.0
 METER_RATE_LIMIT_COOLDOWN_SECONDS = 300.0
+METER_RATE_LIMIT_MAX_COOLDOWN_SECONDS = 1200.0
+RETRY_AFTER_HEADER_NAME = "Retry-After"
 PUBLISHED_USAGE_DIRECTORY_ENV_VAR = "CLAUDE_USAGE_READINGS_DIR"
 PUBLISHED_USAGE_FILE_PATTERN = "meters-*.json"
 PUBLISHED_USAGE_MAX_AGE_SECONDS = 1800.0
@@ -279,6 +281,7 @@ class Report:
     command: list[str]
     events: list[dict[str, object]] = field(default_factory=list)
     final_decision: Decision | None = None
+    all_readings: tuple[Reading, ...] = ()
 
 
 MeterReader = Callable[[Account], Meters | None]

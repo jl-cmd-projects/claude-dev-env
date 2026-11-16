@@ -1414,6 +1414,53 @@ def test_should_replay_stdin_bytes_and_only_print_served_stdout(
     assert json.loads(report_path.read_text(encoding="utf-8"))["final_decision"]["account"] == "second"
 
 
+def test_should_name_the_unread_meters_in_the_choose_decision(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(
+        account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {"first": _meters(0, 0), "second": None})
+    )
+
+    exit_code = account_broker.main(("choose", "--product", "codex"))
+
+    assert exit_code == WAIT_EXIT_CODE
+    assert json.loads(capsys.readouterr().out)["decision"]["meter_unread"] == ["second"]
+
+
+def test_should_name_the_unread_meters_in_the_run_report(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    accounts = (_account("first"), _account("second"))
+    monkeypatch.setitem(
+        account_broker.all_product_adapters, Product.CODEX, _adapter(accounts, {"first": None, "second": None})
+    )
+    monkeypatch.setattr(account_broker.sys, "stdin", io.TextIOWrapper(io.BytesIO(b""), encoding="utf-8"))
+    report_path = tmp_path / "report.json"
+
+    code = account_broker.main(("run", "--product", "codex", "--report", str(report_path), "--", "job"))
+
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert code == WAIT_EXIT_CODE
+    assert report["final_decision"]["meter_unread"] == ["first", "second"]
+    assert report["events"][0]["decision"]["meter_unread"] == ["first", "second"]
+
+
+def test_should_leave_meter_unread_empty_when_every_meter_was_read(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setitem(
+        account_broker.all_product_adapters, Product.CODEX, _adapter((_account("first"),), {"first": _meters(80, 80)})
+    )
+
+    exit_code = account_broker.main(("choose", "--product", "codex"))
+
+    decision = json.loads(capsys.readouterr().out)["decision"]
+    assert exit_code == 0
+    assert decision["account"] == "first"
+    assert decision["meter_unread"] == []
+
+
 def test_should_write_wait_report_without_stdout(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -2584,11 +2631,11 @@ def test_should_serialize_a_run_and_a_wait_decision() -> None:
     account = _account("first")
     reset = NOW + timedelta(hours=2)
 
-    run_payload = account_broker.decision_payload(account_broker.Decision("run", account, None, "first has 80% left", "normal"))
-    wait_payload = account_broker.decision_payload(account_broker.Decision("wait", None, reset, "no account has room", "wait"))
+    run_payload = account_broker.decision_payload(account_broker.Decision("run", account, None, "first has 80% left", "normal"), (Reading(account, _meters(80, 80)),))
+    wait_payload = account_broker.decision_payload(account_broker.Decision("wait", None, reset, "no account has room", "wait"), (Reading(account, None),))
 
-    assert run_payload == {"action": "run", "account": "first", "profile": None, "home": str(Path("/profiles/first")), "reason": "first has 80% left", "tier": "normal", "resets_at": None}
-    assert wait_payload == {"action": "wait", "account": None, "profile": None, "home": None, "reason": "no account has room", "tier": "wait", "resets_at": reset.isoformat()}
+    assert run_payload == {"action": "run", "account": "first", "profile": None, "home": str(Path("/profiles/first")), "reason": "first has 80% left", "tier": "normal", "resets_at": None, "meter_unread": []}
+    assert wait_payload == {"action": "wait", "account": None, "profile": None, "home": None, "reason": "no account has room", "tier": "wait", "resets_at": reset.isoformat(), "meter_unread": ["first"]}
 
 
 def test_should_print_the_whole_rate_limit_result_for_one_home(
@@ -2699,14 +2746,14 @@ def test_should_hand_the_live_log_to_the_subprocess_runner(tmp_path: Path, monke
 def test_decision_payload_should_carry_the_profile_of_a_claude_account() -> None:
     account = Account(Product.CLAUDE, "C:\\bin\\claude-editor.cmd", Path("/profiles/editor"), command="C:\\bin\\claude-editor.cmd", profile="editor")
 
-    assert account_broker.decision_payload(account_broker.Decision("run", account, None, "most room", "normal"))["profile"] == "editor"
+    assert account_broker.decision_payload(account_broker.Decision("run", account, None, "most room", "normal"), ())["profile"] == "editor"
 
 
 def test_decision_payload_should_name_the_chosen_account_and_its_home() -> None:
     account = _account("codex-2")
     decision = account_broker.Decision("run", account, None, "most room", "normal")
 
-    assert account_broker.decision_payload(decision) == {
+    assert account_broker.decision_payload(decision, (Reading(account, _meters(80, 80)),)) == {
         "action": "run",
         "account": "codex-2",
         "profile": None,
@@ -2714,6 +2761,7 @@ def test_decision_payload_should_name_the_chosen_account_and_its_home() -> None:
         "reason": "most room",
         "tier": "normal",
         "resets_at": None,
+        "meter_unread": [],
     }
 
 
@@ -2721,7 +2769,7 @@ def test_decision_payload_should_leave_the_account_empty_and_give_the_reset_for_
     reset = datetime(2026, 10, 3, 4, 0, tzinfo=timezone(timedelta(hours=-4)))
     decision = account_broker.Decision("wait", None, reset, "no account has room", "wait")
 
-    payload = account_broker.decision_payload(decision)
+    payload = account_broker.decision_payload(decision, ())
 
     assert payload["account"] is None
     assert payload["home"] is None

@@ -108,7 +108,7 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/resolve_thread_reply_gate.py",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -123,7 +123,7 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/session/npx_pele_guidance.py",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -133,7 +133,7 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/advisory/pieces_per_level_note.py",
-            "timeout": 10
+            "timeout": 30
           }
         ]
       },
@@ -355,7 +355,7 @@
           {
             "type": "command",
             "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/blocking/step_note_gate.py",
-            "timeout": 15
+            "timeout": 30
           }
         ]
       }

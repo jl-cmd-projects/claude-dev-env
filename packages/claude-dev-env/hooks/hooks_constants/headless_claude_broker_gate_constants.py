@@ -30,6 +30,8 @@ BROKER_COMMAND_DENY_REASON: str = (
     "--report <report.json> -- <the same claude -p command>. "
     "The broker picks an account with room, sends a --resume turn to the account that owns the session, "
     "and starts the child without this session's variables. "
-    "Exit 3 means no account has room: report the reset time from the report file. "
+    "Exit 3 means a wait: no account has room, or a meter could not be read. "
+    "The report's final_decision lists unread accounts in meter_unread; an empty list means every meter was read and no account has room. "
+    "Report the reason and resets_at from the report file. "
     "For a worker that edits code, use claude_account_worker.py from the second-account-workers skill."
 )

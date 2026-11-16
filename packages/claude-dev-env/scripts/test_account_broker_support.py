@@ -7,14 +7,18 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.error
 from datetime import datetime, timedelta, timezone
 from collections.abc import Callable
+from email.message import Message
+from email.utils import format_datetime
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 import account_broker_support as support
+import claude_chain_usage
 from account_broker_support import Account, Meters, Product, ProductAdapter
 from codex_account_meters import CodexAccountMeters, UsageWindow
 
@@ -620,11 +624,11 @@ def test_should_cap_the_meter_read_delay(monkeypatch: pytest.MonkeyPatch, tmp_pa
     all_failures = [support.WeeklyUtilizationProbeError("down") for _ in range(6)]
     _claude_meter_reads(monkeypatch, all_failures)
 
-    meters, unread_reason, is_rate_limited = support.read_meters_with_backoff(support.read_claude_meters, Account(Product.CLAUDE, "one", tmp_path))
+    meters, unread_reason, rate_limit_hold_seconds = support.read_meters_with_backoff(support.read_claude_meters, Account(Product.CLAUDE, "one", tmp_path))
 
     assert meters is None
     assert unread_reason == "down"
-    assert not is_rate_limited
+    assert rate_limit_hold_seconds is None
     assert all_delays == [1.0, 2.0, 4.0, 8.0, 8.0]
 
 
@@ -636,11 +640,11 @@ def test_should_read_a_signed_out_claude_account_once(monkeypatch: pytest.Monkey
         all_reads.append(account)
         raise support.ClaudeSignedOutError("no usable bearer token")
 
-    meters, unread_reason, is_rate_limited = support.read_meters_with_backoff(signed_out_reader, Account(Product.CLAUDE, "main", tmp_path))
+    meters, unread_reason, rate_limit_hold_seconds = support.read_meters_with_backoff(signed_out_reader, Account(Product.CLAUDE, "main", tmp_path))
 
     assert meters is None
     assert unread_reason == "no usable bearer token"
-    assert not is_rate_limited
+    assert rate_limit_hold_seconds is None
     assert len(all_reads) == 1
     assert all_delays == []
 
@@ -696,6 +700,95 @@ def test_should_keep_the_last_good_meters_when_the_usage_endpoint_rate_limits(
     assert reading.measured_at == datetime(2026, 10, 11, 19, 20, tzinfo=timezone.utc)
 
 
+RATE_LIMITED_AT = datetime(2026, 10, 11, 19, 20, tzinfo=timezone.utc)
+
+
+def _rate_limited_resolver(retry_after: str | None) -> object:
+    headers = Message()
+    if retry_after is not None:
+        headers["Retry-After"] = retry_after
+
+    class Resolver:
+        def read_oauth_access_token(self, credentials_path: Path, now: datetime) -> str:
+            return "fixture-token"
+
+        def _fetch_usage_payload(self, access_token: str) -> dict[str, object]:
+            raise urllib.error.HTTPError(
+                "https://usage.invalid", 429, "Too Many Requests", headers, None
+            )
+
+    return Resolver()
+
+
+@pytest.mark.parametrize(
+    ("retry_after", "expected_hold"),
+    (
+        pytest.param("900", timedelta(seconds=900), id="seconds-inside-the-bounds"),
+        pytest.param("30", timedelta(seconds=300), id="seconds-below-the-floor"),
+        pytest.param("7200", timedelta(seconds=1200), id="seconds-above-the-ceiling"),
+        pytest.param(
+            format_datetime(RATE_LIMITED_AT + timedelta(seconds=600), usegmt=True),
+            timedelta(seconds=600),
+            id="http-date",
+        ),
+        pytest.param("soon", timedelta(seconds=300), id="unparsable"),
+        pytest.param(None, timedelta(seconds=300), id="no-header"),
+    ),
+)
+def test_should_hold_the_probe_for_the_retry_after_of_a_rate_limit(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    retry_after: str | None,
+    expected_hold: timedelta,
+) -> None:
+    monkeypatch.setattr(
+        support, "broker_state_path", lambda: tmp_path / "broker" / "state.json"
+    )
+    monkeypatch.setenv("CLAUDE_USAGE_READINGS_DIR", str(tmp_path / "no-readings"))
+    monkeypatch.setattr(
+        claude_chain_usage,
+        "_load_resolve_usage_window_module",
+        lambda: _rate_limited_resolver(retry_after),
+    )
+    _recorded_sleeps(monkeypatch)
+    account = Account(Product.CLAUDE, "main", tmp_path)
+    adapter = ProductAdapter(
+        lambda: (account,), support.read_claude_meters, "CLAUDE_CONFIG_DIR", ()
+    )
+    state = support._load_state(support.broker_state_path())
+
+    reading = support.read_accounts(
+        Product.CLAUDE, adapter, all_state=state, now=RATE_LIMITED_AT
+    )[0]
+
+    assert reading.meters is None
+    assert "HTTP Error 429" in reading.unread_reason
+    assert reading.retry_at == RATE_LIMITED_AT + expected_hold
+
+
+def test_should_keep_the_earlier_good_reading_in_the_state_file_after_a_rate_limit(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    rate_limited = support.WeeklyUtilizationProbeError(
+        "usage probe failed: HTTP Error 429: Too Many Requests"
+    )
+    reading = _read_twice(
+        monkeypatch,
+        tmp_path,
+        [Meters(74.0, None, 81.0, None), rate_limited],
+        timedelta(minutes=40),
+    )
+
+    saved_entry = next(
+        iter(support._load_state(support.broker_state_path())["meters"].values())
+    )
+    assert reading.meters is None
+    assert saved_entry["meters"]["session_percent_left"] == 74.0
+    assert (
+        saved_entry["measured_at"]
+        == datetime(2026, 10, 11, 19, 20, tzinfo=timezone.utc).timestamp()
+    )
+    assert saved_entry["unread_reason"] == str(rate_limited)
 def test_should_drop_last_good_meters_older_than_the_fallback_window(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

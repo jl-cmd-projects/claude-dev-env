@@ -1,5 +1,31 @@
 # Changelog
 
+## [8.126.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.3...claude-dev-env-v8.126.4) (2026-11-16)
+
+
+### Bug Fixes
+
+* **install:** stop adding advisorModel to user settings ([#2404](https://github.com/jl-cmd-projects/claude-dev-env/issues/2404)) ([22c7407](https://github.com/jl-cmd-projects/claude-dev-env/commit/22c7407db1df3263773068bbf42ccc94d238cda1))
+
+
+### Documentation
+
+* **pr-lifecycle:** add the slice test and the steps to split an open pull request ([#2405](https://github.com/jl-cmd-projects/claude-dev-env/issues/2405)) ([fa60a36](https://github.com/jl-cmd-projects/claude-dev-env/commit/fa60a363aaf40b771ca94da9441dce35d0a8bf4d))
+
+## [8.126.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.2...claude-dev-env-v8.126.3) (2026-11-16)
+
+
+### Bug Fixes
+
+* **hooks:** give every Bash pre-tool hook 30 seconds ([#2403](https://github.com/jl-cmd-projects/claude-dev-env/issues/2403)) ([41e8a6f](https://github.com/jl-cmd-projects/claude-dev-env/commit/41e8a6f8320627cbaf18d7a26f25741523aae2c4))
+
+## [8.126.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.1...claude-dev-env-v8.126.2) (2026-11-16)
+
+
+### Documentation
+
+* **broker:** tell a failed meter read from spent usage on exit 3 ([#2400](https://github.com/jl-cmd-projects/claude-dev-env/issues/2400)) ([fdbcf4b](https://github.com/jl-cmd-projects/claude-dev-env/commit/fdbcf4bf8e37d8b406351a3f6ddf5cc93b9d22ba))
+
 ## [8.126.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.0...claude-dev-env-v8.126.1) (2026-11-16)
 
 
