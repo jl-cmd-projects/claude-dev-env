@@ -1,0 +1,3657 @@
+[
+  {
+    "id": "hold-typed-deferral-no-cards",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_01",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_01",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place.\n\nI deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-cards-after-deferral",
+    "group": "open item",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place.\n\nI deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_02",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Add the backoff setting now?",
+                    "header": "Backoff",
+                    "multiSelect": false,
+                    "options": [
+                      {
+                        "label": "Add it now",
+                        "description": "The export job waits longer after each failed try."
+                      },
+                      {
+                        "label": "Leave it",
+                        "description": "The export job keeps one fixed wait."
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_02",
+              "content": "The user chose Leave it."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The backoff setting stays as it is."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-open-item-after-cards",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_02",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Add the backoff setting now?",
+                    "header": "Backoff",
+                    "multiSelect": false,
+                    "options": [
+                      {
+                        "label": "Add it now",
+                        "description": "The export job waits longer after each failed try."
+                      },
+                      {
+                        "label": "Leave it",
+                        "description": "The export job keeps one fixed wait."
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_02",
+              "content": "The user chose Add it now."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The backoff setting is in place. The jitter option is out of scope for this change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-no-markers",
+    "group": "no open item",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Rename the export job to nightly-export."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The job is renamed, and both tests pass."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-negated-mention",
+    "group": "accepted extra card",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Rename the export job to nightly-export."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The job is renamed, and both tests pass.\n\nNothing is deferred."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-negated-clause-beside-an-open-one",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Rename the export job to nightly-export."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Nothing is deferred, but the retry path is untested."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-marker-in-code-fence",
+    "group": "masked text",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Show me the status values the job can hold."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The job holds one of three status values.\n\n```python\nSTATUS_NAMES = (\"queued\", \"deferred\", \"finished\")\n```\n\nThe list above is complete."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-marker-in-quote",
+    "group": "masked text",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "What does the changelog say about the export job?"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The changelog has one entry for the export job.\n\n> The backoff setting is deferred to the next release.\n\nThat entry is from last month."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-marker-in-code-span",
+    "group": "masked text",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Which status does a paused job hold?"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "A paused job holds the status `deferred` until the queue drains."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-marker-in-tool-result",
+    "group": "masked text",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Read the job notes file."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_03",
+              "name": "Read",
+              "input": {
+                "file_path": "jobs/notes.md"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_03",
+              "content": "The backoff setting is deferred. The jitter option is an open question."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The notes file has two lines about the export job.\n\nOpen items: none."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-marker-in-tool-input",
+    "group": "masked text",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Write a note about the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_04",
+              "name": "Write",
+              "input": {
+                "file_path": "jobs/notes.md",
+                "content": "The backoff setting is deferred and untested."
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_04",
+              "content": "The file was written."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The note is written.\n\nOpen items: none."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-marker-in-thinking",
+    "group": "masked text",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Rename the export job to nightly-export."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "thinking",
+              "thinking": "I am not sure which file holds the job name."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The job is renamed."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-marker-in-sidechain-record",
+    "group": "masked text",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Rename the export job to nightly-export."
+        }
+      },
+      {
+        "type": "assistant",
+        "isSidechain": true,
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The second caller is unverified."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The job is renamed."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-subagent-payload",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "payload": {
+      "agent_id": "agent-synthetic-01"
+    },
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-cursor-payload",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "payload": {
+      "conversation_id": "conversation-synthetic-01"
+    },
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-session-attended-0",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "environment": {
+      "CLAUDE_CODE_SESSION_ATTENDED": "0"
+    },
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-headless-prompt",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "sdk",
+        "promptSource": "sdk",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-agent-seeded-session",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "task_notification",
+        "promptSource": "system",
+        "message": {
+          "role": "user",
+          "content": "You own one job: add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "turnOrigin": "task_notification",
+        "promptSource": "system",
+        "message": {
+          "role": "user",
+          "content": "<task-notification><status>completed</status></task-notification>"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The background check finished."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-agent-seeded-session-a-person-typed-into",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "task_notification",
+        "promptSource": "system",
+        "message": {
+          "role": "user",
+          "content": "You own one job: add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "sdk",
+        "message": {
+          "role": "user",
+          "content": "Add the backoff setting too."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The backoff setting is in place. The jitter option is parked."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-background-tasks-running",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "payload": {
+      "background_tasks": [
+        {
+          "id": "task-synthetic-01",
+          "status": "running"
+        }
+      ]
+    },
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change. The test run is in the background."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-deferral-before-a-notification-turn",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change. The test run is in the background."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "turnOrigin": "task_notification",
+        "promptSource": "system",
+        "message": {
+          "role": "user",
+          "content": "<task-notification><status>completed</status></task-notification>"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The test run finished, and all tests pass."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-held-once",
+    "group": "hold cap",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis session wrote about open items and sent no question card after them.\nThe lines:\n\"I deferred the backoff setting to a later change.\""
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The backoff setting waits for the next change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-held-twice",
+    "group": "hold cap",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis session wrote about open items and sent no question card after them.\nThe lines:\n\"I deferred the backoff setting to a later change.\""
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The backoff setting waits for the next change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis session wrote about open items and sent no question card after them.\nThe lines:\n\"I deferred the backoff setting to a later change.\""
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "This host has no question tool, so the backoff setting stays in this reply."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-neutral-mention-of-a-marker-word",
+    "group": "accepted extra card",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "How does the closing round gate find an open item?"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The gate looks for the word deferred."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-uncertainty-marker",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Warm the cache before the export job runs."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The warm-up step runs first. I am not sure the cache is warm."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-missing-transcript",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "transcript": null
+  },
+  {
+    "id": "hold-open-item-in-payload-closing-reply",
+    "group": "open item",
+    "expected": "hold",
+    "payload": {
+      "last_assistant_message": "The backoff setting stays as it is.\n\nThe jitter option is parked."
+    },
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_10",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Add the backoff setting now?",
+                    "header": "Backoff",
+                    "options": [
+                      {
+                        "label": "Leave it",
+                        "description": "Keep it as is."
+                      },
+                      {
+                        "label": "Add it now",
+                        "description": "Add it in this change."
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_10",
+              "content": "The user chose Leave it."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-payload-reply-the-transcript-already-holds",
+    "group": "no open item",
+    "expected": "allow",
+    "payload": {
+      "last_assistant_message": "The backoff setting stays as it is."
+    },
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_11",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Add the backoff setting now?",
+                    "header": "Backoff",
+                    "options": [
+                      {
+                        "label": "Leave it",
+                        "description": "Keep it as is."
+                      },
+                      {
+                        "label": "Add it now",
+                        "description": "Add it in this change."
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_11",
+              "content": "The user chose Leave it."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The backoff setting stays as it is."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-negation-followed-by-except",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Nothing deferred except the backoff setting."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-no-follow-ups-except",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "No follow-ups except the retry fix."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-pending-marker",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place. The backoff setting is pending."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-did-not-run-marker",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place. The integration suite did not run."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-waiting-on-you-marker",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place. The backoff length is waiting on you."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-question-asked-in-prose",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place.\n\nShould the backoff start at one second?"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-refused-question-call",
+    "group": "question call",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_12",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Add the backoff setting now?",
+                    "header": "Backoff",
+                    "options": [
+                      {
+                        "label": "Leave it",
+                        "description": "Keep it as is."
+                      },
+                      {
+                        "label": "Add it now",
+                        "description": "Add it in this change."
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_12",
+              "content": "Question refused: the chat text runs 600 words.",
+              "is_error": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-errored-question-call",
+    "group": "question call",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_13",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Add the backoff setting now?",
+                    "header": "Backoff",
+                    "options": [
+                      {
+                        "label": "Leave it",
+                        "description": "Keep it as is."
+                      },
+                      {
+                        "label": "Add it now",
+                        "description": "Add it in this change."
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_13",
+              "content": "InputValidationError: questions is required.",
+              "is_error": true
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-question-call-with-no-result",
+    "group": "question call",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_14",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Add the backoff setting now?",
+                    "header": "Backoff",
+                    "options": [
+                      {
+                        "label": "Leave it",
+                        "description": "Keep it as is."
+                      },
+                      {
+                        "label": "Add it now",
+                        "description": "Add it in this change."
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-marker-split-across-a-soft-line-break",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place. The jitter option is out of\nscope for this change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-host-with-no-turn-origin",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-host-with-no-turn-origin-and-no-attended-session",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "environment": {
+      "CLAUDE_CODE_SESSION_ATTENDED": ""
+    },
+    "transcript": [
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-session-a-custom-slash-command-started",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "message": {
+          "role": "user",
+          "content": "<command-message>hello</command-message>\n<command-name>/hello</command-name>"
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Say hello, then list what is left."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I deferred the backoff setting to a later change."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-negation-at-a-line-end-inside-a-paragraph",
+    "group": "accepted extra card",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Rename the export job to nightly-export."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The job is renamed.\nNothing is deferred\nBoth tests pass."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-no-follow-up-is-needed",
+    "group": "accepted extra card",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Rename the export job to nightly-export."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The job is renamed and both tests pass. No follow-up is needed."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-no-open-questions-remain",
+    "group": "accepted extra card",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Rename the export job to nightly-export."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The job is renamed. No open questions remain."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-no-follow-up-is-needed-except",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "No follow-up is needed except the retry fix."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-work-with-no-card-or-declaration",
+    "group": "work",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-finished-after-an-agent-call",
+    "group": "work",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_a1",
+              "name": "Agent",
+              "input": {
+                "prompt": "Check the export job."
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_a1",
+              "content": "The export job is fine."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "finished"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-work-with-the-declaration",
+    "group": "work",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place.\n\nOpen items: none."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-work-with-the-declaration-without-its-period",
+    "group": "work",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place.\n\nOpen items: none"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-a-marker-word-inside-a-file-name",
+    "group": "masked text",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Create todo.md with the line Ship the docs."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "todo.md"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I created todo.md with the line Ship the docs.\n\nOpen items: none."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-work-with-a-bold-declaration-in-the-payload",
+    "group": "work",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      }
+    ],
+    "payload": {
+      "last_assistant_message": "The retry flag is in place.\n\n**Open items: none.**"
+    }
+  },
+  {
+    "id": "hold-work-with-a-declaration-in-backticks",
+    "group": "work",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place.\n\n`Open items: none.`"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-work-with-a-declaration-that-is-not-the-last-line",
+    "group": "work",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Open items: none.\n\nThe retry flag is in place."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-marker-line-beside-the-declaration",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I didn't test the retry path.\n\nOpen items: none."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-done-with-no-tool-call",
+    "group": "no work",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Is the export job done?"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "done"
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-no-change-after-an-answered-card",
+    "group": "no work",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Should the job get a backoff setting?"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_q1",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Add the backoff setting now?",
+                    "header": "Backoff",
+                    "multiSelect": false,
+                    "options": [
+                      {
+                        "label": "Add it now",
+                        "description": "The job waits longer after each failed try."
+                      },
+                      {
+                        "label": "Leave it",
+                        "description": "The job keeps one fixed wait."
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_q1",
+              "content": "The user chose Leave it."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I made no changes for either answer."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-work-after-an-answered-card",
+    "group": "work",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Open items: none."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_q1",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Add the backoff setting now?",
+                    "header": "Backoff",
+                    "multiSelect": false,
+                    "options": [
+                      {
+                        "label": "Add it now",
+                        "description": "The job waits longer after each failed try."
+                      },
+                      {
+                        "label": "Leave it",
+                        "description": "The job keeps one fixed wait."
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_q1",
+              "content": "The user chose Leave it."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The backoff setting is in place."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-later-pull-request-will-fill-it-in",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The Changelog section is empty for now, and a later pull request will fill it in."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-you-may-want-to-decide",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "You may want to decide on the timeout."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-did-not-test",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I didn't test the retry path."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-separate-pull-request",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I'll do the docs in a separate PR."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-nothing-deferred-except",
+    "group": "open item",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Nothing deferred, except the backoff setting."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-marker-in-indented-code",
+    "group": "masked text",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Run this to list the queue:\n\n    queue list --status deferred\n\nThat is all."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-work-in-a-subagent-stop",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      }
+    ],
+    "payload": {
+      "agent_id": "agent-1"
+    }
+  },
+  {
+    "id": "allow-work-in-a-headless-run",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      }
+    ],
+    "environment": {
+      "CLAUDE_CODE_SESSION_ATTENDED": "0"
+    }
+  },
+  {
+    "id": "allow-work-with-background-tasks",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      }
+    ],
+    "payload": {
+      "background_tasks": [
+        {
+          "id": "task-1"
+        }
+      ]
+    }
+  },
+  {
+    "id": "allow-work-in-a-cursor-stop",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      }
+    ],
+    "payload": {
+      "conversation_id": "conversation-1"
+    }
+  },
+  {
+    "id": "allow-work-in-an-agent-seeded-session",
+    "group": "session the gate leaves alone",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "sdk",
+        "promptSource": "system",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-work-after-two-work-holds",
+    "group": "hold cap",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-work-after-two-holds-and-a-new-prompt",
+    "group": "hold cap",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis session wrote about open items and sent no question card after them.\nRead the task list."
+        }
+      },
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Rename the flag."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Renamed."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-two-holds-across-a-notification",
+    "group": "hold cap",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+        }
+      },
+      {
+        "type": "user",
+        "turnOrigin": "task_notification",
+        "promptSource": "system",
+        "message": {
+          "role": "user",
+          "content": "<task-notification>done</task-notification>"
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-declaration-in-a-star-list-item",
+    "group": "work",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_s1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_s1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done.\n\n* Open items: none."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-when-a-worker-report-quotes-the-reason",
+    "group": "hold cap",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_q1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_q1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+        }
+      },
+      {
+        "type": "user",
+        "isMeta": true,
+        "message": {
+          "role": "user",
+          "content": "A worker reports. It quotes this: This session did work and ended without a question card or the declaration line."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Done."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-work-after-an-earlier-declaration-with-no-closing-text",
+    "group": "work",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_n1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_n1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place.\n\nOpen items: none."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Set the default to five tries."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_n2",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_n2",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "pass-chat-only-turn-after-a-declared-work-turn",
+    "group": "work",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_c1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_c1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place.\n\nOpen items: none."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Does it default to three tries?"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Yes, it defaults to three tries."
+            }
+          ]
+        }
+      }
+    ]
+  }
+]
