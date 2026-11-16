@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 import yaml
@@ -188,10 +189,9 @@ REVIEW_RECORD_BODY = (
 )
 
 
-@pytest.mark.parametrize("job_key", ("review-closure", "review-closure-comment"))
-def test_review_closure_counts_a_bot_review_record_as_a_notice(
-    tmp_path: Path, job_key: str
-) -> None:
+def _parsed_closure_arguments(
+    tmp_path: Path, job_key: str, driver_login: str = ""
+) -> tuple[ModuleType, object]:
     workflow = load_workflow("review-closure.yml")
     closure_script = workflow["jobs"][job_key]["steps"][-1]["run"]
     recorded_arguments = tmp_path / "arguments"
@@ -211,6 +211,7 @@ def test_review_closure_counts_a_bot_review_record_as_a_notice(
         "REPOSITORY": "owner/name",
         "PULL_REQUEST_NUMBER": "7",
         "MERGE_GROUP_HEAD_REF": "",
+        "DRIVER_LOGIN": driver_login,
     }
     subprocess.run(["bash", "-c", closure_script], env=step_environment, check=True)
     scripts_directory = (
@@ -225,6 +226,14 @@ def test_review_closure_counts_a_bot_review_record_as_a_notice(
     parsed = review_closure.build_parser().parse_args(
         recorded_arguments.read_text(encoding="utf-8").splitlines()
     )
+    return review_closure_model, parsed
+
+
+@pytest.mark.parametrize("job_key", ("review-closure", "review-closure-comment"))
+def test_review_closure_counts_a_bot_review_record_as_a_notice(
+    tmp_path: Path, job_key: str
+) -> None:
+    review_closure_model, parsed = _parsed_closure_arguments(tmp_path, job_key)
 
     record = review_closure_model.parse_top_level_comment(
         {
@@ -238,3 +247,21 @@ def test_review_closure_counts_a_bot_review_record_as_a_notice(
     )
 
     assert record.is_notice
+
+
+@pytest.mark.parametrize("job_key", ("review-closure", "review-closure-comment"))
+def test_review_closure_should_count_the_variable_login_as_a_driver(
+    tmp_path: Path, job_key: str
+) -> None:
+    _, parsed = _parsed_closure_arguments(tmp_path, job_key, "agent-login")
+
+    assert parsed.driver_login == ["agent-login"]
+
+
+@pytest.mark.parametrize("job_key", ("review-closure", "review-closure-comment"))
+def test_review_closure_should_pass_no_driver_when_the_variable_is_unset(
+    tmp_path: Path, job_key: str
+) -> None:
+    _, parsed = _parsed_closure_arguments(tmp_path, job_key)
+
+    assert parsed.driver_login == []
