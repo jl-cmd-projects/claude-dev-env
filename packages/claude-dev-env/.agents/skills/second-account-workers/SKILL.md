@@ -79,7 +79,8 @@ meter could be read" means the meter reads failed, often with HTTP 429, so
 usage may be left: run the command once more after the reset time. When the
 meters are still unread in a cloud session, the session's own account has
 usage, so run the work with the Agent tool, in its own worktree when it edits
-code, and report each unread reason.
+code, and report each unread reason. Outside a cloud session, report the
+second wait with its reason and reset time.
 Claude can also return exit 3 after a worker starts. When the
 report account is `main`, `second`, or `extra_2` and later, report the child's
 exit code and result. Exit 124 with reason `timeout` means the worker ran past
