@@ -80,6 +80,7 @@ When the lines name nothing that is still open, send one question that says so a
 - The gate counts one of its holds only when the feedback record starts with "Stop hook feedback" and carries the first sentence of the reason in its first 200 characters. A host that writes the feedback in another shape gets a hold on every stop, up to its own limit.
 - Text inside an HTML block is not read.
 - A marker joined to a word by four or more underscores still reads as a marker.
+- A marker joined to a file name by a hyphen, such as `todo-list.md`, still reads as a marker.
 - Text the masking misses reads as prose and can hold, such as an unclosed fence or a quote indented four spaces inside a nested list item.
 - A question call whose id holds a character the transcript escapes outside printable ASCII, such as `"` or `é`, is not matched to its result, so the stretch does not end there. Claude Code writes ids of letters, digits, and underscores.
 - The gate runs on Claude Code only.
