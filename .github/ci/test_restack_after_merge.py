@@ -7,6 +7,7 @@ runs the script from a fresh clone with a stub `gh` on PATH that records each ca
 
 import json
 import os
+import shlex
 import stat
 import subprocess
 import sys
@@ -32,7 +33,7 @@ MERGED_PULL_REQUEST_NUMBER = 1
 
 STUB_GH_SOURCE = textwrap.dedent(
     """
-    import json, os, subprocess, sys
+    import json, os, subprocess, sys, urllib.parse
     state_path = os.environ["STUB_GH_STATE"]
     state = json.load(open(state_path))
     all_arguments = sys.argv[1:]
@@ -49,6 +50,16 @@ STUB_GH_SOURCE = textwrap.dedent(
             nodes.append({"number": each["number"], "headRefName": each["head"], "baseRefName": each["base"],
                           "isCrossRepository": each.get("cross", False), "timelineItems": {"nodes": events}})
         print(json.dumps({"data": {"repository": {"pullRequests": {"pageInfo": {"hasNextPage": False, "endCursor": None}, "nodes": nodes}}}}))
+    elif all_arguments[0] == "api" and "/rules/branches/" in all_arguments[2]:
+        branch = urllib.parse.unquote(all_arguments[2].split("/rules/branches/", 1)[1])
+        if branch in state.get("unreadableRules", []):
+            sys.exit("stub gh: rules read failed")
+        print("\\n".join(state.get("branchRules", {}).get(branch, [])))
+    elif all_arguments[0] == "api" and "/branches/" in all_arguments[1]:
+        branch = urllib.parse.unquote(all_arguments[1].split("/branches/", 1)[1])
+        if branch in state.get("unreadableBranches", []):
+            sys.exit("stub gh: branch read failed")
+        print("true" if branch in state.get("protectedBranches", []) else "false")
     elif all_arguments[0] == "api" and all_arguments[-2] == "--jq":
         number = all_arguments[2].split("/")[-2]
         print("\\n".join(state["comments"].get(number, [])))
@@ -236,6 +247,8 @@ class StackSandbox:
                     merge_commit_sha,
                     "--base-ref",
                     "main",
+                    "--default-branch",
+                    "main",
                 ]
             )
         finally:
@@ -329,6 +342,7 @@ def test_should_push_nothing_when_run_again(sandbox: StackSandbox) -> None:
     assert {
         each: sandbox.origin_head(each) for each in ("level-2", "level-3")
     } == all_heads_after_first_run
+    assert sandbox.read_stub_state()["comments"] == {}
 
 
 def test_should_restack_a_child_whose_parent_was_amended_after_it_branched(
@@ -384,7 +398,7 @@ def test_should_label_and_comment_once_on_a_conflict_and_leave_the_level_above(
     all_heads_before = {
         each: sandbox.push_branch(each) for each in ("level-2", "level-3")
     }
-    sandbox.branch("level-1", "level-1~1")
+    sandbox.branch("level-1", "level-1")
     commit_file(
         sandbox.developer_path,
         "shared.txt",
@@ -595,10 +609,16 @@ def test_should_parse_the_merged_pull_request_flags() -> None:
             "m",
             "--base-ref",
             "main",
+            "--default-branch",
+            "trunk",
         ]
     )
 
-    assert (parsed_arguments.merged_pr, parsed_arguments.remote) == (7, "origin")
+    assert (
+        parsed_arguments.merged_pr,
+        parsed_arguments.remote,
+        parsed_arguments.default_branch,
+    ) == (7, "origin", "trunk")
 
 
 def test_should_return_one_when_the_merged_head_cannot_be_fetched(
@@ -628,10 +648,226 @@ def test_should_report_every_visited_level(sandbox: StackSandbox, monkeypatch: p
     )
 
     all_outcomes = restack_after_merge.restack_after_merge(
-        REPOSITORY, merged_pull_request, "origin"
+        REPOSITORY, merged_pull_request, "origin", "main"
     )
 
     assert all_outcomes == [
         (2, restack_after_merge.RestackOutcome.RESTACKED),
         (3, restack_after_merge.RestackOutcome.RESTACKED),
+    ]
+
+
+def run_restack_for_outcomes(
+    sandbox: StackSandbox,
+    merged_head_sha: str,
+    merge_commit_sha: str,
+    default_branch: str = "main",
+) -> dict[int, restack_after_merge.RestackOutcome]:
+    run_git(
+        sandbox.root_path,
+        "clone",
+        "-q",
+        str(sandbox.origin_path),
+        str(sandbox.runner_path),
+    )
+    previous_directory = Path.cwd()
+    os.chdir(sandbox.runner_path)
+    try:
+        return dict(
+            restack_after_merge.restack_after_merge(
+                REPOSITORY,
+                restack_after_merge.MergedPullRequest(
+                    1, "level-1", merged_head_sha, merge_commit_sha, "main"
+                ),
+                "origin",
+                default_branch,
+            )
+        )
+    finally:
+        os.chdir(previous_directory)
+
+
+def test_should_never_rewrite_the_default_branch_stacked_on_a_level(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    sandbox.open_pull(7, "main", "level-2")
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+
+    all_outcomes = run_restack_for_outcomes(sandbox, merged_head_sha, merge_commit_sha)
+
+    assert sandbox.origin_head("main") == merge_commit_sha
+    assert all_outcomes[7] is restack_after_merge.RestackOutcome.DEFAULT_BRANCH_REFUSED
+
+
+def test_should_skip_a_child_that_carries_none_of_the_stack_commits(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    sandbox.branch("unrelated", "main")
+    commit_file(sandbox.developer_path, "other.txt", "other\n", "unrelated work")
+    unrelated_head = sandbox.push_branch("unrelated")
+    sandbox.open_pull(8, "unrelated", "level-1")
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+
+    all_outcomes = run_restack_for_outcomes(sandbox, merged_head_sha, merge_commit_sha)
+
+    assert sandbox.origin_head("unrelated") == unrelated_head
+    assert all_outcomes[8] is restack_after_merge.RestackOutcome.NOT_STACKED
+    assert "carries none of the merged" in sandbox.read_stub_state()["comments"]["8"][0]
+    assert all_outcomes[2] is restack_after_merge.RestackOutcome.RESTACKED
+
+
+def test_should_quote_every_branch_name_in_the_manual_commands(
+    sandbox: StackSandbox, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    build_three_level_stack(sandbox)
+    fork_sha = run_git(sandbox.developer_path, "rev-parse", "level-2~1")
+    hostile_head = "level-2$(touch pwned)"
+    hostile_base = "main;id"
+    target = restack_after_merge.RestackTarget(
+        pull_request=restack_after_merge.OpenPullRequest(
+            2, hostile_head, "level-1", None, False
+        ),
+        onto_branch=hostile_base,
+        onto_sha="unused",
+        upstream_sha=fork_sha,
+        settled_sha="unused",
+    )
+    merged_pull_request = restack_after_merge.MergedPullRequest(
+        1, "level-1", fork_sha, "unused", hostile_base
+    )
+    monkeypatch.chdir(sandbox.developer_path)
+
+    comment_body = restack_after_merge.build_manual_restack_comment(
+        target, merged_pull_request, "abc123", "the rebase hit a conflict", "origin"
+    )
+    all_command_lines = (
+        comment_body.split("```bash\n", 1)[1].split("```", 1)[0].splitlines()
+    )
+
+    assert [shlex.split(each_line) for each_line in all_command_lines] == [
+        ["git", "fetch", "origin", hostile_base, hostile_head],
+        ["git", "switch", "-C", hostile_head, f"origin/{hostile_head}"],
+        ["git", "rebase", "--onto", f"origin/{hostile_base}", fork_sha],
+        ["git", "push", f"--force-with-lease={hostile_head}:abc123", "origin", hostile_head],
+        ["gh", "pr", "edit", "2", "--remove-label", NEEDS_REBASE_LABEL],
+    ]
+
+
+def build_branch_stacked_on_level_2(sandbox: StackSandbox, branch_name: str) -> str:
+    sandbox.branch(branch_name, "level-2")
+    commit_file(
+        sandbox.developer_path, f"{branch_name.replace('/', '-')}.txt", f"{branch_name}\n", f"{branch_name} work"
+    )
+    return sandbox.push_branch(branch_name)
+
+
+def test_should_never_rewrite_a_default_branch_that_is_not_the_merged_base(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    develop_head = build_branch_stacked_on_level_2(sandbox, "develop")
+    sandbox.open_pull(7, "develop", "level-2")
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+
+    all_outcomes = run_restack_for_outcomes(
+        sandbox, merged_head_sha, merge_commit_sha, default_branch="develop"
+    )
+
+    assert sandbox.origin_head("develop") == develop_head
+    assert all_outcomes[7] is restack_after_merge.RestackOutcome.DEFAULT_BRANCH_REFUSED
+    assert all_outcomes[3] is restack_after_merge.RestackOutcome.RESTACKED
+
+
+def test_should_never_rewrite_a_protected_branch_or_one_whose_protection_cannot_be_read(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    guarded_head = build_branch_stacked_on_level_2(sandbox, "guarded/release")
+    unreadable_head = build_branch_stacked_on_level_2(sandbox, "unreadable")
+    sandbox.open_pull(9, "guarded/release", "level-2")
+    sandbox.open_pull(10, "unreadable", "level-2")
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+    stub_state = sandbox.read_stub_state()
+    stub_state["protectedBranches"] = ["guarded/release"]
+    stub_state["unreadableBranches"] = ["unreadable"]
+    sandbox.state_path.write_text(json.dumps(stub_state), encoding="utf-8")
+
+    all_outcomes = run_restack_for_outcomes(sandbox, merged_head_sha, merge_commit_sha)
+
+    assert sandbox.origin_head("guarded/release") == guarded_head
+    assert sandbox.origin_head("unreadable") == unreadable_head
+    assert all_outcomes[9] is restack_after_merge.RestackOutcome.PROTECTED_BRANCH_REFUSED
+    assert all_outcomes[10] is restack_after_merge.RestackOutcome.PROTECTED_BRANCH_REFUSED
+    assert all_outcomes[3] is restack_after_merge.RestackOutcome.RESTACKED
+
+
+def test_should_skip_an_unrelated_child_when_the_merged_level_holds_a_merge_commit(
+    sandbox: StackSandbox,
+) -> None:
+    sandbox.branch("side", "main")
+    commit_file(sandbox.developer_path, "side.txt", "side\n", "side work")
+    sandbox.branch("level-1", "main")
+    commit_file(sandbox.developer_path, "one.txt", "level one\n", "level 1 first")
+    run_git(sandbox.developer_path, "merge", "-q", "--no-ff", "-m", "merge side into level 1", "side")
+    sandbox.branch("unrelated", "main")
+    commit_file(sandbox.developer_path, "other.txt", "other\n", "unrelated work")
+    unrelated_head = sandbox.push_branch("unrelated")
+    sandbox.open_pull(8, "unrelated", "level-1")
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+
+    all_outcomes = run_restack_for_outcomes(sandbox, merged_head_sha, merge_commit_sha)
+
+    assert sandbox.origin_head("unrelated") == unrelated_head
+    assert all_outcomes[8] is restack_after_merge.RestackOutcome.NOT_STACKED
+
+
+def test_should_refuse_a_branch_whose_rules_guard_its_history_and_allow_other_rules(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    all_heads_before = {
+        each_branch: build_branch_stacked_on_level_2(sandbox, each_branch)
+        for each_branch in ("no-force-push", "rules-unreadable", "checks-only")
+    }
+    sandbox.open_pull(11, "no-force-push", "level-2")
+    sandbox.open_pull(12, "rules-unreadable", "level-2")
+    sandbox.open_pull(13, "checks-only", "level-2")
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+    stub_state = sandbox.read_stub_state()
+    stub_state["branchRules"] = {
+        "no-force-push": ["required_status_checks", "non_fast_forward"],
+        "checks-only": ["required_status_checks", "pull_request"],
+    }
+    stub_state["unreadableRules"] = ["rules-unreadable"]
+    sandbox.state_path.write_text(json.dumps(stub_state), encoding="utf-8")
+
+    all_outcomes = run_restack_for_outcomes(sandbox, merged_head_sha, merge_commit_sha)
+
+    assert sandbox.origin_head("no-force-push") == all_heads_before["no-force-push"]
+    assert sandbox.origin_head("rules-unreadable") == all_heads_before["rules-unreadable"]
+    assert all_outcomes[11] is restack_after_merge.RestackOutcome.PROTECTED_BRANCH_REFUSED
+    assert all_outcomes[12] is restack_after_merge.RestackOutcome.PROTECTED_BRANCH_REFUSED
+    assert all_outcomes[13] is restack_after_merge.RestackOutcome.RESTACKED
+    assert sandbox.subjects_above(sandbox.origin_head("level-2"), "checks-only") == [
+        "checks-only work"
     ]

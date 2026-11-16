@@ -8,20 +8,18 @@
 Main merges by squash, so the levels above a merged level still carry its
 original commits. This script replays only each level's own commits onto the
 new base and force-pushes with a lease on the head it fetched. A level that
-conflicts, or whose push is refused, gets the `status: needs-rebase` label and
-one comment with the commands to restack it by hand. The levels above it stay
-as they are.
+conflicts, whose push is refused, or that carries none of the stack's commits
+gets the `status: needs-rebase` label and one comment with the commands to
+restack it by hand. The levels above it stay as they are. A level whose head
+is the default branch, or a branch whose protection or rulesets guard its
+history, is never rewritten.
 """
 
 import argparse
-import json
 import shlex
-import subprocess
 import sys
 from collections import deque
 from collections.abc import Sequence
-from dataclasses import dataclass
-from enum import Enum
 from pathlib import Path
 from typing import TextIO
 
@@ -29,166 +27,41 @@ _repo_root_path = str(Path(__file__).resolve().parents[2])
 if _repo_root_path not in sys.path:
     sys.path.insert(0, _repo_root_path)
 
-from config.restack_after_merge_constants import (
-    ALL_BRANCHES_FETCH_REFSPEC_TEMPLATE,
-    ALL_HEAD_COMMIT_ARGUMENTS,
-    ALL_REBASE_ABORT_ARGUMENTS,
-    COMMENT_BODIES_JQ_FILTER,
-    DEFAULT_REMOTE_NAME,
-    FORCE_WITH_LEASE_FLAG_TEMPLATE,
-    ISSUE_COMMENTS_ENDPOINT_TEMPLATE,
-    MANUAL_RESTACK_COMMENT_TEMPLATE,
-    MERGED_HEAD_FETCH_REFSPEC_TEMPLATE,
-    NEEDS_REBASE_LABEL,
-    OPEN_PULL_REQUESTS_QUERY,
-    PUSH_TO_BRANCH_REFSPEC_TEMPLATE,
-    REASON_PUSH_REJECTED,
-    REASON_REBASE_CONFLICT,
-    REMOTE_TRACKING_REF_TEMPLATE,
-    RESTACK_COMMENT_MARKER_TEMPLATE,
+from restack_after_merge_model import (
+    MergedPullRequest,
+    OpenPullRequest,
+    RestackedLevel,
+    RestackOutcome,
+    RestackTarget,
+    parse_open_pull_request,
+)
+from restack_after_merge_transport import (
+    RestackRunFatal,
+    carries_stack_commit,
+    fetch_stack_refs,
+    find_merge_base,
+    flag_for_manual_restack,
+    is_ancestor,
+    list_open_pull_request_nodes,
+    may_rewrite_branch,
+    push_with_lease,
+    rebase_onto,
+    resolve_remote_branch,
+    set_pull_request_base,
+    shares_commit_missing_from_base,
 )
 
-
-@dataclass(frozen=True)
-class MergedPullRequest:
-    """The pull request whose merge starts the restack, as the event payload names it."""
-
-    number: int
-    head_ref: str
-    head_sha: str
-    merge_commit_sha: str
-    base_ref: str
-
-
-@dataclass(frozen=True)
-class OpenPullRequest:
-    """One open pull request, with the base it had before its most recent base change."""
-
-    number: int
-    head_ref: str
-    base_ref: str
-    previous_base_ref: str | None
-    is_cross_repository: bool
-
-
-@dataclass(frozen=True)
-class RestackTarget:
-    """One stack level to move.
-
-    ::
-
-        replay:   upstream_sha..<level head>   onto onto_sha
-        settled:  the level head already contains settled_sha -> nothing to do
-
-    Args:
-        pull_request: The level to move.
-        onto_branch: The branch the level ends up on, also its required base.
-        onto_sha: The commit the level's own commits are replayed onto.
-        upstream_sha: Commits reachable from it are not replayed.
-        settled_sha: A level whose head contains this commit is already restacked.
-    """
-
-    pull_request: OpenPullRequest
-    onto_branch: str
-    onto_sha: str
-    upstream_sha: str
-    settled_sha: str
-
-
-class RestackOutcome(Enum):
-    """How one stack level ended."""
-
-    RESTACKED = "restacked"
-    ALREADY_RESTACKED = "already restacked"
-    BRANCH_MISSING = "branch missing"
-    REBASE_CONFLICT = "rebase conflict"
-    PUSH_REJECTED = "push rejected"
-
-
-@dataclass(frozen=True)
-class RestackedLevel:
-    """How one level ended, with its head before and after the run."""
-
-    outcome: RestackOutcome
-    seen_sha: str | None
-    restacked_sha: str | None
-
-
-class RestackRunFatal(Exception):
-    """A git or gh step that every stack level depends on failed."""
-
-
-def _run_command(all_arguments: Sequence[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(list(all_arguments), capture_output=True, text=True, check=False)
-
-
-def _run_required_command(all_arguments: Sequence[str]) -> str:
-    completed_process = _run_command(all_arguments)
-    if completed_process.returncode != 0:
-        raise RestackRunFatal(
-            f"{shlex.join(all_arguments)} failed: {completed_process.stderr.strip()}"
-        )
-    return completed_process.stdout.strip()
-
-
-def parse_open_pull_request(pull_request_node: dict) -> OpenPullRequest:
-    """Turn one GraphQL pull request node into an OpenPullRequest.
-
-    Args:
-        pull_request_node: A node from the open pull requests query.
-
-    Returns:
-        The pull request, with previous_base_ref from its last base change event, or None.
-    """
-    previous_base_ref = None
-    for each_event in pull_request_node["timelineItems"]["nodes"]:
-        previous_base_ref = each_event.get("previousRefName") or each_event.get("oldBase")
-    return OpenPullRequest(
-        number=pull_request_node["number"],
-        head_ref=pull_request_node["headRefName"],
-        base_ref=pull_request_node["baseRefName"],
-        previous_base_ref=previous_base_ref,
-        is_cross_repository=pull_request_node["isCrossRepository"],
-    )
-
-
-def _list_open_pull_requests(repository: str) -> list[OpenPullRequest]:
-    owner, name = repository.split("/", 1)
-    all_open_pull_requests: list[OpenPullRequest] = []
-    page_cursor: str | None = None
-    while True:
-        all_query_arguments = [
-            "gh", "api", "graphql",
-            "-f", f"query={OPEN_PULL_REQUESTS_QUERY}",
-            "-f", f"owner={owner}",
-            "-f", f"name={name}",
-        ]
-        if page_cursor:
-            all_query_arguments += ["-f", f"cursor={page_cursor}"]
-        open_pull_requests_payload = json.loads(_run_required_command(all_query_arguments))
-        pull_requests_page = open_pull_requests_payload["data"]["repository"]["pullRequests"]
-        all_open_pull_requests += [
-            parse_open_pull_request(each_node) for each_node in pull_requests_page["nodes"]
-        ]
-        if not pull_requests_page["pageInfo"]["hasNextPage"]:
-            return all_open_pull_requests
-        page_cursor = pull_requests_page["pageInfo"]["endCursor"]
-
-
-def _is_ancestor(ancestor_sha: str, descendant_sha: str) -> bool:
-    is_ancestor_arguments = ["git", "merge-base", "--is-ancestor", ancestor_sha, descendant_sha]
-    return _run_command(is_ancestor_arguments).returncode == 0
-
-
-def _find_merge_base(first_sha: str, second_sha: str) -> str | None:
-    completed_process = _run_command(["git", "merge-base", first_sha, second_sha])
-    return completed_process.stdout.strip() if completed_process.returncode == 0 else None
-
-
-def _resolve_remote_branch(remote_name: str, branch_name: str) -> str | None:
-    tracking_ref = REMOTE_TRACKING_REF_TEMPLATE % (remote_name, branch_name)
-    completed_process = _run_command(["git", "rev-parse", "--verify", "--quiet", tracking_ref])
-    return completed_process.stdout.strip() if completed_process.returncode == 0 else None
+from config.restack_after_merge_constants import (
+    DEFAULT_REMOTE_NAME,
+    FORCE_WITH_LEASE_FLAG_TEMPLATE,
+    MANUAL_RESTACK_COMMENT_TEMPLATE,
+    NEEDS_REBASE_LABEL,
+    REASON_NOT_STACKED,
+    REASON_PUSH_REJECTED,
+    REASON_REBASE_CONFLICT,
+    REMOTE_BRANCH_TEMPLATE,
+    RESTACK_COMMENT_MARKER_TEMPLATE,
+)
 
 
 def is_direct_child(
@@ -219,12 +92,9 @@ def is_direct_child(
         return True
     if open_pull_request.base_ref != merged_pull_request.base_ref:
         return False
-    child_head_sha = _resolve_remote_branch(remote_name, open_pull_request.head_ref)
-    base_head_sha = _resolve_remote_branch(remote_name, merged_pull_request.base_ref)
-    if child_head_sha is None or base_head_sha is None:
-        return False
-    fork_sha = _find_merge_base(child_head_sha, merged_pull_request.head_sha)
-    return fork_sha is not None and not _is_ancestor(fork_sha, base_head_sha)
+    return shares_commit_missing_from_base(
+        remote_name, open_pull_request.head_ref, merged_pull_request.head_sha, merged_pull_request.base_ref
+    )
 
 
 def build_manual_restack_comment(
@@ -245,95 +115,74 @@ def build_manual_restack_comment(
 
     Returns:
         The comment body, opening with a marker unique to the merged pull request.
+        Every value pasted into a shell command is quoted, since git allows `$(...)`
+        in a branch name.
     """
-    fork_sha = _find_merge_base(seen_sha, target.upstream_sha) or target.upstream_sha
+    fork_sha = find_merge_base(seen_sha, target.upstream_sha) or target.upstream_sha
+    head_ref = target.pull_request.head_ref
+    all_shell_arguments_by_placeholder = {
+        "onto_branch": target.onto_branch,
+        "remote": remote_name,
+        "head_ref": head_ref,
+        "remote_head_ref": REMOTE_BRANCH_TEMPLATE % (remote_name, head_ref),
+        "remote_onto_branch": REMOTE_BRANCH_TEMPLATE % (remote_name, target.onto_branch),
+        "lease_flag": FORCE_WITH_LEASE_FLAG_TEMPLATE % (head_ref, seen_sha),
+        "fork_sha": fork_sha,
+        "seen_sha": seen_sha,
+        "child_number": str(target.pull_request.number),
+        "label": NEEDS_REBASE_LABEL,
+    }
     return MANUAL_RESTACK_COMMENT_TEMPLATE % {
         "marker": RESTACK_COMMENT_MARKER_TEMPLATE % merged_pull_request.number,
         "merged_number": merged_pull_request.number,
-        "onto_branch": target.onto_branch,
         "reason": reason,
-        "remote": remote_name,
-        "head_ref": target.pull_request.head_ref,
-        "fork_sha": fork_sha,
-        "seen_sha": seen_sha,
-        "child_number": target.pull_request.number,
-        "label": NEEDS_REBASE_LABEL,
+        **{
+            each_placeholder: shlex.quote(each_argument)
+            for each_placeholder, each_argument in all_shell_arguments_by_placeholder.items()
+        },
     }
 
 
-def _flag_for_manual_restack(repository: str, target: RestackTarget, comment_body: str) -> None:
-    pull_request_number = str(target.pull_request.number)
-    _run_required_command(
-        ["gh", "pr", "edit", pull_request_number, "--repo", repository, "--add-label", NEEDS_REBASE_LABEL]
-    )
-    comments_endpoint = ISSUE_COMMENTS_ENDPOINT_TEMPLATE % (repository, pull_request_number)
-    existing_comment_bodies = _run_required_command(
-        ["gh", "api", "--paginate", comments_endpoint, "--jq", COMMENT_BODIES_JQ_FILTER]
-    )
-    comment_marker = comment_body.splitlines()[0]
-    if comment_marker in existing_comment_bodies:
-        return
-    _run_required_command(
-        ["gh", "pr", "comment", pull_request_number, "--repo", repository, "--body", comment_body]
-    )
-
-
-def _rebase_level(target: RestackTarget, seen_sha: str) -> str | None:
-    rebase_arguments = ["git", "rebase", "--onto", target.onto_sha, target.upstream_sha, seen_sha]
-    if _run_command(rebase_arguments).returncode != 0:
-        _run_command(ALL_REBASE_ABORT_ARGUMENTS)
-        return None
-    return _run_required_command(ALL_HEAD_COMMIT_ARGUMENTS)
-
-
-def _push_with_lease(remote_name: str, head_ref: str, seen_sha: str, restacked_sha: str) -> bool:
-    lease_flag = FORCE_WITH_LEASE_FLAG_TEMPLATE % (head_ref, seen_sha)
-    push_refspec = PUSH_TO_BRANCH_REFSPEC_TEMPLATE % (restacked_sha, head_ref)
-    return _run_command(["git", "push", lease_flag, remote_name, push_refspec]).returncode == 0
+def _rewrite_level(
+    target: RestackTarget, repository: str, remote_name: str, seen_sha: str
+) -> RestackedLevel:
+    if not carries_stack_commit(seen_sha, target.upstream_sha, target.onto_sha):
+        return RestackedLevel(RestackOutcome.NOT_STACKED, seen_sha, None)
+    restacked_sha = rebase_onto(target.onto_sha, target.upstream_sha, seen_sha)
+    if restacked_sha is None:
+        return RestackedLevel(RestackOutcome.REBASE_CONFLICT, seen_sha, None)
+    if target.pull_request.base_ref != target.onto_branch:
+        set_pull_request_base(repository, target.pull_request.number, target.onto_branch)
+    if push_with_lease(remote_name, target.pull_request.head_ref, seen_sha, restacked_sha):
+        return RestackedLevel(RestackOutcome.RESTACKED, seen_sha, restacked_sha)
+    return RestackedLevel(RestackOutcome.PUSH_REJECTED, seen_sha, None)
 
 
 def _restack_one_level(
-    target: RestackTarget, repository: str, merged_pull_request: MergedPullRequest, remote_name: str
+    target: RestackTarget, repository: str, merged_pull_request: MergedPullRequest, remote_name: str, default_branch: str
 ) -> RestackedLevel:
     head_ref = target.pull_request.head_ref
-    seen_sha = _resolve_remote_branch(remote_name, head_ref)
+    if head_ref == default_branch:
+        return RestackedLevel(RestackOutcome.DEFAULT_BRANCH_REFUSED, None, None)
+    seen_sha = resolve_remote_branch(remote_name, head_ref)
     if seen_sha is None:
         return RestackedLevel(RestackOutcome.BRANCH_MISSING, None, None)
-    if _is_ancestor(target.settled_sha, seen_sha):
+    if is_ancestor(target.settled_sha, seen_sha):
         return RestackedLevel(RestackOutcome.ALREADY_RESTACKED, seen_sha, seen_sha)
-    restacked_sha = _rebase_level(target, seen_sha)
-    if restacked_sha is None:
-        failure = RestackedLevel(RestackOutcome.REBASE_CONFLICT, seen_sha, None)
-        failure_reason = REASON_REBASE_CONFLICT
-    else:
-        if target.pull_request.base_ref != target.onto_branch:
-            _run_required_command(
-                ["gh", "pr", "edit", str(target.pull_request.number), "--repo", repository, "--base", target.onto_branch]
-            )
-        if _push_with_lease(remote_name, head_ref, seen_sha, restacked_sha):
-            return RestackedLevel(RestackOutcome.RESTACKED, seen_sha, restacked_sha)
-        failure = RestackedLevel(RestackOutcome.PUSH_REJECTED, seen_sha, None)
-        failure_reason = REASON_PUSH_REJECTED
-    comment_body = build_manual_restack_comment(
-        target, merged_pull_request, seen_sha, failure_reason, remote_name
-    )
-    _flag_for_manual_restack(repository, target, comment_body)
-    return failure
-
-
-def _fetch_stack_refs(merged_pull_request: MergedPullRequest, remote_name: str) -> str:
-    _run_required_command(
-        [
-            "git", "fetch", "--no-tags", remote_name,
-            ALL_BRANCHES_FETCH_REFSPEC_TEMPLATE % remote_name,
-            MERGED_HEAD_FETCH_REFSPEC_TEMPLATE % merged_pull_request.number,
-        ]
-    )
-    _run_required_command(["git", "cat-file", "-e", f"{merged_pull_request.head_sha}^{{commit}}"])
-    base_head_sha = _resolve_remote_branch(remote_name, merged_pull_request.base_ref)
-    if base_head_sha is None:
-        raise RestackRunFatal(f"{remote_name} has no branch {merged_pull_request.base_ref}")
-    return base_head_sha
+    if not may_rewrite_branch(repository, head_ref):
+        return RestackedLevel(RestackOutcome.PROTECTED_BRANCH_REFUSED, seen_sha, None)
+    restacked_level = _rewrite_level(target, repository, remote_name, seen_sha)
+    failure_reason = {
+        RestackOutcome.NOT_STACKED: REASON_NOT_STACKED,
+        RestackOutcome.REBASE_CONFLICT: REASON_REBASE_CONFLICT,
+        RestackOutcome.PUSH_REJECTED: REASON_PUSH_REJECTED,
+    }.get(restacked_level.outcome)
+    if failure_reason is not None:
+        comment_body = build_manual_restack_comment(
+            target, merged_pull_request, seen_sha, failure_reason, remote_name
+        )
+        flag_for_manual_restack(repository, target.pull_request.number, comment_body)
+    return restacked_level
 
 
 def _direct_child_targets(
@@ -379,6 +228,7 @@ def restack_after_merge(
     repository: str,
     merged_pull_request: MergedPullRequest,
     remote_name: str,
+    default_branch: str,
     report_stream: TextIO = sys.stdout,
 ) -> list[tuple[int, RestackOutcome]]:
     """Restack every open level stacked on the merged pull request, parents before children.
@@ -395,6 +245,7 @@ def restack_after_merge(
         repository: The owner/name of the repository.
         merged_pull_request: The pull request that merged.
         remote_name: The git remote holding the branches.
+        default_branch: The repository's default branch, which is never rewritten.
         report_stream: Where one line per visited level is written.
 
     Returns:
@@ -403,15 +254,19 @@ def restack_after_merge(
     Raises:
         RestackRunFatal: When the fetch, the open pull request listing, or a gh edit fails.
     """
-    base_head_sha = _fetch_stack_refs(merged_pull_request, remote_name)
-    all_open_pull_requests = _list_open_pull_requests(repository)
+    base_head_sha = fetch_stack_refs(
+        remote_name, merged_pull_request.number, merged_pull_request.head_sha, merged_pull_request.base_ref
+    )
+    all_open_pull_requests = [
+        parse_open_pull_request(each_node) for each_node in list_open_pull_request_nodes(repository)
+    ]
     pending_targets = deque(
         _direct_child_targets(all_open_pull_requests, merged_pull_request, remote_name, base_head_sha)
     )
     all_outcomes: list[tuple[int, RestackOutcome]] = []
     while pending_targets:
         target = pending_targets.popleft()
-        restacked_level = _restack_one_level(target, repository, merged_pull_request, remote_name)
+        restacked_level = _restack_one_level(target, repository, merged_pull_request, remote_name, default_branch)
         all_outcomes.append((target.pull_request.number, restacked_level.outcome))
         report_stream.write(
             f"#{target.pull_request.number} {target.pull_request.head_ref}: "
@@ -441,6 +296,7 @@ def parse_command_line_arguments(all_argv: Sequence[str]) -> argparse.Namespace:
     argument_parser.add_argument("--merged-head-sha", required=True, help="merged head commit")
     argument_parser.add_argument("--merge-commit-sha", required=True, help="commit the merge made")
     argument_parser.add_argument("--base-ref", required=True, help="branch the pull request merged into")
+    argument_parser.add_argument("--default-branch", required=True, help="the repository default branch")
     argument_parser.add_argument("--remote", default=DEFAULT_REMOTE_NAME, help="git remote")
     return argument_parser.parse_args(all_argv)
 
@@ -469,7 +325,12 @@ def main(all_argv: Sequence[str], error_stream: TextIO = sys.stderr) -> int:
         base_ref=parsed_arguments.base_ref,
     )
     try:
-        restack_after_merge(parsed_arguments.repo, merged_pull_request, parsed_arguments.remote)
+        restack_after_merge(
+            parsed_arguments.repo,
+            merged_pull_request,
+            parsed_arguments.remote,
+            parsed_arguments.default_branch,
+        )
     except RestackRunFatal as run_fatal:
         error_stream.write(f"::error::{run_fatal}\n")
         return 1
