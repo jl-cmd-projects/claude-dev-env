@@ -206,7 +206,7 @@ def test_should_read_attributes_of_a_path_list_longer_than_the_argument_limit(
     (clone_path / ".gitattributes").write_text("*.json linguist-generated\n", encoding="utf-8")
     for each_index in range(700):
         (clone_path / deep_directory / f"{each_index:04d}{'n' * 150}.json").write_text(
-            "x\n", encoding="utf-8"
+            "x\nx\n", encoding="utf-8"
         )
     _commit_lines(clone_path, "tool.py", 40)
     assert size.local_measured_line_count(str(clone_path), None, None) == 41
@@ -292,3 +292,16 @@ def test_should_pass_when_a_later_reason_section_states_the_reason(large_branch:
         + "\n## Why one pull request\nThe schema and its reader land together.\n"
     )
     assert size.oversized_pull_request_reason(_create(large_branch, body)) is None
+
+
+def test_should_pass_a_reason_heading_that_ends_in_punctuation(large_branch: Path) -> None:
+    body = PLAIN_BODY + "\n## Why one pull request?\nThe schema and its reader land together.\n"
+    assert size.oversized_pull_request_reason(_create(large_branch, body)) is None
+
+
+def test_should_count_the_whole_branch_when_git_diffs_relative_to_the_session_folder(
+    tmp_path: Path,
+) -> None:
+    clone_path = _generated_schema_branch(tmp_path)
+    _git(clone_path, "config", "diff.relative", "true")
+    assert size.local_measured_line_count(str(clone_path / "sub"), None, None) == 41

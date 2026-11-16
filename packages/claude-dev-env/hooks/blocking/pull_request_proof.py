@@ -958,11 +958,17 @@ def _read_added_workflow_files(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str]:
     all_workflow_paths = None
-    if checkout_is_for(working_directory, repository):
+    if _local_checkout_may_answer(working_directory, repository, head_branch):
         all_workflow_paths = added_workflow_files(working_directory, head_branch)
     if all_workflow_paths is None:
         all_workflow_paths = remote_added_workflow_files(repository, base_branch, head_branch)
     return all_workflow_paths or []
+
+
+def _local_checkout_may_answer(
+    working_directory: str, repository: str | None, head_branch: str | None
+) -> bool:
+    return not head_branch or checkout_is_for(working_directory, repository)
 
 
 def checkout_is_for(working_directory: str, repository: str | None) -> bool:

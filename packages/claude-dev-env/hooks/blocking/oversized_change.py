@@ -53,7 +53,7 @@ from hooks_constants.oversized_change_constants import (
     NUMSTAT_FIELD_SEPARATOR,
     ONE_PULL_REQUEST_HEADING_PATTERN,
     OVERSIZED_PULL_REQUEST_REASON,
-    UNLIMITED_RENAME_DETECTION_OPTION,
+    RENAME_DETECTION_LIMIT_OPTION,
 )
 
 
@@ -136,29 +136,47 @@ def local_measured_line_count(
     if merge_base_and_head is None:
         return None
     merge_base, head_reference = merge_base_and_head
-    numstat_output = _git_output(
-        working_directory,
-        "diff",
-        "--numstat",
-        "-z",
-        "-M",
-        UNLIMITED_RENAME_DETECTION_OPTION,
-        merge_base,
-        head_reference,
-    )
+    numstat_output = _numstat_output(working_directory, merge_base, head_reference)
     if numstat_output is None:
         return None
-    count_by_path = _numstat_counts(numstat_output)
+    count_by_path = _counts_without_lockfiles(numstat_output)
     if count_by_path is None:
         return None
+    if sum(count_by_path.values()) <= MEASURED_LINE_BAR:
+        return sum(count_by_path.values())
     all_generated_paths = _generated_paths(working_directory, head_reference, list(count_by_path))
     if all_generated_paths is None:
         return None
     return sum(
         each_count
         for each_path, each_count in count_by_path.items()
-        if each_path not in all_generated_paths and not _is_lockfile(each_path)
+        if each_path not in all_generated_paths
     )
+
+
+def _numstat_output(working_directory: str, merge_base: str, head_reference: str) -> str | None:
+    return _git_output(
+        working_directory,
+        "diff",
+        "--numstat",
+        "--no-relative",
+        "-z",
+        "-M",
+        RENAME_DETECTION_LIMIT_OPTION,
+        merge_base,
+        head_reference,
+    )
+
+
+def _counts_without_lockfiles(numstat_output: str) -> dict[str, int] | None:
+    count_by_path = _numstat_counts(numstat_output)
+    if count_by_path is None:
+        return None
+    return {
+        each_path: each_count
+        for each_path, each_count in count_by_path.items()
+        if not _is_lockfile(each_path)
+    }
 
 
 def _merge_base_and_head_for_base(

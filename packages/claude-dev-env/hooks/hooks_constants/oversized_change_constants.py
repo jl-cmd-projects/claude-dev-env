@@ -1,11 +1,12 @@
 """Constants for the size check on a new pull request."""
 
 MEASURED_LINE_BAR = 1000
-ONE_PULL_REQUEST_HEADING_PATTERN = r"^(#{1,6})[ \t]+why one pull request[ \t]*#*[ \t]*$"
+ONE_PULL_REQUEST_HEADING_PATTERN = r"^(#{1,6})[ \t]+why one pull request[?:.]?[ \t]*#*[ \t]*$"
 SPLIT_GUIDE_PATH = "~/.claude/skills/pr-lifecycle/reference/split-a-pull-request.md"
 OVERSIZED_PULL_REQUEST_REASON = (
     "This pull request changes {measured_line_count} lines against its base, over the"
-    " {measured_line_bar}-line bar. Lockfiles are left out of the count."
+    " {measured_line_bar}-line bar. Lockfiles are left out of the count, and a local count"
+    " also leaves out files marked linguist-generated in .gitattributes."
     " Split it into stacked pull requests, each created with --base set to the branch below it,"
     " as " + SPLIT_GUIDE_PATH + " describes. When the change must stay one pull request,"
     " add a 'Why one pull request' heading to the body and state the reason under it."
@@ -39,7 +40,7 @@ ALL_LOCKFILE_NAMES = frozenset(
 NUMSTAT_FIELD_SEPARATOR = "\t"
 NUMSTAT_FIELD_COUNT = 3
 BINARY_NUMSTAT_COUNT = "-"
-UNLIMITED_RENAME_DETECTION_OPTION = "-l0"
+RENAME_DETECTION_LIMIT_OPTION = "-l1000"
 COMPARE_LINE_COUNT_QUERY = (
     "(.files | length | tostring), (.files[] | [.filename, .additions, .deletions] | @json)"
 )
