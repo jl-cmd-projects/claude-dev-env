@@ -285,12 +285,12 @@ test('sandbox uninstall removes only package-owned permission entries and keeps 
     }
 });
 
-test('package settings.json publishes the session agent, advisor model, auto-compact, auto mode, idle compaction, Python UTF-8 and reminder-off defaults', () => {
+test('package settings.json publishes the session agent, auto-compact, auto mode, idle compaction, Python UTF-8 and reminder-off defaults', () => {
     const packageSettings = JSON.parse(readFileSync(PACKAGE_SETTINGS_PATH, 'utf8'));
     const settingsDefaults = settingsDefaultsFromPackageSettings(packageSettings);
     assert.deepEqual(
         Object.keys(settingsDefaults).sort(),
-        ['advisorModel', 'agent', 'autoCompactWindow', 'autoMode', 'env', 'modelSettings'],
+        ['agent', 'autoCompactWindow', 'autoMode', 'env', 'modelSettings'],
     );
     assert.equal(settingsDefaults.autoCompactWindow, 350000);
     assert.deepEqual(settingsDefaults.env, PACKAGE_ENV_DEFAULTS);
@@ -303,7 +303,6 @@ test('package settings.json publishes the session agent, advisor model, auto-com
         existsSync(join(PACKAGE_ROOT, '.agents', 'agents', `${settingsDefaults.agent}.md`)),
         'the session agent named by the agent default ships with the package',
     );
-    assert.equal(settingsDefaults.advisorModel, 'fable');
     const [firstAllowRule, ...allCustomAllowRules] = settingsDefaults.autoMode.allow;
     assert.equal(firstAllowRule, '$defaults');
     assert.equal(allCustomAllowRules.length, 2);
@@ -384,13 +383,13 @@ test('install leaves reminder-off variables the user already set in place and ad
     }
 });
 
-test('install adds advisorModel when missing and keeps a user choice on rerun', () => {
+test('install does not add advisorModel and keeps a user choice on rerun', () => {
     const sandboxHome = mkdtempSync(join(tmpdir(), 'cde-settings-defaults-'));
     try {
         const firstRun = runInstallerInSandbox(sandboxHome);
         assert.equal(firstRun.status, 0, firstRun.stderr);
         const settingsPath = join(sandboxHome, '.claude', 'settings.json');
-        assert.equal(JSON.parse(readFileSync(settingsPath, 'utf8')).advisorModel, 'fable');
+        assert.equal(Object.hasOwn(JSON.parse(readFileSync(settingsPath, 'utf8')), 'advisorModel'), false);
         const userChoice = JSON.parse(readFileSync(settingsPath, 'utf8'));
         userChoice.advisorModel = 'sonnet';
         writeFileSync(settingsPath, JSON.stringify(userChoice, null, 4) + '\n');
