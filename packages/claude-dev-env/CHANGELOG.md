@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.126.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.125.0...claude-dev-env-v8.126.0) (2026-11-16)
+
+
+### Features
+
+* **hooks:** register the closing question round gate ([#2392](https://github.com/jl-cmd-projects/claude-dev-env/issues/2392)) ([995e67a](https://github.com/jl-cmd-projects/claude-dev-env/commit/995e67a7915bc2f37d7ed493606a3d3d68d5dc35))
+
 ## [8.125.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.124.0...claude-dev-env-v8.125.0) (2026-11-16)
 
 
