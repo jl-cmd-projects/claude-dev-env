@@ -1,0 +1,8 @@
+{
+  "rule_id": "test-pairing",
+  "file_path": "packages/claude-dev-env/hooks/advisory/auto_mode_rule_flow_eval/stub_allow_hook.py",
+  "message": "Changed production file has no changed matching test",
+  "check_id": "test-pairing",
+  "severity": "smell",
+  "origin_commit": "9085edbf1e262c8dd3b449cf20ec837ad42bb707"
+}
