@@ -23,6 +23,15 @@ The gate holds the turn once when all three hold::
     allow: "Export the APKs" -> reply only -> stop
     allow: "Export the APKs" -> AskUserQuestion -> stop
 
+A Claude Code session that has no tracker tool cannot act on that hold, so the
+gate passes the turn when the transcript shows the session's tool lists and no
+tracker in them::
+
+    allow: prompt_snapshot tools and deferred_tools_delta name no tracker,
+           and no deferred_tools_record or call names one
+    block: a deferred_tools_delta lists TaskCreate, even when not yet loaded
+    block: no prompt_snapshot tools list or no deferred_tools_delta (Codex, Cursor)
+
 The user reads the task list to see what is open, so the gate also holds the
 turn once when completed items sit beside open ones::
 
@@ -167,7 +176,9 @@ def session_task_items(session_id: object, replay: TranscriptReplay) -> list[Tas
 
 
 def is_untracked_work_turn(replay: TranscriptReplay) -> bool:
-    """Return True when the turn worked on an ask and made no tracker call."""
+    """Return True when the turn worked on an ask and made no tracker call in a session that has a tracker."""
+    if replay.lists_no_tracker_tool:
+        return False
     return replay.has_turn_work_tool and not replay.has_turn_tracker_write and is_ask(replay.turn_prompt_text)
 
 
