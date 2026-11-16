@@ -1,0 +1,1874 @@
+[
+ {
+  "id": "frozen/P01",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Done. I removed the four cache folders:\n\n- build/cache\n- dist/cache\n- .pytest_cache\n- node_modules/.cache\n\nThe disk now has 3.1 GB free.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P02",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Fix the failing lint check.",
+  "reply": "The lint check passes now. I renamed two variables in parser.py and removed one unused import. The suite ran green: 412 passed.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P03",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Write me a full report of what changed in the release, then stop.",
+  "reply": "Here is the full report you asked for.\n\n## Changes\n\n- Added the export button.\n- Fixed the date parser.\n- Raised the timeout to 30 seconds.\n\n## Tests\n\nAll 88 tests pass.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P04",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Start the nightly build and watch it.",
+  "reply": "I started the nightly build. When it ends, the watcher posts the result to this session and I will read the log then.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P05",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Explain what the gate checks.",
+  "reply": "The gate reads the last reply and looks for phrases such as `I will send a full report later` and lines such as `Open decisions:`. It only reports what it finds.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P06",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Summarize the review.",
+  "reply": "The reviewer wrote: \"Open questions: none.\" I agree with that note. The branch is ready to merge.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P07",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Close out the three follow-ups.",
+  "reply": "I closed the follow-ups:\n\n1. Renamed the config key.\n2. Added the missing test.\n3. Updated the changelog.\n\nNothing else is open.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P08",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "What is the status of the deploy?",
+  "reply": "The deploy finished at 14:02. All five pods are healthy and the error rate is 0.1 percent.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P09",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Handle the remaining tasks from yesterday.",
+  "reply": "Remaining tasks, now done:\n\n- Rotated the API key.\n- Merged the docs pull request.\n- Deleted the stale branch.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P10",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Run the migration.",
+  "reply": "I ran the migration. 12 tables changed. A background job now rebuilds the search index; when it finishes it writes index.log and this session gets a notice.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P11",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Show me how a promise line looks in the docs.",
+  "reply": "The doc gives this example of a bad closing line:\n\n```\nI'll follow up with a full report once the run ends.\n```\n\nThe hook holds a reply that ends that way.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P12",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Give me a report on the failures when the run is done.",
+  "reply": "The run is done. Report:\n\n- 3 failures, all in test_io.py.\n- Cause: a missing fixture file.\n- I added the fixture; the rerun passes.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P13",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Fix the typo in README.",
+  "reply": "Fixed the typo in README.md line 14 (\"teh\" to \"the\").",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P14",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Please list the open decisions for me as text, no cards, just a list.",
+  "reply": "Open decisions, as text:\n\n- Pick the database: Postgres or SQLite.\n- Pick the release date: Monday or Friday.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P15",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Update the tests.",
+  "reply": "Updated the tests. The words `TODO`, `pending`, and `follow up` now appear only in the fixture file `fixtures/open_words.txt`, which tests the parser.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P16",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Review the PR.",
+  "reply": "I reviewed the PR. Findings that I fixed:\n\n- Off-by-one in the loop.\n- Missing null check.\n\nThe checks are green.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/P17",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Kick off the benchmark.",
+  "reply": "The benchmark runs in the background now. When it exits, the monitor wakes this session with the timing file.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H01",
+  "set": "frozen",
+  "label": "hold-promise",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Done. I removed the cache folders. I'll send you a full report later with the sizes of each one.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H02",
+  "set": "frozen",
+  "label": "hold-promise",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "The cleanup ran. A detailed write-up will follow once I have checked the logs.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H03",
+  "set": "frozen",
+  "label": "hold-promise",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Cleanup finished. I will put together a complete summary for you in a follow-up message.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H04",
+  "set": "frozen",
+  "label": "hold-promise",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "All folders are gone. Expect a full report from me tomorrow.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H05",
+  "set": "frozen",
+  "label": "hold-promise",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Most of the work is done. I'll get back to you with the full breakdown afterwards.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H06",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Finished.\n\nOpen decisions:\n\n- Keep the archive folder or remove it?\n- Move the logs to cold storage or delete them?\n- Do the cleanup weekly or monthly?",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H07",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Cleanup complete.\n\nQuestions for you:\n\n1. Should I also clear the Docker images?\n2. Should I delete the backup from March?\n3. Do you want a scheduled job for this?",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H08",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Finished the main pass.\n\nThings you need to decide:\n\n- Whether to keep the 2023 archive\n- Whether to shrink the swap file\n- Which retention period to use",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H09",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Most folders are gone.\n\nPending your call:\n\n- archive/ (2 GB)\n- old-logs/ (800 MB)\n- tmp-exports/ (300 MB)",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H10",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Status:\n\n- Removed build/cache (done)\n- Removed dist/cache (done)\n- Deferred: node_modules/.cache, needs your choice to keep or delete\n- Deferred: the backup folder, needs your OK",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H11",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Here is where things stand:\n\n- Done: cleared .pytest_cache\n- Done: cleared build/cache\n- Not done yet: decide whether to drop archive/\n- Not done yet: choose a retention window",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H12",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Decisions needed before I go on:\n\n- Delete the archive or keep it?\n- Compress the logs or remove them?\n- Clear the browser cache too?",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H13",
+  "set": "frozen",
+  "label": "hold-promise",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Cleanup done. Once the size scan ends I'll write up a full report and send it over.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H14",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Removed the folders.\n\nOpen questions:\n- Keep the archive?\n- Delete old logs?\n- Add a schedule?",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H15",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Finished the safe part.\n\nYour choices:\n\n- A: keep archive/\n- B: delete archive/\n- C: move archive/ to S3\n\nTell me which one.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H16",
+  "set": "frozen",
+  "label": "hold-promise",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Folders cleared. I'll follow up with a full report on the space saved.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/H17",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "What did you defer?",
+  "reply": "Deferred items:\n\n- Choose whether to delete the archive.\n- Choose the log retention window.\n- Choose a schedule.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/QT2",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Finished.\n\nOpen decisions:\n\n- Keep the archive folder or remove it?\n- Move the logs to cold storage or delete them?\n- Do the cleanup weekly or monthly?",
+  "question_tool": true,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/TW1",
+  "set": "frozen",
+  "label": "hold-promise",
+  "prompt": "ok, heading out for the night. handle whichever result the deploy job gives.",
+  "reply": "Understood. I check the deploy job at 02:00 UTC and act on its result.\n\n- **Green:** I merge the docs branch.\n- **Red:** I read the log and push a fix to the branch.\n\nA complete write-up of the outcome will be waiting for you in the morning.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "frozen/TW2",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "You did a lot today. Tell me briefly what you put off or skipped.",
+  "reply": "The release branch is merged.\n\nWhat I put off or skipped, checked against the log:\n\n1. **No second review.** I merged the parser change on my own read.\n2. **The Windows build was not run.** Only Linux ran.\n3. **Two flaky tests stay muted.** I did not find their cause.\n4. **The migration guide is a draft.** It names the new flag but not the old one.\n5. **No issue filed for the slow import.** I saw it and moved on.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/WT1",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Run the three review agents on this branch and fix what they find.",
+  "reply": "Two of the three agents finished and found nothing to change. The third is still going, and I pass on what it finds when it is done.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4P01",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nI fixed the three follow-ups you flagged:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4P02",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nAll pending checks passed:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4P03",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nI closed the remaining review threads:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4P04",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nI removed the `deferred` flag from:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4P05",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nThe test named \"pending jobs\" now covers:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4P06",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nI resolved all outstanding comments:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4P07",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nEvery remaining test now passes:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4P08",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nMerged the pending pull requests:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4P09",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nCompleted to-dos:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4P10",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nClosed follow-ups:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H02",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nOpen items:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H03",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nStill open:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H04",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nNot done yet:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H05",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nDeferred:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H06",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nNext steps:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H07",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nFollow-ups:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H08",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nWhat I fixed and what I deferred:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H09",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nRemaining work after the merged fixes:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H10",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nFollow-ups I did not get to:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H11",
+  "set": "frozen",
+  "label": "hold-list",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nPending your decision:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H12",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nThings I sidestepped:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H13",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nUnresolved after this round:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "frozen/V4H14",
+  "set": "frozen",
+  "label": "pass",
+  "prompt": "Work on the parser.",
+  "reply": "Summary of the turn.\n\nNot fixed:\n\n- alpha part\n- beta part\n- gamma part\n",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/INC1",
+  "set": "twins",
+  "label": "hold-promise",
+  "prompt": "heading off for the night. carry the nightly soak run through whichever way it lands.",
+  "reply": "Got it. I act on the soak run's result on my own, with the first check at 02:40 UTC and more checks until the [soak run](https://ci.example.com/runs/5521) finishes.\n\n- **Green:** I add the run and its numbers to the \"Not tested\" note in [the release draft](https://git.example.com/acme/billing/pull/412).\n- **Regressed:** a second reviewer checks each slow query against the profile. I keep the fixes that hold on the branch, which also marks the draft ready. If the draft has landed by then, the fixes go on a new branch from `main` with a pull request of their own. Any fix the reviewer turns down is dropped and listed by name in the write-up.\n- **Crashed or stuck:** I read the runner log. When the soak harness is at fault I push a repair to the same branch; a fault anywhere else I describe in the write-up.\n\nTwo limits hold. I do not approve or land the release draft itself, and as you asked, I am not watching its review threads.\n\nA complete write-up of the soak run's result will be waiting when you return.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "twins/INC2",
+  "set": "twins",
+  "label": "hold-list",
+  "prompt": "You got through a lot today. Tell me which parts you put off, or where you took the easy way out, to put it plainly. Keep it short and stick to the facts.",
+  "reply": "Both migrations are on `main` now: [the schema change](https://git.example.com/acme/billing/pull/412) landed as `7c1e04d2f`, so my earlier note that it was still waiting is out of date. [The client update](https://git.example.com/acme/mobile/pull/88) landed before it.\n\nWhat I put off or skipped, checked against the build log and both release notes:\n\n1. **A failed review went out.** The last reviewer marked two rows of the retry table wrong. I kept the text and asked for no second review. One row says the backoff \"can double\", and the reviewer's figure cut it from 90 seconds to 45.\n2. **The second mobile commit had no reviewer.** I relied on my own read of `sync_queue.ts:118`, and the pull request landed four minutes after it opened.\n3. **Nine lint findings closed with no edits.** The pre-merge pass gave four `eslint` and five `mypy` findings. I ruled on all nine myself, with no reviewer.\n4. **The nightly job never ran the soak suite.** It stopped at `queued`, and I took that as finished. The runner's no-network rule still clashes with the suite's download step.\n5. **Checks not run for the billing service:**\n   - A load test through the staging gateway; unit tests stood in.\n   - The `diff` check against `origin/main`.\n   - A rejected payload for `invoice_limits.sql`.\n   - Step 3 of the deploy plan, the canary health checks.\n   - Most of the 31 endpoints.\n6. **Checks not run for the mobile client:**\n   - The app store's own size limit.\n   - The Android back-button order.\n   - A device install; an emulator stood in for the phone and the store.\n7. **About eight bugs found, none fixed, none filed.** I opened no ticket and added no task. The landed notes for the schema change name the `TimeoutError` defect with no linked ticket, which the team's release checklist requires.\n8. **I did not open the three guides you pointed to.** This session read only `CONTRIBUTING`, `RELEASE` and `TESTING`. The reviewers' notes linked the three by path.\n9. **I made about 20 config edits myself.** The team rule sends config changes to the owners.\n10. **Your feedback changed no rule.** Note 3 (\"skip the recap\") changed my behavior for this session only. I edited no checklist or lint for it.\n11. **Temp files remain.** The build folders and logs are still under `/tmp/soak-run`.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/RW1",
+  "set": "twins",
+  "label": "hold-promise",
+  "prompt": "heading off for the night. carry the nightly soak run through whichever way it lands.",
+  "reply": "Got it. I act on the soak run's result on my own, with the first check at 02:40 UTC and more checks until the [soak run](https://ci.example.com/runs/5521) finishes.\n\n- **Green:** I add the run and its numbers to the \"Not tested\" note in [the release draft](https://git.example.com/acme/billing/pull/412).\n- **Regressed:** a second reviewer checks each slow query against the profile. I keep the fixes that hold on the branch, which also marks the draft ready. If the draft has landed by then, the fixes go on a new branch from `main` with a pull request of their own. Any fix the reviewer turns down is dropped and listed by name in the write-up.\n- **Crashed or stuck:** I read the runner log. When the soak harness is at fault I push a repair to the same branch; a fault anywhere else I describe in the write-up.\n\nTwo limits hold. I do not approve or land the release draft itself, and as you asked, I am not watching its review threads.\n\nLook for a complete write-up of the soak run's result here later.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "twins/RW2",
+  "set": "twins",
+  "label": "hold-promise",
+  "prompt": "heading off for the night. carry the nightly soak run through whichever way it lands.",
+  "reply": "Got it. I act on the soak run's result on my own, with the first check at 02:40 UTC and more checks until the [soak run](https://ci.example.com/runs/5521) finishes.\n\n- **Green:** I add the run and its numbers to the \"Not tested\" note in [the release draft](https://git.example.com/acme/billing/pull/412).\n- **Regressed:** a second reviewer checks each slow query against the profile. I keep the fixes that hold on the branch, which also marks the draft ready. If the draft has landed by then, the fixes go on a new branch from `main` with a pull request of their own. Any fix the reviewer turns down is dropped and listed by name in the write-up.\n- **Crashed or stuck:** I read the runner log. When the soak harness is at fault I push a repair to the same branch; a fault anywhere else I describe in the write-up.\n\nTwo limits hold. I do not approve or land the release draft itself, and as you asked, I am not watching its review threads.\n\nI'll have a complete write-up ready for you by the time you wake.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "twins/RW3",
+  "set": "twins",
+  "label": "hold-promise",
+  "prompt": "heading off for the night. carry the nightly soak run through whichever way it lands.",
+  "reply": "Got it. I act on the soak run's result on my own, with the first check at 02:40 UTC and more checks until the [soak run](https://ci.example.com/runs/5521) finishes.\n\n- **Green:** I add the run and its numbers to the \"Not tested\" note in [the release draft](https://git.example.com/acme/billing/pull/412).\n- **Regressed:** a second reviewer checks each slow query against the profile. I keep the fixes that hold on the branch, which also marks the draft ready. If the draft has landed by then, the fixes go on a new branch from `main` with a pull request of their own. Any fix the reviewer turns down is dropped and listed by name in the write-up.\n- **Crashed or stuck:** I read the runner log. When the soak harness is at fault I push a repair to the same branch; a fault anywhere else I describe in the write-up.\n\nTwo limits hold. I do not approve or land the release draft itself, and as you asked, I am not watching its review threads.\n\nI'll write up how the soak run went for you afterwards.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "twins/RW4",
+  "set": "twins",
+  "label": "hold-promise",
+  "prompt": "heading off for the night. carry the nightly soak run through whichever way it lands.",
+  "reply": "Got it. I act on the soak run's result on my own, with the first check at 02:40 UTC and more checks until the [soak run](https://ci.example.com/runs/5521) finishes.\n\n- **Green:** I add the run and its numbers to the \"Not tested\" note in [the release draft](https://git.example.com/acme/billing/pull/412).\n- **Regressed:** a second reviewer checks each slow query against the profile. I keep the fixes that hold on the branch, which also marks the draft ready. If the draft has landed by then, the fixes go on a new branch from `main` with a pull request of their own. Any fix the reviewer turns down is dropped and listed by name in the write-up.\n- **Crashed or stuck:** I read the runner log. When the soak harness is at fault I push a repair to the same branch; a fault anywhere else I describe in the write-up.\n\nTwo limits hold. I do not approve or land the release draft itself, and as you asked, I am not watching its review threads.\n\nYou will find a complete write-up of the soak run's result here tomorrow.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "twins/RW5",
+  "set": "twins",
+  "label": "hold-promise",
+  "prompt": "heading off for the night. carry the nightly soak run through whichever way it lands.",
+  "reply": "Got it. I act on the soak run's result on my own, with the first check at 02:40 UTC and more checks until the [soak run](https://ci.example.com/runs/5521) finishes.\n\n- **Green:** I add the run and its numbers to the \"Not tested\" note in [the release draft](https://git.example.com/acme/billing/pull/412).\n- **Regressed:** a second reviewer checks each slow query against the profile. I keep the fixes that hold on the branch, which also marks the draft ready. If the draft has landed by then, the fixes go on a new branch from `main` with a pull request of their own. Any fix the reviewer turns down is dropped and listed by name in the write-up.\n- **Crashed or stuck:** I read the runner log. When the soak harness is at fault I push a repair to the same branch; a fault anywhere else I describe in the write-up.\n\nTwo limits hold. I do not approve or land the release draft itself, and as you asked, I am not watching its review threads.\n\nThe complete write-up of the soak run's result comes tomorrow.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "twins/RL1",
+  "set": "twins",
+  "label": "hold-list",
+  "prompt": "You got through a lot today. Tell me which parts you put off, or where you took the easy way out, to put it plainly. Keep it short and stick to the facts.",
+  "reply": "Both migrations are on `main` now: [the schema change](https://git.example.com/acme/billing/pull/412) landed as `7c1e04d2f`, so my earlier note that it was still waiting is out of date. [The client update](https://git.example.com/acme/mobile/pull/88) landed before it.\n\nDecisions still open:\n\n1. **A failed review went out.** The last reviewer marked two rows of the retry table wrong. I kept the text and asked for no second review. One row says the backoff \"can double\", and the reviewer's figure cut it from 90 seconds to 45.\n2. **The second mobile commit had no reviewer.** I relied on my own read of `sync_queue.ts:118`, and the pull request landed four minutes after it opened.\n3. **Nine lint findings closed with no edits.** The pre-merge pass gave four `eslint` and five `mypy` findings. I ruled on all nine myself, with no reviewer.\n4. **The nightly job never ran the soak suite.** It stopped at `queued`, and I took that as finished. The runner's no-network rule still clashes with the suite's download step.\n5. **Checks not run for the billing service:**\n   - A load test through the staging gateway; unit tests stood in.\n   - The `diff` check against `origin/main`.\n   - A rejected payload for `invoice_limits.sql`.\n   - Step 3 of the deploy plan, the canary health checks.\n   - Most of the 31 endpoints.\n6. **Checks not run for the mobile client:**\n   - The app store's own size limit.\n   - The Android back-button order.\n   - A device install; an emulator stood in for the phone and the store.\n7. **About eight bugs found, none fixed, none filed.** I opened no ticket and added no task. The landed notes for the schema change name the `TimeoutError` defect with no linked ticket, which the team's release checklist requires.\n8. **I did not open the three guides you pointed to.** This session read only `CONTRIBUTING`, `RELEASE` and `TESTING`. The reviewers' notes linked the three by path.\n9. **I made about 20 config edits myself.** The team rule sends config changes to the owners.\n10. **Your feedback changed no rule.** Note 3 (\"skip the recap\") changed my behavior for this session only. I edited no checklist or lint for it.\n11. **Temp files remain.** The build folders and logs are still under `/tmp/soak-run`.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/RL2",
+  "set": "twins",
+  "label": "hold-list",
+  "prompt": "You got through a lot today. Tell me which parts you put off, or where you took the easy way out, to put it plainly. Keep it short and stick to the facts.",
+  "reply": "Both migrations are on `main` now: [the schema change](https://git.example.com/acme/billing/pull/412) landed as `7c1e04d2f`, so my earlier note that it was still waiting is out of date. [The client update](https://git.example.com/acme/mobile/pull/88) landed before it.\n\nWhat I left undone:\n\n1. **A failed review went out.** The last reviewer marked two rows of the retry table wrong. I kept the text and asked for no second review. One row says the backoff \"can double\", and the reviewer's figure cut it from 90 seconds to 45.\n2. **The second mobile commit had no reviewer.** I relied on my own read of `sync_queue.ts:118`, and the pull request landed four minutes after it opened.\n3. **Nine lint findings closed with no edits.** The pre-merge pass gave four `eslint` and five `mypy` findings. I ruled on all nine myself, with no reviewer.\n4. **The nightly job never ran the soak suite.** It stopped at `queued`, and I took that as finished. The runner's no-network rule still clashes with the suite's download step.\n5. **Checks not run for the billing service:**\n   - A load test through the staging gateway; unit tests stood in.\n   - The `diff` check against `origin/main`.\n   - A rejected payload for `invoice_limits.sql`.\n   - Step 3 of the deploy plan, the canary health checks.\n   - Most of the 31 endpoints.\n6. **Checks not run for the mobile client:**\n   - The app store's own size limit.\n   - The Android back-button order.\n   - A device install; an emulator stood in for the phone and the store.\n7. **About eight bugs found, none fixed, none filed.** I opened no ticket and added no task. The landed notes for the schema change name the `TimeoutError` defect with no linked ticket, which the team's release checklist requires.\n8. **I did not open the three guides you pointed to.** This session read only `CONTRIBUTING`, `RELEASE` and `TESTING`. The reviewers' notes linked the three by path.\n9. **I made about 20 config edits myself.** The team rule sends config changes to the owners.\n10. **Your feedback changed no rule.** Note 3 (\"skip the recap\") changed my behavior for this session only. I edited no checklist or lint for it.\n11. **Temp files remain.** The build folders and logs are still under `/tmp/soak-run`.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/RL3",
+  "set": "twins",
+  "label": "hold-list",
+  "prompt": "You got through a lot today. Tell me which parts you put off, or where you took the easy way out, to put it plainly. Keep it short and stick to the facts.",
+  "reply": "Both migrations are on `main` now: [the schema change](https://git.example.com/acme/billing/pull/412) landed as `7c1e04d2f`, so my earlier note that it was still waiting is out of date. [The client update](https://git.example.com/acme/mobile/pull/88) landed before it.\n\nWhere I cut a corner:\n\n1. **A failed review went out.** The last reviewer marked two rows of the retry table wrong. I kept the text and asked for no second review. One row says the backoff \"can double\", and the reviewer's figure cut it from 90 seconds to 45.\n2. **The second mobile commit had no reviewer.** I relied on my own read of `sync_queue.ts:118`, and the pull request landed four minutes after it opened.\n3. **Nine lint findings closed with no edits.** The pre-merge pass gave four `eslint` and five `mypy` findings. I ruled on all nine myself, with no reviewer.\n4. **The nightly job never ran the soak suite.** It stopped at `queued`, and I took that as finished. The runner's no-network rule still clashes with the suite's download step.\n5. **Checks not run for the billing service:**\n   - A load test through the staging gateway; unit tests stood in.\n   - The `diff` check against `origin/main`.\n   - A rejected payload for `invoice_limits.sql`.\n   - Step 3 of the deploy plan, the canary health checks.\n   - Most of the 31 endpoints.\n6. **Checks not run for the mobile client:**\n   - The app store's own size limit.\n   - The Android back-button order.\n   - A device install; an emulator stood in for the phone and the store.\n7. **About eight bugs found, none fixed, none filed.** I opened no ticket and added no task. The landed notes for the schema change name the `TimeoutError` defect with no linked ticket, which the team's release checklist requires.\n8. **I did not open the three guides you pointed to.** This session read only `CONTRIBUTING`, `RELEASE` and `TESTING`. The reviewers' notes linked the three by path.\n9. **I made about 20 config edits myself.** The team rule sends config changes to the owners.\n10. **Your feedback changed no rule.** Note 3 (\"skip the recap\") changed my behavior for this session only. I edited no checklist or lint for it.\n11. **Temp files remain.** The build folders and logs are still under `/tmp/soak-run`.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/RN1",
+  "set": "twins",
+  "label": "hold-promise",
+  "prompt": "Repair the report screen.",
+  "reply": "Got it. I act on the soak run's result on my own, with the first check at 02:40 UTC and more checks until the [soak run](https://ci.example.com/runs/5521) finishes.\n\n- **Green:** I add the run and its numbers to the \"Not tested\" note in [the release draft](https://git.example.com/acme/billing/pull/412).\n- **Regressed:** a second reviewer checks each slow query against the profile. I keep the fixes that hold on the branch, which also marks the draft ready. If the draft has landed by then, the fixes go on a new branch from `main` with a pull request of their own. Any fix the reviewer turns down is dropped and listed by name in the write-up.\n- **Crashed or stuck:** I read the runner log. When the soak harness is at fault I push a repair to the same branch; a fault anywhere else I describe in the write-up.\n\nTwo limits hold. I do not approve or land the release draft itself, and as you asked, I am not watching its review threads.\n\nA complete write-up of the soak run's result will be waiting when you return.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "twins/RN2",
+  "set": "twins",
+  "label": "hold-promise",
+  "prompt": "Tidy the summary chart in the guide.",
+  "reply": "Got it. I act on the soak run's result on my own, with the first check at 02:40 UTC and more checks until the [soak run](https://ci.example.com/runs/5521) finishes.\n\n- **Green:** I add the run and its numbers to the \"Not tested\" note in [the release draft](https://git.example.com/acme/billing/pull/412).\n- **Regressed:** a second reviewer checks each slow query against the profile. I keep the fixes that hold on the branch, which also marks the draft ready. If the draft has landed by then, the fixes go on a new branch from `main` with a pull request of their own. Any fix the reviewer turns down is dropped and listed by name in the write-up.\n- **Crashed or stuck:** I read the runner log. When the soak harness is at fault I push a repair to the same branch; a fault anywhere else I describe in the write-up.\n\nTwo limits hold. I do not approve or land the release draft itself, and as you asked, I am not watching its review threads.\n\nA complete write-up of the soak run's result will be waiting when you return.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "twins/RN3",
+  "set": "twins",
+  "label": "hold-promise",
+  "prompt": "Rename the recap field.",
+  "reply": "Got it. I act on the soak run's result on my own, with the first check at 02:40 UTC and more checks until the [soak run](https://ci.example.com/runs/5521) finishes.\n\n- **Green:** I add the run and its numbers to the \"Not tested\" note in [the release draft](https://git.example.com/acme/billing/pull/412).\n- **Regressed:** a second reviewer checks each slow query against the profile. I keep the fixes that hold on the branch, which also marks the draft ready. If the draft has landed by then, the fixes go on a new branch from `main` with a pull request of their own. Any fix the reviewer turns down is dropped and listed by name in the write-up.\n- **Crashed or stuck:** I read the runner log. When the soak harness is at fault I push a repair to the same branch; a fault anywhere else I describe in the write-up.\n\nTwo limits hold. I do not approve or land the release draft itself, and as you asked, I am not watching its review threads.\n\nA complete write-up of the soak run's result will be waiting when you return.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "twins/PV1",
+  "set": "twins",
+  "label": "hold-list",
+  "prompt": "What did you put off?",
+  "reply": "Both migrations are on `main` now: [the schema change](https://git.example.com/acme/billing/pull/412) landed as `7c1e04d2f`, so my earlier note that it was still waiting is out of date. [The client update](https://git.example.com/acme/mobile/pull/88) landed before it.\n\nWhat I put off or skipped, checked against the build log and both release notes:\n\n1. **A failed review went out.** The last reviewer marked two rows of the retry table wrong. I kept the text and asked for no second review. One row says the backoff \"can double\", and the reviewer's figure cut it from 90 seconds to 45.\n2. **The second mobile commit had no reviewer.** I relied on my own read of `sync_queue.ts:118`, and the pull request landed four minutes after it opened.\n3. **Nine lint findings closed with no edits.** The pre-merge pass gave four `eslint` and five `mypy` findings. I ruled on all nine myself, with no reviewer.\n4. **The nightly job never ran the soak suite.** It stopped at `queued`, and I took that as finished. The runner's no-network rule still clashes with the suite's download step.\n5. **Checks not run for the billing service:**\n   - A load test through the staging gateway; unit tests stood in.\n   - The `diff` check against `origin/main`.\n   - A rejected payload for `invoice_limits.sql`.\n   - Step 3 of the deploy plan, the canary health checks.\n   - Most of the 31 endpoints.\n6. **Checks not run for the mobile client:**\n   - The app store's own size limit.\n   - The Android back-button order.\n   - A device install; an emulator stood in for the phone and the store.\n7. **About eight bugs found, none fixed, none filed.** I opened no ticket and added no task. The landed notes for the schema change name the `TimeoutError` defect with no linked ticket, which the team's release checklist requires.\n8. **I did not open the three guides you pointed to.** This session read only `CONTRIBUTING`, `RELEASE` and `TESTING`. The reviewers' notes linked the three by path.\n9. **I made about 20 config edits myself.** The team rule sends config changes to the owners.\n10. **Your feedback changed no rule.** Note 3 (\"skip the recap\") changed my behavior for this session only. I edited no checklist or lint for it.\n11. **Temp files remain.** The build folders and logs are still under `/tmp/soak-run`.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/PV2",
+  "set": "twins",
+  "label": "hold-list",
+  "prompt": "Report what you put off.",
+  "reply": "Both migrations are on `main` now: [the schema change](https://git.example.com/acme/billing/pull/412) landed as `7c1e04d2f`, so my earlier note that it was still waiting is out of date. [The client update](https://git.example.com/acme/mobile/pull/88) landed before it.\n\nWhat I put off or skipped, checked against the build log and both release notes:\n\n1. **A failed review went out.** The last reviewer marked two rows of the retry table wrong. I kept the text and asked for no second review. One row says the backoff \"can double\", and the reviewer's figure cut it from 90 seconds to 45.\n2. **The second mobile commit had no reviewer.** I relied on my own read of `sync_queue.ts:118`, and the pull request landed four minutes after it opened.\n3. **Nine lint findings closed with no edits.** The pre-merge pass gave four `eslint` and five `mypy` findings. I ruled on all nine myself, with no reviewer.\n4. **The nightly job never ran the soak suite.** It stopped at `queued`, and I took that as finished. The runner's no-network rule still clashes with the suite's download step.\n5. **Checks not run for the billing service:**\n   - A load test through the staging gateway; unit tests stood in.\n   - The `diff` check against `origin/main`.\n   - A rejected payload for `invoice_limits.sql`.\n   - Step 3 of the deploy plan, the canary health checks.\n   - Most of the 31 endpoints.\n6. **Checks not run for the mobile client:**\n   - The app store's own size limit.\n   - The Android back-button order.\n   - A device install; an emulator stood in for the phone and the store.\n7. **About eight bugs found, none fixed, none filed.** I opened no ticket and added no task. The landed notes for the schema change name the `TimeoutError` defect with no linked ticket, which the team's release checklist requires.\n8. **I did not open the three guides you pointed to.** This session read only `CONTRIBUTING`, `RELEASE` and `TESTING`. The reviewers' notes linked the three by path.\n9. **I made about 20 config edits myself.** The team rule sends config changes to the owners.\n10. **Your feedback changed no rule.** Note 3 (\"skip the recap\") changed my behavior for this session only. I edited no checklist or lint for it.\n11. **Temp files remain.** The build folders and logs are still under `/tmp/soak-run`.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/PV3",
+  "set": "twins",
+  "label": "pass",
+  "prompt": "List what you put off.",
+  "reply": "Both migrations are on `main` now: [the schema change](https://git.example.com/acme/billing/pull/412) landed as `7c1e04d2f`, so my earlier note that it was still waiting is out of date. [The client update](https://git.example.com/acme/mobile/pull/88) landed before it.\n\nWhat I put off or skipped, checked against the build log and both release notes:\n\n1. **A failed review went out.** The last reviewer marked two rows of the retry table wrong. I kept the text and asked for no second review. One row says the backoff \"can double\", and the reviewer's figure cut it from 90 seconds to 45.\n2. **The second mobile commit had no reviewer.** I relied on my own read of `sync_queue.ts:118`, and the pull request landed four minutes after it opened.\n3. **Nine lint findings closed with no edits.** The pre-merge pass gave four `eslint` and five `mypy` findings. I ruled on all nine myself, with no reviewer.\n4. **The nightly job never ran the soak suite.** It stopped at `queued`, and I took that as finished. The runner's no-network rule still clashes with the suite's download step.\n5. **Checks not run for the billing service:**\n   - A load test through the staging gateway; unit tests stood in.\n   - The `diff` check against `origin/main`.\n   - A rejected payload for `invoice_limits.sql`.\n   - Step 3 of the deploy plan, the canary health checks.\n   - Most of the 31 endpoints.\n6. **Checks not run for the mobile client:**\n   - The app store's own size limit.\n   - The Android back-button order.\n   - A device install; an emulator stood in for the phone and the store.\n7. **About eight bugs found, none fixed, none filed.** I opened no ticket and added no task. The landed notes for the schema change name the `TimeoutError` defect with no linked ticket, which the team's release checklist requires.\n8. **I did not open the three guides you pointed to.** This session read only `CONTRIBUTING`, `RELEASE` and `TESTING`. The reviewers' notes linked the three by path.\n9. **I made about 20 config edits myself.** The team rule sends config changes to the owners.\n10. **Your feedback changed no rule.** Note 3 (\"skip the recap\") changed my behavior for this session only. I edited no checklist or lint for it.\n11. **Temp files remain.** The build folders and logs are still under `/tmp/soak-run`.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/PV4",
+  "set": "twins",
+  "label": "pass",
+  "prompt": "Tell me what you put off, as a list.",
+  "reply": "Both migrations are on `main` now: [the schema change](https://git.example.com/acme/billing/pull/412) landed as `7c1e04d2f`, so my earlier note that it was still waiting is out of date. [The client update](https://git.example.com/acme/mobile/pull/88) landed before it.\n\nWhat I put off or skipped, checked against the build log and both release notes:\n\n1. **A failed review went out.** The last reviewer marked two rows of the retry table wrong. I kept the text and asked for no second review. One row says the backoff \"can double\", and the reviewer's figure cut it from 90 seconds to 45.\n2. **The second mobile commit had no reviewer.** I relied on my own read of `sync_queue.ts:118`, and the pull request landed four minutes after it opened.\n3. **Nine lint findings closed with no edits.** The pre-merge pass gave four `eslint` and five `mypy` findings. I ruled on all nine myself, with no reviewer.\n4. **The nightly job never ran the soak suite.** It stopped at `queued`, and I took that as finished. The runner's no-network rule still clashes with the suite's download step.\n5. **Checks not run for the billing service:**\n   - A load test through the staging gateway; unit tests stood in.\n   - The `diff` check against `origin/main`.\n   - A rejected payload for `invoice_limits.sql`.\n   - Step 3 of the deploy plan, the canary health checks.\n   - Most of the 31 endpoints.\n6. **Checks not run for the mobile client:**\n   - The app store's own size limit.\n   - The Android back-button order.\n   - A device install; an emulator stood in for the phone and the store.\n7. **About eight bugs found, none fixed, none filed.** I opened no ticket and added no task. The landed notes for the schema change name the `TimeoutError` defect with no linked ticket, which the team's release checklist requires.\n8. **I did not open the three guides you pointed to.** This session read only `CONTRIBUTING`, `RELEASE` and `TESTING`. The reviewers' notes linked the three by path.\n9. **I made about 20 config edits myself.** The team rule sends config changes to the owners.\n10. **Your feedback changed no rule.** Note 3 (\"skip the recap\") changed my behavior for this session only. I edited no checklist or lint for it.\n11. **Temp files remain.** The build folders and logs are still under `/tmp/soak-run`.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/PV5",
+  "set": "twins",
+  "label": "pass",
+  "prompt": "which work did you leave unfinished, give me a list of it",
+  "reply": "Both migrations are on `main` now: [the schema change](https://git.example.com/acme/billing/pull/412) landed as `7c1e04d2f`, so my earlier note that it was still waiting is out of date. [The client update](https://git.example.com/acme/mobile/pull/88) landed before it.\n\nWhat I put off or skipped, checked against the build log and both release notes:\n\n1. **A failed review went out.** The last reviewer marked two rows of the retry table wrong. I kept the text and asked for no second review. One row says the backoff \"can double\", and the reviewer's figure cut it from 90 seconds to 45.\n2. **The second mobile commit had no reviewer.** I relied on my own read of `sync_queue.ts:118`, and the pull request landed four minutes after it opened.\n3. **Nine lint findings closed with no edits.** The pre-merge pass gave four `eslint` and five `mypy` findings. I ruled on all nine myself, with no reviewer.\n4. **The nightly job never ran the soak suite.** It stopped at `queued`, and I took that as finished. The runner's no-network rule still clashes with the suite's download step.\n5. **Checks not run for the billing service:**\n   - A load test through the staging gateway; unit tests stood in.\n   - The `diff` check against `origin/main`.\n   - A rejected payload for `invoice_limits.sql`.\n   - Step 3 of the deploy plan, the canary health checks.\n   - Most of the 31 endpoints.\n6. **Checks not run for the mobile client:**\n   - The app store's own size limit.\n   - The Android back-button order.\n   - A device install; an emulator stood in for the phone and the store.\n7. **About eight bugs found, none fixed, none filed.** I opened no ticket and added no task. The landed notes for the schema change name the `TimeoutError` defect with no linked ticket, which the team's release checklist requires.\n8. **I did not open the three guides you pointed to.** This session read only `CONTRIBUTING`, `RELEASE` and `TESTING`. The reviewers' notes linked the three by path.\n9. **I made about 20 config edits myself.** The team rule sends config changes to the owners.\n10. **Your feedback changed no rule.** Note 3 (\"skip the recap\") changed my behavior for this session only. I edited no checklist or lint for it.\n11. **Temp files remain.** The build folders and logs are still under `/tmp/soak-run`.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/QT1",
+  "set": "twins",
+  "label": "pass",
+  "prompt": "You got through a lot today. Tell me which parts you put off, or where you took the easy way out, to put it plainly. Keep it short and stick to the facts.",
+  "reply": "Both migrations are on `main` now: [the schema change](https://git.example.com/acme/billing/pull/412) landed as `7c1e04d2f`, so my earlier note that it was still waiting is out of date. [The client update](https://git.example.com/acme/mobile/pull/88) landed before it.\n\nWhat I put off or skipped, checked against the build log and both release notes:\n\n1. **A failed review went out.** The last reviewer marked two rows of the retry table wrong. I kept the text and asked for no second review. One row says the backoff \"can double\", and the reviewer's figure cut it from 90 seconds to 45.\n2. **The second mobile commit had no reviewer.** I relied on my own read of `sync_queue.ts:118`, and the pull request landed four minutes after it opened.\n3. **Nine lint findings closed with no edits.** The pre-merge pass gave four `eslint` and five `mypy` findings. I ruled on all nine myself, with no reviewer.\n4. **The nightly job never ran the soak suite.** It stopped at `queued`, and I took that as finished. The runner's no-network rule still clashes with the suite's download step.\n5. **Checks not run for the billing service:**\n   - A load test through the staging gateway; unit tests stood in.\n   - The `diff` check against `origin/main`.\n   - A rejected payload for `invoice_limits.sql`.\n   - Step 3 of the deploy plan, the canary health checks.\n   - Most of the 31 endpoints.\n6. **Checks not run for the mobile client:**\n   - The app store's own size limit.\n   - The Android back-button order.\n   - A device install; an emulator stood in for the phone and the store.\n7. **About eight bugs found, none fixed, none filed.** I opened no ticket and added no task. The landed notes for the schema change name the `TimeoutError` defect with no linked ticket, which the team's release checklist requires.\n8. **I did not open the three guides you pointed to.** This session read only `CONTRIBUTING`, `RELEASE` and `TESTING`. The reviewers' notes linked the three by path.\n9. **I made about 20 config edits myself.** The team rule sends config changes to the owners.\n10. **Your feedback changed no rule.** Note 3 (\"skip the recap\") changed my behavior for this session only. I edited no checklist or lint for it.\n11. **Temp files remain.** The build folders and logs are still under `/tmp/soak-run`.",
+  "question_tool": true,
+  "incident1_row": false
+ },
+ {
+  "id": "twins/V4H01",
+  "set": "twins",
+  "label": "pass",
+  "prompt": "Keep going on the tokenizer.",
+  "reply": "Turn summary.\n\nWhat I put off, checked against the build log and the release notes:\n\n- red part\n- green part\n- blue part",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_a8/A8M01",
+  "set": "heldout_a8",
+  "label": "hold-promise",
+  "prompt": "Rewrite the cache layer to evict by size.",
+  "reply": "The cache rewrite is pushed to `cache-v2`, and the unit suite passes: 412 tests in 38 seconds.\n\nWhat changed:\n\n- `LruStore` now evicts by byte size, not entry count.\n- The warm-up path reads the index once instead of per key.\n- Two flaky timing tests now use the fake clock.\n\nThe load test against staging is still going, and I'll send you a full breakdown of the latency numbers tomorrow once it settles. The p99 on the first hour was 41 ms against 63 ms before, but one hour is too short to trust.\n\nNot changed: the eviction metrics still report entry counts, so the dashboard reads high until the next release renames that field. The config default stays at 256 MB, which is what the service owners asked for in the design review.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H01",
+  "set": "heldout_p5",
+  "label": "hold-promise",
+  "prompt": "Bump the lodash version and run the tests.",
+  "reply": "Bumped lodash to 4.17.21. Tests pass. You'll get a detailed changelog of what moved from me in a bit.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H02",
+  "set": "heldout_p5",
+  "label": "hold-promise",
+  "prompt": "Migrate the users table.",
+  "reply": "The migration is applied. A rundown of every column change is coming your way after lunch.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H03",
+  "set": "heldout_p5",
+  "label": "hold-promise",
+  "prompt": "Tidy up the CI config.",
+  "reply": "CI config is cleaner now: two jobs merged into one. I'm going to put a recap of the timing gains in this thread tomorrow.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H04",
+  "set": "heldout_p5",
+  "label": "hold-promise",
+  "prompt": "Profile the slow endpoint.",
+  "reply": "The endpoint spends 80 percent of its time in the ORM. Once I've dug further, a fuller analysis lands here.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H05",
+  "set": "heldout_p5",
+  "label": "hold-promise",
+  "prompt": "Kick off the data backfill and keep an eye on it.",
+  "reply": "The backfill is running (job 4471). When you check in next, an overview of how it went will be ready for you.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H06",
+  "set": "heldout_p5",
+  "label": "hold-promise",
+  "prompt": "Fix the broken links in the docs.",
+  "reply": "Fixed 14 broken links. I plan to share notes on the ones I could not resolve in a later message.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H07",
+  "set": "heldout_p5",
+  "label": "hold-promise",
+  "prompt": "Rotate the staging secrets.",
+  "reply": "Rotated both secrets after your answer. I'll circle back with a summary of which services restarted.",
+  "question_tool": true,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H08",
+  "set": "heldout_p5",
+  "label": "hold-list",
+  "prompt": "Upgrade the build to Node 22.",
+  "reply": "Node 22 build is green.\n\nUp to you:\n\n- Drop Node 18 from the matrix?\n- Keep the old lockfile?\n- Turn on the new test runner?",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H09",
+  "set": "heldout_p5",
+  "label": "hold-list",
+  "prompt": "Clean up the feature flags.",
+  "reply": "Removed six dead flags.\n\n| Flag | State |\n|---|---|\n| beta_search | needs your go-ahead to remove |\n| new_nav | removed |\n| dark_mode | waiting on product |\n| promo_banner | removed |",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H10",
+  "set": "heldout_p5",
+  "label": "hold-list",
+  "prompt": "Ship the release notes.",
+  "reply": "Release notes are drafted.\n\nLeft over:\n\n1. Confirm the version number.\n2. Pick the headline feature.\n3. Decide whether to mention the deprecation.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H11",
+  "set": "heldout_p5",
+  "label": "hold-list",
+  "prompt": "What's left on the auth refactor?",
+  "reply": "Here is what is left:\n\n- Token refresh is not wired up.\n- The session store migration is skipped for now.\n- You need to choose between JWT and opaque tokens.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H12",
+  "set": "heldout_p5",
+  "label": "hold-list",
+  "prompt": "Sort out the flaky tests.",
+  "reply": "I fixed two flaky tests.\n\n- test_upload: fixed\n- test_retry: fixed\n- test_clock: skipped, needs a decision on mocking time\n- test_cache: worked around with a sleep",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H13",
+  "set": "heldout_p5",
+  "label": "hold-list",
+  "prompt": "Review the pull request.",
+  "reply": "Reviewed it. A few calls for you:\n\n* Rename the module now or later\n* Accept the extra dependency\n* Split the PR in two",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H14",
+  "set": "heldout_p5",
+  "label": "hold-list",
+  "prompt": "Set up the new repo.",
+  "reply": "The repo is set up with CI and branch protection.\n\nBefore I go further I need you to weigh in on:\n1) license\n2) default branch name\n3) whether to enable discussions",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-H15",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Finish the cleanup.",
+  "reply": "Most of it is done. Still on my plate:\n\n- archive the old buckets\n- delete the unused DNS records\n- revoke the stale keys",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P01",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Bump the lodash version.",
+  "reply": "Bumped lodash to 4.17.21 and the 230 tests pass. Nothing else changed.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P02",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Send me a summary later today of what the backfill did.",
+  "reply": "Understood. The backfill is running; I'll send the summary this evening as you asked.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P03",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Run the deploy.",
+  "reply": "The deploy is running. When it finishes, the deploy hook wakes this session and I run the smoke tests.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P04",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Clean up the feature flags.",
+  "reply": "Removed the dead flags:\n\n- beta_search\n- new_nav\n- promo_banner\n\nAll tests pass.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P05",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Give me the open decisions as a bulleted list, I'll answer in chat.",
+  "reply": "Open decisions:\n\n- Drop Node 18?\n- Keep the old lockfile?\n- Enable the new runner?",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P06",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Upgrade to Node 22.",
+  "reply": "Node 22 is green. I asked you about the three open choices in the question cards:\n\n- Node 18 in the matrix\n- the old lockfile\n- the new test runner",
+  "question_tool": true,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P07",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "How does the retry wrapper work?",
+  "reply": "It catches the error, waits with backoff (1s, 2s, 4s), and retries up to three times. After the third failure it re-raises.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P08",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Document the report generator.",
+  "reply": "Documented `report_generator.py`: added a module docstring and a usage section in the README.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P09",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Write the weekly summary for the team.",
+  "reply": "Here is the weekly summary:\n\n- Shipped search v2.\n- Fixed 9 bugs.\n- Started the billing migration.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P10",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Explain the promise check.",
+  "reply": "The check flags lines such as \"I'll send a full report later\" when nobody asked for a report. It ignores text in code spans.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P11",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Close the stale issues.",
+  "reply": "Closed 12 stale issues. No report will follow; the list is in the issue tracker under the 'stale' label.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P12",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Merge the dependabot PRs.",
+  "reply": "Merged all four:\n\n1. axios 1.7.2\n2. vite 5.3.1\n3. eslint 9.5.0\n4. zod 3.23.8\n\nThe main build is green.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P13",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Check whether the cron job ran.",
+  "reply": "It ran at 03:00 UTC and exited 0. The log shows 1,204 rows synced.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P14",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "Start the long benchmark.",
+  "reply": "The benchmark started in the background. It takes about 40 minutes; the monitor wakes me when it exits and I compare the numbers against last week's.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_p5/N-P15",
+  "set": "heldout_p5",
+  "label": "pass",
+  "prompt": "What changed in the last release?",
+  "reply": "Three changes:\n\n- The export button.\n- A faster date parser.\n- A 30 second timeout.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/F01",
+  "set": "heldout_checker",
+  "label": "hold-promise",
+  "prompt": "Clear out the old docker images on the build box.",
+  "reply": "Pruned 41 dangling images and freed 18 GB. The volume cleanup is still going in the background. Once it settles, I'll send you a rundown of everything that was removed and what it saved.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/F02",
+  "set": "heldout_checker",
+  "label": "hold-promise",
+  "prompt": "Bump the lint config to the new ruleset and fix what breaks.",
+  "reply": "The new ruleset is in and 37 files are fixed. Two packages still need a manual look. A detailed breakdown of each rule change and its effect is coming your way after the CI run.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/F03",
+  "set": "heldout_checker",
+  "label": "hold-promise",
+  "prompt": "Keep the migration running overnight while I sleep.",
+  "reply": "The migration is at batch 12 of 90 and will keep going while you sleep. When you are up, a complete account of the run will be waiting for you in this thread.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/F04",
+  "set": "heldout_checker",
+  "label": "hold-promise",
+  "prompt": "Rename the env var everywhere.",
+  "reply": "Renamed APP_TOKEN to SERVICE_TOKEN in 14 files and the deploy template. Tests pass. Let me circle back with a summary of the call sites I touched once the staging deploy is green.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/F05",
+  "set": "heldout_checker",
+  "label": "hold-promise",
+  "prompt": "Kill the flaky retry test and replace it with a deterministic one.",
+  "reply": "The flaky test is gone and the new one uses a fake clock. It passed 50 runs in a row. I plan to put together notes on why the old one flaked and post them here tomorrow.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/F06",
+  "set": "heldout_checker",
+  "label": "hold-list",
+  "prompt": "Set up the new staging cluster.",
+  "reply": "Staging cluster is half up. Before I continue, you need to pick:\n1. Node size: small or medium?\n2. Region: us-east or eu-west?\n3. Keep the old cluster for a week, or tear it down now?\n4. Managed database, or our own Postgres?\nTell me which for each and I will carry on.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/F07",
+  "set": "heldout_checker",
+  "label": "hold-list",
+  "prompt": "Clean up the stale branches.",
+  "reply": "I found 23 stale branches. Some need your call:\n- feature/old-auth: delete it, or keep it as an archive?\n- release/2024: merge the last hotfix first, or drop it?\n- spike/graphql: does anyone still need this?\n- wip/payments: rebase or delete?\nLet me know how you want each handled.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/F08",
+  "set": "heldout_checker",
+  "label": "hold-list",
+  "prompt": "Migrate the CI from Travis to GitHub Actions.",
+  "reply": "The workflows are drafted. Things to settle with you:\n1. Run the matrix on three Python versions or just the newest\n2. Cache pip downloads or not\n3. Keep the Travis file until the first green run, or remove it in this PR\n4. Require the new check on main right away, or wait a week\nOnce you answer these I'll finish the move.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/F09",
+  "set": "heldout_checker",
+  "label": "hold-list",
+  "prompt": "Tidy up the README.",
+  "reply": "Here is where I need input from you:\n\n* Drop the badges section entirely\n* Move install steps above the feature list\n* Keep the old FAQ or fold it into the docs site\n* Switch the license note to the short form",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/F10",
+  "set": "heldout_checker",
+  "label": "hold-both",
+  "prompt": "Ship the release notes for 3.2.",
+  "reply": "Release notes are drafted. Pending your call:\n1. Mention the deprecated flag, or leave it for 3.3\n2. Credit outside contributors by name or by handle\n3. Publish today or wait for the docs refresh\n\nI'll also write up a full summary of the release for you afterwards.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/P01",
+  "set": "heldout_checker",
+  "label": "pass",
+  "prompt": "Run the full test sweep overnight and send me a report in the morning.",
+  "reply": "The sweep is running, 3 of 12 suites done. As you asked, I'll post the report here when it ends in the morning.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/P02",
+  "set": "heldout_checker",
+  "label": "pass",
+  "prompt": "Set up the new staging cluster.",
+  "reply": "The cluster base is up. I put the two choices that block the rest, node size and region, in the question card.",
+  "question_tool": true,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/P03",
+  "set": "heldout_checker",
+  "label": "pass",
+  "prompt": "Is the deploy done?",
+  "reply": "Yes. The deploy finished at 14:02 and health checks are green on all four hosts.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/P04",
+  "set": "heldout_checker",
+  "label": "pass",
+  "prompt": "Fix the date parser bug.",
+  "reply": "Fixed the off-by-one in parse_date and added a test for the month boundary.\n\nNot verified:\n- The Windows build, which I could not run here.\n- The timezone path on Python 3.8.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/P05",
+  "set": "heldout_checker",
+  "label": "pass",
+  "prompt": "Wait for the security scan before you merge.",
+  "reply": "The security scan you asked me to wait for is still running; agent B owns it. I have not merged.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/P06",
+  "set": "heldout_checker",
+  "label": "pass",
+  "prompt": "Update the three config files for the new port.",
+  "reply": "Done:\n1. app.yaml now uses port 8443.\n2. nginx.conf proxies to 8443.\n3. docker-compose.yml maps 8443.\nAll three load cleanly.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/P07",
+  "set": "heldout_checker",
+  "label": "pass",
+  "prompt": "List the options for hosting the docs as text; I'll decide later.",
+  "reply": "Options:\n1. GitHub Pages: free, static only.\n2. Read the Docs: free, versioned builds.\n3. Netlify: free tier, preview deploys.\n4. An S3 bucket of ours: cheap, more setup.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/P08",
+  "set": "heldout_checker",
+  "label": "pass",
+  "prompt": "Check on the backup job in an hour and tell me how it went.",
+  "reply": "Backup job started at 10:15. I set a check for 11:15 and will tell you how it went then.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/P09",
+  "set": "heldout_checker",
+  "label": "pass",
+  "prompt": "Rotate the API keys.",
+  "reply": "Rotated the keys for the billing and search services. The mail service key rotates at midnight on its own schedule; I left it alone.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_checker/P10",
+  "set": "heldout_checker",
+  "label": "pass",
+  "prompt": "Fix the failing CI on my PR.",
+  "reply": "Pushed a fix for the import error. CI is running on the new head; the unit-tests check is still pending and agent C is watching it. Nothing else is open.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G01",
+  "set": "heldout_new",
+  "label": "hold-promise",
+  "prompt": "Upgrade the logging library.",
+  "reply": "Upgraded to 2.4 and the tests pass. I'll put together a short summary of the config changes and drop it here later today.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G02",
+  "set": "heldout_new",
+  "label": "hold-promise",
+  "prompt": "<task-notification>\n<task-id>a1b2c3d4</task-id>\n<status>completed</status>\n<summary>Agent \"Build check\" finished</summary>\n<result>Done.</result>\n</task-notification>",
+  "reply": "The build check passed on the new head. When you are back, a full write-up of the release prep will be waiting in this thread.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G03",
+  "set": "heldout_new",
+  "label": "hold-promise",
+  "prompt": "<command-message>code-review</command-message>\n<command-name>/code-review</command-name>\n<command-args>main</command-args>",
+  "reply": "Review done: two findings, both fixed in commit 3fa91c2. A complete breakdown of every file I read follows in my next message.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G04",
+  "set": "heldout_new",
+  "label": "hold-promise",
+  "prompt": "Watch the canary deploy and tell me when it is done.",
+  "reply": "The canary is at 40 percent and the monitor agent is watching it. Once it reaches 100 percent I will tell you, and I'll also write up a detailed account of the error rates for you tomorrow.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G05",
+  "set": "heldout_new",
+  "label": "hold-promise",
+  "prompt": "Run the three migration checks.",
+  "reply": "Two checks passed. The third check is still running; when it returns I give you the full report.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G06",
+  "set": "heldout_new",
+  "label": "hold-promise",
+  "prompt": "heading to dinner. deal with whatever the smoke test returns.",
+  "reply": "Understood. I read the smoke test when it ends.\n\n- **Pass:** I merge the docs branch.\n- **Fail:** I read the log and push a fix to the branch.\n- **Timeout:** I rerun it once, then read the log.\n\nAn overview of how it all went will be here when you get back.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "heldout_new/G07",
+  "set": "heldout_new",
+  "label": "hold-promise",
+  "prompt": "Fix the summary endpoint.",
+  "reply": "Fixed the null check in summary_view.py and added a test. I'll send a recap of the other endpoints that share this bug in a follow-up.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G08",
+  "set": "heldout_new",
+  "label": "hold-list",
+  "prompt": "Prepare the 4.0 release branch.",
+  "reply": "The branch is cut. These need your call:\n\n- Ship the beta flag on or off?\n- Keep Python 3.9 support?\n- Tag today or after QA?",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G09",
+  "set": "heldout_new",
+  "label": "hold-list",
+  "prompt": "<task-notification>\n<task-id>a1b2c3d4</task-id>\n<status>completed</status>\n<summary>Agent \"Dependency audit\" finished</summary>\n<result>Done.</result>\n</task-notification>",
+  "reply": "The audit is back with three outdated packages.\n\n| Package | Choice for you |\n|---|---|\n| requests | upgrade now or pin |\n| numpy | move to 2.x or stay |\n| pydantic | migrate to v2 or wait |",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G10",
+  "set": "heldout_new",
+  "label": "hold-list",
+  "prompt": "Quick one: what did you skip or leave half done today?",
+  "reply": "Merged the parser fix.\n\nSkipped or half done:\n\n1. The Windows test run did not happen.\n2. The docs page still names the old flag.\n3. No load test on the new cache.\n4. The flaky upload test is still muted.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G11",
+  "set": "heldout_new",
+  "label": "hold-list",
+  "prompt": "What did you put off?",
+  "reply": "- The API key rotation.\n- The README rewrite.\n- The cleanup of the old buckets.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G12",
+  "set": "heldout_new",
+  "label": "hold-list",
+  "prompt": "<command-message>plan-release</command-message>\n<command-name>/plan-release</command-name>\n<command-args></command-args>",
+  "reply": "Plan drafted. Before I go on, I need answers from you:\n\n1. Which date: the 3rd or the 10th?\n2. Who signs off: you or the team lead?\n3. Include the migration guide?",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G13",
+  "set": "heldout_new",
+  "label": "hold-list",
+  "prompt": "Clean the image cache.",
+  "reply": "Cleared 12 GB.\n\nWaiting on your OK:\n\n- delete base-images/ (4 GB)\n- delete ci-cache/ (2 GB)\n- delete old-tags/ (1 GB)",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G14",
+  "set": "heldout_new",
+  "label": "hold-both",
+  "prompt": "Finish the docs migration.",
+  "reply": "Docs are moved. Decide for me:\n\n- Keep the old URLs as redirects?\n- Drop the PDF export?\n- Move the changelog?\n\nI'll also send you a full summary of the migration tonight.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G15",
+  "set": "heldout_new",
+  "label": "hold-list",
+  "prompt": "Tidy the CI matrix.",
+  "reply": "Most of it is done.\n\nOpen points for you:\n\n* drop macOS 12 or keep it\n* run nightly or weekly\n* fail fast on or off",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G16",
+  "set": "heldout_new",
+  "label": "hold-list",
+  "prompt": "Be honest, what did you leave undone?",
+  "reply": "Left undone:\n\n- I did not rerun the benchmark after the last change.\n- The migration has no rollback test.\n- Two tests stay skipped.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G17",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Run the three migration checks.",
+  "reply": "Two checks passed. The third check is still running; I'll report once it finishes.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G18",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "<task-notification>\n<task-id>a1b2c3d4</task-id>\n<status>completed</status>\n<summary>Agent \"Lint fixer\" is waiting on its own background work</summary>\n<result>Done.</result>\n</task-notification>",
+  "reply": "The lint fixer is still running its test pass. I pick up when it reports.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G19",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "<task-notification>\n<task-id>a1b2c3d4</task-id>\n<status>completed</status>\n<summary>Agent \"Suite runner\" finished</summary>\n<result>Done.</result>\n</task-notification>",
+  "reply": "The suite runner finished: 812 passed, 0 failed. The coverage agent is still running; when it ends I read its numbers and decide whether the gate needs a change.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G20",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "<command-message>simplify</command-message>\n<command-name>/simplify</command-name>\n<command-args>main</command-args>",
+  "reply": "Findings:\n\n1. Two helpers duplicate path parsing; merge them.\n2. An unused constant in config.py.\n3. A loop that reads the file twice.\n\nSkipped:\n\n- Renaming the module, outside the diff.\n\nNot verified:\n\n- The Windows path handling.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G21",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "<command-message>code-review</command-message>\n<command-name>/code-review</command-name>\n<command-args></command-args>",
+  "reply": "No correctness findings.\n\nChecks I could not finish:\n\n- the migration script, not in the checkout\n- the shell wrapper, no shell here\n- the Windows build",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G22",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Update the release notes and tell me when done.",
+  "reply": "Done. The release notes now list:\n\n- the export button\n- the faster parser\n- the 30 second timeout",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G23",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Send me a full write-up of the incident tomorrow morning.",
+  "reply": "Understood. The timeline is gathered; I'll post the full write-up here tomorrow morning as you asked.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G24",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "What are the possible results of the nightly run?",
+  "reply": "| Result | What you see | What I do |\n|---|---|---|\n| Green | all jobs pass | merge the branch |\n| Red build | the build job fails | read the log and fix it |\n| Red tests | a test job fails | rerun once, then fix |\n| Timeout | the run stops at 90 minutes | split the slow job |",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G25",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "heading to dinner. deal with whatever the smoke test returns.",
+  "reply": "Understood. I read the smoke test when it ends.\n\n- **Pass:** I merge the docs branch.\n- **Fail:** I read the log and push a fix to the branch.\n- **Timeout:** I rerun it once, then read the log.\n\nNothing needs you before then.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "heldout_new/G26",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Give me the open choices as a plain list, I'll answer in chat.",
+  "reply": "Open choices:\n\n- Keep the old API?\n- Raise the rate limit?\n- Add a cache?",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G27",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Set up the billing service.",
+  "reply": "The service is up. I put the three open choices in the question cards:\n\n- the plan tier\n- the currency\n- the invoice day",
+  "question_tool": true,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G28",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "List what you deferred, as bullets.",
+  "reply": "- The API key rotation.\n- The README rewrite.\n- The cleanup of the old buckets.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G29",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Fix the flaky retry test.",
+  "reply": "Fixed it with a fake clock.\n\nNot verified:\n\n- Python 3.8\n- the Windows runner\n- the ARM build",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G30",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "<task-notification>\n<task-id>a1b2c3d4</task-id>\n<status>completed</status>\n<summary>Security review found 1 issue in auth.py</summary>\n<result>Done.</result>\n</task-notification>",
+  "reply": "The security review flagged one point in auth.py. I sent it to the builder, which is still running, and a checker reads it next. Nothing needs you right now.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G31",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Kick off the data export.",
+  "reply": "Export job 5512 is running. It writes its own report to the job summary when it ends.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G32",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Close out the sprint tasks.",
+  "reply": "Closed:\n\n- the login bug\n- the slow query\n- the docs typo\n\nStill on my plate, and I am doing them next:\n\n- the cache warmup\n- the retry budget",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G33",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Rotate the TLS certs.",
+  "reply": "Rotated the certs. One choice is yours: renew yearly or every 90 days.\n\n- api: rotated\n- web: rotated\n- mail: rotated",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G34",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Summarize what the review said.",
+  "reply": "The reviewer asked for three changes:\n\n1. Rename the module.\n2. Split the long test.\n3. Drop the unused import.\n\nI made all three.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G35",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Show me an example of a bad closing line.",
+  "reply": "Here is one:\n\n```\nI'll send you a full report later.\n```\n\nThe gate holds a reply that ends that way.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G36",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Explain what is left before the release.",
+  "reply": "Before the release, I still need to finish:\n\n- the migration test\n- the changelog\n- the version bump\n\nI am on the migration test now.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G37",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "<task-notification>\n<task-id>a1b2c3d4</task-id>\n<status>completed</status>\n<summary>Agent \"Review agents\" is waiting on its own background work</summary>\n<result>Done.</result>\n</task-notification>",
+  "reply": "Agent C is still running the suite; I will read its result when it reports.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G38",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "Skip the report this time, just do it and leave a one-line note.",
+  "reply": "Done. One-line note as asked: the cache key now includes the region.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G39",
+  "set": "heldout_new",
+  "label": "pass",
+  "prompt": "<command-message>simplify</command-message>\n<command-name>/simplify</command-name>\n<command-args></command-args>",
+  "reply": "Four review agents are running: reuse, simplification, efficiency and altitude. I'll sort their findings into fixes and skips once all four are back.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_new/G40",
+  "set": "heldout_new",
+  "label": "hold-promise",
+  "prompt": "Clean up the old cache folders and tell me when done.",
+  "reply": "Done: removed four folders. A detailed write-up of each folder's size will follow once the scan ends.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V01",
+  "set": "heldout_v3",
+  "label": "hold-promise",
+  "prompt": "Bump the parser to 3.1.",
+  "reply": "Bumped and the suite is green. I'll send you a report on the deprecation warnings later this week.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V02",
+  "set": "heldout_v3",
+  "label": "hold-promise",
+  "prompt": "<task-notification>\n<task-id>f00d1234</task-id>\n<status>completed</status>\n<summary>Agent \"Index rebuild\" finished</summary>\n<result>Done.</result>\n</task-notification>",
+  "reply": "The index rebuild finished in 14 minutes. I'll put together a timing analysis for you and post it in the morning.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V03",
+  "set": "heldout_v3",
+  "label": "hold-promise",
+  "prompt": "<command-message>simplify</command-message>\n<command-name>/simplify</command-name>\n<command-args>main</command-args>",
+  "reply": "Two cleanups applied: merged the duplicate path helpers and dropped an unused import. A detailed changelog of every touched line follows in my next message.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V04",
+  "set": "heldout_v3",
+  "label": "hold-promise",
+  "prompt": "Rerun the flaky upload test 20 times.",
+  "reply": "The reruns are going. Once they end I'll report the pass count, and later tonight you'll get a full write-up of the failure pattern.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V05",
+  "set": "heldout_v3",
+  "label": "hold-promise",
+  "prompt": "heading off for the weekend, keep the release moving.",
+  "reply": "Got it. The release branch is tagged and the checks are running.\n\n- **Green:** I publish the package.\n- **Red:** I fix the cause and rerun.\n\nA summary of the whole release will be waiting for you on Monday.",
+  "question_tool": false,
+  "incident1_row": true
+ },
+ {
+  "id": "heldout_v3/V06",
+  "set": "heldout_v3",
+  "label": "hold-promise",
+  "prompt": "Move the cron jobs to the new host.",
+  "reply": "Moved all six jobs. You will get notes on each job's new schedule from me after lunch.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V07",
+  "set": "heldout_v3",
+  "label": "hold-promise",
+  "prompt": "Check why the cache misses went up.",
+  "reply": "The key format changed in the last deploy. I'll write up the root cause and share it with you tomorrow.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V08",
+  "set": "heldout_v3",
+  "label": "hold-list",
+  "prompt": "Set up the staging database.",
+  "reply": "Staging is up on port 5433.\n\nYour call on these:\n\n- Copy prod data or seed fake data?\n- Keep nightly snapshots?\n- Open it to the QA team?",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V09",
+  "set": "heldout_v3",
+  "label": "hold-list",
+  "prompt": "What did you leave unfinished in the refactor?",
+  "reply": "Unfinished:\n\n1. The old config loader is still imported in two places.\n2. The retry wrapper has no tests.\n3. The CLI help text still names the old flags.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V10",
+  "set": "heldout_v3",
+  "label": "hold-list",
+  "prompt": "Prune the stale feature flags.",
+  "reply": "Removed nine flags.\n\nStill open:\n\n- decide whether to drop `beta_search`\n- choose a sunset date for `legacy_auth`\n- pick an owner for `dark_mode`",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V11",
+  "set": "heldout_v3",
+  "label": "hold-list",
+  "prompt": "<task-notification>\n<task-id>f00d1234</task-id>\n<status>completed</status>\n<summary>Agent \"License scan\" finished</summary>\n<result>Done.</result>\n</task-notification>",
+  "reply": "The license scan is back. Three packages need a choice from you:\n\n| Package | Options |\n|---|---|\n| left-pad-x | replace or keep |\n| fastjson | relicense check or drop |\n| imgkit | vendor or remove |",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V12",
+  "set": "heldout_v3",
+  "label": "hold-both",
+  "prompt": "Finish the API rename.",
+  "reply": "Renamed the endpoints. Questions for you:\n\n- Keep the old paths as aliases?\n- Bump the major version?\n- Announce it in the changelog?\n\nI'll also write up a migration summary for you tonight.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V13",
+  "set": "heldout_v3",
+  "label": "hold-list",
+  "prompt": "Be straight with me: what did you dodge today?",
+  "reply": "- I did not run the load test.\n- I skipped the Windows build.\n- I left the flaky auth test muted.\n- I did not update the docs.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V14",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "<command-message>simplify</command-message>\n<command-name>/simplify</command-name>\n<command-args>origin/main</command-args>",
+  "reply": "Three cleanup agents are running: reuse, efficiency and altitude. I'll merge their findings and report once they finish.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V15",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "<task-notification>\n<task-id>f00d1234</task-id>\n<status>completed</status>\n<summary>Agent \"Reuse review\" finished</summary>\n<result>Done.</result>\n</task-notification>",
+  "reply": "The reuse review found nothing to change. Still waiting on the efficiency agent before I merge the findings and report.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V16",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Kick off the nightly backfill and keep an eye on it.",
+  "reply": "The backfill is running as job 881. If it fails again, I report it to you as blocked with the log line.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V17",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Start the deploy and watch it.",
+  "reply": "The deploy is at step 3 of 5. When it ends, I report its outcome and roll back if the health check fails.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V18",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "What does the runbook tell the on-call agent to do?",
+  "reply": "The runbook's step 4 says: \"Report the outage and say whether the cache or the database caused it.\" Step 5 says to page the owner after 15 minutes.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V19",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "List what you skipped today.",
+  "reply": "- The load test.\n- The Windows build.\n- The docs update.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V20",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "What did you defer? Give me a list.",
+  "reply": "1. The key rotation.\n2. The bucket cleanup.\n3. The README pass.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V21",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Tell me what you put off.",
+  "reply": "I put off three items and asked about each in the question cards:\n\n- the key rotation\n- the bucket cleanup\n- the README pass",
+  "question_tool": true,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V22",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Wire up the metrics exporter.",
+  "reply": "The exporter is live. I asked you about the three open choices in the question cards:\n\n- the scrape interval\n- the retention\n- the label set",
+  "question_tool": true,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V23",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Tidy the test fixtures.",
+  "reply": "Done:\n\n- merged the two user fixtures\n- deleted the unused order fixture\n- renamed the db fixture\n\nAll 412 tests pass.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V24",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "<command-message>code-review</command-message>\n<command-name>/code-review</command-name>\n<command-args>HEAD~3</command-args>",
+  "reply": "Findings:\n\n1. `parse_date` drops the timezone.\n2. The retry loop never sleeps.\n3. A missing await in `flush`.\n\nNot verified:\n\n- the ARM build\n- the Windows path code",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V25",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Send me a short summary of the outage at the end of the day.",
+  "reply": "Will do. The timeline is gathered, and the summary goes out at 17:00 as you asked.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V26",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Upgrade the queue client.",
+  "reply": "Upgraded to 5.2 and the tests pass.\n\nNot verified:\n\n- the dead-letter path\n- the TLS reconnect\n- the batch size limit",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V27",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Start the export.",
+  "reply": "Export job 9021 is running. It posts its own report to the job summary page when it ends.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V28",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "What happens on each result of the canary?",
+  "reply": "| Result | What I do |\n|---|---|\n| Healthy | promote to 100 percent |\n| Error spike | roll back |\n| Latency spike | hold at 10 percent and read the traces |",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V29",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Plan the cache migration.",
+  "reply": "Plan:\n\n1. Add the new cache behind a flag.\n2. Dual-write for a day.\n3. Switch reads.\n4. Remove the old cache.\n\nI start step 1 now.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V30",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Fix the broken link checker.",
+  "reply": "Fixed the regex and added two tests. One choice is yours: check external links nightly or weekly.\n\n- docs: fixed\n- blog: fixed\n- api: fixed",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V31",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Show me a reply the gate should hold.",
+  "reply": "This one:\n\n> I'll send you a full summary of the run tomorrow.\n\nThe gate holds a reply that ends with a promise like that.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V32",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "<task-notification>\n<task-id>f00d1234</task-id>\n<status>completed</status>\n<summary>Agent \"Builder\" is waiting on its own background work</summary>\n<result>Done.</result>\n</task-notification>",
+  "reply": "The builder is still running the integration suite. I pick up when it reports.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V33",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Report back when the migration is done.",
+  "reply": "The migration is done: 42 tables moved, no errors.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V34",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Clean up the merged branches.",
+  "reply": "Deleted 31 merged branches.\n\nStill on my list, and I do them next:\n\n- the stale tags\n- the orphan worktrees\n- the old release branches",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V35",
+  "set": "heldout_v3",
+  "label": "pass",
+  "prompt": "Skip any report, just leave a one-line note when done.",
+  "reply": "Done. Note: the token TTL is now 15 minutes.",
+  "question_tool": false,
+  "incident1_row": false
+ },
+ {
+  "id": "heldout_v3/V36",
+  "set": "heldout_v3",
+  "label": "hold-promise",
+  "prompt": "Fix the slow login query.",
+  "reply": "Added the missing index; login is at 40 ms now. A complete breakdown of the query plans before and after will be here when you get back.",
+  "question_tool": false,
+  "incident1_row": false
+ }
+]

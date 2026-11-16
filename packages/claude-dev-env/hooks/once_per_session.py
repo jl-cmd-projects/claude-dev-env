@@ -16,6 +16,9 @@ Codex rollout with a ``compacted`` entry.
 
 ``claim_only_showing`` leaves the compaction count out of the marker name, so
 its text shows once in the whole session, compactions included.
+``claim_turn_showing`` puts a turn key in the marker name and reports a marker
+it cannot keep as None, so a caller can fall back to its own behavior.
+``is_turn_claimed`` reads whether that turn marker exists and creates nothing.
 """
 
 from __future__ import annotations
@@ -40,7 +43,14 @@ from hooks_constants.once_per_session_constants import (
 )
 from hooks_constants.session_file_id import session_file_id
 
-__all__ = ["claim_first_showing", "claim_only_showing", "clear_showings", "compaction_count"]
+__all__ = [
+    "claim_first_showing",
+    "claim_only_showing",
+    "claim_turn_showing",
+    "clear_showings",
+    "compaction_count",
+    "is_turn_claimed",
+]
 
 
 def _is_compaction_entry(transcript_line: bytes) -> bool:
@@ -108,6 +118,60 @@ def claim_only_showing(hook_name: str, all_hook_fields: Mapping[str, object]) ->
         all_hook_fields: The hook payload, read for its session id and agent id.
     """
     return _claim_marker(hook_name, all_hook_fields, WHOLE_SESSION_MARKER_PART)
+
+
+def claim_turn_showing(hook_name: str, all_hook_fields: Mapping[str, object], turn_key: str) -> bool | None:
+    """Return True the first time for this turn and record it, False after that, or None when no marker can be kept.
+
+    ::
+
+        session s1, turn t1, first claim        -> True
+        session s1, turn t1, later claim        -> False
+        session s1, turn t2, first claim        -> True
+        payload with no session id              -> None
+        marker cannot be written                -> None
+
+    Args:
+        hook_name: A short name that keeps each hook's marker apart.
+        all_hook_fields: The hook payload, read for its session id and agent id.
+        turn_key: A key that names the turn, such as the id of the prompt that started it.
+    """
+    session_id = all_hook_fields.get(SESSION_ID_KEY)
+    if not isinstance(session_id, str) or not session_id:
+        return None
+    try:
+        with _marker_path(hook_name, session_id, all_hook_fields, session_file_id(turn_key)).open(
+            EXCLUSIVE_CREATE_MODE
+        ):
+            return True
+    except FileExistsError:
+        return False
+    except OSError:
+        return None
+
+
+def is_turn_claimed(hook_name: str, all_hook_fields: Mapping[str, object], turn_key: str) -> bool | None:
+    """Return whether ``claim_turn_showing`` already claimed this turn, without claiming it.
+
+    ::
+
+        session s1, turn t1, before any claim   -> False
+        session s1, turn t1, after a claim      -> True
+        payload with no session id              -> None
+        marker cannot be read                   -> None
+
+    Args:
+        hook_name: The name the hook passes to ``claim_turn_showing``.
+        all_hook_fields: The hook payload, read for its session id and agent id.
+        turn_key: The turn key the hook passes to ``claim_turn_showing``.
+    """
+    session_id = all_hook_fields.get(SESSION_ID_KEY)
+    if not isinstance(session_id, str) or not session_id:
+        return None
+    try:
+        return _marker_path(hook_name, session_id, all_hook_fields, session_file_id(turn_key)).is_file()
+    except OSError:
+        return None
 
 
 def _claim_marker(hook_name: str, all_hook_fields: Mapping[str, object], showing_part: str) -> bool:

@@ -74,6 +74,7 @@ ALL_ACTION_BOUNDARY_EXEMPT_REGISTRATION_PATHS = (
     "blocking/task_subject_outcome_gate.py",
     "blocking/image_read_size_gate.py",
     "blocking/artifact_dark_mode_gate.py",
+    "blocking/artifact_current_page_gate.py",
     "blocking/send_user_file_worktree_root_gate.py",
     "blocking/sent_file_question_gate.py",
     "blocking/question_brief_gate.py",

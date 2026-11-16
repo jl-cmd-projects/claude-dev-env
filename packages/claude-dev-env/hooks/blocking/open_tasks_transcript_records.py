@@ -1,7 +1,8 @@
 """Read a transcript file into records, and read what one record holds.
 
 One record can hold the prompt text that starts a turn, a tool call that is work,
-a read, or a question card, or the files a ``SendUserFile`` call sends.
+a read, or a question card, the files a ``SendUserFile`` call sends, or the
+names of the tools a Claude Code session lists.
 ``open_tasks_transcript`` folds these readers over every record. Its module
 docstring lists which records start a turn and which tool calls count as work.
 """
@@ -15,8 +16,15 @@ from pathlib import Path
 from hooks_constants.send_user_file_worktree_root_gate_constants import SEND_USER_FILE_TOOL_NAME
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.open_tasks_stop_gate_constants import (
+    ALL_DEFERRED_TOOLS_DELTA_NAME_KEYS,
     ALL_SKIPPED_PROMPT_FLAGS,
     ALL_CODEX_TOOL_CALL_TYPES,
+    ATTACHMENT_KEY,
+    DEFERRED_TOOLS_DELTA_ATTACHMENT_TYPE,
+    DEFERRED_TOOLS_RECORD_ATTACHMENT_TYPE,
+    DEFERRED_TOOLS_RECORD_ENTRIES_KEY,
+    PROMPT_SNAPSHOT_ATTACHMENT_TYPE,
+    PROMPT_SNAPSHOT_TOOLS_KEY,
     ALL_NON_WORK_TOOL_NAMES,
     ALL_QUESTION_TOOL_NAMES,
     ALL_READ_TOOL_NAMES,
@@ -113,6 +121,16 @@ def claude_prompt_text(all_record_fields: dict[str, object]) -> str | None:
     return prompt_text
 
 
+def stop_feedback_text(all_record_fields: dict[str, object]) -> str | None:
+    """Return the text of a Claude Code ``Stop hook feedback`` user record, flagged ``isMeta`` or not, or None."""
+    message_body = all_record_fields.get(MESSAGE_KEY)
+    if USER_RECORD_TYPE != all_record_fields.get(RECORD_TYPE_KEY) or not isinstance(message_body, dict):
+        return None
+    content_value = message_body.get(CONTENT_KEY)
+    feedback_text = content_value if isinstance(content_value, str) else _text_of_blocks(_content_blocks(all_record_fields))
+    return feedback_text if feedback_text.lstrip().startswith(STOP_HOOK_FEEDBACK_PREFIX) else None
+
+
 def _codex_payload(all_record_fields: dict[str, object]) -> dict[str, object] | None:
     payload_body = all_record_fields.get(CODEX_PAYLOAD_KEY)
     if all_record_fields.get(RECORD_TYPE_KEY) != CODEX_RESPONSE_ITEM_TYPE or not isinstance(payload_body, dict):
@@ -202,6 +220,54 @@ def send_call_file_paths(tool_name: str, all_input_fields: dict[str, object]) ->
     if tool_name != SEND_USER_FILE_TOOL_NAME or not isinstance(all_sent_files, list):
         return []
     return [each_path for each_path in all_sent_files if isinstance(each_path, str)]
+
+
+def _entry_names(all_entries: object) -> list[str]:
+    if not isinstance(all_entries, list):
+        return []
+    return [
+        each_entry[TOOL_NAME_KEY]
+        for each_entry in all_entries
+        if isinstance(each_entry, dict) and isinstance(each_entry.get(TOOL_NAME_KEY), str)
+    ]
+
+
+def listed_tool_names(all_record_fields: dict[str, object]) -> tuple[str, list[str]] | None:
+    """Return the attachment type and tool names of a Claude Code record that lists the session's tools.
+
+    ::
+
+        prompt_snapshot with a tools list       -> ("prompt_snapshot", the inline tool names)
+        deferred_tools_delta                    -> ("deferred_tools_delta", the added, readded,
+                                                    surfaced, and loaded names)
+        deferred_tools_record                   -> ("deferred_tools_record", the names ToolSearch loaded)
+        prompt_snapshot with no tools list      -> None
+        any other record                        -> None
+
+    Names come only from these fields, so a tool name inside prose never counts.
+    """
+    attachment_body = all_record_fields.get(ATTACHMENT_KEY)
+    if not isinstance(attachment_body, dict):
+        return None
+    attachment_type = attachment_body.get(RECORD_TYPE_KEY)
+    if attachment_type == PROMPT_SNAPSHOT_ATTACHMENT_TYPE:
+        all_inline_tools = attachment_body.get(PROMPT_SNAPSHOT_TOOLS_KEY)
+        if not isinstance(all_inline_tools, list):
+            return None
+        return attachment_type, _entry_names(all_inline_tools)
+    if attachment_type == DEFERRED_TOOLS_RECORD_ATTACHMENT_TYPE:
+        return attachment_type, _entry_names(attachment_body.get(DEFERRED_TOOLS_RECORD_ENTRIES_KEY))
+    if attachment_type == DEFERRED_TOOLS_DELTA_ATTACHMENT_TYPE:
+        all_delta_names = [
+            each_name
+            for each_key in ALL_DEFERRED_TOOLS_DELTA_NAME_KEYS
+            for each_delta_value in [attachment_body.get(each_key)]
+            if isinstance(each_delta_value, list)
+            for each_name in each_delta_value
+            if isinstance(each_name, str)
+        ]
+        return attachment_type, all_delta_names
+    return None
 
 
 def is_assistant_record(all_record_fields: dict[str, object]) -> bool:

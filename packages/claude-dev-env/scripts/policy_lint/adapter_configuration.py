@@ -136,6 +136,7 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
         hooks/blocking/session_title_format_gate.py      -> exempt
         hooks/blocking/task_subject_outcome_gate.py      -> exempt
         hooks/blocking/artifact_dark_mode_gate.py        -> exempt
+        hooks/blocking/artifact_current_page_gate.py     -> exempt
         hooks/blocking/send_user_file_worktree_root_gate.py -> exempt
         hooks/blocking/sent_file_question_gate.py        -> exempt
         hooks/blocking/question_brief_gate.py            -> exempt
@@ -232,6 +233,11 @@ def _names_exempt_registration_path(registered_string: str) -> bool:
     The task subject length gate denies a task list item whose name is over 80
     characters. It decides the shape of a task subject and no code or safety
     policy.
+
+    The artifact current page gate denies a page publish that draws one item
+    more than once, or that would open a second link for a page with a
+    recorded link. It decides what a published page shows and no code or
+    safety policy.
 
     Args:
         registered_string: One command, path, script, or entrypoint string.

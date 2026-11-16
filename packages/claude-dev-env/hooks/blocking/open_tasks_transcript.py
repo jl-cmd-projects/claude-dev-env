@@ -31,6 +31,18 @@ The replay also notes what the current turn did::
                              word such as ``get``, ``list`` or ``read`` and no
                              write word such as ``update``
     turn_sent_file_paths     the paths the turn's SendUserFile calls sent
+    turn_key                 the ``uuid`` of the Claude Code prompt record that
+                             started the turn, or None for a Codex turn or a
+                             record with no ``uuid``
+    turn_stop_feedback_texts the text of each ``Stop hook feedback`` record
+                             the turn holds
+    is_codex_turn            a Codex ``response_item`` user message started the turn
+
+Across the whole session, the replay also notes whether a tracker tool exists::
+
+    lists_no_tracker_tool    a prompt_snapshot tools list and a deferred_tools_delta
+                             both appeared, and no tracker name appeared in any
+                             listing, deferred_tools_record, or tracker call
 
 A turn starts at the last user prompt record. A tool result, a record flagged
 ``isMeta``, ``isSidechain`` or ``isCompactSummary``, and a ``Stop hook feedback``
@@ -56,6 +68,7 @@ if hooks_root_directory not in sys.path:
 from hooks_constants.open_tasks_stop_gate_constants import (
     ASSISTANT_RECORD_TYPE,
     ALL_QUESTION_TOOL_NAMES,
+    ALL_TRACKER_TOOL_LISTING_NAMES,
     ALL_TRACKER_TOOL_NAMES,
     CCD_PLAN_ADVANCE_KEY,
     CCD_PLAN_CONTENT_KEY,
@@ -74,6 +87,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     COMPLETED_STATUS,
     CONTENT_KEY,
     CREATED_TASK_ID_GROUP_INDEX,
+    DEFERRED_TOOLS_DELTA_ATTACHMENT_TYPE,
     DYNAMIC_TOOL_ARGUMENTS_KEY,
     DYNAMIC_TOOL_CALL_NAME,
     DYNAMIC_TOOL_NAME_KEY,
@@ -81,7 +95,9 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     INCOMPLETE_STATUSES,
     IN_PROGRESS_STATUS,
     PENDING_STATUS,
+    PROMPT_SNAPSHOT_ATTACHMENT_TYPE,
     RECORD_TYPE_KEY,
+    RECORD_UUID_KEY,
     TASK_CREATED_PATTERN,
     TASK_CREATE_TOOL_NAME,
     TASK_ID_KEY,
@@ -116,6 +132,8 @@ from open_tasks_transcript_records import (
     is_read_tool_name,
     send_call_file_paths,
     is_assistant_record,
+    stop_feedback_text,
+    listed_tool_names,
 )
 
 
@@ -240,6 +258,22 @@ class TranscriptReplay:
         self.has_turn_question_tool = False
         self.has_turn_read_tool = False
         self.turn_sent_file_paths: list[str] = []
+        self.turn_key: str | None = None
+        self.turn_stop_feedback_texts: list[str] = []
+        self.is_codex_turn = False
+        self.all_tool_listing_types: set[str] = set()
+        self.has_tracker_tool = False
+
+    @property
+    def lists_no_tracker_tool(self) -> bool:
+        """Return True when the session listed its inline and deferred tools and no tracker ran or appeared."""
+        has_full_listing = {PROMPT_SNAPSHOT_ATTACHMENT_TYPE, DEFERRED_TOOLS_DELTA_ATTACHMENT_TYPE} <= self.all_tool_listing_types
+        return has_full_listing and not self.has_tracker_tool
+
+    def note_tool_listing(self, listing_type: str, all_tool_names: list[str]) -> None:
+        self.all_tool_listing_types.add(listing_type)
+        if not ALL_TRACKER_TOOL_LISTING_NAMES.isdisjoint(all_tool_names):
+            self.has_tracker_tool = True
 
     def start_turn(self, prompt_text: str) -> None:
         self.turn_prompt_text = prompt_text
@@ -248,18 +282,35 @@ class TranscriptReplay:
         self.has_turn_question_tool = False
         self.has_turn_read_tool = False
         self.turn_sent_file_paths = []
+        self.turn_key = None
+        self.turn_stop_feedback_texts = []
+        self.is_codex_turn = False
 
     def apply_record(self, all_record_fields: dict[str, object]) -> None:
         prompt_text = codex_prompt_text(all_record_fields)
-        if prompt_text is None:
-            prompt_text = claude_prompt_text(all_record_fields)
         if prompt_text is not None:
             self.start_turn(prompt_text)
+            self.is_codex_turn = True
+            return
+        prompt_text = claude_prompt_text(all_record_fields)
+        if prompt_text is not None:
+            self.start_turn(prompt_text)
+            prompt_uuid = all_record_fields.get(RECORD_UUID_KEY)
+            self.turn_key = prompt_uuid if isinstance(prompt_uuid, str) and prompt_uuid else None
+            return
+        feedback_text = stop_feedback_text(all_record_fields)
+        if feedback_text is not None:
+            self.turn_stop_feedback_texts.append(feedback_text)
+            return
+        tool_listing = listed_tool_names(all_record_fields)
+        if tool_listing is not None:
+            self.note_tool_listing(*tool_listing)
             return
         plan_items = codex_plan_items(all_record_fields)
         if plan_items is not None:
             self.latest_items = plan_items
             self.has_turn_tracker_write = True
+            self.has_tracker_tool = True
             return
         if is_codex_question_call(all_record_fields):
             self.has_turn_question_tool = True
@@ -275,6 +326,7 @@ class TranscriptReplay:
             if is_typed_assistant_record and each_block.get(TOOL_NAME_KEY) == CCD_PLAN_TOOL_NAME and isinstance(plan_input, dict):
                 self.apply_desktop_plan(plan_input)
                 self.has_turn_tracker_write = True
+                self.has_tracker_tool = True
             else:
                 self.apply_block(each_block, is_from_assistant)
 
@@ -328,6 +380,7 @@ class TranscriptReplay:
             self.has_turn_read_tool = True
         if tool_name in ALL_TRACKER_TOOL_NAMES:
             self.has_turn_tracker_write = True
+            self.has_tracker_tool = True
         elif is_work_tool_name(tool_name):
             self.has_turn_work_tool = True
 

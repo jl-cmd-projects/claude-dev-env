@@ -1,5 +1,31 @@
 # Changelog
 
+## [8.125.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.124.0...claude-dev-env-v8.125.0) (2026-11-16)
+
+
+### Features
+
+* **hooks:** judge Claude Code closing replies with one model call ([#2382](https://github.com/jl-cmd-projects/claude-dev-env/issues/2382)) ([c3e0fdc](https://github.com/jl-cmd-projects/claude-dev-env/commit/c3e0fdc77a647a2252fbab052420c191147b7106))
+
+## [8.124.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.123.0...claude-dev-env-v8.124.0) (2026-11-16)
+
+
+### Features
+
+* **hooks:** refuse a page publish that draws one item twice or opens a second link ([#2376](https://github.com/jl-cmd-projects/claude-dev-env/issues/2376)) ([eedce28](https://github.com/jl-cmd-projects/claude-dev-env/commit/eedce28e77f7333721d79d9c76109474c2922a0b))
+
+
+### Bug Fixes
+
+* **hooks:** pass the task list hold in a session with no task tool ([#2390](https://github.com/jl-cmd-projects/claude-dev-env/issues/2390)) ([f641607](https://github.com/jl-cmd-projects/claude-dev-env/commit/f641607f79a29308b91c3b52afdec07715459eaf))
+
+## [8.123.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.122.0...claude-dev-env-v8.123.0) (2026-11-16)
+
+
+### Features
+
+* **hooks:** add the closing question round gate and its eval ([#2391](https://github.com/jl-cmd-projects/claude-dev-env/issues/2391)) ([8ea0a0a](https://github.com/jl-cmd-projects/claude-dev-env/commit/8ea0a0acd59782544b2466a001d2d920dbc14646))
+
 ## [8.122.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.121.0...claude-dev-env-v8.122.0) (2026-11-16)
 
 

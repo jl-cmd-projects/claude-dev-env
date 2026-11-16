@@ -31,6 +31,10 @@ Codex reads the same `SKILL.md` from the clone in step 2.
 
 Paste it into a `<style>` block after the plugin stylesheet, or link it beside the page.
 
+## Republish a page
+
+A page a person reads more than once follows [Republish a page](../artifact-page/README.md#republish-a-page): rebuild it from the current state, show each item once, and publish to the same link. The publish gate refuses a repeated image or a second link.
+
 ## Check before publishing
 
 Render the page at 390px in light and dark. Every text node is 16px or larger and holds 7:1 contrast against its painted background. The page has no console errors and no horizontal scroll.
