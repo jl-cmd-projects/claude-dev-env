@@ -192,6 +192,11 @@ export const CURSOR_HOOKS_SCHEMA_VERSION = 1;
 export const CURSOR_HOOK_TIMEOUT_SECONDS = 10;
 export const CURSOR_GUIDANCE_HOOK_RELATIVE_PATH = Object.freeze(['session', 'cursor_agents_guidance.py']);
 export const CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH = Object.freeze(['blocking', 'open_tasks_stop_gate.py']);
+export const CLOSING_QUESTION_ROUND_HOOK_RELATIVE_PATH = Object.freeze(['blocking', 'closing_question_round_gate.py']);
+export const ALL_PROFILE_STOP_GATE_HOOK_RELATIVE_PATHS = Object.freeze([
+    CURSOR_OPEN_TASKS_HOOK_RELATIVE_PATH,
+    CLOSING_QUESTION_ROUND_HOOK_RELATIVE_PATH,
+]);
 export const CURSOR_SESSION_START_EVENT = 'sessionStart';
 export const CURSOR_BEFORE_SUBMIT_PROMPT_EVENT = 'beforeSubmitPrompt';
 export const CURSOR_STOP_EVENT = 'stop';
