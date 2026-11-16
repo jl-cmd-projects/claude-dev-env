@@ -869,7 +869,7 @@ def test_fault_before_the_call_is_known_governed_should_not_become_a_deny(
         gate.decision_for(_payload("ls", _transcript(tmp_path)))
 
 
-def _clone_with_branch_lines(tmp_path: Path, line_count: int) -> Path:
+def _clone_with_branch_lines(tmp_path: Path, line_count: int, body: str = "## Summary\nNo proof yet.\n") -> Path:
     origin_path = tmp_path / "origin"
     clone_path = tmp_path / "clone"
     git_identity = ["-c", "user.name=Test", "-c", "user.email=test@example.com"]
@@ -882,7 +882,7 @@ def _clone_with_branch_lines(tmp_path: Path, line_count: int) -> Path:
     (clone_path / "tool.py").write_text("".join(f"x = {i}\n" for i in range(line_count)), encoding="utf-8")
     subprocess.run(["git", "-C", str(clone_path), "add", "."], check=True)
     subprocess.run(["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", "change"], check=True)
-    (tmp_path / "body.md").write_text("## Summary\nNo proof yet.\n", encoding="utf-8")
+    (tmp_path / "body.md").write_text(body, encoding="utf-8")
     return clone_path
 
 
@@ -894,8 +894,15 @@ def _body_file_create(clone_path: Path) -> dict[str, object]:
     }
 
 
-def test_should_deny_an_oversized_create_before_reading_its_proof(tmp_path: Path) -> None:
+def test_should_read_the_proof_of_an_oversized_create_before_its_size(tmp_path: Path) -> None:
     decision = gate.decision_for(_body_file_create(_clone_with_branch_lines(tmp_path, 1500)))
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON
+
+
+def test_should_deny_an_oversized_create_whose_other_sections_pass(tmp_path: Path) -> None:
+    body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.")
+    decision = gate.decision_for(_body_file_create(_clone_with_branch_lines(tmp_path, 1500, body)))
     assert decision is not None
     assert decision["hookSpecificOutput"]["permissionDecisionReason"] == OVERSIZED_PULL_REQUEST_REASON.format(
         measured_line_count=1500, measured_line_bar=1000

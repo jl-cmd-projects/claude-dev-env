@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from typing import NamedTuple
 from pathlib import Path
 
@@ -670,9 +670,12 @@ class ChangedFile(NamedTuple):
     is_pure_rename: bool
 
 
-def _git_output(working_directory: str, *all_git_arguments: str) -> str | None:
+def _git_output(working_directory: str, *all_git_arguments: str, standard_input: str | None = None) -> str | None:
     return child_stdout(
-        ["git", "-C", working_directory, *all_git_arguments], GIT_TIMEOUT_SECONDS, ReadSlice.PROOF_AND_LOOK
+        ["git", "-C", working_directory, *all_git_arguments],
+        GIT_TIMEOUT_SECONDS,
+        ReadSlice.PROOF_AND_LOOK,
+        standard_input=standard_input,
     )
 
 
@@ -681,12 +684,24 @@ def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str] | N
     return output.splitlines() if output is not None else None
 
 
-def _first_merge_base(working_directory: str, head_reference: str) -> str | None:
-    for each_base_reference in ALL_DEFAULT_BRANCH_REFERENCES:
+def _first_merge_base(
+    working_directory: str,
+    head_reference: str,
+    all_base_references: Sequence[str] = ALL_DEFAULT_BRANCH_REFERENCES,
+) -> str | None:
+    for each_base_reference in all_base_references:
         all_merge_base_lines = _git_lines(working_directory, "merge-base", head_reference, each_base_reference)
         if all_merge_base_lines:
             return all_merge_base_lines[0]
     return None
+
+
+def _cached_head_reference(working_directory: str, head_branch: object) -> str | None:
+    named_head = head_branch if isinstance(head_branch, str) else None
+    return answer_once(
+        ("head reference", working_directory, named_head),
+        lambda: _head_reference(working_directory, named_head),
+    )
 
 
 def _head_reference(working_directory: str, head_branch: object) -> str | None:
@@ -745,7 +760,7 @@ def _merge_base_and_head(working_directory: str, head_branch: object) -> tuple[s
 def _read_merge_base_and_head(working_directory: str, head_branch: str | None) -> tuple[str, str] | None:
     if not working_directory:
         return None
-    head_reference = _head_reference(working_directory, head_branch)
+    head_reference = _cached_head_reference(working_directory, head_branch)
     if head_reference is None:
         return None
     merge_base = _first_merge_base(working_directory, head_reference)

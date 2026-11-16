@@ -386,7 +386,6 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     ::
 
         pr-lifecycle skill not loaded                     -> DENY_REASON
-        new pull request over 1,000 lines, no 'Why one pull request' -> OVERSIZED_PULL_REQUEST_REASON
         new pull request with no proof section            -> MISSING_PROOF_REASON
         proof, or a body edit, says not run               -> UNPROVEN_PROOF_REASON
         proof, or a body edit, holds a merge word         -> DEFERRED_PROOF_REASON
@@ -396,6 +395,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         feature pull request with no eval section         -> MISSING_EVAL_SECTION_REASON
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
         feature pull request, no /claude-api build-eval   -> MISSING_BUILD_EVAL_REASON
+        new pull request over 1,000 lines, no 'Why one pull request' -> OVERSIZED_PULL_REQUEST_REASON
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
         follow-up read of open pull requests unanswered   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         follow-up with no repository, origin unread       -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
@@ -438,14 +438,14 @@ def _first_broken_rule_reason(all_fields: dict[str, object], run: GateRun) -> st
     if _is_skill_unloaded(all_fields):
         return DENY_REASON + _scan_note(run, cut_scan_count_before)
     return (
-        oversized_pull_request_reason(all_fields)
-        or proof.missing_proof_reason(all_fields)
+        proof.missing_proof_reason(all_fields)
         or proof.edit_proof_reason(all_fields)
         or proof.missing_existing_work_reason(all_fields)
         or proof.missing_flowchart_reason(all_fields)
         or proof.missing_eval_section_reason(all_fields)
         or proof.missing_look_reason(all_fields)
         or _missing_build_eval_reason(all_fields, run)
+        or oversized_pull_request_reason(all_fields)
         or duplicate_followup_reason(all_fields)
     )
 

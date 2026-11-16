@@ -5,6 +5,7 @@
     branch changes 1,500 lines against main, plain body          -> OVERSIZED_PULL_REQUEST_REASON
     same branch, body has a 'Why one pull request' section       -> None
     stacked level, --base parent, 200 lines of its own           -> None
+    compare API at its file cap, listed files over the bar       -> OVERSIZED_PULL_REQUEST_REASON
     size unreadable, compare API at its file cap, or no base     -> None
 
 Generated files, marked ``linguist-generated`` in ``.gitattributes``, and
@@ -25,13 +26,14 @@ if hooks_directory not in sys.path:
 from blocking.gate_run_reads import answer_once
 from blocking.pull_request_proof import (
     CreateCall,
+    _cached_head_reference,
     _compare_lines,
     _create_calls,
+    _first_merge_base,
     _git_lines,
     _git_output,
-    _head_reference,
+    _local_checkout_may_answer,
     _section_text,
-    checkout_is_for,
 )
 from hooks_constants.pull_request_proof_constants import (
     ALL_DEFAULT_BRANCH_REFERENCES,
@@ -100,7 +102,7 @@ def _read_measured_line_count(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> int | None:
     measured_line_count = None
-    if working_directory and (not head_branch or checkout_is_for(working_directory, repository)):
+    if working_directory and _local_checkout_may_answer(working_directory, repository, head_branch):
         measured_line_count = local_measured_line_count(working_directory, base_branch, head_branch)
     if measured_line_count is None:
         measured_line_count = remote_measured_line_count(repository, base_branch, head_branch)
@@ -128,10 +130,15 @@ def local_measured_line_count(
         base_branch: The base branch the create call names, or None.
         head_branch: The head branch the create call names, or None.
     """
-    head_reference = _head_reference(working_directory, head_branch)
+    head_reference = _cached_head_reference(working_directory, head_branch)
     if head_reference is None:
         return None
-    merge_base = _merge_base(working_directory, base_branch, head_reference)
+    all_base_references = (
+        (REMOTE_BRANCH_PREFIX + base_branch, base_branch)
+        if base_branch
+        else ALL_DEFAULT_BRANCH_REFERENCES
+    )
+    merge_base = _first_merge_base(working_directory, head_reference, all_base_references)
     if merge_base is None:
         return None
     numstat_output = _git_output(
@@ -150,21 +157,6 @@ def local_measured_line_count(
         for each_path, each_count in count_by_path.items()
         if each_path not in all_generated_paths and not _is_lockfile(each_path)
     )
-
-
-def _merge_base(working_directory: str, base_branch: str | None, head_reference: str) -> str | None:
-    all_base_references = (
-        (REMOTE_BRANCH_PREFIX + base_branch, base_branch)
-        if base_branch
-        else ALL_DEFAULT_BRANCH_REFERENCES
-    )
-    for each_base_reference in all_base_references:
-        all_merge_base_lines = _git_lines(
-            working_directory, "merge-base", head_reference, each_base_reference
-        )
-        if all_merge_base_lines:
-            return all_merge_base_lines[0]
-    return None
 
 
 def _numstat_counts(numstat_output: str) -> dict[str, int] | None:
@@ -203,14 +195,17 @@ def _generated_paths(
 ) -> set[str] | None:
     if not all_paths:
         return set()
+    all_top_level_lines = _git_lines(working_directory, "rev-parse", "--show-toplevel")
+    if not all_top_level_lines:
+        return None
     check_attr_output = _git_output(
-        working_directory,
+        all_top_level_lines[0],
         "check-attr",
         "-z",
+        "--stdin",
         "--source=" + head_reference,
         LINGUIST_GENERATED_ATTRIBUTE,
-        "--",
-        *all_paths,
+        standard_input="".join(each_path + "\0" for each_path in all_paths),
     )
     if check_attr_output is None:
         return None
@@ -237,11 +232,13 @@ def remote_measured_line_count(
 
         compare lists tool.py +1200 -0                 -> 1200
         compare lists only uv.lock +3000 -0            -> 0
-        compare returns 300 files, its file cap        -> None
+        compare returns 300 files listing 5000 lines   -> 5000
+        compare returns 300 files listing 500 lines    -> None
         repository or head missing                     -> None
 
     The base is the named base branch, else the repository's default branch.
     The compare API does not read ``.gitattributes``, so only lockfiles are left out.
+    At its file cap the listed files are a lower bound, so the count stands only over the bar.
 
     Args:
         repository: The owner/name the create call names, or None.
@@ -249,7 +246,7 @@ def remote_measured_line_count(
         head_branch: The head branch the create call names, or None.
     """
     all_lines = _compare_lines(repository, base_branch, head_branch, COMPARE_LINE_COUNT_QUERY)
-    if not all_lines or not all_lines[0].isdigit() or int(all_lines[0]) >= COMPARE_FILE_LIST_LIMIT:
+    if not all_lines or not all_lines[0].isdigit():
         return None
     measured_line_count = 0
     for each_line in all_lines[1:]:
@@ -261,4 +258,6 @@ def remote_measured_line_count(
             return None
         if not _is_lockfile(str(path)):
             measured_line_count += added_count + deleted_count
+    if int(all_lines[0]) >= COMPARE_FILE_LIST_LIMIT and measured_line_count <= MEASURED_LINE_BAR:
+        return None
     return measured_line_count
