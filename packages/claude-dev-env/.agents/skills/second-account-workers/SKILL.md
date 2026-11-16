@@ -72,10 +72,8 @@ report path.
 When the command exits 3 and the report has `"account": "wait"`, read the
 picker's reason and follow the exit 3 steps in
 [Proof before a pull request](~/.claude/docs/rule-guides/proof-before-pull-request.md).
-A reason that says an account has no room is a wait on usage: report the
-reason and reset time, and do not fall back to the Agent tool. A reason that
-says no account meter could be read is a failed read, and the guide says when
-the Agent tool takes the work.
+Do not fall back to the Agent tool, except where those steps send the work
+there after a failed meter read.
 Claude can also return exit 3 after a worker starts. When the
 report account is `main`, `second`, or `extra_2` and later, report the child's
 exit code and result. Exit 124 with reason `timeout` means the worker ran past

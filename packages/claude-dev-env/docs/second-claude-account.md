@@ -55,7 +55,7 @@ A wait whose reason starts "no account meter could be read" is a failed read,
 and the account may have usage left. An HTTP 429 from the usage endpoint holds
 that account's probe for 5 minutes. `resets_at` is then the soonest account
 reset or probe hold, or one hour out when the broker knows neither. When the
-reason ends "next check at", that time is a probe time and no usage reset.
+reason ends "next check at", that time is when the broker checks again, and no usage reset.
 [Proof before a pull request](rule-guides/proof-before-pull-request.md) says
 what a session does next.
 
