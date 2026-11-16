@@ -403,7 +403,7 @@ def closing_reply_findings(
         all_findings.append(_promise_finding(promise_phrase))
     item_list = None if replay.has_turn_question_tool else open_item_list(reply_text, replay.turn_prompt_text)
     if item_list is not None:
-        all_findings.append(_list_finding(item_list.lead, item_list.count))
+        all_findings.append(_list_finding(item_list.lead, item_list.item_count))
     return all_findings
 
 

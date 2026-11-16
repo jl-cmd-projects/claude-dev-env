@@ -125,11 +125,11 @@ class OpenItemList(NamedTuple):
     """A run of open items in a closing reply: the lead line above it, and how many items it holds."""
 
     lead: str
-    count: int
+    item_count: int
 
 
 def _prompt_asks_for(
-    prompt_text: str, ask_pattern: re.Pattern[str], clause_pattern: re.Pattern[str] | None = None
+    prompt_text: str, ask_pattern: re.Pattern[str], clause_pattern: re.Pattern[str] | None
 ) -> bool:
     stripped_text = prompt_without_reminders(prompt_text)
     if stripped_text.startswith((*ALL_HARNESS_ENVELOPE_MARKERS, *ALL_ASK_ONLY_ENVELOPE_MARKERS)):
@@ -146,7 +146,7 @@ def _prompt_asks_for(
 
 
 def _prompt_asks_for_report(prompt_text: str) -> bool:
-    return _prompt_asks_for(prompt_text, REPORT_VERB_ASK_PATTERN) or _prompt_asks_for(
+    return _prompt_asks_for(prompt_text, REPORT_VERB_ASK_PATTERN, None) or _prompt_asks_for(
         prompt_text, REPORT_NOUN_ASK_PATTERN, LATER_TIME_PATTERN
     )
 
@@ -160,7 +160,7 @@ def prompt_asks_for_list(prompt_text: str) -> bool:
         "don't list them, just fix them"       -> False
         "Fix the build"                        -> False
     """
-    return _prompt_asks_for(prompt_text, LIST_ASK_PATTERN)
+    return _prompt_asks_for(prompt_text, LIST_ASK_PATTERN, None)
 
 
 def _sentence_before(paragraph_text: str, match_start: int) -> str:
