@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.122.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.121.0...claude-dev-env-v8.122.0) (2026-11-16)
+
+
+### Features
+
+* **hooks:** refuse a sent file or page that asks the user a question ([#2386](https://github.com/jl-cmd-projects/claude-dev-env/issues/2386)) ([e1d55b2](https://github.com/jl-cmd-projects/claude-dev-env/commit/e1d55b254489306da8f09d3b979543c7b71d8795))
+
 ## [8.121.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.120.0...claude-dev-env-v8.121.0) (2026-11-16)
 
 
