@@ -21,6 +21,8 @@ Check size after the four tests pass. Count changed lines and leave out generate
 - Over 400 lines, look for another seam that passes the four tests.
 - Over 1,000 lines, split, or state in a "Why one pull request" section why the slice stays whole.
 
+The pull request lifecycle gate refuses a create over 1,000 changed lines against its base, with generated files and lockfiles left out. Create each stacked level with `--base` set to the branch below it, so each counts only its own lines. A body with a `Why one pull request` heading and the reason under it passes.
+
 A cut that meets the bar and fails the tests is still cosmetic. Sources: [Google small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html) and [SmartBear code review practices](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/).
 
 ## Level order

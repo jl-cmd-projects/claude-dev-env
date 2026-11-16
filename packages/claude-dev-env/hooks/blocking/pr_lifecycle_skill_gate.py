@@ -94,6 +94,7 @@ from blocking.gate_run_reads import (
 from hooks_constants.gate_fault import gate_fault_reason
 from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
 from blocking import pull_request_proof as proof
+from blocking.oversized_change import oversized_pull_request_reason
 from hooks_constants.pull_request_proof_constants import MISSING_BUILD_EVAL_REASON
 from transcript_skill_scan import (
     invokes_skill_with_argument,
@@ -385,6 +386,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
     ::
 
         pr-lifecycle skill not loaded                     -> DENY_REASON
+        new pull request over 1,000 lines, no 'Why one pull request' -> OVERSIZED_PULL_REQUEST_REASON
         new pull request with no proof section            -> MISSING_PROOF_REASON
         proof, or a body edit, says not run               -> UNPROVEN_PROOF_REASON
         proof, or a body edit, holds a merge word         -> DEFERRED_PROOF_REASON
@@ -436,7 +438,8 @@ def _first_broken_rule_reason(all_fields: dict[str, object], run: GateRun) -> st
     if _is_skill_unloaded(all_fields):
         return DENY_REASON + _scan_note(run, cut_scan_count_before)
     return (
-        proof.missing_proof_reason(all_fields)
+        oversized_pull_request_reason(all_fields)
+        or proof.missing_proof_reason(all_fields)
         or proof.edit_proof_reason(all_fields)
         or proof.missing_existing_work_reason(all_fields)
         or proof.missing_flowchart_reason(all_fields)
