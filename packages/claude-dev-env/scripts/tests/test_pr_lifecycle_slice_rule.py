@@ -91,9 +91,14 @@ def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
     fourth_test_position = reference_text.index("4. One sentence states its purpose")
     size_bar_position = reference_text.index("## Size bar")
     assert fourth_test_position < size_bar_position
-    size_bar = reference_text[size_bar_position:].split("\n## ", 1)[0]
+    retro_split_position = reference_text.index(
+        "## Split a pull request that is already open"
+    )
+    assert size_bar_position < retro_split_position
+    size_bar = reference_text[size_bar_position:retro_split_position]
     all_required_phrases = (
-        "Apply the bar to each pull request, and to each slice that passes the four tests.",
+        "Apply the bar to each pull request, including each stack level.",
+        "A renamed or moved file counts only its edited lines.",
         "Every cut still passes the four tests.",
         "Count added plus deleted lines, tests included, without lockfiles",
         "without files marked `linguist-generated`",
