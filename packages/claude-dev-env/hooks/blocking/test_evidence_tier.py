@@ -156,6 +156,27 @@ def test_first_agent_surface_path_should_name_the_first_agent_surface() -> None:
     assert first_agent_surface_path(all_paths) == "rules/proof.md"
 
 
+@pytest.mark.parametrize(
+    "agent_surface_path",
+    [
+        "pkg/claude.md",
+        "pkg/Agents.md",
+        "Skills/x/skill.md",
+        "SKILL.MD",
+        ".claude/Settings.json",
+        "Rules/proof.md",
+        ".mcp.json",
+        "CLAUDE.local.md",
+        ".github/copilot-instructions.md",
+    ],
+)
+def test_first_agent_surface_path_should_match_names_in_any_case(agent_surface_path: str) -> None:
+    assert first_agent_surface_path(["src/gate.py", agent_surface_path]) == agent_surface_path
+    assert choose_tier([agent_surface_path], DECLARED_GLOBS) == TierChoice(
+        TierCause.LIVE_SURFACE, agent_surface_path
+    )
+
+
 def test_first_agent_surface_path_should_ignore_workflows_pages_and_declared_surfaces() -> None:
     all_paths = [
         "src/gate.py",

@@ -158,7 +158,7 @@ def declared_live_surface_globs(surfaces_file_text: str) -> tuple[str, ...] | No
 
 
 def _is_agent_surface(repository_path: str) -> bool:
-    path = PurePosixPath(repository_path)
+    path = PurePosixPath(repository_path.lower())
     if path.name in ALL_AGENT_SURFACE_FILE_NAMES:
         return True
     if any(
@@ -254,9 +254,11 @@ def first_agent_surface_path(all_changed_paths: Sequence[str]) -> str | None:
         ["src/a.py", "rules/x.md", "SKILL.md"]         -> "rules/x.md"
         ["src/a.py", ".github/workflows/ci.yml"]        -> None
 
-    An agent surface is a SKILL.md, AGENTS.md, CLAUDE.md, hooks.json or
-    settings*.json file, or a file under a skills, rules, agents, commands,
-    system-prompts, system_prompts or output-styles folder.
+    An agent surface is a SKILL.md, AGENTS.md, CLAUDE.md, CLAUDE.local.md,
+    copilot-instructions.md, hooks.json, .mcp.json or settings*.json file, or
+    a file under a skills, rules, agents, commands, system-prompts,
+    system_prompts or output-styles folder. Names match in any case, so
+    Skills/x/skill.md counts.
 
     Args:
         all_changed_paths: Every path the pull request changes.

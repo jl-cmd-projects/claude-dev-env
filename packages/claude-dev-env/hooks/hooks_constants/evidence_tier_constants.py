@@ -23,7 +23,17 @@ ALL_TEST_FILE_PREFIXES = ("test_",)
 ALL_TEST_FILE_SUFFIXES = ("_test.py",)
 ALL_TEST_FILE_INFIXES = (".test.", ".spec.")
 ALL_TEST_FILE_NAMES = frozenset({"conftest.py"})
-ALL_AGENT_SURFACE_FILE_NAMES = frozenset({"SKILL.md", "AGENTS.md", "CLAUDE.md", "hooks.json"})
+ALL_AGENT_SURFACE_FILE_NAMES = frozenset(
+    {
+        "skill.md",
+        "agents.md",
+        "claude.md",
+        "claude.local.md",
+        "copilot-instructions.md",
+        "hooks.json",
+        ".mcp.json",
+    }
+)
 ALL_AGENT_SURFACE_FILE_NAME_GLOBS = ("settings*.json",)
 ALL_AGENT_SURFACE_DIRECTORY_NAMES = frozenset(
     {"skills", "rules", "agents", "commands", "system-prompts", "system_prompts", "output-styles"}

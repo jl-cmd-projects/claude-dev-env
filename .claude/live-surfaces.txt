@@ -1,7 +1,8 @@
 # Live surfaces for the pull request proof gate, one glob per line.
 # The built-in list already covers skills/, rules/, agents/, commands/,
-# system-prompts/, output-styles/, SKILL.md, AGENTS.md, CLAUDE.md, hooks.json,
-# settings*.json, .github/workflows/ and page files.
+# system-prompts/, output-styles/, SKILL.md, AGENTS.md, CLAUDE.md,
+# CLAUDE.local.md, copilot-instructions.md, hooks.json, .mcp.json,
+# settings*.json in any case, .github/workflows/ and page files.
 
 # Rule text agents read as instructions outside rules/.
 packages/claude-dev-env/docs/rule-guides/

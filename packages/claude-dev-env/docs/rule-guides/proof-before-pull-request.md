@@ -21,7 +21,7 @@ Proof first, then the PR. This binds every agent, script, CI job, and automation
 Before you open a pull request, find its tier, then give the proof that tier asks for.
 
 A live surface is a path whose behavior depends on something a test process cannot reproduce:
-- An agent surface: a `SKILL.md`, `AGENTS.md`, `CLAUDE.md`, `hooks.json` or `settings*.json` file, or a file under a `skills`, `rules`, `agents`, `commands`, `system-prompts` or `output-styles` folder.
+- An agent surface: a `SKILL.md`, `AGENTS.md`, `CLAUDE.md`, `CLAUDE.local.md`, `copilot-instructions.md`, `hooks.json`, `.mcp.json` or `settings*.json` file, or a file under a `skills`, `rules`, `agents`, `commands`, `system-prompts` or `output-styles` folder. Names match in any case, so `Skills/x/skill.md` counts.
 - A workflow file under `.github/workflows/`.
 - A page people see: `.html`, `.htm`, `.css`, `.scss`, `.tsx`, `.jsx`, `.vue` or `.svelte`.
 - The `.claude/live-surfaces.txt` file itself, and each path a glob in the base branch's copy of that file names.

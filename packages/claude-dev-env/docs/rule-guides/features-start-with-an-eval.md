@@ -16,7 +16,7 @@ An eval is for a change to agent behavior: a feature that changes a file agents 
 
 A feature is behavior a user or a caller can see that did not exist before, or that now works differently: a command, a flag, a page, an endpoint, a hook, a rule, a skill, a report, or an integration. A bug fix that restores intended behavior, a rename, a refactor, a docs edit, a question, a test run, and speed work that leaves the output the same are not features.
 
-An agent surface is a file agents read as instructions or load as settings: a `SKILL.md`, `AGENTS.md`, `CLAUDE.md`, `hooks.json` or `settings*.json` file, or a file under a `skills`, `rules`, `agents`, `commands`, `system-prompts` or `output-styles` folder. A feature that changes one owes an eval. Another feature owes its tests.
+An agent surface is a file agents read as instructions or load as settings: a `SKILL.md`, `AGENTS.md`, `CLAUDE.md`, `CLAUDE.local.md`, `copilot-instructions.md`, `hooks.json`, `.mcp.json` or `settings*.json` file, or a file under a `skills`, `rules`, `agents`, `commands`, `system-prompts` or `output-styles` folder. Names match in any case, so `Skills/x/skill.md` counts. A feature that changes one owes an eval. Another feature owes its tests.
 
 An eval is three things for one feature: a set of input cases with their expected results, a runner that drives the feature through the entry point its users call, and a grader that scores each output. A test suite counts when it does all three for that feature.
 
