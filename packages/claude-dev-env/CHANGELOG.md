@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.126.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.2...claude-dev-env-v8.126.3) (2026-11-16)
+
+
+### Bug Fixes
+
+* **hooks:** give every Bash pre-tool hook 30 seconds ([#2403](https://github.com/jl-cmd-projects/claude-dev-env/issues/2403)) ([41e8a6f](https://github.com/jl-cmd-projects/claude-dev-env/commit/41e8a6f8320627cbaf18d7a26f25741523aae2c4))
+
 ## [8.126.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.1...claude-dev-env-v8.126.2) (2026-11-16)
 
 
