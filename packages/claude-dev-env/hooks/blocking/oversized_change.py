@@ -119,7 +119,7 @@ def local_measured_line_count(
         base names a branch the clone does not hold            -> None
 
     The head is the checked-out branch, or the named branch or its origin copy.
-    The base is ``origin/<base>`` or ``<base>``, else the first of origin/HEAD,
+    The base is ``origin/<base>``, else the first of origin/HEAD,
     origin/main and main. A rename counts only its edited lines.
 
     Args:

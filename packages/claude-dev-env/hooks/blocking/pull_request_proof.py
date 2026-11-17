@@ -724,8 +724,8 @@ def visible_changed_files(
     """Return the changed files people see on the head branch, or None when git cannot tell.
 
     The head is the checked-out branch, or the named branch or its origin copy
-    when the checkout holds another branch. The base is origin/<base> or <base>
-    when the create names one, so a stack level counts only its own files.
+    when the checkout holds another branch. The base is origin/<base> when the
+    create names one, so a stack level counts only its own files.
     Otherwise it is the first of origin/HEAD, origin/main and main that git can
     reach::
 
@@ -777,7 +777,7 @@ def _read_merge_base_and_head(
     if head_reference is None:
         return None
     all_base_references = (
-        (REMOTE_BRANCH_PREFIX + base_branch, base_branch) if base_branch else ALL_DEFAULT_BRANCH_REFERENCES
+        (REMOTE_BRANCH_PREFIX + base_branch,) if base_branch else ALL_DEFAULT_BRANCH_REFERENCES
     )
     merge_base = _first_merge_base(working_directory, head_reference, all_base_references)
     return None if merge_base is None else (merge_base, head_reference)

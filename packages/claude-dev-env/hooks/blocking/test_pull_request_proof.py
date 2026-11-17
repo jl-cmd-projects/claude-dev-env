@@ -1827,3 +1827,11 @@ def test_should_list_only_the_workflows_a_stack_level_adds_over_its_base(tmp_pat
     assert gate.added_workflow_files(str(clone_path), "feature", "parent") == []
     assert gate.added_workflow_files(str(clone_path), "feature") == [f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"]
     assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)
+
+
+def test_should_leave_a_base_that_exists_only_locally_to_the_remote_compare(tmp_path: Path) -> None:
+    clone_path = _stacked_repository(tmp_path, "page.html")
+    subprocess.run(["git", "-C", str(clone_path), "branch", "local-only", "feature"], check=True)
+
+    assert gate.visible_changed_files(str(clone_path), "feature", "local-only") is None
+    assert gate.added_workflow_files(str(clone_path), "feature", "local-only") is None
