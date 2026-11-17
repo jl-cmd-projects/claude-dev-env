@@ -262,7 +262,7 @@ Automated enforcement that runs on Claude Code events. The installer detects you
 | Bash | `destructive-command-blocker` | Blocks rm -rf, git reset --hard, and other destructive commands |
 | Bash | `block-main-commit` | Blocks direct commits to main/master branch |
 | Bash | `test-preflight-check` | Validates server health and database before test runs |
-| Bash\|PowerShell\|GitHub PR tools | `pr_lifecycle_skill_gate` | Requires the pull request lifecycle skill before governed actions, and denies a second open `Follow-up to #N` pull request for one parent |
+| Bash\|PowerShell\|GitHub PR tools | `pr_lifecycle_skill_gate` | Requires the pull request lifecycle skill before governed actions, denies a new pull request over 1,000 changed lines unless its body says why it stays one, and denies a second open `Follow-up to #N` pull request for one parent |
 | Bash\|PowerShell\|mcp__\*__resolve_review_thread\|mcp__\*__pull_request_review_write | `resolve_thread_reply_gate` | Denies a review thread resolve, through either MCP resolve route, a shell resolveReviewThread mutation, or a `ccr/comments/<id>/resolve` call, until a reply on that same thread posted after the last user prompt and the thread's last resolve |
 | Task\|Agent | `parallel-task-blocker` | Limits concurrent Task/Agent delegations |
 | AskUserQuestion | `attention-needed-notify` | Desktop notification when Claude needs your input |

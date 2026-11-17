@@ -94,6 +94,7 @@ from blocking.gate_run_reads import (
 from hooks_constants.gate_fault import gate_fault_reason
 from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
 from blocking import pull_request_proof as proof
+from blocking.oversized_change import oversized_pull_request_reason
 from hooks_constants.pull_request_proof_constants import MISSING_BUILD_EVAL_REASON
 from transcript_skill_scan import (
     invokes_skill_with_argument,
@@ -394,6 +395,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         feature pull request with no eval section         -> MISSING_EVAL_SECTION_REASON
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
         feature pull request, no /claude-api build-eval   -> MISSING_BUILD_EVAL_REASON
+        new pull request over 1,000 lines, no 'Why one pull request' -> OVERSIZED_PULL_REQUEST_REASON
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
         follow-up read of open pull requests unanswered   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         follow-up with no repository, origin unread       -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
@@ -443,6 +445,7 @@ def _first_broken_rule_reason(all_fields: dict[str, object], run: GateRun) -> st
         or proof.missing_eval_section_reason(all_fields)
         or proof.missing_look_reason(all_fields)
         or _missing_build_eval_reason(all_fields, run)
+        or oversized_pull_request_reason(all_fields)
         or duplicate_followup_reason(all_fields)
     )
 
