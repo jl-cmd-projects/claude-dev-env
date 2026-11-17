@@ -196,6 +196,7 @@ def test_should_pass_a_card_that_asks_for_a_preference_an_approval_or_a_watched_
         ("27 November only", True),
         ("Start 2026-11-16", True),
         ("11/16 to 11/30", True),
+        ("Ship 11/05", True),
         ("A 7-day window", True),
         ("30 min timeout", True),
         ("24h window", True),
