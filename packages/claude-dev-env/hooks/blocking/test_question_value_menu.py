@@ -191,6 +191,8 @@ def test_should_pass_a_card_that_asks_for_a_preference_an_approval_or_a_watched_
         ("40 percent off", True),
         ("$1.99 floor", True),
         ("Nov 27 to Nov 30", True),
+        ("Fri Nov 27th to Mon Nov 30th", True),
+        ("Start 2026-11-27T10:00", True),
         ("27 November only", True),
         ("Start 2026-11-16", True),
         ("11/16 to 11/30", True),

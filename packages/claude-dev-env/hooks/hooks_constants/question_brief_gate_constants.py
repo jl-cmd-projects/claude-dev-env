@@ -55,9 +55,9 @@ MONTH_NAME_AFTER_DAY_PATTERN_TEXT = (
     + ")"
 )
 DATE_PATTERN = re.compile(
-    rf"\b{MONTH_NAME_PATTERN_TEXT}\.?\s+\d{{1,2}}\b"
+    rf"\b{MONTH_NAME_PATTERN_TEXT}\.?\s+\d{{1,2}}(?:st|nd|rd|th)?\b"
     rf"|\b\d{{1,2}}(?:st|nd|rd|th)?\s+{MONTH_NAME_AFTER_DAY_PATTERN_TEXT}\b"
-    r"|\b\d{4}-\d{2}-\d{2}\b"
+    r"|\b\d{4}-\d{2}-\d{2}(?!\d)"
     r"|\b(?:1[0-2]|0?[1-9])/(?:[12]\d|3[01])\b",
     re.IGNORECASE,
 )

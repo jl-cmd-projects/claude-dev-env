@@ -17,8 +17,9 @@ options offer such a value::
 An option offers a value when its label holds a percent ("30%", "40
 percent"), a dollar, euro, or pound amount, a calendar date, or a duration
 written with digits ("7 days", "7-day", "30 min", "24h"), or when its
-description holds a calendar date. A calendar date is "Nov 27", "27
-November", "2026-11-27", or "11/27" with a two-digit day, so "1/3" and
+description holds a calendar date. A calendar date is "Nov 27", "Nov
+27th", "27 November", "2026-11-27" (a time may follow), or "11/27" with a
+two-digit day, so "1/3" and
 "24/7" are no date, and "3 may" is no date. A percent, price, or duration in
 a description states an option's effect, so it does not count. A bare count
 such as "5 themes" or "PR 5384" is no value. A multi-select question picks
