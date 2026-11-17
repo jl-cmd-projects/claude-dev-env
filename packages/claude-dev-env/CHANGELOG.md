@@ -1,5 +1,19 @@
 # Changelog
 
+## [8.126.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.5...claude-dev-env-v8.126.6) (2026-11-16)
+
+
+### Bug Fixes
+
+* **hooks:** tell Claude sessions to run /code-review in the owned PR review loop ([#2410](https://github.com/jl-cmd-projects/claude-dev-env/issues/2410)) ([23868b8](https://github.com/jl-cmd-projects/claude-dev-env/commit/23868b89d0b74cb20ca2ac201e4d51e3b383672d))
+
+## [8.126.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.4...claude-dev-env-v8.126.5) (2026-11-16)
+
+
+### Documentation
+
+* **pr-lifecycle:** set a size bar for each pull request ([#2408](https://github.com/jl-cmd-projects/claude-dev-env/issues/2408)) ([ba3bf24](https://github.com/jl-cmd-projects/claude-dev-env/commit/ba3bf2407c79d428cd8f0fdbea8bd2dd8dfa96c1))
+
 ## [8.126.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.3...claude-dev-env-v8.126.4) (2026-11-16)
 
 
