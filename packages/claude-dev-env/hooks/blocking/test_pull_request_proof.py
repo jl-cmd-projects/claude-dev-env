@@ -32,7 +32,6 @@ from hooks_constants.pull_request_proof_constants import (
 
 UNREAD_LIVE_TIER = gate.tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
 UNREAD_EVAL_NEED = gate.eval_owed_sentence(None)
-NAMED_EDIT_LIVE_TIER = gate.tier_sentence(TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None))
 PROVEN_BODY = "## Summary\nAdds a gate.\n\n## Proof in practice\nRan `python run.py`.\n> denied\n"
 UNPROVEN_BODY = "## Summary\nAdds a gate.\n\n## Verification\nUnit tests pass.\n"
 SEARCHED_BODY = (
@@ -1650,17 +1649,17 @@ def test_shell_body_edit_with_an_unrun_proof_line_should_be_denied(command: str,
 
 def test_body_edit_that_leaves_only_a_test_run_in_the_proof_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest -q`.\n"
-    assert gate.edit_proof_reason(_mcp_update(body)) == TEST_ONLY_PROOF_REASON + NAMED_EDIT_LIVE_TIER
+    assert gate.edit_proof_reason(_mcp_update(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_body_edit_that_leaves_an_empty_proof_heading_should_be_denied() -> None:
     body = "## Summary\nx\n\n## Proof in practice\n\n## Notes\nok\n"
-    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON + NAMED_EDIT_LIVE_TIER
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_body_edit_that_leaves_a_proof_section_with_no_command_should_be_denied() -> None:
     body = "## Proof in practice\nIt works.\n"
-    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON + NAMED_EDIT_LIVE_TIER
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_gh_command_with_other_words_should_not_read_as_an_edit(tmp_path: Path) -> None:

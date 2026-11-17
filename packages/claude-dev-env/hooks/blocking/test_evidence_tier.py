@@ -15,7 +15,7 @@ from blocking.evidence_tier import (
     TierChoice,
     choose_tier,
     declared_live_surface_globs,
-    first_agent_surface_path,
+    first_eval_surface_path,
     is_docs_or_test_path,
 )
 from blocking import evidence_tier
@@ -193,14 +193,14 @@ def test_choose_tier_should_not_stretch_a_plain_declared_line_over_a_longer_name
     )
 
 
-def test_first_agent_surface_path_should_name_the_first_agent_surface() -> None:
+def test_first_eval_surface_path_should_name_the_first_agent_surface() -> None:
     all_paths = [
         "src/gate.py",
         "packages/app/docs/rule-guides/proof.md",
         "rules/proof.md",
         "SKILL.md",
     ]
-    assert first_agent_surface_path(all_paths) == "rules/proof.md"
+    assert first_eval_surface_path(all_paths, ()) == "rules/proof.md"
 
 
 @pytest.mark.parametrize(
@@ -217,18 +217,38 @@ def test_first_agent_surface_path_should_name_the_first_agent_surface() -> None:
         ".github/copilot-instructions.md",
     ],
 )
-def test_first_agent_surface_path_should_match_names_in_any_case(agent_surface_path: str) -> None:
-    assert first_agent_surface_path(["src/gate.py", agent_surface_path]) == agent_surface_path
+def test_first_eval_surface_path_should_match_agent_surface_names_in_any_case(agent_surface_path: str) -> None:
+    assert first_eval_surface_path(["src/gate.py", agent_surface_path], ()) == agent_surface_path
     assert choose_tier([agent_surface_path], DECLARED_GLOBS) == TierChoice(
         TierCause.LIVE_SURFACE, agent_surface_path
     )
 
 
-def test_first_agent_surface_path_should_ignore_workflows_pages_and_declared_surfaces() -> None:
+@pytest.mark.parametrize(
+    "prose_path",
+    ["packages/app/docs/rule-guides/proof.md", "packages/app/docs/rule-guides/a.mdx", "packages/app/docs/rule-guides/a.txt"],
+)
+def test_first_eval_surface_path_should_name_prose_a_declared_glob_names(prose_path: str) -> None:
+    assert first_eval_surface_path(["src/gate.py", prose_path], DECLARED_GLOBS) == prose_path
+
+
+def test_first_eval_surface_path_should_name_this_repository_rule_guide() -> None:
+    assert (
+        first_eval_surface_path(
+            ["docs/rule-guides/a.md"], declared_live_surface_globs("docs/rule-guides/\n")
+        )
+        == "docs/rule-guides/a.md"
+    )
+
+
+def test_first_eval_surface_path_should_ignore_workflows_pages_and_declared_code() -> None:
     all_paths = [
         "src/gate.py",
         ".github/workflows/ci.yml",
         "web/page.html",
         "portal/seller_client.py",
+        "packages/app/docs/rule-guides/test_guide.md",
+        "packages/app/docs/rule-guides/requirements.txt",
+        "docs/other.md",
     ]
-    assert first_agent_surface_path(all_paths) is None
+    assert first_eval_surface_path(all_paths, DECLARED_GLOBS + ("packages/app/docs/rule-guides/",)) is None

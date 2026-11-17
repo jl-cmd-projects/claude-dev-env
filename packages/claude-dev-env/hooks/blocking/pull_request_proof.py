@@ -3,8 +3,8 @@
 The changed paths give an evidence tier (see ``evidence_tier``). A none-tier
 create needs no proof section, a checked-tier proof names a command, and a
 live-tier proof names a run beyond a test command. A feature owes an 'Eval'
-section only when it changes a file agents read or load, or when its file list
-is unread.
+section only when it changes a file agents read or load, a prose file a
+declared live-surface glob names, or when its file list is unread.
 
 Run as a script, it prints the sections a checkout's changes owe::
 
@@ -36,7 +36,7 @@ from blocking.evidence_tier import (
     TierChoice,
     choose_tier,
     declared_live_surface_globs,
-    first_agent_surface_path,
+    first_eval_surface_path,
 )
 from blocking.followup_pr_dedupe import (
     all_create_argument_lists,
@@ -52,14 +52,9 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import UPDATE_PULL_REQUES
 from hooks_constants.pull_request_proof_constants import (
     ADDED_FILE_NAMES_QUERY,
     AGENT_SURFACE_EVAL_SENTENCE,
-    ALL_EDIT_NUMBER_FLAGS,
-    ALL_GH_EDIT_BOOLEAN_FLAGS,
     CODE_WITHOUT_LIVE_SURFACE_TIER_SENTENCE,
     CONTENTS_ENDPOINT_TEMPLATE,
     CONTENTS_QUERY,
-    FLAG_ASSIGNMENT_MARKER,
-    END_OF_OPTIONS_MARKER,
-    FLAG_PREFIX,
     LIVE_SURFACE_TIER_SENTENCE,
     DECLARED_SURFACES_FILE_ENCODING,
     MISSING_CHECKED_PROOF_REASON,
@@ -69,7 +64,6 @@ from hooks_constants.pull_request_proof_constants import (
     ONLY_DOCS_AND_TESTS_TIER_SENTENCE,
     UNREAD_FILE_LIST_EVAL_SENTENCE,
     UNREAD_FILE_LIST_TIER_SENTENCE,
-    NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE,
     SHARED_COMMAND_EVAL_SENTENCE,
     SHARED_COMMAND_TIER_SENTENCE,
     GIT_URL_SUFFIX,
@@ -373,43 +367,21 @@ def eval_owed_sentence(agent_surface_path: str | None) -> str:
     return AGENT_SURFACE_EVAL_SENTENCE.format(path=agent_surface_path)
 
 
-def _eval_need_sentence(path_read: ChangedPathRead | None) -> str | None:
+def _eval_need_sentence(
+    working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
+) -> str | None:
+    path_read = _changed_path_read(working_directory, repository, base_branch, head_branch)
     if path_read is None or not path_read.all_paths:
         return eval_owed_sentence(None)
-    agent_surface_path = first_agent_surface_path(path_read.all_paths)
-    return None if agent_surface_path is None else eval_owed_sentence(agent_surface_path)
+    all_declared_globs = _declared_globs(path_read, working_directory, repository, base_branch, head_branch)
+    eval_surface_path = first_eval_surface_path(path_read.all_paths, all_declared_globs or ())
+    return None if eval_surface_path is None else eval_owed_sentence(eval_surface_path)
 
 
 def _create_eval_need_sentence(create_call: CreateCall, working_directory: str) -> str | None:
     if create_call.shares_its_command:
         return SHARED_COMMAND_EVAL_SENTENCE
-    return _eval_need_sentence(
-        _changed_path_read(working_directory, create_call.repository, create_call.base, create_call.head)
-    )
-
-
-def eval_need_sentence(all_payload_fields: Mapping[str, object]) -> str | None:
-    """Return why a feature create in the payload owes an eval, or None when none owes one.
-
-    ::
-
-        title "feat: x", branch changes skills/a/SKILL.md -> eval_owed_sentence("skills/a/SKILL.md")
-        title "feat: x", branch changes only src/a.py     -> None
-        title "feat: x", changed file list unread         -> eval_owed_sentence(None)
-        title "feat: x", git add && create                -> SHARED_COMMAND_EVAL_SENTENCE
-        title "fix: y", any branch                        -> None
-
-    Args:
-        all_payload_fields: The parsed PreToolUse input.
-    """
-    working_directory = str(all_payload_fields.get("cwd") or "")
-    for each_call in _create_calls(all_payload_fields):
-        if not _is_feature_title(each_call.title):
-            continue
-        need_sentence = _create_eval_need_sentence(each_call, working_directory)
-        if need_sentence is not None:
-            return need_sentence
-    return None
+    return _eval_need_sentence(working_directory, create_call.repository, create_call.base, create_call.head)
 
 
 def missing_eval_section_reason(all_payload_fields: Mapping[str, object]) -> str | None:
@@ -419,6 +391,8 @@ def missing_eval_section_reason(all_payload_fields: Mapping[str, object]) -> str
 
         title "feat: x", body has the section                    -> None
         title "feat: x", changes skills/a/SKILL.md, no section   -> MISSING_EVAL_SECTION_REASON + why
+        title "feat: x", changes declared docs/guides/a.md       -> MISSING_EVAL_SECTION_REASON + why
+        title "feat: x", changes declared portal/client.py       -> None
         title "feat: x", changed file list unread, no section    -> MISSING_EVAL_SECTION_REASON + why
         title "feat: x", create joined to another command        -> MISSING_EVAL_SECTION_REASON + why
         title "feat: x", changes only src/a.py, no section       -> None
@@ -426,8 +400,9 @@ def missing_eval_section_reason(all_payload_fields: Mapping[str, object]) -> str
         title "feat: x", gh pr create --fill                     -> None
 
     The section is an 'Eval' heading whose text names at least one command in
-    backticks. A feature owes it when a changed path is an agent surface, as
-    first_agent_surface_path names one, when the changed file list cannot be
+    backticks. A feature owes it when a changed path is an agent surface or a
+    prose file a declared glob names, as first_eval_surface_path reads one,
+    when the changed file list cannot be
     read, or when the shell command runs more than the create call. A body with
     the section reads no file list. A create command whose
     body this gate cannot read passes here, because missing_proof_reason denies
@@ -619,7 +594,6 @@ def tier_sentence(tier_choice: TierChoice) -> str:
         NO_DECLARED_SURFACES, "src/a.py"       -> NO_DECLARED_SURFACES_TIER_SENTENCE naming the path
         UNREAD_FILE_LIST, None                 -> UNREAD_FILE_LIST_TIER_SENTENCE
         SHARED_COMMAND, None                   -> SHARED_COMMAND_TIER_SENTENCE
-        NAMED_PULL_REQUEST_EDIT, None          -> NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE
         CODE_WITHOUT_LIVE_SURFACE, "src/a.py"  -> CODE_WITHOUT_LIVE_SURFACE_TIER_SENTENCE naming the path
         ONLY_DOCS_AND_TESTS, None              -> ONLY_DOCS_AND_TESTS_TIER_SENTENCE
 
@@ -631,7 +605,6 @@ def tier_sentence(tier_choice: TierChoice) -> str:
         TierCause.NO_DECLARED_SURFACES: NO_DECLARED_SURFACES_TIER_SENTENCE,
         TierCause.UNREAD_FILE_LIST: UNREAD_FILE_LIST_TIER_SENTENCE,
         TierCause.SHARED_COMMAND: SHARED_COMMAND_TIER_SENTENCE,
-        TierCause.NAMED_PULL_REQUEST_EDIT: NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE,
         TierCause.CODE_WITHOUT_LIVE_SURFACE: CODE_WITHOUT_LIVE_SURFACE_TIER_SENTENCE,
         TierCause.ONLY_DOCS_AND_TESTS: ONLY_DOCS_AND_TESTS_TIER_SENTENCE,
     }
@@ -736,18 +709,15 @@ def _proof_section_reason(
 
 
 class EditCall(NamedTuple):
-    """One pull request body edit, with what tells whose pull request it edits.
+    """One pull request body edit, with the checkout and repository it runs against.
 
-    ``names_pull_request`` is True when the edit names a pull request by number,
-    URL or branch, or comes from the update tool, so the checkout cannot be
-    taken as that pull request's head. ``shares_its_command`` is True when the
-    shell command runs more than this one call.
+    ``shares_its_command`` is True when the shell command runs more than this
+    one call.
     """
 
     body: str
     working_directory: str
     repository: str | None
-    names_pull_request: bool
     shares_its_command: bool = False
 
 
@@ -760,16 +730,16 @@ def edit_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
         gh pr edit --body-file, proof prose says "after the merge"     -> DEFERRED_PROOF_REASON
         update_pull_request, proof whose only command is `pytest`      -> TEST_ONLY_PROOF_REASON + tier
         gh pr edit --body-file from a docs-only head checkout, `pytest` -> None
-        gh pr edit 7 --body-file, proof whose only command is `pytest` -> TEST_ONLY_PROOF_REASON + tier
+        gh pr edit 7 --body-file from that checkout, `pytest`           -> None
         update_pull_request, body with no proof section                -> None
         update_pull_request with no body, create calls, any tool       -> None
 
     An edit with no proof heading passes. A proof heading that is there meets
-    the rules a new pull request of the same tier meets. The tier comes from
-    the checkout only for a gh pr edit that names no pull request, so it edits
-    the pull request of the checked-out branch, run from a checkout of the
-    repository it names, with a readable file list. Every other edit gets the
-    live tier. The edit comes through the
+    the rules a new pull request of the same tier meets. A shell edit takes
+    its tier from the checkout it runs in, with or without a pull request
+    number, when that checkout is of the repository it names and its file
+    list is readable. An update tool edit, or one with no readable file list,
+    gets the live tier. The edit comes through the
     update_pull_request tool, gh pr edit, or the pull_request.py edit script.
     A body this gate cannot read passes unread: an inline multi-line --body,
     --body-file - from standard input, a $(...) body, a --body-file path that
@@ -791,26 +761,9 @@ def edit_proof_reason(all_payload_fields: Mapping[str, object]) -> str | None:
 def _edit_tier_choice(edit_call: EditCall) -> TierChoice:
     if edit_call.shares_its_command:
         return TierChoice(TierCause.SHARED_COMMAND, None)
-    if edit_call.names_pull_request:
-        return TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
     if not edit_call.working_directory:
         return choose_tier(None, None)
     return _tier_choice(edit_call.working_directory, edit_call.repository, None, None)
-
-
-def _edit_names_a_pull_request(all_edit_arguments: list[str]) -> bool:
-    is_flag_value = False
-    for each_position, each_argument in enumerate(all_edit_arguments):
-        word = unquoted_token(each_argument)
-        if is_flag_value:
-            is_flag_value = False
-            continue
-        if word == END_OF_OPTIONS_MARKER:
-            return each_position + 1 < len(all_edit_arguments)
-        if word.partition(FLAG_ASSIGNMENT_MARKER)[0] in ALL_EDIT_NUMBER_FLAGS or not word.startswith(FLAG_PREFIX):
-            return True
-        is_flag_value = FLAG_ASSIGNMENT_MARKER not in word and word not in ALL_GH_EDIT_BOOLEAN_FLAGS
-    return False
 
 
 def _edit_calls(all_payload_fields: Mapping[str, object]) -> list[EditCall]:
@@ -818,7 +771,7 @@ def _edit_calls(all_payload_fields: Mapping[str, object]) -> list[EditCall]:
     tool_input = all_payload_fields.get("tool_input")
     if isinstance(tool_name, str) and tool_name.endswith(UPDATE_PULL_REQUEST_TOOL_SUFFIX):
         body = tool_input.get("body") if isinstance(tool_input, dict) else None
-        return [EditCall(body, "", None, True)] if isinstance(body, str) else []
+        return [EditCall(body, "", None)] if isinstance(body, str) else []
     command = shell_command(all_payload_fields)
     if command is None:
         return []
@@ -831,15 +784,7 @@ def _edit_calls(all_payload_fields: Mapping[str, object]) -> list[EditCall]:
         if body is None:
             continue
         repository = _flag_value(each_arguments, ALL_REPOSITORY_FLAGS, REPOSITORY_FLAG_ASSIGNMENT_PREFIX) or None
-        all_edit_calls.append(
-            EditCall(
-                body,
-                working_directory,
-                repository,
-                _edit_names_a_pull_request(each_arguments),
-                shares_its_command,
-            )
-        )
+        all_edit_calls.append(EditCall(body, working_directory, repository, shares_its_command))
     return all_edit_calls
 
 
@@ -1560,10 +1505,10 @@ def checkout_sections(working_directory: str) -> dict[str, bool]:
     """
     with gate_run():
         tier_choice = _tier_choice(working_directory, None, None, None)
-        path_read = _changed_path_read(working_directory, None, None, None)
+        eval_need = _eval_need_sentence(working_directory, None, None, None)
     return {
         NEEDS_PROOF_SECTION_KEY: tier_choice.tier is not EvidenceTier.NONE,
-        NEEDS_EVAL_SECTION_KEY: _eval_need_sentence(path_read) is not None,
+        NEEDS_EVAL_SECTION_KEY: eval_need is not None,
     }
 
 

@@ -5,9 +5,8 @@ how much proof the pull request gate asks for::
 
     none     every changed path is a doc or a test, and none is a live surface
     checked  code changed, and no changed path is a live surface
-    live     a changed path is a live surface, the file list is unread, the
-             command runs more than the pull request call, or an edit names
-             its pull request
+    live     a changed path is a live surface, the file list is unread, or the
+             command runs more than the pull request call
 
 A live surface is an agent surface, a file under .github/, a page people see, the
 live-surfaces file itself, or a path a glob in the base branch's
@@ -39,6 +38,7 @@ from hooks_constants.evidence_tier_constants import (
     ALL_DOCS_DIRECTORY_NAMES,
     ALL_DOCS_EXTENSIONS,
     ALL_GLOB_CHARACTERS,
+    ALL_PROSE_EXTENSIONS,
     ALL_TEST_DIRECTORY_NAMES,
     ALL_TEST_FILE_INFIXES,
     ALL_TEST_FILE_NAMES,
@@ -72,7 +72,6 @@ class TierCause(Enum):
     NO_DECLARED_SURFACES = ("code with no declared surfaces", EvidenceTier.LIVE)
     UNREAD_FILE_LIST = ("an unread file list", EvidenceTier.LIVE)
     SHARED_COMMAND = ("a command that runs more than the pull request call", EvidenceTier.LIVE)
-    NAMED_PULL_REQUEST_EDIT = ("an edit that names its pull request", EvidenceTier.LIVE)
 
     @property
     def tier(self) -> EvidenceTier:
@@ -91,7 +90,6 @@ class TierChoice(NamedTuple):
         TierChoice(ONLY_DOCS_AND_TESTS, None)
         TierChoice(UNREAD_FILE_LIST, None)
         TierChoice(SHARED_COMMAND, None)
-        TierChoice(NAMED_PULL_REQUEST_EDIT, None)
     """
 
     cause: TierCause
@@ -275,23 +273,49 @@ def choose_tier(
     return TierChoice(TierCause.CODE_WITHOUT_LIVE_SURFACE, code_path)
 
 
-def first_agent_surface_path(all_changed_paths: Sequence[str]) -> str | None:
-    """Return the first changed path an agent reads as instructions or settings, or None.
+def _is_declared_prose(repository_path: str, all_declared_globs: Sequence[str]) -> bool:
+    path = PurePosixPath(repository_path)
+    is_code_text = any(
+        fnmatch.fnmatchcase(path.name.lower(), each_glob) for each_glob in ALL_CODE_TEXT_FILE_NAME_GLOBS
+    )
+    return (
+        path.suffix.lower() in ALL_PROSE_EXTENSIONS
+        and not is_code_text
+        and not is_test_path(repository_path)
+        and any(_matches_declared_glob(repository_path, each_glob) for each_glob in all_declared_globs)
+    )
+
+
+def first_eval_surface_path(
+    all_changed_paths: Sequence[str], all_declared_globs: Sequence[str]
+) -> str | None:
+    """Return the first changed path whose change only an eval measures, or None.
 
     ::
 
-        ["src/a.py", "rules/x.md", "SKILL.md"]         -> "rules/x.md"
-        ["src/a.py", ".github/workflows/ci.yml"]        -> None
+        ["src/a.py", "rules/x.md", "SKILL.md"], ()                      -> "rules/x.md"
+        ["src/a.py", "docs/guides/a.md"], ("docs/guides/",)            -> "docs/guides/a.md"
+        ["portal/client.py", "docs/guides/a.md"], ("portal/",)          -> None
+        ["src/a.py", ".github/workflows/ci.yml"], ()                    -> None
 
-    An agent surface is a SKILL.md, AGENTS.md, CLAUDE.md, CLAUDE.local.md,
-    copilot-instructions.md, hooks.json, .mcp.json or settings*.json file, or
-    a file under a skills, rules, agents, commands, system-prompts,
-    system_prompts or output-styles folder. Names match in any case, so
-    Skills/x/skill.md counts.
+    Two kinds of path count. An agent surface is a SKILL.md, AGENTS.md,
+    CLAUDE.md, CLAUDE.local.md, copilot-instructions.md, hooks.json,
+    .mcp.json or settings*.json file, or a file under a skills, rules,
+    agents, commands, system-prompts, system_prompts or output-styles
+    folder; names match in any case, so Skills/x/skill.md counts. Declared
+    prose is a .md, .mdx or .txt file that a declared glob names, such as a
+    rule guide agents read; a test, a requirements file or a constraints
+    file is not prose.
 
     Args:
         all_changed_paths: Every path the pull request changes.
+        all_declared_globs: The base branch's declared globs, or () when it declares none.
     """
     return next(
-        (each_path for each_path in all_changed_paths if _is_agent_surface(each_path)), None
+        (
+            each_path
+            for each_path in all_changed_paths
+            if _is_agent_surface(each_path) or _is_declared_prose(each_path, all_declared_globs)
+        ),
+        None,
     )

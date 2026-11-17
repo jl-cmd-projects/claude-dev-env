@@ -378,42 +378,18 @@ def test_should_deny_an_edit_that_swaps_in_a_proof_its_tier_would_deny(tmp_path:
     )
 
 
-def test_should_apply_the_live_rule_to_an_edit_that_names_another_pull_request(
-    tmp_path: Path,
-) -> None:
-    clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
-    reason = gate.edit_proof_reason(_edit_from(clone_path, TEST_RUN_PROOF_BODY, "7"))
-    assert reason == TEST_ONLY_PROOF_REASON + gate.tier_sentence(
-        TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
-    )
-    assert "gh pr edit" in reason
-
-
-@pytest.mark.parametrize("selector_tail", [" -- 7", " -- feature", " --add-label x -- 7"])
-def test_should_apply_the_live_rule_to_an_edit_that_names_its_pull_request_after_the_option_end(
-    tmp_path: Path, selector_tail: str
+@pytest.mark.parametrize("selector", ["7", "-- 7", "-- feature", "--add-label x -- 7", "--"])
+def test_should_take_the_checkout_tier_for_an_edit_whatever_it_names(
+    tmp_path: Path, selector: str
 ) -> None:
     clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
     body_path = clone_path.parent / "edit-body.md"
     body_path.write_text(TEST_RUN_PROOF_BODY, encoding="utf-8")
-    command = f'gh pr edit --body-file "{body_path}"{selector_tail}'
-    reason = gate.edit_proof_reason(_payload_with_command(clone_path, command))
-    assert reason == TEST_ONLY_PROOF_REASON + gate.tier_sentence(
-        TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
-    )
-
-
-def test_should_take_the_checkout_tier_for_an_edit_that_ends_its_options_and_names_nothing(
-    tmp_path: Path,
-) -> None:
-    clone_path = _clone_with_branch(tmp_path, {"docs/guide.md": "new words\n"})
-    body_path = clone_path.parent / "edit-body.md"
-    body_path.write_text(TEST_RUN_PROOF_BODY, encoding="utf-8")
-    command = f'gh pr edit --body-file "{body_path}" --'
+    command = f'gh pr edit --body-file "{body_path}" {selector}'
     assert gate.edit_proof_reason(_payload_with_command(clone_path, command)) is None
 
 
-def test_should_apply_the_live_rule_to_a_script_edit_of_a_checked_tier_pull_request(tmp_path: Path) -> None:
+def test_should_pass_a_script_edit_whose_body_passed_at_create(tmp_path: Path) -> None:
     clone_path = _clone_with_branch(
         tmp_path, {"src/gate.py": "x = 2\n"}, {".claude/live-surfaces.txt": DECLARED_SURFACES}
     )
@@ -427,19 +403,17 @@ def test_should_apply_the_live_rule_to_a_script_edit_of_a_checked_tier_pull_requ
         "cwd": str(clone_path),
     }
     assert gate.missing_proof_reason(_create_from(clone_path, TEST_RUN_PROOF_BODY)) is None
-    assert gate.edit_proof_reason(payload) == TEST_ONLY_PROOF_REASON + gate.tier_sentence(
-        TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
-    )
+    assert gate.edit_proof_reason(payload) is None
 
 
-def test_should_apply_the_live_rule_to_an_update_tool_edit() -> None:
+def test_should_give_the_unread_tier_to_an_update_tool_edit() -> None:
     payload = {
         "tool_name": "mcp__github__update_pull_request",
         "tool_input": {"owner": "o", "repo": "r", "pullNumber": 7, "body": TEST_RUN_PROOF_BODY},
     }
     reason = gate.edit_proof_reason(payload)
     assert reason == TEST_ONLY_PROOF_REASON + gate.tier_sentence(
-        TierChoice(TierCause.NAMED_PULL_REQUEST_EDIT, None)
+        TierChoice(TierCause.UNREAD_FILE_LIST, None)
     )
 
 
@@ -716,3 +690,34 @@ def test_should_read_the_tier_when_the_named_head_matches_its_origin_copy(tmp_pa
     _git(clone_path, "push", "-q", "origin", "feature")
     command = _create_command(clone_path, NO_PROOF_BODY) + " --head feature"
     assert gate.missing_proof_reason(_payload_with_command(clone_path, command)) is None
+
+
+def test_should_owe_an_eval_for_a_feature_that_changes_declared_prose(tmp_path: Path) -> None:
+    clone_path = _clone_with_branch(
+        tmp_path, {"docs/rule-guides/a.md": "New rule.\n"}, {".claude/live-surfaces.txt": "docs/rule-guides/\n"}
+    )
+    payload = _create_from(clone_path, EVAL_LESS_BODY, "feat: add a rule guide")
+    assert gate.missing_eval_section_reason(payload) == (
+        MISSING_EVAL_SECTION_REASON + gate.eval_owed_sentence("docs/rule-guides/a.md")
+    )
+
+
+def test_should_not_owe_an_eval_for_a_feature_that_changes_declared_code(tmp_path: Path) -> None:
+    clone_path = _clone_with_branch(
+        tmp_path, {"portal/client.py": "x = 2\n"}, {".claude/live-surfaces.txt": DECLARED_SURFACES}
+    )
+    payload = _create_from(clone_path, EVAL_LESS_BODY, "feat: add a portal call")
+    assert gate.missing_eval_section_reason(payload) is None
+
+
+def test_checkout_sections_should_ask_for_an_eval_when_declared_prose_changed(tmp_path: Path) -> None:
+    clone_path = _clone_with_branch(
+        tmp_path, {"docs/rule-guides/a.md": "New rule.\n"}, {".claude/live-surfaces.txt": "docs/rule-guides/\n"}
+    )
+    printed = subprocess.run(
+        [sys.executable, str(Path(gate.__file__)), str(clone_path)],
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout
+    assert json.loads(printed)["needs_eval_section_for_a_feature"] is True

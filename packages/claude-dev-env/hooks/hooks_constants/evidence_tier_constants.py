@@ -16,7 +16,8 @@ ALL_DOCS_EXTENSIONS = frozenset(
         ".ico",
     }
 )
-ALL_CODE_TEXT_FILE_NAME_GLOBS = ("requirements*.txt", "constraints*.txt")
+ALL_PROSE_EXTENSIONS = frozenset({".md", ".mdx", ".txt"})
+ALL_CODE_TEXT_FILE_NAME_GLOBS =("requirements*.txt", "constraints*.txt")
 ALL_DOCS_DIRECTORY_NAMES = frozenset({"docs"})
 ALL_DOCS_DATA_EXTENSIONS = frozenset({".json", ".jsonl", ".yaml", ".yml", ".csv"})
 ALL_TEST_DIRECTORY_NAMES = frozenset({"tests", "test", "__tests__"})

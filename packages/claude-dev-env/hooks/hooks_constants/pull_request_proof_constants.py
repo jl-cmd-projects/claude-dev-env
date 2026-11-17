@@ -49,12 +49,6 @@ UNREAD_FILE_LIST_TIER_SENTENCE = (
     " fetched, or name the repository and head branch with --repo and --head, so the"
     " gate can set the tier from the changed files."
 )
-NAMED_PULL_REQUEST_EDIT_TIER_SENTENCE = (
-    " Evidence tier: live, because this edit names its pull request by number or comes"
-    " from the update tool, so the gate cannot tell that the checkout holds that pull"
-    " request's head. Run gh pr edit with no number and --body-file from a checkout of"
-    " the head branch, so the gate can set the tier from the changed files."
-)
 SHARED_COMMAND_TIER_SENTENCE = (
     " Evidence tier: live, because this command runs more than the pull request call,"
     " such as a cd, a commit or a checkout joined by &&, ;, ||, a pipe or a new line,"
@@ -86,11 +80,6 @@ UNREAD_FILE_LIST_EVAL_SENTENCE = (
 CONTENTS_ENDPOINT_TEMPLATE = "repos/{repository}/contents/{path}?ref={reference}"
 CONTENTS_QUERY = ".content"
 DECLARED_SURFACES_FILE_ENCODING = "utf-8"
-ALL_GH_EDIT_BOOLEAN_FLAGS = frozenset({"--remove-milestone"})
-ALL_EDIT_NUMBER_FLAGS = frozenset({"--number"})
-FLAG_PREFIX = "-"
-END_OF_OPTIONS_MARKER = "--"
-FLAG_ASSIGNMENT_MARKER = "="
 NEEDS_PROOF_SECTION_KEY = "needs_proof_section"
 NEEDS_EVAL_SECTION_KEY = "needs_eval_section_for_a_feature"
 INLINE_COMMAND_PATTERN = r"(?<!`)`([^`\n]+)`(?!`)"
@@ -245,20 +234,10 @@ EVAL_HEADING_PATTERN = r"^(#{1,6})[ \t]+evals?[ \t]*#*[ \t]*$"
 EVAL_GUIDE_PATH = "~/.claude/docs/rule-guides/features-start-with-an-eval.md"
 MISSING_EVAL_SECTION_REASON = (
     "This feature pull request has no 'Eval' section naming its eval. A feature that"
-    " changes what agents read or load is built against an eval. Invoke the Skill tool"
-    " with skill 'claude-api' and args"
-    " 'build-eval', build or reuse the eval it leads you to, and run it. Then add an"
-    " 'Eval' heading to the body that names the eval's cases and grader, gives the"
-    " command that runs it in backticks, and quotes its result. Read "
-    + EVAL_GUIDE_PATH
-    + " for the full rule."
-)
-MISSING_BUILD_EVAL_REASON = (
-    "This feature pull request comes from a session that never invoked /claude-api"
-    " build-eval. A feature that changes what agents read or load starts with that"
-    " command. Invoke the Skill tool with"
-    " skill 'claude-api' and args 'build-eval', check the eval named in the 'Eval'"
-    " section with it, then run the same command again. Read "
+    " changes what agents read or load is built against an eval: input cases with their"
+    " expected results, a runner, and a grader. Run it before the change and after it."
+    " Then add an 'Eval' heading to the body that names the eval's cases and grader,"
+    " gives the command that runs it in backticks, and quotes its result. Read "
     + EVAL_GUIDE_PATH
     + " for the full rule."
 )
