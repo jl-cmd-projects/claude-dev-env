@@ -1745,3 +1745,44 @@ def test_chained_creates_should_read_the_compare_api_once_per_distinct_head(
     with gate_run():
         assert gate.missing_look_reason(_shell(command, tmp_path)) is None
     assert all_endpoints == ["repos/o/r/compare/main...x", "repos/o/r/compare/main...y"]
+
+
+def _run_git(repository_path: Path, *all_arguments: str) -> None:
+    identity = ["-c", "user.name=Test", "-c", "user.email=test@example.com"]
+    subprocess.run(["git", "-C", str(repository_path), *identity, *all_arguments], check=True)
+
+
+def _commit_file(repository_path: Path, file_name: str) -> None:
+    (repository_path / file_name).write_text("x\n", encoding="utf-8")
+    _run_git(repository_path, "add", ".")
+    _run_git(repository_path, "commit", "-q", "-m", f"add {file_name}")
+
+
+def _repository_on_branch(tmp_path: Path) -> Path:
+    origin_path = tmp_path / "origin"
+    clone_path = tmp_path / "clone"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    _commit_file(origin_path, "README.md")
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    _run_git(clone_path, "checkout", "-q", "-b", "parent")
+    return clone_path
+
+
+def test_first_merge_base_should_try_the_candidate_references_in_order(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_on_branch(tmp_path)
+    _commit_file(clone_path, "library.py")
+    parent_commit = subprocess.run(
+        ["git", "-C", str(clone_path), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    _run_git(clone_path, "checkout", "-q", "-b", "child")
+    _commit_file(clone_path, "caller.py")
+    assert (
+        gate._first_merge_base(str(clone_path), "HEAD", ("no-such-branch", "parent"))
+        == parent_commit
+    )
+    assert gate._first_merge_base(str(clone_path), "HEAD") != parent_commit

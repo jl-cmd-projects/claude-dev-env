@@ -214,6 +214,13 @@ def test_child_stdout_should_return_the_output_of_a_child_that_answers() -> None
     assert not run.was_read_cut_short
 
 
+def test_child_stdout_should_write_the_given_input_to_its_child() -> None:
+    echo_input = [sys.executable, "-c", "import sys; print(sys.stdin.read())"]
+    with gate_run():
+        assert child_stdout(echo_input, 5, ReadSlice.PROOF_AND_LOOK, standard_input="given") == "given\n"
+        assert child_stdout(echo_input, 5, ReadSlice.PROOF_AND_LOOK) == "\n"
+
+
 def test_child_stdout_should_start_its_child_with_the_environment_it_is_given() -> None:
     read_variable = [sys.executable, "-c", "import os; print(os.environ.get('GATE_READ_PROBE', 'unset'))"]
     environment = {**os.environ, "GATE_READ_PROBE": "given"}

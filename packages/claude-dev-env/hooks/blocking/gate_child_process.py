@@ -43,6 +43,7 @@ def started_child(
     all_command_words: Sequence[str],
     working_directory: str | None,
     all_environment_variables: Mapping[str, str] | None,
+    takes_standard_input: bool = False,
 ) -> subprocess.Popen[str] | None:
     """Start one read-only child with its output piped, or None when it cannot start.
 
@@ -50,13 +51,14 @@ def started_child(
         all_command_words: The program and its arguments.
         working_directory: The directory the child runs in, or None for the gate's own.
         all_environment_variables: The child's whole environment, or None for the gate's own.
+        takes_standard_input: Whether the child's input is a pipe the caller writes, else empty.
     """
     try:
         return subprocess.Popen(
             list(all_command_words),
             cwd=working_directory or None,
             env=dict(all_environment_variables) if all_environment_variables is not None else None,
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.PIPE if takes_standard_input else subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
