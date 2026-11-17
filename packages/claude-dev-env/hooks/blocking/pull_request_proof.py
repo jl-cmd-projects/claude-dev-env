@@ -690,7 +690,7 @@ def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str] | N
 def _first_merge_base(
     working_directory: str,
     head_reference: str,
-    all_base_references: Sequence[str] = ALL_DEFAULT_BRANCH_REFERENCES,
+    all_base_references: Sequence[str],
 ) -> str | None:
     for each_base_reference in all_base_references:
         all_merge_base_lines = _git_lines(working_directory, "merge-base", head_reference, each_base_reference)
@@ -725,9 +725,10 @@ def visible_changed_files(
 
     The head is the checked-out branch, or the named branch or its origin copy
     when the checkout holds another branch. The base is origin/<base> when the
-    create names one, so a stack level counts only its own files.
-    Otherwise it is the first of origin/HEAD, origin/main and main that git can
-    reach::
+    create names one, so a stack level counts only its own files. A local
+    branch of that name is never read, because the agent controls it. When
+    origin/<base> is missing, or no base is named, the base is the first of
+    origin/HEAD, origin/main and main that git can reach::
 
         checkout on feature, page.html changed -> ["page.html"]
         page.html renamed with no edit          -> []
@@ -777,7 +778,9 @@ def _read_merge_base_and_head(
     if head_reference is None:
         return None
     all_base_references = (
-        (REMOTE_BRANCH_PREFIX + base_branch,) if base_branch else ALL_DEFAULT_BRANCH_REFERENCES
+        (REMOTE_BRANCH_PREFIX + base_branch, *ALL_DEFAULT_BRANCH_REFERENCES)
+        if base_branch
+        else ALL_DEFAULT_BRANCH_REFERENCES
     )
     merge_base = _first_merge_base(working_directory, head_reference, all_base_references)
     return None if merge_base is None else (merge_base, head_reference)

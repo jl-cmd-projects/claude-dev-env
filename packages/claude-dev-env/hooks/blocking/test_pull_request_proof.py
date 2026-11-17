@@ -15,6 +15,7 @@ from blocking import pull_request_proof as gate
 from blocking.gate_run_reads import gate_run
 from blocking.pr_lifecycle_skill_gate import decision_for
 from hooks_constants.pull_request_proof_constants import (
+    ALL_DEFAULT_BRANCH_REFERENCES,
     COMPARE_FILE_LIST_LIMIT,
     COMPARE_FILE_STATUS_QUERY,
     DEFERRED_PROOF_REASON,
@@ -464,7 +465,9 @@ def _repository_with_change(tmp_path: Path, changed_file_name: str) -> Path:
 
 
 def _mcp_create_on_branch(body: str, working_directory: Path, base: str | None = None) -> dict[str, object]:
-    tool_input = {"body": body, "head": "feature"} if base is None else {"body": body, "head": "feature", "base": base}
+    tool_input = {"body": body, "head": "feature"}
+    if base is not None:
+        tool_input["base"] = base
     return {
         "tool_name": "mcp__github__create_pull_request",
         "tool_input": tool_input,
@@ -1756,6 +1759,7 @@ def _run_git(repository_path: Path, *all_arguments: str) -> None:
 
 
 def _commit_file(repository_path: Path, file_name: str) -> None:
+    (repository_path / file_name).parent.mkdir(parents=True, exist_ok=True)
     (repository_path / file_name).write_text("x\n", encoding="utf-8")
     _run_git(repository_path, "add", ".")
     _run_git(repository_path, "commit", "-q", "-m", f"add {file_name}")
@@ -1788,26 +1792,16 @@ def test_first_merge_base_should_try_the_candidate_references_in_order(
         gate._first_merge_base(str(clone_path), "HEAD", ("no-such-branch", "parent"))
         == parent_commit
     )
-    assert gate._first_merge_base(str(clone_path), "HEAD") != parent_commit
+    assert gate._first_merge_base(str(clone_path), "HEAD", ALL_DEFAULT_BRANCH_REFERENCES) != parent_commit
 
 
 def _stacked_repository(tmp_path: Path, parent_file_name: str) -> Path:
-    origin_path = tmp_path / "origin"
-    clone_path = tmp_path / "clone"
-    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
-    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
-    (origin_path / "readme.md").write_text("base\n", encoding="utf-8")
-    subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
-    subprocess.run(["git", "-C", str(origin_path), *git_identity, "commit", "-q", "-m", "base"], check=True)
-    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
-    for each_branch, each_file_name in (("parent", parent_file_name), ("feature", "tool.py")):
-        subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "-b", each_branch], check=True)
-        (clone_path / each_file_name).parent.mkdir(parents=True, exist_ok=True)
-        (clone_path / each_file_name).write_text("x\n", encoding="utf-8")
-        subprocess.run(["git", "-C", str(clone_path), "add", "."], check=True)
-        subprocess.run(["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", each_branch], check=True)
-        subprocess.run(["git", "-C", str(clone_path), "push", "-q", "origin", each_branch], check=True)
-    subprocess.run(["git", "-C", str(clone_path), "fetch", "-q", "origin"], check=True)
+    clone_path = _repository_on_branch(tmp_path)
+    _commit_file(clone_path, parent_file_name)
+    _run_git(clone_path, "push", "-q", "origin", "parent")
+    _run_git(clone_path, "checkout", "-q", "-b", "feature")
+    _commit_file(clone_path, "tool.py")
+    _run_git(clone_path, "push", "-q", "origin", "feature")
     return clone_path
 
 
@@ -1829,9 +1823,10 @@ def test_should_list_only_the_workflows_a_stack_level_adds_over_its_base(tmp_pat
     assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)
 
 
-def test_should_leave_a_base_that_exists_only_locally_to_the_remote_compare(tmp_path: Path) -> None:
+def test_should_measure_against_the_default_branch_when_the_named_base_exists_only_locally(
+    tmp_path: Path,
+) -> None:
     clone_path = _stacked_repository(tmp_path, "page.html")
-    subprocess.run(["git", "-C", str(clone_path), "branch", "local-only", "feature"], check=True)
+    _run_git(clone_path, "branch", "local-only", "feature")
 
-    assert gate.visible_changed_files(str(clone_path), "feature", "local-only") is None
-    assert gate.added_workflow_files(str(clone_path), "feature", "local-only") is None
+    assert gate.visible_changed_files(str(clone_path), "feature", "local-only") == ["page.html"]

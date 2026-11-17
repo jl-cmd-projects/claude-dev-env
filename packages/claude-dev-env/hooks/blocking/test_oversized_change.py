@@ -137,13 +137,15 @@ def test_should_pass_a_body_edit(large_branch: Path) -> None:
     assert size.oversized_pull_request_reason(payload) is None
 
 
-def test_should_pass_when_no_base_can_be_resolved(large_branch: Path) -> None:
-    assert size.local_measured_line_count(str(large_branch), "no-such-branch", None) is None
+def test_should_measure_against_the_default_branch_when_the_named_base_cannot_be_resolved(
+    large_branch: Path,
+) -> None:
+    assert size.local_measured_line_count(str(large_branch), "no-such-branch", None) == 1500
     assert (
         size.oversized_pull_request_reason(
             _create(large_branch, PLAIN_BODY, "--base no-such-branch")
         )
-        is None
+        is not None
     )
 
 
