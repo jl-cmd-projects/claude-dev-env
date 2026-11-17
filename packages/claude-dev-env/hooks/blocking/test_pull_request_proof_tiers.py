@@ -393,6 +393,7 @@ def test_should_pass_a_script_edit_whose_body_passed_at_create(tmp_path: Path) -
     clone_path = _clone_with_branch(
         tmp_path, {"src/gate.py": "x = 2\n"}, {".claude/live-surfaces.txt": DECLARED_SURFACES}
     )
+    _git(clone_path, "remote", "set-url", "origin", "https://github.com/o/r.git")
     body_path = clone_path.parent / "edit-body.md"
     body_path.write_text(TEST_RUN_PROOF_BODY, encoding="utf-8")
     payload = {
