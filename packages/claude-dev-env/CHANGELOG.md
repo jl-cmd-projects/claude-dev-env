@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.130.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.130.0...claude-dev-env-v8.130.1) (2026-11-17)
+
+
+### Documentation
+
+* **hooks:** show how to prove the --nocards toggle in a live session ([#2427](https://github.com/jl-cmd-projects/claude-dev-env/issues/2427)) ([c91ba2e](https://github.com/jl-cmd-projects/claude-dev-env/commit/c91ba2e226d2376921932357ab6877862c22071c))
+
 ## [8.130.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.129.0...claude-dev-env-v8.130.0) (2026-11-17)
 
 
