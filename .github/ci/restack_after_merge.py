@@ -287,7 +287,7 @@ def restack_after_merge(
                        replay <P upstream>..<level> onto <P head>, which drops
                        P's old commits as empty
 
-    A level that failed is not followed further.
+    A level that failed is not followed further, and each branch is visited once.
 
     Args:
         repository: The owner/name of the repository.
@@ -311,8 +311,12 @@ def restack_after_merge(
         _direct_child_targets(all_open_pull_requests, merged_pull_request, remote_name, default_branch, base_head_sha)
     )
     all_visited_levels: list[tuple[RestackTarget, RestackedLevel]] = []
+    all_visited_head_refs: set[str] = set()
     while pending_targets:
         target = pending_targets.popleft()
+        if target.pull_request.head_ref in all_visited_head_refs:
+            continue
+        all_visited_head_refs.add(target.pull_request.head_ref)
         restacked_level = _restack_one_level(target, repository, merged_pull_request, remote_name, default_branch)
         all_visited_levels.append((target, restacked_level))
         _write_level_report(report_stream, target, restacked_level)
@@ -378,10 +382,8 @@ def main(all_argv: Sequence[str], error_stream: TextIO = sys.stderr) -> int:
     """
     parsed_arguments = parse_command_line_arguments(all_argv)
     merged_pull_request = MergedPullRequest(
-        number=parsed_arguments.merged_pr,
-        head_ref=parsed_arguments.merged_head_ref,
-        head_sha=parsed_arguments.merged_head_sha,
-        merge_commit_sha=parsed_arguments.merge_commit_sha,
+        number=parsed_arguments.merged_pr, head_ref=parsed_arguments.merged_head_ref,
+        head_sha=parsed_arguments.merged_head_sha, merge_commit_sha=parsed_arguments.merge_commit_sha,
         base_ref=parsed_arguments.base_ref,
     )
     try:

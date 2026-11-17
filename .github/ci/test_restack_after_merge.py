@@ -1306,3 +1306,35 @@ def test_should_name_each_cause_of_a_refused_push_in_the_comment(
     comment_body = sandbox.read_stub_state()["comments"]["2"][0]
     for each_cause in ("lease", "branch rule", "workflow file", "workflows permission"):
         assert each_cause in comment_body
+
+
+def test_should_visit_each_branch_once_when_pull_request_bases_form_a_cycle(
+    sandbox: StackSandbox, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    build_three_level_stack(sandbox)
+    sandbox.open_pull(4, "level-2", "level-3")
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+    all_visited_numbers: list[int] = []
+
+    def settle_without_pushing(
+        target: restack_after_merge.RestackTarget, *all_arguments: object
+    ) -> restack_after_merge.RestackedLevel:
+        all_visited_numbers.append(target.pull_request.number)
+        if len(all_visited_numbers) > 10:
+            raise AssertionError(f"the run kept visiting levels: {all_visited_numbers}")
+        return restack_after_merge.RestackedLevel(
+            restack_after_merge.RestackOutcome.ALREADY_RESTACKED, "a" * 40, "a" * 40
+        )
+
+    monkeypatch.setattr(restack_after_merge, "_restack_one_level", settle_without_pushing)
+
+    all_outcomes = run_restack_for_outcomes(sandbox, merged_head_sha, merge_commit_sha)
+
+    assert all_visited_numbers == [2, 3]
+    assert all_outcomes == {
+        2: restack_after_merge.RestackOutcome.ALREADY_RESTACKED,
+        3: restack_after_merge.RestackOutcome.ALREADY_RESTACKED,
+    }
