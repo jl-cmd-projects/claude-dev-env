@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.131.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.3...claude-dev-env-v8.131.4) (2026-11-17)
+
+
+### Bug Fixes
+
+* **codex:** publish shared rules and preserve agent instructions ([#2438](https://github.com/jl-cmd-projects/claude-dev-env/issues/2438)) ([5db12ee](https://github.com/jl-cmd-projects/claude-dev-env/commit/5db12ee315bb6bf85bf84986d55de411e8dd8102))
+
 ## [8.131.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.2...claude-dev-env-v8.131.3) (2026-11-17)
 
 
