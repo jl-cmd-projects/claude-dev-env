@@ -15,7 +15,7 @@ This family rewrites a Git Bash command when path conversion would change a revi
 - `blocking/bash_post_call_dispatcher.py` runs hosted observers and joins their context output without blocking the call.
 - When a hosted hook exits 2, both dispatchers exit 2. Its stderr reaches the host as written. Before a call, exit 2 blocks the call. After a call, exit 2 shows that stderr to Claude.
 - `advisory/pr_done_reminder.py` adds a pull request checklist after a successful push or pull request creation.
-- `advisory/owned_pr_review_loop.py` adds review-loop instructions after the agent opens a pull request on an owned repository outside the preset list of repositories that run their own automated review: run efficient-review until clean, mark the pull request ready, babysit it, and ship it to merge. It also records the pull request for the session in `owned_pr_session_record.py`.
+- `advisory/owned_pr_review_loop.py` adds review-loop instructions after the agent opens a pull request on an owned repository outside the preset list of repositories that run their own automated review: run `/code-review` in a Claude Code session, or efficient-review in Codex, until clean, mark the pull request ready, babysit it, and ship it to merge. It also records the pull request for the session in `owned_pr_session_record.py`.
 
 ## When it fires
 
