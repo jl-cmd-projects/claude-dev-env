@@ -3653,5 +3653,287 @@
         }
       }
     ]
+  },
+  {
+    "id": "hold-declaration-while-a-task-is-in-progress",
+    "group": "task in progress",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Merge every open P0 to P4 pull request."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_t1",
+              "name": "TaskCreate",
+              "input": {
+                "subject": "P1: 44/99 landed"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_t1",
+              "content": "Task #2 created successfully"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_t2",
+              "name": "TaskUpdate",
+              "input": {
+                "taskId": "2",
+                "status": "in_progress"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_t2",
+              "content": "Updated task #2 status"
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Why is the lint check red on 8774?"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The lint check is red because one line is too long."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_q1",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Nothing is open. Do you want to add an item?"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_q1",
+              "content": "The user chose No, nothing to add."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Nothing to add.\n\nOpen items: none."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "allow-declaration-after-the-task-completed",
+    "group": "task in progress",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Merge every open P0 to P4 pull request."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_t1",
+              "name": "TaskCreate",
+              "input": {
+                "subject": "P1: 44/99 landed"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_t1",
+              "content": "Task #2 created successfully"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_t2",
+              "name": "TaskUpdate",
+              "input": {
+                "taskId": "2",
+                "status": "completed"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_t2",
+              "content": "Updated task #2 status"
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Why is the lint check red on 8774?"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The lint check is red because one line is too long."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_q1",
+              "name": "AskUserQuestion",
+              "input": {
+                "questions": [
+                  {
+                    "question": "Nothing is open. Do you want to add an item?"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_q1",
+              "content": "The user chose No, nothing to add."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "Nothing to add.\n\nOpen items: none."
+            }
+          ]
+        }
+      }
+    ]
   }
 ]

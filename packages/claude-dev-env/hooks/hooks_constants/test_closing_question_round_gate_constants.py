@@ -3,6 +3,7 @@ import pytest
 from hooks_constants.closing_question_round_gate_constants import (
     ALL_REASON_LEADS,
     CLOSING_ROUND_INSTRUCTION,
+    IN_PROGRESS_TASKS_INSTRUCTION,
     DECLARATION_LINE_PATTERN,
     ESCAPED_PRINTABLE_ASCII_PATTERN,
     FILE_NAME_PATTERN,
@@ -44,7 +45,8 @@ def test_declaration_should_carry_no_marker_and_end_both_instructions() -> None:
     assert OPEN_ITEM_MARKER_PATTERN.search(NO_OPEN_ITEMS_DECLARATION) is None
     assert WORK_INSTRUCTION.endswith(NO_OPEN_ITEMS_DECLARATION)
     assert NO_OPEN_ITEMS_DECLARATION in CLOSING_ROUND_INSTRUCTION
-    assert len(set(ALL_REASON_LEADS)) == 2
+    assert NO_OPEN_ITEMS_DECLARATION in IN_PROGRESS_TASKS_INSTRUCTION
+    assert len(set(ALL_REASON_LEADS)) == 3
 
 
 @pytest.mark.parametrize(

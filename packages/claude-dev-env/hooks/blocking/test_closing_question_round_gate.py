@@ -11,6 +11,7 @@ import pytest
 import closing_question_round_gate
 from hooks_constants.closing_question_round_gate_constants import (
     CLOSING_ROUND_REASON_LEAD,
+    IN_PROGRESS_TASKS_REASON_LEAD,
     MAXIMUM_QUOTED_LINE_COUNT,
     MAXIMUM_QUOTED_LINE_LENGTH,
     WORK_REASON_LEAD,
@@ -682,8 +683,9 @@ def test_prior_hold_count_counts_feedback_records_that_carry_the_lead() -> None:
             },
         },
         typed_prompt_record(CLOSING_ROUND_REASON_LEAD),
+        stop_feedback_record(f"Stop hook feedback:\n{IN_PROGRESS_TASKS_REASON_LEAD}"),
     ]
-    assert closing_question_round_gate.prior_hold_count(all_stretch_records) == 2
+    assert closing_question_round_gate.prior_hold_count(all_stretch_records) == 3
 
 
 def test_closing_round_reason_leads_with_the_fixed_sentence_and_ends_with_the_instruction() -> None:

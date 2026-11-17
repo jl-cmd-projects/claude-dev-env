@@ -30,10 +30,11 @@ A session the user started ends with a round of question cards on what it leaves
 
 ### What the gate checks
 
-The gate reads the stretch: the session's records after the last question tool call that reached the user, then the payload's `last_assistant_message`. Claude Code runs Stop hooks before it writes the closing reply to the transcript, so the payload holds the newest text. When the transcript already ends with that text, it is read once: its last assistant record, question calls left aside, ends in the same text. A text that sits before a later work call is an older reply, so the payload text is read as new. It holds in two cases.
+The gate reads the stretch: the session's records after the last question tool call that reached the user, then the payload's `last_assistant_message`. Claude Code runs Stop hooks before it writes the closing reply to the transcript, so the payload holds the newest text. When the transcript already ends with that text, it is read once: its last assistant record, question calls left aside, ends in the same text. A text that sits before a later work call is an older reply, so the payload text is read as new. It holds in three cases.
 
 1. The stretch holds an open-item line. The reason quotes the lines. The declaration does not release this hold.
-2. The stretch holds work, no open-item line, and the closing reply does not end with the declaration. Work is any tool call of the main thread other than a question call: an edit, a shell command, a read, or a subagent. Work counts from the last reply in the stretch that ended with the declaration.
+2. The closing reply ends with the declaration while the session's own task list holds a task in progress. The list is the task store under `~/.claude/tasks/<session id>/`, or the task calls in the transcript when no store exists. The reason names each such task and tells the agent to report where each one stands and keep working on it. A side question does not close the goal the tasks track, so a "nothing is open" card does not release this hold.
+3. The stretch holds work, no open-item line, and the closing reply does not end with the declaration. Work is any tool call of the main thread other than a question call: an edit, a shell command, a read, or a subagent. Work counts from the last reply in the stretch that ended with the declaration.
 
 A stretch with no work and no open-item line passes, so a chat-only answer needs no declaration. A reply that ends with the declaration closes the work before it, so a later turn of chat only needs no declaration. An open-item line written before that reply still holds.
 
@@ -76,7 +77,7 @@ When the lines name nothing that is still open, send one question that says so a
 
 - The gate holds at most twice per typed prompt or answered card.
 - A marker can hold a line that names no open item, such as a negation or a line about the word itself. That hold costs one card.
-- An item recorded only in the task list or in a file is not seen. The hold reason tells the agent to read those.
+- An item recorded only in a file is not seen, and neither is a pending task in the task list. The hold reason tells the agent to read those. A task in progress holds the declaration.
 - A card about another subject still ends the stretch.
 - A session whose only prompts came from an agent is not covered.
 - A scheduled wake inside a session a person started is held like any other stop.

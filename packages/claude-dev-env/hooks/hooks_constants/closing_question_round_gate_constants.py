@@ -3,7 +3,7 @@
 Groups: the payload and transcript fields that mark a stop the gate leaves
 alone, the transcript text each cheap scan looks for, the time and size
 budget, the wording that marks an open item, the masking of indented code,
-the declaration line, the hold cap, the two hold reasons, and the keyword
+the declaration line, the hold cap, the three hold reasons, and the keyword
 and flag file that turn the gate off for one session.
 """
 
@@ -131,7 +131,10 @@ CLOSING_ROUND_REASON_LEAD = (
 WORK_REASON_LEAD = (
     "This session did work and ended without a question card or the declaration line."
 )
-ALL_REASON_LEADS = (CLOSING_ROUND_REASON_LEAD, WORK_REASON_LEAD)
+IN_PROGRESS_TASKS_REASON_LEAD = (
+    "This session declared no open items while its own task list holds work in progress."
+)
+ALL_REASON_LEADS = (CLOSING_ROUND_REASON_LEAD, WORK_REASON_LEAD, IN_PROGRESS_TASKS_REASON_LEAD)
 OPEN_ITEM_LINES_LABEL = "The lines:"
 QUOTED_LINE_TEMPLATE = '"{line}"'
 REMAINING_LINES_TEMPLATE = "Earlier lines left out here: {remaining_count}."
@@ -164,6 +167,15 @@ WORK_INSTRUCTION = (
     " user's judgment, brief it and send the cards, as follows."
     f" {CARD_INSTRUCTION} When nothing is, do not list what is not open: end the reply with this"
     f" exact line alone, in plain text with no backticks or list marker: {NO_OPEN_ITEMS_DECLARATION}"
+)
+IN_PROGRESS_TASKS_LABEL = "Tasks in progress:"
+IN_PROGRESS_TASK_LINE_TEMPLATE = '#{task_id} "{subject}"'
+IN_PROGRESS_TASKS_INSTRUCTION = (
+    "These tasks are the goal the user gave this session, and a side question or a closing"
+    " round does not close them. Do not tell the user nothing is open. Read the live state of"
+    " each task, tell the user in a line or two where each one stands, and keep working on it."
+    " Mark a task completed only when its work is done, and delete it only when the user drops"
+    f" it. End a reply with the line {NO_OPEN_ITEMS_DECLARATION} only when no task is in progress."
 )
 REASON_PART_SEPARATOR = "\n"
 
