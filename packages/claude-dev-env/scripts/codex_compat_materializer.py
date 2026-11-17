@@ -208,6 +208,7 @@ class ClaudeAgent:
     model: str | None = None
     color: str | None = None
     unsupported: tuple[str, ...] = ()
+    instructions: str = ""
 
 
 @dataclass(frozen=True)
@@ -485,6 +486,7 @@ def parse_frontmatter(source_path: Path, source_text: str, relative_source: str)
         model,
         color,
         unsupported,
+        line_separator.join(lines[delimiters[0] + 1 :]).strip("\n"),
     )
 
 
@@ -501,7 +503,12 @@ def convert_agent(agent: ClaudeAgent) -> str:
         MaterializerError: If the generated TOML cannot be validated.
     """
     toml_string = lambda text: json.dumps(text, ensure_ascii=False)
-    content = line_separator.join((f"name = {toml_string(agent.name)}", f"description = {toml_string(agent.description)}", f"developer_instructions = {toml_string('Claude tools: ' + comma_separator.join(agent.tools))}")) + line_separator
+    instructions = agent.instructions or "Claude tools: " + comma_separator.join(agent.tools)
+    content = line_separator.join((
+        f"name = {toml_string(agent.name)}",
+        f"description = {toml_string(agent.description)}",
+        f"developer_instructions = {toml_string(instructions)}",
+    )) + line_separator
     tomllib.loads(content)
     return content
 
@@ -1006,17 +1013,21 @@ def discover_agents(config: MaterializerConfig) -> list[ClaudeAgent]:
         raise MaterializerError(f"{reparse_source_root_message}: {config.source_root}")
     all_agents: list[ClaudeAgent] = []
     for each_path in sorted(config.source_root.rglob("*.md"), key=lambda path: path.as_posix().casefold()):
+        relative_path = each_path.relative_to(config.source_root)
         if each_path.name in instruction_alias_filenames:
             _validate_containment(config.source_root, each_path)
             continue
         if _is_reparse_point(each_path):
             raise MaterializerError(f"source reparse point is not allowed: {each_path}")
-        relative_source = each_path.relative_to(config.source_root).as_posix()
+        relative_source = relative_path.as_posix()
         if relative_source in codex_instruction_rule_relative_paths:
             _validate_containment(config.source_root, each_path)
             continue
         _validate_containment(config.source_root, each_path)
-        all_agents.append(parse_frontmatter(each_path, each_path.read_text(encoding="utf-8"), relative_source))
+        source_text = each_path.read_text(encoding="utf-8")
+        if relative_path.parts[0] == "reference" and source_text.partition(line_separator)[0].strip() != "---":
+            continue
+        all_agents.append(parse_frontmatter(each_path, source_text, relative_source))
     return all_agents
 
 

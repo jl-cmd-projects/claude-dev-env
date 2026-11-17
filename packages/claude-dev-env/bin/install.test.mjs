@@ -3321,6 +3321,21 @@ function pstackPluginSandbox(t) {
     };
 }
 
+test('a core install refreshes the managed Codex rule index', (t) => {
+    const { homeDirectory, environment } = pstackPluginSandbox(t);
+    const guidance = join(homeDirectory, '.codex', 'AGENTS.md');
+    mkdirSync(dirname(guidance), { recursive: true });
+    writeFileSync(guidance, 'Keep my notes\n<!-- claude-dev-env package guidance: start -->\nOld rules\n<!-- claude-dev-env package guidance: end -->\n');
+
+    runPstackInstaller(homeDirectory, ['--only', 'core'], environment);
+
+    const installed = readFileSync(guidance, 'utf8');
+    assert.match(installed, /^Keep my notes\n/u);
+    assert.match(installed, /File-scoped rules/u);
+    assert.match(installed, /anti-corollary-tests\.md/u);
+    assert.ok(!installed.includes('Old rules'));
+});
+
 const STALE_SKILL_LOAD_SENTENCE = 'Load the pstack:poteto-mode skill before your first tool call or reply: '
     + 'open its SKILL.md from your skills list and follow it. This binds every Codex agent, '
     + 'including a helper started with spawn_agent, whatever its task message says.';

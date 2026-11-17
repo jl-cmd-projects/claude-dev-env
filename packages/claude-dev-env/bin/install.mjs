@@ -98,6 +98,7 @@ import {
     removeCodexDeepenGuidance,
     removeCodexPackageGuidance,
     removeCodexQuestionGuidance,
+    renderCodexRuleGuidance,
     writeCodexAgentsGuidance,
     writeCodexPackageGuidance,
     writeCodexQuestionGuidance,
@@ -3199,7 +3200,14 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             console.log(`  Pstack: retired release store removed from ${retiredPstack.removedStorePath}`);
         }
     }
-    const packageGuidanceText = selectedGroups ? '' : readFileSync(join(PACKAGE_ROOT, 'AGENTS.md'), 'utf8');
+    const shouldRefreshCodexGuidance = !selectedGroups
+        || (builtinGroupsActive && allowedDirectories?.has('rules'));
+    const packageGuidanceText = shouldRefreshCodexGuidance
+        ? readFileSync(join(PACKAGE_ROOT, 'AGENTS.md'), 'utf8')
+        : '';
+    const codexGuidanceText = shouldRefreshCodexGuidance
+        ? `${packageGuidanceText.trimEnd()}\n\n${renderCodexRuleGuidance(join(PACKAGE_ROOT, 'rules'), join(CLAUDE_HOME, 'rules'))}\n`
+        : '';
     const allPackageGuidancePaths = [join(CLAUDE_HOME, 'AGENTS.md'), join(AGENTS_HOME, 'AGENTS.md')];
     if (!selectedGroups) {
         const cursorGuidanceHooksPath = writeCursorAgentsGuidanceHooks({
@@ -3228,7 +3236,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             }
             const codexGuidancePath = writeCodexAgentsGuidance(
                 INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
-                packageGuidanceText,
+                codexGuidanceText,
                 allPackageGuidancePaths,
             );
             if (codexGuidancePath) {
@@ -3291,16 +3299,18 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         summary.securityGuidancePlugin = securityGuidancePlugin;
         printPluginHostOutcomes([SECURITY_GUIDANCE_PLUGIN_SPEC], securityGuidancePlugin);
     }
-    if (!selectedGroups) {
+    if (shouldRefreshCodexGuidance) {
         const packageGuidancePath = writeCodexPackageGuidance(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
-            packageGuidanceText,
+            codexGuidanceText,
             allPackageGuidancePaths,
         );
         if (packageGuidancePath) {
             allCodexGuidancePaths.push(packageGuidancePath);
             console.log(`  \u2713 ${packageGuidancePath} (Codex package guidance)`);
         }
+    }
+    if (!selectedGroups) {
         const questionGuidancePath = writeCodexQuestionGuidance(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
             readFileSync(join(PACKAGE_ROOT, 'rules', 'question-presentation.md'), 'utf8'),
