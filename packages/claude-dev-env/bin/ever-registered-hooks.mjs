@@ -154,6 +154,7 @@ export const EVER_REGISTERED_HOOK_RELATIVE_PATHS = new Set([
     'session/background_silence_prompt.py',
     'session/bulk-edit-reminder.py',
     'session/bulk_edit_reminder.py',
+    'session/closing_question_gate_bypass.py',
     'session/code-rules-reminder.py',
     'session/code_rules_reminder.py',
     'session/compact-context-reinject.py',
