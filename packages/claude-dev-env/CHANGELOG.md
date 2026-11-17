@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.129.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.128.2...claude-dev-env-v8.129.0) (2026-11-17)
+
+
+### Features
+
+* **hooks:** ask a pull request for the evidence its changed paths need ([#2416](https://github.com/jl-cmd-projects/claude-dev-env/issues/2416)) ([3b44605](https://github.com/jl-cmd-projects/claude-dev-env/commit/3b44605ad5ebf048066954ae06cd37ce52ef9128))
+
 ## [8.128.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.128.1...claude-dev-env-v8.128.2) (2026-11-17)
 
 
