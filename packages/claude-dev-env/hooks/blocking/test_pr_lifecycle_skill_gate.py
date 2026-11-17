@@ -16,6 +16,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import followup_pr_dedupe as gate_dedupe
 from blocking import gate_run_reads
 from blocking import pr_lifecycle_skill_gate as gate
+from blocking.evidence_tier import TierCause, TierChoice
 from blocking.gate_run_reads import read_deadlines_started
 from hooks_constants.followup_pr_dedupe_constants import (
     ALL_GIT_REMOTE_COMMAND_WORDS,
@@ -24,18 +25,19 @@ from hooks_constants.followup_pr_dedupe_constants import (
 )
 from hooks_constants.gate_fault import gate_fault_reason
 from hooks_constants.gate_run_reads_constants import (
-    FOLLOWUP_READS_SECONDS,
     PROOF_AND_LOOK_READS_SECONDS,
     READS_RAN_OUT_SENTENCE,
 )
+from hooks_constants.oversized_change_constants import OVERSIZED_PULL_REQUEST_REASON
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON, SCAN_RAN_OUT_SENTENCE
 from hooks_constants.pull_request_proof_constants import (
-    MISSING_BUILD_EVAL_REASON,
     MISSING_PROOF_REASON,
     UNPROVEN_PROOF_REASON,
     UNREADABLE_CHANGES_REASON,
 )
 
+UNREAD_LIVE_TIER = gate.proof.tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
+UNDECLARED_TOOL_TIER = gate.proof.tier_sentence(TierChoice(TierCause.NO_DECLARED_SURFACES, "tool.py"))
 WHAT_THIS_DOES_SECTION = (
     "## What this does\nDraws the flow before and after.\n\n"
     "```mermaid\nflowchart LR\n    before --> after\n```\n\n"
@@ -44,6 +46,14 @@ PROVEN_FOLLOWUP_BODY = (
     "Follow-up to #1731\n\n" + WHAT_THIS_DOES_SECTION + "## Existing work\nNothing found in open or merged pull requests.\n\n"
     "## Proof in practice\nRan `python probe.py`.\n"
 )
+
+
+unstubbed_gh_api_lines = gate.proof._gh_api_lines
+
+
+@pytest.fixture(autouse=True)
+def _no_github_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(gate.proof, "_gh_api_lines", lambda endpoint, query: None)
 
 
 def _transcript(tmp_path: Path, skill_name: str | None = None, compact: bool = False) -> Path:
@@ -500,13 +510,12 @@ def test_deny_should_add_the_reads_ran_out_sentence_when_the_deadline_cuts_the_s
 ) -> None:
     all_asked_commands = _unstarted_children(monkeypatch)
     clock = SettableClock()
-    original_gh_api_lines = gate.proof._gh_api_lines
 
     def compare_that_spends_the_slice(endpoint: str, query: str) -> list[str] | None:
         if endpoint.endswith("...x"):
             clock.seconds = PROOF_AND_LOOK_READS_SECONDS + 1.0
             return [json.dumps(["M", "", "tool.py"])]
-        return original_gh_api_lines(endpoint, query)
+        return unstubbed_gh_api_lines(endpoint, query)
 
     monkeypatch.setattr(gate.proof, "_gh_api_lines", compare_that_spends_the_slice)
     body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.")
@@ -532,7 +541,7 @@ def test_deny_should_keep_its_reason_when_every_read_had_time(tmp_path: Path) ->
 def test_loaded_skill_still_denies_a_new_pull_request_without_proof(tmp_path: Path) -> None:
     exit_code, output = _run_main(_payload("gh pr create --body 'Adds a gate.'", _transcript(tmp_path, "pr-lifecycle")))
     assert exit_code == 0
-    assert json.loads(output)["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON
+    assert json.loads(output)["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_loaded_skill_denies_a_body_edit_that_adds_an_unrun_proof_line(tmp_path: Path) -> None:
@@ -556,16 +565,6 @@ EVALUATED_BODY = (
 SKILL_LOAD_LINE = json.dumps(
     {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "pr-lifecycle"}}]}}
 )
-BUILD_EVAL_LINE = json.dumps(
-    {
-        "type": "assistant",
-        "message": {
-            "content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "claude-api", "args": "build-eval"}}]
-        },
-    }
-)
-
-
 def _transcript_with_lines(tmp_path: Path, file_name: str, all_lines: list[str]) -> Path:
     transcript_path = tmp_path / file_name
     transcript_path.write_text("\n".join(all_lines) + "\n", encoding="utf-8")
@@ -588,50 +587,21 @@ def _assert_denied_with(payload: dict[str, object], reason: str) -> None:
     assert decision["hookSpecificOutput"]["permissionDecisionReason"] == reason
 
 
-def test_feature_pull_request_without_build_eval_invocation_should_be_denied(tmp_path: Path) -> None:
+def test_feature_pull_request_with_an_eval_section_should_pass_with_no_skill_call_for_the_eval(
+    tmp_path: Path,
+) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
-    _assert_denied_with(_create_payload(tmp_path, "feat: add a gate", transcript_path), MISSING_BUILD_EVAL_REASON)
-
-
-def test_feature_pull_request_with_build_eval_invocation_should_pass(tmp_path: Path) -> None:
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE, SKILL_LOAD_LINE])
     assert gate.decision_for(_create_payload(tmp_path, "feat: add a gate", transcript_path)) is None
 
 
-def test_is_build_eval_missing_should_follow_the_transcript(tmp_path: Path) -> None:
-    without_call = _transcript_with_lines(tmp_path, "without.jsonl", [SKILL_LOAD_LINE])
-    with_call = _transcript_with_lines(tmp_path, "with.jsonl", [BUILD_EVAL_LINE])
-    assert gate.is_build_eval_missing({"transcript_path": str(without_call)})
-    assert not gate.is_build_eval_missing({"transcript_path": str(with_call)})
-    assert not gate.is_build_eval_missing({"transcript_path": str(tmp_path / "missing.jsonl")})
-
-
-def test_non_feature_pull_request_without_build_eval_invocation_should_pass(tmp_path: Path) -> None:
+def test_non_feature_pull_request_should_pass(tmp_path: Path) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
     assert gate.decision_for(_create_payload(tmp_path, "fix: repair a gate", transcript_path)) is None
 
 
-def test_feature_pull_request_with_no_readable_transcript_should_pass(tmp_path: Path) -> None:
-    payload = _create_payload(tmp_path, "feat: add a gate", tmp_path / "missing.jsonl")
-    assert gate.decision_for(payload) is None
-
-
-def test_build_eval_check_should_ignore_an_unreadable_transcript_beside_a_readable_one(tmp_path: Path) -> None:
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
-    payload = _create_payload(tmp_path, "feat: add a gate", transcript_path)
-    payload["agent_transcript_path"] = str(tmp_path / "missing-agent.jsonl")
-    _assert_denied_with(payload, MISSING_BUILD_EVAL_REASON)
-
-
-def test_build_eval_invocation_in_the_agent_transcript_should_pass(tmp_path: Path) -> None:
-    session_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
-    agent_path = _transcript_with_lines(tmp_path, "agent.jsonl", [BUILD_EVAL_LINE])
-    payload = _create_payload(tmp_path, "feat: add a gate", session_path)
-    payload["agent_transcript_path"] = str(agent_path)
-    assert gate.decision_for(payload) is None
-
-
 def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_path: Path) -> dict[str, object]:
+    checkout_path = _checkout_without_visible_changes(tmp_path)
+    subprocess.run(["git", "-C", checkout_path, "remote", "add", "origin", "https://github.com/o/r.git"], check=True)
     return {
         "tool_name": "mcp__github__actions_run_trigger",
         "tool_input": {
@@ -643,42 +613,27 @@ def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_
             "inputs": all_inputs,
         },
         "transcript_path": str(transcript_path),
-        "cwd": _checkout_without_visible_changes(tmp_path),
+        "cwd": checkout_path,
     }
 
 
-def test_feature_dispatch_without_build_eval_invocation_should_be_denied(tmp_path: Path) -> None:
+def test_feature_dispatch_with_an_eval_section_should_pass_with_no_skill_call_for_the_eval(
+    tmp_path: Path,
+) -> None:
     transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [SKILL_LOAD_LINE])
-    all_inputs = {"head": "main", "title": "feat: add a gate", "body": EVALUATED_BODY}
-    _assert_denied_with(_dispatch_payload(tmp_path, all_inputs, transcript_path), MISSING_BUILD_EVAL_REASON)
-
-
-def test_feature_dispatch_with_build_eval_invocation_should_pass(tmp_path: Path) -> None:
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE, SKILL_LOAD_LINE])
     all_inputs = {"head": "main", "title": "feat: add a gate", "body": EVALUATED_BODY}
     assert gate.decision_for(_dispatch_payload(tmp_path, all_inputs, transcript_path)) is None
 
 
 def test_pull_request_dispatch_without_the_skill_loaded_should_be_denied(tmp_path: Path) -> None:
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE])
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [UNRELATED_LINE])
     all_inputs = {"head": "main", "title": "fix: repair a gate", "body": EVALUATED_BODY}
     _assert_denied_with(_dispatch_payload(tmp_path, all_inputs, transcript_path), DENY_REASON)
 
 
 def test_dispatch_that_opens_no_pull_request_should_pass_without_the_skill(tmp_path: Path) -> None:
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE])
+    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [UNRELATED_LINE])
     assert gate.decision_for(_dispatch_payload(tmp_path, {"work_order": "wo-1"}, transcript_path)) is None
-
-
-def test_eval_skill_call_status_should_separate_called_missing_and_unreadable(tmp_path: Path) -> None:
-    called_path = tmp_path / "called.jsonl"
-    skill_call = {"type": "tool_use", "name": "Skill", "input": {"skill": "claude-api", "args": "build-eval"}}
-    called_path.write_text(
-        json.dumps({"type": "assistant", "message": {"content": [skill_call]}}) + "\n", encoding="utf-8"
-    )
-    assert gate.eval_skill_call_status(_payload("git status", called_path)) is True
-    assert gate.eval_skill_call_status(_payload("git status", _transcript(tmp_path))) is False
-    assert gate.eval_skill_call_status(_payload("git status", tmp_path / "missing.jsonl")) is None
 
 
 def test_deny_decision_should_carry_the_reason_as_a_deny() -> None:
@@ -824,25 +779,6 @@ def test_skill_scan_should_find_a_recent_load_before_the_deadline(tmp_path: Path
         assert gate.decision_for(_payload("git push", transcript_path)) is None
 
 
-def test_build_eval_scan_cut_by_the_deadline_should_deny_with_the_scan_sentence(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    clock = SettableClock()
-    is_feature_on_this_tree = gate.proof.is_feature_pull_request
-
-    def feature_check_that_spends_the_followup_slice(all_fields: dict[str, object]) -> bool:
-        clock.seconds = float(PROOF_AND_LOOK_READS_SECONDS + FOLLOWUP_READS_SECONDS)
-        return is_feature_on_this_tree(all_fields)
-
-    monkeypatch.setattr(gate.proof, "is_feature_pull_request", feature_check_that_spends_the_followup_slice)
-    transcript_path = _transcript_with_lines(tmp_path, "session.jsonl", [BUILD_EVAL_LINE, SKILL_LOAD_LINE])
-    payload = _create_payload(tmp_path, "feat: add a gate", transcript_path)
-    with read_deadlines_started(clock):
-        decision = gate.decision_for(payload)
-    assert decision is not None
-    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_BUILD_EVAL_REASON + SCAN_RAN_OUT_SENTENCE
-
-
 def test_check_that_raises_should_deny_with_a_reason_that_names_the_error(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -866,3 +802,49 @@ def test_fault_before_the_call_is_known_governed_should_not_become_a_deny(
     monkeypatch.setattr(gate, "_matches_shell_command", matcher_that_raises)
     with pytest.raises(RuntimeError, match="matcher fault"):
         gate.decision_for(_payload("ls", _transcript(tmp_path)))
+
+
+def _clone_with_branch_lines(tmp_path: Path, line_count: int, body: str = "## Summary\nNo proof yet.\n") -> Path:
+    origin_path = tmp_path / "origin"
+    clone_path = tmp_path / "clone"
+    git_identity = ["-c", "user.name=Test", "-c", "user.email=test@example.com"]
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    (origin_path / "README.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(origin_path), *git_identity, "commit", "-q", "-m", "base"], check=True)
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "-b", "feature"], check=True)
+    (clone_path / "tool.py").write_text("".join(f"x = {i}\n" for i in range(line_count)), encoding="utf-8")
+    subprocess.run(["git", "-C", str(clone_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", "change"], check=True)
+    (tmp_path / "body.md").write_text(body, encoding="utf-8")
+    return clone_path
+
+
+def _body_file_create(clone_path: Path) -> dict[str, object]:
+    return {
+        "tool_name": "Bash",
+        "tool_input": {"command": "gh pr create --title t --body-file ../body.md"},
+        "cwd": str(clone_path),
+    }
+
+
+def test_should_read_the_proof_of_an_oversized_create_before_its_size(tmp_path: Path) -> None:
+    decision = gate.decision_for(_body_file_create(_clone_with_branch_lines(tmp_path, 1500)))
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON + UNDECLARED_TOOL_TIER
+
+
+def test_should_deny_an_oversized_create_whose_other_sections_pass(tmp_path: Path) -> None:
+    body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.")
+    decision = gate.decision_for(_body_file_create(_clone_with_branch_lines(tmp_path, 1500, body)))
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == OVERSIZED_PULL_REQUEST_REASON.format(
+        measured_line_count=1500, measured_line_bar=1000
+    )
+
+
+def test_should_read_the_proof_of_a_create_under_the_size_bar(tmp_path: Path) -> None:
+    decision = gate.decision_for(_body_file_create(_clone_with_branch_lines(tmp_path, 20)))
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON + UNDECLARED_TOOL_TIER

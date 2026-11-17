@@ -81,20 +81,20 @@ draft. Record the target before any write.
 
 ### 2. Author the title and body
 
-For create, run `pull_request.py template --body-file <path> --title <title>`
-first. It appends each heading the linter and proof gate require that the file
-lacks. Then fill the body, or invoke `pstack:poteto-agent` with the
-diff-specific writing instructions to draft it. A comment or
-review may use a supplied body file when it does not rewrite the pull request
-description.
+For create, run `pull_request.py template --body-file <path> --title <title>` first, from the checkout of the
+head branch. It asks the proof gate which sections that checkout owes and appends each heading the linter and
+proof gate require that the file lacks. Then fill the body, or invoke `pstack:poteto-agent` with the
+diff-specific writing instructions to draft it. A comment or review may use a supplied body file when it does
+not rewrite the pull request description.
 
 Check each behavior claim against the final diff and verification evidence.
 Preserve whether a rule is added, removed, or narrowed, and distinguish tests
 added from tests run. Refresh these claims after a rebase or correction.
 
 Write the body in the section order `reference/body-sections.md` gives: What
-this does, What changed, Existing work, Proof in practice, Eval for a `feat`
-title, Risk, How to revert. Include only claims supported by the final diff.
+this does, What changed, Existing work, Proof in practice when the evidence
+tier asks for it, Eval for a `feat` title that changes a file agents load (its
+cases, the command in backticks, and the quoted result), Risk, How to revert. Include only claims supported by the final diff.
 
 Keep substantive review and test evidence. Put extensive logs, raw diffs, token
 counts, and agent transcripts in an existing linked artifact or a closed

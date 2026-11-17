@@ -55,7 +55,6 @@ if hooks_directory not in sys.path:
 
 from blocking.gate_child_process import close_job, job_holding, started_child, stop_child
 from hooks_constants.gate_run_reads_constants import (
-    EVAL_WRITE_SCAN_SECONDS,
     FOLLOWUP_READS_SECONDS,
     PROOF_AND_LOOK_READS_SECONDS,
 )
@@ -68,13 +67,11 @@ AnswerType = TypeVar("AnswerType")
 class ReadSlice(Enum):
     """Which deadline a read answers to, as seconds from the start of the gate process.
 
-    The lifecycle gate reads in ``PROOF_AND_LOOK`` and then ``FOLLOWUP``. The
-    eval-write gate scans its transcripts in ``EVAL_WRITE``.
+    The lifecycle gate reads in ``PROOF_AND_LOOK`` and then ``FOLLOWUP``.
     """
 
     PROOF_AND_LOOK = PROOF_AND_LOOK_READS_SECONDS
     FOLLOWUP = PROOF_AND_LOOK_READS_SECONDS + FOLLOWUP_READS_SECONDS
-    EVAL_WRITE = EVAL_WRITE_SCAN_SECONDS
 
 
 @dataclass
@@ -271,6 +268,7 @@ def child_stdout(
     read_slice: ReadSlice,
     working_directory: str | None = None,
     all_environment_variables: Mapping[str, str] | None = None,
+    standard_input: str | None = None,
 ) -> str | None:
     """Run one read-only child and return its output, or None when it gives no answer.
 
@@ -287,26 +285,33 @@ def child_stdout(
         read_slice: The slice whose deadline the read answers to.
         working_directory: The directory the child runs in, or None for the gate's own.
         all_environment_variables: The child's whole environment, or None for the gate's own.
+        standard_input: The text written to the child's input, or None for an empty input.
     """
     allowance = read_allowance(own_timeout_seconds, read_slice)
     if allowance is None:
         _note_read_cut_short()
         return None
-    child = started_child(all_command_words, working_directory, all_environment_variables)
+    child = started_child(
+        all_command_words, working_directory, all_environment_variables, standard_input is not None
+    )
     if child is None:
         return None
     job = job_holding(child)
     try:
-        return _answer_within(child, allowance, own_timeout_seconds, job)
+        return _answer_within(child, allowance, own_timeout_seconds, job, standard_input)
     finally:
         close_job(job)
 
 
 def _answer_within(
-    child: subprocess.Popen[str], allowance: float, own_timeout_seconds: float, job: int | None
+    child: subprocess.Popen[str],
+    allowance: float,
+    own_timeout_seconds: float,
+    job: int | None,
+    standard_input: str | None,
 ) -> str | None:
     try:
-        printed_text = child.communicate(timeout=allowance)[0]
+        printed_text = child.communicate(input=standard_input, timeout=allowance)[0]
     except subprocess.TimeoutExpired:
         stop_child(child, job)
         _note_read_timed_out()

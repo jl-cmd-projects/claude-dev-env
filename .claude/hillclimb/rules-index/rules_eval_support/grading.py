@@ -21,6 +21,7 @@ from rules_eval_support.config.constants import (
     ALL_SEARCH_TOOL_NAMES,
     BASH_TOOL_NAME,
     CHECK_BUILD_EVAL_FIRST,
+    CHECK_NO_BUILD_EVAL,
     CHECK_NO_RM,
     CHECK_NO_SUBSTITUTION,
     CHECK_SCOPED_SEARCH,
@@ -42,7 +43,7 @@ from rules_eval_support.config.constants import (
     SUBSTITUTION_PATTERN,
     WINDOWS_PATH_SEPARATOR,
 )
-from session_eval_support.grading import ToolCall, build_eval_came_first, names_skill
+from session_eval_support.grading import ToolCall, build_eval_came_first, is_build_eval_call, names_skill
 
 
 def _bash_commands(all_calls: Iterable[ToolCall]) -> list[str]:
@@ -237,6 +238,23 @@ def opened_a_guide(all_calls: list[ToolCall]) -> bool:
     )
 
 
+def skips_build_eval(all_calls: list[ToolCall]) -> bool:
+    """Return whether the session never called build-eval, as a plain-code feature should.
+
+    ::
+
+        [Read, Edit, Bash pytest]              -> True
+        [Read, Skill claude-api build-eval]    -> False
+
+    Args:
+        all_calls: The session's tool calls in order.
+
+    Returns:
+        Whether no call invoked the claude-api skill's build-eval subcommand.
+    """
+    return not any(is_build_eval_call(each_call) for each_call in all_calls)
+
+
 def tool_check(check_name: str) -> Callable[[list[ToolCall]], bool] | None:
     """Return the grader that scores a case from its tool calls alone.
 
@@ -253,6 +271,7 @@ def tool_check(check_name: str) -> Callable[[list[ToolCall]], bool] | None:
     """
     grader_by_check: Mapping[str, Callable[[list[ToolCall]], bool]] = {
         CHECK_BUILD_EVAL_FIRST: build_eval_came_first,
+        CHECK_NO_BUILD_EVAL: skips_build_eval,
         CHECK_NO_SUBSTITUTION: keeps_substitution_out,
         CHECK_NO_RM: keeps_rm_out,
         CHECK_SCOPED_SEARCH: scopes_every_search,

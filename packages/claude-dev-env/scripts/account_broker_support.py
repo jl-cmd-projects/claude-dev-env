@@ -13,8 +13,11 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.error
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
+from http import HTTPStatus
 from pathlib import Path, PureWindowsPath
 from typing import Callable, Iterator, Sequence
 
@@ -26,6 +29,7 @@ else:
 import codex_account_choice
 import codex_account_meters
 from claude_account_profile import default_profile_home, validate_profile_name
+from cloud_session_access import is_cloud_session
 from claude_chain_usage import ClaudeSignedOutError, WeeklyUtilizationProbeError, probe_account_meters
 from dev_env_scripts_constants.account_broker_constants import (
     ALL_BATCH_FILE_EXTENSIONS,
@@ -38,6 +42,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     Account,
     BrokerConfigurationError,
     CLAUDE_BINARY_NAME,
+    CLOUD_SESSION_UNREAD_REASON,
     CMD_SHELL_METACHARACTERS,
     Decision,
     JobOutcome,
@@ -46,6 +51,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     LOGIN_REFRESH_TIMEOUT_SECONDS,
     METER_READ_ATTEMPTS,
     METER_RATE_LIMIT_COOLDOWN_SECONDS,
+    METER_RATE_LIMIT_MAX_COOLDOWN_SECONDS,
     Meters,
     Product,
     ProductAdapter,
@@ -56,6 +62,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     Reading,
     Report,
     REPORT_INDENT_SPACES,
+    RETRY_AFTER_HEADER_NAME,
     SubprocessRunner,
     codex_usage_limit_signatures,
     meter_read_delay_seconds,
@@ -191,6 +198,34 @@ def _home_profile(home: Path) -> str | None:
     return home.name if profile_home == home else None
 
 
+def main_claude_account() -> Account:
+    """Return the account for the main Claude home, ``~/.claude``."""
+    main_home = (Path.home() / MAIN_CLAUDE_HOME_DIRECTORY_NAME).resolve()
+    return Account(Product.CLAUDE, "main", main_home, True, "claude")
+
+
+def cloud_session_reading(now: datetime) -> Reading:
+    """Return the one reading a Claude Code cloud session chooses from.
+
+    ::
+
+        CLAUDE_CODE_REMOTE=true  ->  Reading(main, meters=None,
+                                             unread_reason="cloud session: the usage meter is not read",
+                                             is_cloud_session_account=True)
+
+    A cloud session runs on one account, the main home, and holds no
+    credential the usage endpoint accepts. So no meter is read, and the
+    broker runs the job on that account.
+
+    Args:
+        now: The time the reading is dated.
+
+    Returns:
+        The main account's reading, marked as the cloud session's own account.
+    """
+    return Reading(main_claude_account(), None, CLOUD_SESSION_UNREAD_REASON, now, is_cloud_session_account=True)
+
+
 def load_claude_accounts() -> tuple[Account, ...]:
     """Read the Claude account list.
 
@@ -202,8 +237,9 @@ def load_claude_accounts() -> tuple[Account, ...]:
     Raises:
         BrokerConfigurationError: An account list is unreadable.
     """
-    main_home = (Path.home() / MAIN_CLAUDE_HOME_DIRECTORY_NAME).resolve()
-    all_accounts = [Account(Product.CLAUDE, "main", main_home, True, "claude")]
+    main_account = main_claude_account()
+    main_home = main_account.home
+    all_accounts = [main_account]
     all_seen = {str(main_home).casefold()}
     for each_entry in _chain_entries(main_home / "claude-chain.json", main_home):
         _append_claude_account(all_accounts, all_seen, each_entry, main_home)
@@ -401,13 +437,51 @@ def read_codex_account_meters(account: Account) -> Meters:
     )
 
 
-def _read_meter_attempt(
-    read_meters: Callable[[Account], Meters | None], account: Account
-) -> tuple[bool, Meters | None, str | None, bool]:
+def _retry_after_seconds(error: BaseException, now: datetime) -> float | None:
+    cause = error.__cause__
+    if not isinstance(cause, urllib.error.HTTPError) or cause.headers is None:
+        return None
+    retry_after_text = (cause.headers.get(RETRY_AFTER_HEADER_NAME) or "").strip()
+    if retry_after_text.isdigit():
+        return float(retry_after_text)
     try:
-        return True, read_meters(account), None, False
-    except (codex_account_meters.CodexExecutableNotFoundError, ClaudeSignedOutError) as error:
-        return True, None, str(error), False
+        retry_at = parsedate_to_datetime(retry_after_text)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if retry_at.tzinfo is None:
+        retry_at = retry_at.replace(tzinfo=timezone.utc)
+    return (retry_at - now).total_seconds()
+
+
+def _rate_limit_hold_seconds(
+    error: BaseException, unread_reason: str, now: datetime
+) -> float | None:
+    cause = error.__cause__
+    is_rate_limited = (
+        isinstance(cause, urllib.error.HTTPError)
+        and cause.code == HTTPStatus.TOO_MANY_REQUESTS
+    ) or "HTTP Error 429" in unread_reason
+    if not is_rate_limited:
+        return None
+    retry_after_seconds = _retry_after_seconds(error, now)
+    if retry_after_seconds is None:
+        return METER_RATE_LIMIT_COOLDOWN_SECONDS
+    return min(
+        max(retry_after_seconds, METER_RATE_LIMIT_COOLDOWN_SECONDS),
+        METER_RATE_LIMIT_MAX_COOLDOWN_SECONDS,
+    )
+
+
+def _read_meter_attempt(
+    read_meters: Callable[[Account], Meters | None], account: Account, now: datetime
+) -> tuple[bool, Meters | None, str | None, float | None]:
+    try:
+        return True, read_meters(account), None, None
+    except (
+        codex_account_meters.CodexExecutableNotFoundError,
+        ClaudeSignedOutError,
+    ) as error:
+        return True, None, str(error), None
     except (
         codex_account_meters.CodexMeterUnreadError,
         WeeklyUtilizationProbeError,
@@ -417,33 +491,58 @@ def _read_meter_attempt(
         subprocess.SubprocessError,
     ) as error:
         unread_reason = str(error) or type(error).__name__
-        if "HTTP Error 429" in unread_reason:
-            return True, None, unread_reason, True
-        return False, None, unread_reason, False
+        rate_limit_hold_seconds = _rate_limit_hold_seconds(error, unread_reason, now)
+        return (
+            rate_limit_hold_seconds is not None,
+            None,
+            unread_reason,
+            rate_limit_hold_seconds,
+        )
 
 
-def read_meters_with_backoff(read_meters: Callable[[Account], Meters | None], account: Account) -> tuple[Meters | None, str | None, bool]:
+def read_meters_with_backoff(
+    read_meters: Callable[[Account], Meters | None],
+    account: Account,
+    now: datetime | None = None,
+) -> tuple[Meters | None, str | None, float | None]:
     """Read one account's meters, retrying a failed read with exponential backoff.
+
+    ::
+
+        read fails twice, then succeeds          ->  (meters, None, None)
+        HTTP 429 with Retry-After: 900           ->  (None, "...HTTP Error 429...", 900.0)
+        HTTP 429 with Retry-After: 30, or none   ->  (None, "...HTTP Error 429...", 300.0)
+        HTTP 429 with Retry-After: 7200          ->  (None, "...HTTP Error 429...", 1200.0)
+
+    A rate limit stops the retries at once. So does a missing Codex
+    executable or a signed-out Claude account.
 
     Args:
         read_meters: The product's meter reader.
         account: Account whose meter is read.
+        now: The time a Retry-After date is measured from. Defaults to the
+            current time.
 
     Returns:
         The meters from the first read that succeeds, or None with the last
-        failure text once every attempt failed, and whether the usage
-        endpoint rate-limited the read, which stops the retries. A missing
-        Codex executable or a signed-out Claude account fails at once,
-        without a retry.
+        failure text once every attempt failed, and the seconds to hold the
+        next probe when the usage endpoint rate-limited the read, else None.
+        The hold is the reply's Retry-After, in seconds or as a date, bounded
+        to METER_RATE_LIMIT_COOLDOWN_SECONDS through
+        METER_RATE_LIMIT_MAX_COOLDOWN_SECONDS, and the lower bound when the
+        reply has no usable Retry-After.
     """
+    attempt_time = now or datetime.now(timezone.utc)
     unread_reason = None
     for each_attempt in range(METER_READ_ATTEMPTS):
         if each_attempt:
             time.sleep(meter_read_delay_seconds(each_attempt))
-        is_final, meters, unread_reason, is_rate_limited = _read_meter_attempt(read_meters, account)
+        is_final, meters, unread_reason, rate_limit_hold_seconds = _read_meter_attempt(
+            read_meters, account, attempt_time
+        )
         if is_final:
-            return meters, unread_reason, is_rate_limited
-    return None, unread_reason, False
+            return meters, unread_reason, rate_limit_hold_seconds
+    return None, unread_reason, None
 
 
 all_product_adapters = {
@@ -626,17 +725,40 @@ def _read_one_account(account: Account, adapter: ProductAdapter, all_cache: dict
             cached_meters = None
         next_probe = datetime.fromtimestamp(retry_at, timezone.utc) if is_held else None
         return Reading(account, cached_meters, cached_reason if isinstance(cached_reason, str) else None, measured, next_probe), False
-    meters, unread_reason, is_rate_limited = read_meters_with_backoff(adapter.read_meters, account)
+    meters, unread_reason, rate_limit_hold_seconds = read_meters_with_backoff(adapter.read_meters, account, now)
     measured_at = _measured_timestamp(meters, now)
-    is_rate_limited = account.product is Product.CLAUDE and is_rate_limited
+    is_rate_limited = account.product is Product.CLAUDE and rate_limit_hold_seconds is not None
     last_good = _last_good_meters(cached, now) if is_rate_limited else None
     if last_good is not None:
         meters, measured_at = last_good
     all_cache[key] = {"read_at": now.timestamp(), "measured_at": measured_at, "meters": _meter_payload(meters), "unread_reason": unread_reason}
+    earlier_reading = _earlier_good_reading(cached) if is_rate_limited and last_good is None else None
+    if earlier_reading is not None:
+        all_cache[key]["meters"], all_cache[key]["measured_at"] = earlier_reading
+        measured_at = earlier_reading[1]
     if is_rate_limited:
-        all_cache[key]["retry_at"] = now.timestamp() + METER_RATE_LIMIT_COOLDOWN_SECONDS
+        all_cache[key]["retry_at"] = now.timestamp() + rate_limit_hold_seconds
     next_probe = datetime.fromtimestamp(all_cache[key]["retry_at"], timezone.utc) if is_rate_limited else None
     return Reading(account, meters, unread_reason, datetime.fromtimestamp(measured_at, timezone.utc), next_probe), True
+
+
+def _earlier_good_reading(all_cached_fields: dict[str, object]) -> tuple[dict[str, object], float] | None:
+    """Return the saved meters and their measurement time, so a rate limit keeps them in the state file.
+
+    ::
+
+        good reading at 19:20, HTTP 429 at 20:00  ->  (the 19:20 meters, 19:20)
+        no saved meters                           ->  None
+
+    The broker does not choose on a reading this old; the 30-minute
+    last-good check still drops it. The file keeps it so the reading is
+    not lost to a null written by the rate limit.
+    """
+    raw_meters = all_cached_fields.get("meters")
+    measured_at = all_cached_fields.get("measured_at", all_cached_fields.get("read_at"))
+    if _meters_from_payload(raw_meters) is None or not isinstance(measured_at, (int, float)):
+        return None
+    return raw_meters, float(measured_at)
 
 
 def _measured_timestamp(meters: Meters | None, now: datetime) -> float:
@@ -716,10 +838,14 @@ def read_accounts(product: Product, adapter: ProductAdapter | None = None, *, al
 
     Returns:
         Account readings in roster order. A Codex product with no roster reads
-        its default home as the one account.
+        its default home as the one account. In a Claude Code cloud session the
+        Claude product gives the session's own account as the one reading, with
+        no meter read and no roster read.
     """
     active = adapter or all_product_adapters[product]
     current = now or datetime.now(timezone.utc)
+    if product is Product.CLAUDE and is_cloud_session():
+        return (cloud_session_reading(current),)
     all_cache = all_state.get("meters", {}) if all_state is not None else {}
     all_readings: list[Reading] = []
     is_updated = False

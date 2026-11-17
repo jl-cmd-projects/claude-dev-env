@@ -76,6 +76,18 @@ def test_should_deny_an_edit_to_the_gate_constants_after_its_deny(tmp_path: Path
     assert gate.gate_edit_reason(payload) == GATE_EDIT_BEFORE_ROUTE_REASON
 
 
+@pytest.mark.parametrize(
+    "tier_file_path",
+    [
+        "/w/packages/claude-dev-env/hooks/blocking/evidence_tier.py",
+        "/w/packages/claude-dev-env/hooks/hooks_constants/evidence_tier_constants.py",
+    ],
+)
+def test_should_deny_an_edit_to_the_evidence_tier_files_after_the_deny(tmp_path: Path, tier_file_path: str) -> None:
+    transcript_path = _transcript(tmp_path, DENIED_CREATE_ENTRIES)
+    assert gate.gate_edit_reason(_edit_payload(transcript_path, tier_file_path)) == GATE_EDIT_BEFORE_ROUTE_REASON
+
+
 def test_should_read_a_deny_carried_as_text_blocks(tmp_path: Path) -> None:
     all_text_blocks = [{"type": "text", "text": "Error: " + UNREADABLE_CHANGES_REASON}]
     transcript_path = _transcript(

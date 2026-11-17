@@ -116,7 +116,7 @@ def test_should_accept_the_answer_the_broker_serializes(tmp_path: Path) -> None:
     account = Account(Product.CODEX, "codex-2", tmp_path / "codex-2")
     reading = Reading(account, Meters(72.0, None, 42.0, None))
     decision = Decision("run", account, None, "codex-2 has 42% left", "normal")
-    answer = {"decision": decision_payload(decision), "accounts": readings_payload([reading])}
+    answer = {"decision": decision_payload(decision, [reading]), "accounts": readings_payload([reading])}
 
     def process_runner(arguments: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(arguments, 0, json.dumps(answer), "")
@@ -140,7 +140,7 @@ def _answer_for_the_default_home(
         required_tier="normal",
     )
     return {
-        "decision": decision_payload(decision),
+        "decision": decision_payload(decision, [reading]),
         "accounts": readings_payload([reading]),
     }
 
@@ -205,7 +205,7 @@ def _broker_reply_for_an_exported_home(
         Product.CODEX, [reading], now=datetime.now(timezone.utc)
     )
     answer = {
-        "decision": decision_payload(decision),
+        "decision": decision_payload(decision, [reading]),
         "accounts": readings_payload([reading]),
     }
     return (3 if decision.action == "wait" else 0), answer, decision.tier

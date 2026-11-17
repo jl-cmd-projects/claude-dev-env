@@ -1,5 +1,99 @@
 # Changelog
 
+## [8.130.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.130.0...claude-dev-env-v8.130.1) (2026-11-17)
+
+
+### Documentation
+
+* **hooks:** show how to prove the --nocards toggle in a live session ([#2427](https://github.com/jl-cmd-projects/claude-dev-env/issues/2427)) ([c91ba2e](https://github.com/jl-cmd-projects/claude-dev-env/commit/c91ba2e226d2376921932357ab6877862c22071c))
+
+## [8.130.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.129.0...claude-dev-env-v8.130.0) (2026-11-17)
+
+
+### Features
+
+* **hooks:** toggle the closing question round gate per session with --nocards ([#2425](https://github.com/jl-cmd-projects/claude-dev-env/issues/2425)) ([c365b36](https://github.com/jl-cmd-projects/claude-dev-env/commit/c365b366aff71d7142adfe9fc250e8c1c4f175b4))
+
+
+### Bug Fixes
+
+* **broker:** run Claude jobs on the session account in a cloud session ([#2424](https://github.com/jl-cmd-projects/claude-dev-env/issues/2424)) ([bab353a](https://github.com/jl-cmd-projects/claude-dev-env/commit/bab353af957e57f11926f7d3ea8787301f2ead3d))
+
+## [8.129.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.128.2...claude-dev-env-v8.129.0) (2026-11-17)
+
+
+### Features
+
+* **hooks:** ask a pull request for the evidence its changed paths need ([#2416](https://github.com/jl-cmd-projects/claude-dev-env/issues/2416)) ([3b44605](https://github.com/jl-cmd-projects/claude-dev-env/commit/3b44605ad5ebf048066954ae06cd37ce52ef9128))
+
+## [8.128.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.128.1...claude-dev-env-v8.128.2) (2026-11-17)
+
+
+### Bug Fixes
+
+* **hooks:** read the clone only for the repository a create names ([#2421](https://github.com/jl-cmd-projects/claude-dev-env/issues/2421)) ([a70ab1c](https://github.com/jl-cmd-projects/claude-dev-env/commit/a70ab1c30aa4c838f91546ca968641e769303a18))
+
+## [8.128.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.128.0...claude-dev-env-v8.128.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **hooks:** judge the look and workflow checks against the named base ([#2417](https://github.com/jl-cmd-projects/claude-dev-env/issues/2417)) ([a19eeec](https://github.com/jl-cmd-projects/claude-dev-env/commit/a19eeec5da17058a0e7ee62646302ef5a0c8bba2))
+
+## [8.128.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.127.0...claude-dev-env-v8.128.0) (2026-11-17)
+
+
+### Features
+
+* **ci:** restack the levels above a stack level once it lands ([#2414](https://github.com/jl-cmd-projects/claude-dev-env/issues/2414)) ([a9bb3bc](https://github.com/jl-cmd-projects/claude-dev-env/commit/a9bb3bc7919f3e0fdf256b49a93c8d93f07582e4))
+
+## [8.127.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.6...claude-dev-env-v8.127.0) (2026-11-17)
+
+
+### Features
+
+* **hooks:** refuse a pull request create over 1,000 changed lines ([#2412](https://github.com/jl-cmd-projects/claude-dev-env/issues/2412)) ([009dde3](https://github.com/jl-cmd-projects/claude-dev-env/commit/009dde39ed7ccee53282004f0674cea8a2032955))
+
+## [8.126.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.5...claude-dev-env-v8.126.6) (2026-11-16)
+
+
+### Bug Fixes
+
+* **hooks:** tell Claude sessions to run /code-review in the owned PR review loop ([#2410](https://github.com/jl-cmd-projects/claude-dev-env/issues/2410)) ([23868b8](https://github.com/jl-cmd-projects/claude-dev-env/commit/23868b89d0b74cb20ca2ac201e4d51e3b383672d))
+
+## [8.126.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.4...claude-dev-env-v8.126.5) (2026-11-16)
+
+
+### Documentation
+
+* **pr-lifecycle:** set a size bar for each pull request ([#2408](https://github.com/jl-cmd-projects/claude-dev-env/issues/2408)) ([ba3bf24](https://github.com/jl-cmd-projects/claude-dev-env/commit/ba3bf2407c79d428cd8f0fdbea8bd2dd8dfa96c1))
+
+## [8.126.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.3...claude-dev-env-v8.126.4) (2026-11-16)
+
+
+### Bug Fixes
+
+* **install:** stop adding advisorModel to user settings ([#2404](https://github.com/jl-cmd-projects/claude-dev-env/issues/2404)) ([22c7407](https://github.com/jl-cmd-projects/claude-dev-env/commit/22c7407db1df3263773068bbf42ccc94d238cda1))
+
+
+### Documentation
+
+* **pr-lifecycle:** add the slice test and the steps to split an open pull request ([#2405](https://github.com/jl-cmd-projects/claude-dev-env/issues/2405)) ([fa60a36](https://github.com/jl-cmd-projects/claude-dev-env/commit/fa60a363aaf40b771ca94da9441dce35d0a8bf4d))
+
+## [8.126.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.2...claude-dev-env-v8.126.3) (2026-11-16)
+
+
+### Bug Fixes
+
+* **hooks:** give every Bash pre-tool hook 30 seconds ([#2403](https://github.com/jl-cmd-projects/claude-dev-env/issues/2403)) ([41e8a6f](https://github.com/jl-cmd-projects/claude-dev-env/commit/41e8a6f8320627cbaf18d7a26f25741523aae2c4))
+
+## [8.126.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.1...claude-dev-env-v8.126.2) (2026-11-16)
+
+
+### Documentation
+
+* **broker:** tell a failed meter read from spent usage on exit 3 ([#2400](https://github.com/jl-cmd-projects/claude-dev-env/issues/2400)) ([fdbcf4b](https://github.com/jl-cmd-projects/claude-dev-env/commit/fdbcf4bf8e37d8b406351a3f6ddf5cc93b9d22ba))
+
 ## [8.126.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.0...claude-dev-env-v8.126.1) (2026-11-16)
 
 

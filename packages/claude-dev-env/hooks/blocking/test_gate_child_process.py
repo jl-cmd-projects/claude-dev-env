@@ -26,6 +26,12 @@ def test_started_child_should_pipe_the_output_of_a_child_that_starts() -> None:
     assert child.communicate(timeout=10)[0] == "answer\n"
 
 
+def test_started_child_should_take_input_when_asked() -> None:
+    child = started_child([sys.executable, "-c", "import sys; print(sys.stdin.read())"], None, None, True)
+    assert child is not None
+    assert child.communicate(input="given", timeout=10)[0] == "given\n"
+
+
 def test_started_child_should_return_none_for_a_program_that_cannot_start(tmp_path: Path) -> None:
     assert started_child([str(tmp_path / "no-such-program")], None, None) is None
 

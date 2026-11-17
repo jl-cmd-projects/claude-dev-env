@@ -40,6 +40,9 @@ The gate leaves a stop alone, with exit code 0 and no output, when:
 - the payload cannot be read, or it carries a non-empty ``agent_id`` (a
   subagent) or a ``conversation_id`` (Cursor);
 - ``CLAUDE_CODE_SESSION_ATTENDED`` is ``0`` (a headless run);
+- the session turned the gate off: a prompt that held ``--nocards`` set the
+  session's flag, and a later prompt with it clears the flag again, as
+  ``session/closing_question_gate_bypass.py`` describes;
 - the payload's ``background_tasks`` is a non-empty list, object, or string;
 - the transcript is missing or cannot be read;
 - no person started the session. A record that carries ``turnOrigin`` equal to
@@ -87,6 +90,7 @@ blocking_directory = str(Path(__file__).resolve().parent)
 if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
+from closing_question_gate_flag import is_bypass_on
 from closing_question_round_lines import transcript_lines
 from closing_question_round_open_items import declares_no_open_items, marked_open_lines
 from closing_question_round_transcript import (
@@ -330,7 +334,11 @@ def _capped_hook_input() -> dict[str, object] | None:
 
 def _stop_decision(deadline_at: float) -> int:
     all_hook_input_fields = _capped_hook_input()
-    if all_hook_input_fields is None or is_exempt_stop(all_hook_input_fields):
+    if (
+        all_hook_input_fields is None
+        or is_exempt_stop(all_hook_input_fields)
+        or is_bypass_on(all_hook_input_fields)
+    ):
         return ALLOW_EXIT_CODE
     block_reason = _hold_reason(all_hook_input_fields, deadline_at)
     if block_reason is None:

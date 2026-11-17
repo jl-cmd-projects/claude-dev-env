@@ -61,6 +61,8 @@ METER_READ_DELAY_FACTOR = 2.0
 METER_READ_MAX_DELAY_SECONDS = 8.0
 LAST_GOOD_METER_MAX_AGE_SECONDS = 1800.0
 METER_RATE_LIMIT_COOLDOWN_SECONDS = 300.0
+METER_RATE_LIMIT_MAX_COOLDOWN_SECONDS = 1200.0
+RETRY_AFTER_HEADER_NAME = "Retry-After"
 PUBLISHED_USAGE_DIRECTORY_ENV_VAR = "CLAUDE_USAGE_READINGS_DIR"
 PUBLISHED_USAGE_FILE_PATTERN = "meters-*.json"
 PUBLISHED_USAGE_MAX_AGE_SECONDS = 1800.0
@@ -69,6 +71,8 @@ WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
 TIMEOUT_EXIT_CODE = 124
 NO_USABLE_ACCOUNT_EXIT_CODE = 4
+CLOUD_SESSION_UNREAD_REASON = "cloud session: the usage meter is not read"
+CLOUD_SESSION_RUN_REASON = "cloud session: the job runs on the session's own account, and no usage meter is read"
 NO_USABLE_ACCOUNT_STATUS = "no_usable_account"
 NO_USABLE_REASON_SEPARATOR = "; "
 SIGN_IN_FAILED_STATUS = "sign_in_failed"
@@ -249,6 +253,7 @@ class Reading:
     unread_reason: str | None = None
     measured_at: datetime | None = None
     retry_at: datetime | None = None
+    is_cloud_session_account: bool = False
 
 
 @dataclass(frozen=True)
@@ -279,6 +284,7 @@ class Report:
     command: list[str]
     events: list[dict[str, object]] = field(default_factory=list)
     final_decision: Decision | None = None
+    all_readings: tuple[Reading, ...] = ()
 
 
 MeterReader = Callable[[Account], Meters | None]
@@ -345,6 +351,9 @@ def _claude_has_room(reading: Reading) -> bool:
 
 
 def _choose_claude(all_available: Sequence[Reading], preferred_command: str | None) -> Decision | None:
+    for each_reading in all_available:
+        if each_reading.is_cloud_session_account:
+            return Decision("run", each_reading.account, None, CLOUD_SESSION_RUN_REASON, TIER_NORMAL)
     all_with_room = [each_reading for each_reading in all_available if _claude_has_room(each_reading)]
     for each_reading in all_with_room:
         is_bound = preferred_command in (each_reading.account.command, each_reading.account.name)

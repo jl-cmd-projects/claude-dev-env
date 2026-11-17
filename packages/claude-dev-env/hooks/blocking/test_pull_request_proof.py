@@ -12,9 +12,11 @@ if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import pull_request_proof as gate
+from blocking.evidence_tier import TierCause, TierChoice
 from blocking.gate_run_reads import gate_run
 from blocking.pr_lifecycle_skill_gate import decision_for
 from hooks_constants.pull_request_proof_constants import (
+    ALL_DEFAULT_BRANCH_REFERENCES,
     COMPARE_FILE_LIST_LIMIT,
     COMPARE_FILE_STATUS_QUERY,
     DEFERRED_PROOF_REASON,
@@ -29,6 +31,8 @@ from hooks_constants.pull_request_proof_constants import (
     UNREADABLE_CHANGES_REASON,
 )
 
+UNREAD_LIVE_TIER = gate.tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
+UNREAD_EVAL_NEED = gate.eval_owed_sentence(None)
 PROVEN_BODY = "## Summary\nAdds a gate.\n\n## Proof in practice\nRan `python run.py`.\n> denied\n"
 UNPROVEN_BODY = "## Summary\nAdds a gate.\n\n## Verification\nUnit tests pass.\n"
 SEARCHED_BODY = (
@@ -36,6 +40,11 @@ SEARCHED_BODY = (
     "## Proof in practice\nRan `python run.py`.\n"
 )
 EMPTY_EXISTING_WORK_BODY = "## Existing work\n\n## Proof in practice\nRan `python run.py`.\n"
+
+
+@pytest.fixture(autouse=True)
+def _no_github_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(gate, "_gh_api_lines", lambda endpoint, query: None)
 
 
 def _shell(command: str, working_directory: Path | None = None) -> dict[str, object]:
@@ -63,11 +72,11 @@ def test_proof_section_should_return_none_without_the_heading() -> None:
 
 
 def test_mcp_create_without_proof_should_be_denied() -> None:
-    assert gate.missing_proof_reason(_mcp_create(UNPROVEN_BODY)) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(UNPROVEN_BODY)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_mcp_create_with_no_body_should_be_denied() -> None:
-    assert gate.missing_proof_reason(_mcp_create(None)) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(None)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_mcp_create_with_proof_should_pass() -> None:
@@ -76,7 +85,7 @@ def test_mcp_create_with_proof_should_pass() -> None:
 
 def test_heading_with_no_command_should_be_denied() -> None:
     body = "## Proof in practice\nIt works.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_gh_create_body_file_with_proof_should_pass(tmp_path: Path) -> None:
@@ -88,12 +97,12 @@ def test_gh_create_body_file_with_proof_should_pass(tmp_path: Path) -> None:
 def test_gh_create_body_file_without_proof_should_be_denied(tmp_path: Path) -> None:
     (tmp_path / "body.md").write_text(UNPROVEN_BODY, encoding="utf-8")
     payload = _shell("gh pr create -F body.md", tmp_path)
-    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_whose_only_command_is_a_test_run_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest tests/test_x.py`.\n> 4 passed\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_test_run_and_a_live_command_should_pass() -> None:
@@ -111,12 +120,12 @@ def test_proof_with_several_test_runners_should_be_denied() -> None:
         "## Proof in practice\n`python -m pytest -q`, `python3 -m unittest discover`,"
         " `uv run pytest`, `npm test`, `npx vitest run`, `jest`, `go test ./...`, `cargo test`\n"
     )
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_test_run_and_file_references_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest tests/x.py` against `gate.py:12` and `src/x.py`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_that_says_its_target_run_is_not_proven_should_be_denied() -> None:
@@ -166,7 +175,7 @@ def test_unproven_admission_after_a_one_line_triple_backtick_span_should_be_deni
 
 def test_test_run_after_a_one_line_triple_backtick_span_should_be_denied() -> None:
     body = "## Proof in practice\n```pytest``` ok\nRan `pytest tests/`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_unproven_words_in_a_fence_inside_a_blockquote_should_pass() -> None:
@@ -207,12 +216,12 @@ def test_unproven_admission_inside_a_blockquote_should_be_denied() -> None:
 
 def test_proof_with_a_test_run_piped_into_tee_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest x | tee log`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_test_run_piped_into_tail_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest x 2>&1 | tail -5`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_live_script_piped_into_tail_should_pass() -> None:
@@ -227,23 +236,23 @@ def test_proof_with_a_fenced_live_command_beside_a_test_run_should_pass() -> Non
 
 def test_proof_with_only_a_fenced_test_run_should_be_denied() -> None:
     body = "## Proof in practice\n```\n$ npm test\n12 passing\n```\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_gh_create_body_file_with_test_only_proof_should_be_denied(tmp_path: Path) -> None:
     (tmp_path / "body.md").write_text("## Proof in practice\nRan `go test ./...`.\n", encoding="utf-8")
     payload = _shell("gh pr create --draft --body-file body.md", tmp_path)
-    assert gate.missing_proof_reason(payload) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(payload) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_only_py_test_should_be_denied() -> None:
     body = "## Proof in practice\nRan `py.test`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_only_a_fenced_pytest_exe_should_be_denied() -> None:
     body = "## Proof in practice\n```\n$ pytest.exe\n```\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_only_a_source_citation_should_pass() -> None:
@@ -253,12 +262,12 @@ def test_proof_with_only_a_source_citation_should_pass() -> None:
 
 def test_proof_with_unittest_after_an_interpreter_flag_should_be_denied() -> None:
     body = "## Proof in practice\nRan `python -q -m unittest discover`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_unittest_after_a_valued_interpreter_flag_should_be_denied() -> None:
     body = "## Proof in practice\nRan `python -W default -m unittest`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_script_that_mentions_unittest_should_pass() -> None:
@@ -273,17 +282,17 @@ def test_proof_with_a_module_other_than_unittest_should_pass() -> None:
 
 def test_proof_with_a_quoted_test_runner_word_should_be_denied() -> None:
     body = "## Proof in practice\nRan `npm \"test\"` and `cargo \"test\"`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_quoted_unittest_module_should_be_denied() -> None:
     body = "## Proof in practice\nRan `python -m \"unittest\"`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_coverage_running_unittest_should_be_denied() -> None:
     body = "## Proof in practice\nRan `coverage run -m unittest discover`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_coverage_running_an_application_should_pass() -> None:
@@ -297,13 +306,15 @@ def test_gh_create_with_fill_should_ask_for_a_body() -> None:
 
 def test_wrapped_gh_create_should_be_read() -> None:
     payload = _shell("bash -c 'gh pr create --body \"no proof\"'")
-    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.SHARED_COMMAND, None)
+    )
 
 
 def test_pull_request_script_create_should_be_read(tmp_path: Path) -> None:
     (tmp_path / "body.md").write_text(UNPROVEN_BODY, encoding="utf-8")
     payload = _shell("python3 scripts/pull_request.py create --body-file body.md", tmp_path)
-    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_other_pull_request_commands_should_pass() -> None:
@@ -463,10 +474,13 @@ def _repository_with_change(tmp_path: Path, changed_file_name: str) -> Path:
     return clone_path
 
 
-def _mcp_create_on_branch(body: str, working_directory: Path) -> dict[str, object]:
+def _mcp_create_on_branch(body: str, working_directory: Path, base: str | None = None) -> dict[str, object]:
+    tool_input = {"body": body, "head": "feature"}
+    if base is not None:
+        tool_input["base"] = base
     return {
         "tool_name": "mcp__github__create_pull_request",
-        "tool_input": {"body": body, "head": "feature"},
+        "tool_input": tool_input,
         "cwd": str(working_directory),
     }
 
@@ -504,8 +518,8 @@ def test_should_allow_a_python_only_change_without_a_picture(tmp_path: Path) -> 
 
 def test_visible_changed_files_skips_a_different_head_branch(tmp_path: Path) -> None:
     clone_path = _repository_with_change(tmp_path, "page.html")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["page.html"]
-    assert gate.visible_changed_files(str(clone_path), "other-branch") is None
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["page.html"]
+    assert gate.visible_changed_files(str(clone_path), "other-branch", None) is None
 
 
 def test_should_deny_when_git_cannot_read_the_branch_and_proof_shows_no_picture(tmp_path: Path) -> None:
@@ -587,13 +601,13 @@ def _repository_with_rename(
 
 def test_should_allow_a_pure_html_rename_without_a_picture(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, None)
-    assert gate.visible_changed_files(str(clone_path), "feature") == []
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == []
     assert gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path)) is None
 
 
 def test_should_deny_an_html_rename_that_also_edits_the_page(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, "<p>new line</p>\n")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["references/asset-specs.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["references/asset-specs.html"]
     reason = gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path))
     assert reason is not None
     assert "references/asset-specs.html" in reason
@@ -672,18 +686,18 @@ def test_should_report_an_unparseable_compare_line_as_unknown(monkeypatch: pytes
 
 def test_should_deny_a_byte_identical_rename_from_a_hidden_suffix_to_a_page(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, None, "notes.txt", "site/notes.html")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["site/notes.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["site/notes.html"]
     assert gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path)) is not None
 
 
 def test_should_deny_a_rename_whose_lines_were_reordered(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, None, reorder_lines=True)
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["references/asset-specs.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["references/asset-specs.html"]
 
 
 def test_should_deny_a_byte_identical_rename_from_one_page_type_to_another(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, None, "Widget.tsx", "site/widget.html")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["site/widget.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["site/widget.html"]
 
 
 def test_should_report_unreadable_git_output_as_unknown() -> None:
@@ -694,12 +708,12 @@ def test_should_report_unreadable_git_output_as_unknown() -> None:
 
 def test_should_keep_a_page_whose_name_holds_an_apostrophe(tmp_path: Path) -> None:
     clone_path = _repository_with_change(tmp_path, "q't.html")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["q't.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["q't.html"]
 
 
 def test_should_keep_a_page_whose_name_has_non_ascii_letters(tmp_path: Path) -> None:
     clone_path = _repository_with_change(tmp_path, "página.html")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["página.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["página.html"]
 
 
 def test_should_deny_as_unreadable_when_the_compare_api_fails(
@@ -809,7 +823,7 @@ def test_visible_changed_files_falls_back_to_origin_main_without_origin_head(tmp
     clone_path = _repository_with_change(tmp_path, "page.html")
     subprocess.run(["git", "-C", str(clone_path), "remote", "set-head", "origin", "-d"], check=True)
     subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "main"], check=True)
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["page.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["page.html"]
 
 
 def test_should_read_the_head_flag_of_a_shell_create(tmp_path: Path) -> None:
@@ -839,7 +853,7 @@ def _titled_mcp_create(title: object, body: object) -> dict[str, object]:
 
 def test_feature_mcp_create_without_an_eval_section_should_be_denied() -> None:
     payload = _titled_mcp_create("feat: add a gate", SEARCHED_BODY)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_feature_mcp_create_with_an_eval_section_naming_a_command_should_pass() -> None:
@@ -848,13 +862,13 @@ def test_feature_mcp_create_with_an_eval_section_naming_a_command_should_pass() 
 
 def test_feature_mcp_create_with_an_eval_heading_and_no_backtick_should_be_denied() -> None:
     payload = _titled_mcp_create("feat: add a gate", EVAL_WITHOUT_COMMAND_BODY)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_eval_section_should_stop_at_a_heading_of_the_same_level() -> None:
     body = SEARCHED_BODY + "\n## Evals\nCases listed.\n\n## Notes\nRan `python eval.py`.\n"
     payload = _titled_mcp_create("feat: add a gate", body)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_fix_and_docs_titles_without_an_eval_section_should_pass() -> None:
@@ -878,7 +892,7 @@ def test_gh_create_title_flag_should_be_read(tmp_path: Path) -> None:
     (tmp_path / "b.md").write_text(SEARCHED_BODY, encoding="utf-8")
     payload = _shell('gh pr create --title "feat: x" --body-file b.md', tmp_path)
     assert gate.is_feature_pull_request(payload)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_gh_create_title_assignment_should_be_read(tmp_path: Path) -> None:
@@ -894,7 +908,7 @@ def test_pull_request_script_create_title_should_be_read(tmp_path: Path) -> None
         'python pull_request.py create --title "feat(x): y" --body-file b.md --repo o/r', tmp_path
     )
     assert gate.is_feature_pull_request(payload)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_gh_create_without_a_title_should_not_count_as_a_feature(tmp_path: Path) -> None:
@@ -926,17 +940,17 @@ def _dispatch(all_inputs: dict[str, object], method: str = "run_workflow") -> di
 
 def test_pull_request_dispatch_without_proof_should_be_denied() -> None:
     payload = _dispatch({"head": "feature", "title": "fix: y", "body": UNPROVEN_BODY})
-    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_pull_request_dispatch_with_no_body_input_should_be_denied() -> None:
-    assert gate.missing_proof_reason(_dispatch({"head": "feature", "title": "fix: y"})) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(_dispatch({"head": "feature", "title": "fix: y"})) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_feature_dispatch_without_an_eval_section_should_be_denied() -> None:
     payload = _dispatch({"head": "feature", "title": "feat: x", "body": SEARCHED_BODY})
     assert gate.is_feature_pull_request(payload)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_dispatch_that_names_no_head_or_runs_no_workflow_should_not_count_as_a_create() -> None:
@@ -969,7 +983,7 @@ def test_is_create_call_should_name_shell_and_mcp_creates() -> None:
 )
 def test_every_create_spelling_should_need_a_proof_section(command: str) -> None:
     assert gate.is_create_call(_shell(command))
-    assert gate.missing_proof_reason(_shell(command)) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(_shell(command)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 WORKFLOW_DIRECTORY = ".github/workflows"
@@ -1083,11 +1097,11 @@ def test_added_workflow_files_should_list_only_files_the_branch_adds(
         tmp_path / "added", NEW_WORKFLOW_NAME
     )
     edited_clone = _repository_with_workflow_change(tmp_path / "edited", "ci.yml")
-    assert gate.added_workflow_files(str(added_clone), "feature") == [
+    assert gate.added_workflow_files(str(added_clone), "feature", None) == [
         f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"
     ]
-    assert gate.added_workflow_files(str(edited_clone), "feature") == []
-    assert gate.added_workflow_files(str(added_clone), "other-branch") is None
+    assert gate.added_workflow_files(str(edited_clone), "feature", None) == []
+    assert gate.added_workflow_files(str(added_clone), "other-branch", None) is None
 
 
 def _workflow_compare_lines(count: int, all_added_paths: list[str]) -> list[str]:
@@ -1179,9 +1193,11 @@ def test_one_gate_run_should_resolve_the_merge_base_once_for_the_waiver_and_look
     all_head_references: list[str] = []
     original_first_merge_base = gate._first_merge_base
 
-    def counted_first_merge_base(working_directory: str, head_reference: str) -> str | None:
+    def counted_first_merge_base(
+        working_directory: str, head_reference: str, all_base_references: tuple[str, ...]
+    ) -> str | None:
         all_head_references.append(head_reference)
-        return original_first_merge_base(working_directory, head_reference)
+        return original_first_merge_base(working_directory, head_reference, all_base_references)
 
     monkeypatch.setattr(gate, "_first_merge_base", counted_first_merge_base)
     payload = _mcp_create_on_branch(WAIVER_BODY, clone_path)
@@ -1261,7 +1277,7 @@ def test_added_workflow_files_should_count_a_renamed_workflow_as_added(
         check=True,
     )
     assert f"{WORKFLOW_DIRECTORY}/renamed.yml" in gate.added_workflow_files(
-        str(clone_path), "feature"
+        str(clone_path), "feature", None
     )
 
 
@@ -1639,17 +1655,17 @@ def test_shell_body_edit_with_an_unrun_proof_line_should_be_denied(command: str,
 
 def test_body_edit_that_leaves_only_a_test_run_in_the_proof_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest -q`.\n"
-    assert gate.edit_proof_reason(_mcp_update(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.edit_proof_reason(_mcp_update(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_body_edit_that_leaves_an_empty_proof_heading_should_be_denied() -> None:
     body = "## Summary\nx\n\n## Proof in practice\n\n## Notes\nok\n"
-    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_body_edit_that_leaves_a_proof_section_with_no_command_should_be_denied() -> None:
     body = "## Proof in practice\nIt works.\n"
-    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_gh_command_with_other_words_should_not_read_as_an_edit(tmp_path: Path) -> None:
@@ -1745,3 +1761,150 @@ def test_chained_creates_should_read_the_compare_api_once_per_distinct_head(
     with gate_run():
         assert gate.missing_look_reason(_shell(command, tmp_path)) is None
     assert all_endpoints == ["repos/o/r/compare/main...x", "repos/o/r/compare/main...y"]
+
+
+def _run_git(repository_path: Path, *all_arguments: str) -> None:
+    identity = ["-c", "user.name=Test", "-c", "user.email=test@example.com"]
+    subprocess.run(["git", "-C", str(repository_path), *identity, *all_arguments], check=True)
+
+
+def _commit_file(repository_path: Path, file_name: str) -> None:
+    (repository_path / file_name).parent.mkdir(parents=True, exist_ok=True)
+    (repository_path / file_name).write_text("x\n", encoding="utf-8")
+    _run_git(repository_path, "add", ".")
+    _run_git(repository_path, "commit", "-q", "-m", f"add {file_name}")
+
+
+def _repository_on_branch(tmp_path: Path) -> Path:
+    origin_path = tmp_path / "origin"
+    clone_path = tmp_path / "clone"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    _commit_file(origin_path, "README.md")
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    _run_git(clone_path, "checkout", "-q", "-b", "parent")
+    return clone_path
+
+
+def test_first_merge_base_should_try_the_candidate_references_in_order(
+    tmp_path: Path,
+) -> None:
+    clone_path = _repository_on_branch(tmp_path)
+    _commit_file(clone_path, "library.py")
+    parent_commit = subprocess.run(
+        ["git", "-C", str(clone_path), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    _run_git(clone_path, "checkout", "-q", "-b", "child")
+    _commit_file(clone_path, "caller.py")
+    assert (
+        gate._first_merge_base(str(clone_path), "HEAD", ("no-such-branch", "parent"))
+        == parent_commit
+    )
+    assert gate._first_merge_base(str(clone_path), "HEAD", ALL_DEFAULT_BRANCH_REFERENCES) != parent_commit
+
+
+def _stacked_repository(tmp_path: Path, parent_file_name: str) -> Path:
+    clone_path = _repository_on_branch(tmp_path)
+    _commit_file(clone_path, parent_file_name)
+    _run_git(clone_path, "push", "-q", "origin", "parent")
+    _run_git(clone_path, "checkout", "-q", "-b", "feature")
+    _commit_file(clone_path, "tool.py")
+    _run_git(clone_path, "push", "-q", "origin", "feature")
+    return clone_path
+
+
+def test_should_judge_a_stack_level_only_on_its_own_files_against_its_base(tmp_path: Path) -> None:
+    clone_path = _stacked_repository(tmp_path, "page.html")
+    payload = _mcp_create_on_branch(PROVEN_BODY, clone_path, "parent")
+
+    assert gate.visible_changed_files(str(clone_path), "feature", "parent") == []
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["page.html"]
+    assert gate.missing_look_reason(payload) is None
+
+
+def test_should_list_only_the_workflows_a_stack_level_adds_over_its_base(tmp_path: Path) -> None:
+    clone_path = _stacked_repository(tmp_path, f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}")
+    payload = _mcp_create_on_branch(_workflow_body(AFTER_MERGE_SECTION), clone_path, "parent")
+
+    assert gate.added_workflow_files(str(clone_path), "feature", "parent") == []
+    assert gate.added_workflow_files(str(clone_path), "feature", None) == [f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"]
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)
+
+
+def test_should_leave_a_base_that_exists_only_locally_to_the_compare_api(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _stacked_repository(tmp_path, "page.html")
+    _run_git(clone_path, "branch", "local-only", "feature")
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/local-only...feature"
+    monkeypatch.setattr(
+        gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "page.html")]}, all_endpoints)
+    )
+
+    assert gate.visible_changed_files(str(clone_path), "feature", "local-only") is None
+    assert gate.added_workflow_files(str(clone_path), "feature", "local-only") is None
+    assert gate._read_visible_files(str(clone_path), "o/r", "local-only", "feature") == ["page.html"]
+    assert all_endpoints == [compare_endpoint]
+    assert gate._read_visible_files(str(clone_path), None, "local-only", "feature") == ["page.html"]
+
+
+def test_should_measure_a_named_main_base_against_origin_main(tmp_path: Path) -> None:
+    clone_path = _stacked_repository(tmp_path, "page.html")
+    _run_git(clone_path, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/parent")
+
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == []
+    assert gate.visible_changed_files(str(clone_path), "feature", "main") == ["page.html"]
+
+    _run_git(clone_path, "update-ref", "-d", "refs/remotes/origin/main")
+    assert gate.visible_changed_files(str(clone_path), "feature", "main") is None
+    assert gate._read_visible_files(str(clone_path), None, "main", "feature") == []
+
+
+def test_should_ask_the_compare_api_when_the_create_names_another_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _stacked_repository(tmp_path / "checkout", "page.html")
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(
+        gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "tool.py")]}, all_endpoints)
+    )
+    body_path = tmp_path / "body.md"
+    body_path.write_text(PROVEN_BODY, encoding="utf-8")
+    payload = _shell(f'gh pr create --title t --body-file "{body_path}" --repo o/r --base main --head feature', clone_path)
+
+    assert gate.missing_look_reason(payload) is None
+    assert all_endpoints == [compare_endpoint]
+
+
+@pytest.mark.parametrize(
+    ("repository_flag_value", "expected_repository"),
+    [
+        ("o/r", "o/r"),
+        ("github.com/o/r", "o/r"),
+        ("https://github.com/o/r", "o/r"),
+        ("https://github.com/o/r.git/", "o/r"),
+        ("HTTPS://GitHub.com/o/r", "o/r"),
+    ],
+)
+def test_should_read_a_repository_flag_as_its_owner_and_name(
+    tmp_path: Path, repository_flag_value: str, expected_repository: str
+) -> None:
+    payload = _shell(f"gh pr create --title t --repo {repository_flag_value} --head feature", tmp_path)
+
+    assert [each_call.repository for each_call in gate._create_calls(payload)] == [expected_repository]
+
+
+def test_should_leave_the_workflows_of_another_repository_out_of_the_workflow_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _stacked_repository(tmp_path, f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}")
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({}, []))
+
+    assert gate._read_added_workflow_files(str(clone_path), "o/r", "main", "feature") == []
+    assert gate._read_added_workflow_files(str(clone_path), None, "main", "feature") == [
+        f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"
+    ]

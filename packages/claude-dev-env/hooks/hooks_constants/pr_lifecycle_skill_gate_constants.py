@@ -9,8 +9,8 @@ DENY_REASON = (
     "Invoke the pr-lifecycle skill with the Skill tool, then run the same command again."
 )
 SCAN_RAN_OUT_SENTENCE = (
-    " The gate's transcript scan ran out of time on this run, and loading the skill again,"
-    " or calling build-eval again, puts that call where the scan finds it first."
+    " The gate's transcript scan ran out of time on this run, and loading the skill again"
+    " puts that call where the scan finds it first."
 )
 GATE_NAME = "pull request lifecycle"
 SKILL_NAME = "pr-lifecycle"
@@ -103,6 +103,3 @@ ALL_NESTED_PROGRAM_NAMES = (
 )
 PATH_SEPARATOR_PATTERN = r"[\\/]"
 PYTHON_OPTIONS_WITH_VALUE = frozenset({"-X", "-W"})
-ALL_BUILD_EVAL_SKILL_NAMES = ("claude-api",)
-BUILD_EVAL_ARGUMENT_WORD = "build-eval"
-BUILD_EVAL_COMMAND_MARKER = "<command-name>/claude-api</command-name>"

@@ -6,12 +6,13 @@ import subprocess
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
+from blocking.evidence_tier import is_docs_or_test_path
 from blocking.pr_lifecycle_skill_gate import (
     deny_decision,
     executable_word_lists,
@@ -33,17 +34,9 @@ from hooks_constants.verify_before_commit_gate_constants import (
     ALL_ADD_EVERYTHING_OPTIONS,
     ALL_COMMIT_ALL_OPTIONS,
     ALL_COMMIT_VALUED_SHORT_FLAGS,
-    ALL_DOCS_DATA_EXTENSIONS,
-    ALL_DOCS_DIRECTORY_NAMES,
-    ALL_DOCS_EXTENSIONS,
     ALL_GIT_EXECUTABLES,
     ALL_SLASH_COMMAND_MARKERS,
     ALL_STAGED_PATHS_ARGUMENTS,
-    ALL_TEST_DIRECTORY_NAMES,
-    ALL_TEST_FILE_INFIXES,
-    ALL_TEST_FILE_NAMES,
-    ALL_TEST_FILE_PREFIXES,
-    ALL_TEST_FILE_SUFFIXES,
     ALL_TOP_LEVEL_ARGUMENTS,
     ALL_TRACKED_CHANGE_ARGUMENTS,
     ALL_VERIFY_SKILL_DIRECTORIES,
@@ -174,24 +167,6 @@ def _committed_paths(
     return all_paths
 
 
-def _is_docs_or_test_path(repository_path: str) -> bool:
-    path = PurePosixPath(repository_path)
-    if path.suffix.lower() in ALL_DOCS_EXTENSIONS or path.name in ALL_TEST_FILE_NAMES:
-        return True
-    all_directory_parts = path.parts[:-1]
-    if path.suffix.lower() in ALL_DOCS_DATA_EXTENSIONS and any(
-        each_part in ALL_DOCS_DIRECTORY_NAMES for each_part in all_directory_parts
-    ):
-        return True
-    if any(each_part in ALL_TEST_DIRECTORY_NAMES for each_part in all_directory_parts):
-        return True
-    return (
-        path.name.startswith(ALL_TEST_FILE_PREFIXES)
-        or path.name.endswith(ALL_TEST_FILE_SUFFIXES)
-        or any(each_infix in path.name for each_infix in ALL_TEST_FILE_INFIXES)
-    )
-
-
 def _has_verify_skill(directory: Path) -> bool:
     top_level = _git_lines(directory, ALL_TOP_LEVEL_ARGUMENTS)
     if not top_level:
@@ -230,7 +205,7 @@ def _commits_code(all_git_calls: list[GitCall]) -> bool:
             continue
         all_paths = _committed_paths(each_call, all_git_calls[:each_index])
         if all_paths and not all(
-            _is_docs_or_test_path(each_path) for each_path in all_paths
+            is_docs_or_test_path(each_path) for each_path in all_paths
         ):
             return True
     return False
