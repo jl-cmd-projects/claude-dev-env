@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.130.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.129.0...claude-dev-env-v8.130.0) (2026-11-17)
+
+
+### Features
+
+* **hooks:** toggle the closing question round gate per session with --nocards ([#2425](https://github.com/jl-cmd-projects/claude-dev-env/issues/2425)) ([c365b36](https://github.com/jl-cmd-projects/claude-dev-env/commit/c365b366aff71d7142adfe9fc250e8c1c4f175b4))
+
+
+### Bug Fixes
+
+* **broker:** run Claude jobs on the session account in a cloud session ([#2424](https://github.com/jl-cmd-projects/claude-dev-env/issues/2424)) ([bab353a](https://github.com/jl-cmd-projects/claude-dev-env/commit/bab353af957e57f11926f7d3ea8787301f2ead3d))
+
 ## [8.129.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.128.2...claude-dev-env-v8.129.0) (2026-11-17)
 
 
