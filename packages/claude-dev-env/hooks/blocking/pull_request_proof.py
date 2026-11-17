@@ -5,8 +5,8 @@ from __future__ import annotations
 import json
 import re
 import sys
-from collections.abc import Iterator, Mapping, Sequence
-from typing import NamedTuple
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from typing import NamedTuple, TypeVar
 from pathlib import Path
 
 hooks_directory = str(Path(__file__).resolve().parent.parent)
@@ -27,7 +27,9 @@ from hooks_constants.pr_lifecycle_skill_gate_constants import UPDATE_PULL_REQUES
 from hooks_constants.pull_request_proof_constants import (
     ADDED_FILE_NAMES_QUERY,
     GIT_URL_SUFFIX,
+    OWNER_AND_NAME_PART_COUNT,
     REMOTE_LINE_FIELD_COUNT,
+    REPOSITORY_PATH_SEPARATOR,
     RUN_WORD_PATTERN,
     WORKFLOW_NAME_MATCH_TEMPLATE,
     WORKFLOW_SUBJECT_PATTERN,
@@ -201,10 +203,19 @@ def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall
             body_from_arguments(all_create_arguments, working_directory),
             _flag_value(all_create_arguments, ALL_HEAD_FLAGS, HEAD_FLAG_ASSIGNMENT_PREFIX) or None,
             _flag_value(all_create_arguments, ALL_BASE_FLAGS, BASE_FLAG_ASSIGNMENT_PREFIX) or None,
-            _flag_value(all_create_arguments, ALL_REPOSITORY_FLAGS, REPOSITORY_FLAG_ASSIGNMENT_PREFIX) or None,
+            _owner_and_name(_flag_value(all_create_arguments, ALL_REPOSITORY_FLAGS, REPOSITORY_FLAG_ASSIGNMENT_PREFIX)),
         )
         for all_create_arguments in all_create_argument_lists(command)
     ]
+
+
+def _owner_and_name(repository_flag_value: str | None) -> str | None:
+    if not repository_flag_value:
+        return None
+    all_path_parts = repository_flag_value.rstrip(REPOSITORY_PATH_SEPARATOR).removesuffix(GIT_URL_SUFFIX).split(
+        REPOSITORY_PATH_SEPARATOR
+    )
+    return REPOSITORY_PATH_SEPARATOR.join(all_path_parts[-OWNER_AND_NAME_PART_COUNT:])
 
 
 def _flag_value(all_create_arguments: list[str], all_flags: frozenset[str], assignment_prefix: str) -> str | None:
@@ -977,15 +988,45 @@ def _added_workflow_files_for_create(create_call: CreateCall, working_directory:
 def _read_added_workflow_files(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str]:
-    local_may_answer = _local_checkout_may_answer(working_directory, repository, head_branch)
-    all_workflow_paths = None
-    if local_may_answer:
-        all_workflow_paths = added_workflow_files(working_directory, head_branch, base_branch)
-    if all_workflow_paths is None:
-        all_workflow_paths = remote_added_workflow_files(repository, base_branch, head_branch)
-    if all_workflow_paths is None and base_branch and local_may_answer:
-        all_workflow_paths = added_workflow_files(working_directory, head_branch, None)
+    all_workflow_paths = read_named_base_first(
+        _local_checkout_may_answer(working_directory, repository, head_branch),
+        base_branch,
+        lambda each_base_branch: added_workflow_files(working_directory, head_branch, each_base_branch),
+        lambda: remote_added_workflow_files(repository, base_branch, head_branch),
+    )
     return all_workflow_paths or []
+
+
+AnswerType = TypeVar("AnswerType")
+
+
+def read_named_base_first(
+    local_may_answer: bool,
+    base_branch: str | None,
+    read_local: Callable[[str | None], AnswerType | None],
+    read_remote: Callable[[], AnswerType | None],
+) -> AnswerType | None:
+    """Return the first answer of the clone at the base, the compare API, and the clone at main.
+
+    ::
+
+        clone reads origin/parent                        -> the clone's answer
+        clone lacks origin/parent, compare API answers   -> the compare API's answer
+        neither answers, base named, clone may answer    -> the clone's answer against main
+        clone is for another repository, API is silent   -> None
+
+    Args:
+        local_may_answer: Whether the clone is for the repository the create names.
+        base_branch: The base branch a create call names, or None.
+        read_local: Reads the clone against a base, or against the defaults for None.
+        read_remote: Reads the compare API against the named base.
+    """
+    answer = read_local(base_branch) if local_may_answer else None
+    if answer is None:
+        answer = read_remote()
+    if answer is None and base_branch and local_may_answer:
+        answer = read_local(None)
+    return answer
 
 
 def _local_checkout_may_answer(
@@ -997,6 +1038,13 @@ def _local_checkout_may_answer(
 def checkout_is_for(working_directory: str, repository: str | None) -> bool:
     if repository is None:
         return True
+    return answer_once(
+        ("checkout is for", working_directory, repository),
+        lambda: _read_checkout_is_for(working_directory, repository),
+    )
+
+
+def _read_checkout_is_for(working_directory: str, repository: str) -> bool:
     all_remote_lines = _git_lines(working_directory, "remote", "-v") if working_directory else None
     all_repository_endings = ("/" + repository.lower(), ":" + repository.lower())
     for each_line in all_remote_lines or []:
@@ -1139,12 +1187,9 @@ def _visible_files_for_create(create_call: CreateCall, working_directory: str) -
 def _read_visible_files(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str] | None:
-    local_may_answer = _local_checkout_may_answer(working_directory, repository, head_branch)
-    all_visible_files = None
-    if local_may_answer:
-        all_visible_files = visible_changed_files(working_directory, head_branch, base_branch)
-    if all_visible_files is None:
-        all_visible_files = remote_visible_changed_files(repository, base_branch, head_branch)
-    if all_visible_files is None and base_branch and local_may_answer:
-        all_visible_files = visible_changed_files(working_directory, head_branch, None)
-    return all_visible_files
+    return read_named_base_first(
+        _local_checkout_may_answer(working_directory, repository, head_branch),
+        base_branch,
+        lambda each_base_branch: visible_changed_files(working_directory, head_branch, each_base_branch),
+        lambda: remote_visible_changed_files(repository, base_branch, head_branch),
+    )

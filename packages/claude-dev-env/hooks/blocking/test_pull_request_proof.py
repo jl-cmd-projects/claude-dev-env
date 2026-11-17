@@ -1868,3 +1868,14 @@ def test_should_ask_the_compare_api_when_the_create_names_another_repository(
 
     assert gate.missing_look_reason(payload) is None
     assert all_endpoints == [compare_endpoint]
+
+
+@pytest.mark.parametrize(
+    "repository_flag_value", ["o/r", "github.com/o/r", "https://github.com/o/r", "https://github.com/o/r.git/"]
+)
+def test_should_read_a_repository_flag_with_a_host_as_its_owner_and_name(
+    tmp_path: Path, repository_flag_value: str
+) -> None:
+    payload = _shell(f"gh pr create --title t --repo {repository_flag_value} --head feature", tmp_path)
+
+    assert [each_call.repository for each_call in gate._create_calls(payload)] == ["o/r"]
