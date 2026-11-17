@@ -719,23 +719,25 @@ def _head_reference(working_directory: str, head_branch: object) -> str | None:
 
 
 def visible_changed_files(
-    working_directory: str, head_branch: object, base_branch: str | None = None
+    working_directory: str, head_branch: object, base_branch: str | None
 ) -> list[str] | None:
     """Return the changed files people see on the head branch, or None when git cannot tell.
 
     The head is the checked-out branch, or the named branch or its origin copy
-    when the checkout holds another branch. The base is origin/<base> when the
-    create names one, so a stack level counts only its own files. A local
-    branch of that name is never read, because the agent controls it. When
-    origin/<base> is missing, or no base is named, the base is the first of
-    origin/HEAD, origin/main and main that git can reach::
+    when the checkout holds another branch. A named base other than main is
+    read only as origin/<base>, so a stack level counts only its own files. A
+    local branch of that name is never read, because the agent controls it,
+    and a missing origin/<base> gives None so the compare API measures it.
+    With main or no base named, the base is the first of origin/HEAD,
+    origin/main and main that git can reach::
 
         checkout on feature, page.html changed -> ["page.html"]
         page.html renamed with no edit          -> []
         page.html renamed and edited            -> ["page.html"]
         named head exists nowhere in the clone  -> None
         no base reference reachable             -> None
-        stack level, --base parent, adds tool.py -> [] above the parent's page.html
+        --base parent, parent holds page.html   -> []
+        --base parent, no origin/parent         -> None
 
     A rename whose old and new blob ids match and whose old and new names end the
     same way, such as a.html to b/a.html, changes nothing people see. One that
@@ -764,7 +766,7 @@ def _raw_diff_output(working_directory: str, merge_base: str, head_reference: st
 
 
 def _merge_base_and_head(
-    working_directory: str, head_branch: object, base_branch: str | None = None
+    working_directory: str, head_branch: object, base_branch: str | None
 ) -> tuple[str, str] | None:
     named_head = head_branch if isinstance(head_branch, str) else None
     return answer_once(
@@ -782,9 +784,9 @@ def _read_merge_base_and_head(
     if head_reference is None:
         return None
     all_base_references = (
-        (REMOTE_BRANCH_PREFIX + base_branch, *ALL_DEFAULT_BRANCH_REFERENCES)
-        if base_branch
-        else ALL_DEFAULT_BRANCH_REFERENCES
+        ALL_DEFAULT_BRANCH_REFERENCES
+        if not base_branch or base_branch in ALL_DEFAULT_BRANCH_REFERENCES
+        else (REMOTE_BRANCH_PREFIX + base_branch,)
     )
     merge_base = _first_merge_base(working_directory, head_reference, all_base_references)
     return None if merge_base is None else (merge_base, head_reference)
@@ -846,7 +848,7 @@ def _workflow_paths(all_added_paths: list[str]) -> list[str]:
 
 
 def added_workflow_files(
-    working_directory: str, head_branch: object, base_branch: str | None = None
+    working_directory: str, head_branch: object, base_branch: str | None
 ) -> list[str] | None:
     """Return the workflow files the head branch adds, or None when git cannot tell.
 
