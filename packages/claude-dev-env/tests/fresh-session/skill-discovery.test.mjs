@@ -40,6 +40,19 @@ const BODY_MARKER = 'FIXTURE_SKILL_BODY_LOADED';
 const HARNESS_DISCOVER_SKILL_ARGUMENT = '--harness-discover-skill';
 const HARNESS_LOAD_SKILL_ARGUMENT = '--harness-load-skill';
 
+test('the repository discovery directory exposes e-code-review and its default recipe', {
+    skip: process.platform === 'win32',
+}, () => {
+    const repositorySkill = new URL('../../../../.agents/skills/e-code-review/', import.meta.url);
+    const packagedSkill = new URL('../../.agents/skills/e-code-review/', import.meta.url);
+    for (const file of [SKILL_FILE_NAME, 'reference/high.md']) {
+        assert.equal(
+            readFileSync(new URL(file, repositorySkill), 'utf8'),
+            readFileSync(new URL(file, packagedSkill), 'utf8'),
+        );
+    }
+});
+
 /**
  * @typedef {{
  *   installed: boolean,
