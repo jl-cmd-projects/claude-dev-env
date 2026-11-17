@@ -1,8 +1,0 @@
-{
-  "rule_id": "validators",
-  "file_path": "packages/claude-dev-env/hooks/blocking/closing_question_round_gate.py",
-  "message": "packages/claude-dev-env/hooks/blocking/closing_question_round_gate.py:290: Function '_hold_reason' is 31 lines (max 30)",
-  "check_id": "validators/function-line-cap",
-  "severity": "smell",
-  "origin_commit": "2aba1370b3b952200de4aec7a3cd9643bfbf15e1"
-}

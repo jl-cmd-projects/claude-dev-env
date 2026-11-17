@@ -9,7 +9,7 @@ The gate holds the stop for three shapes, and only in a session it covers::
     allow: an Edit call, then "Open items: none."   the declaration ends the reply
     allow: "Both tests pass."                        no work and no marker line
     allow: a marker line, then an answered AskUserQuestion call
-    hold:  "Open items: none." while task #2 is in_progress
+    hold:  "Open items: none." beside task #2 in_progress, as closing_question_round_tasks reads it
 
 The stretch is every top-level record after the last question call that
 reached the user, then the payload's closing reply. A marker line is a prose
@@ -25,13 +25,6 @@ text after the last work call.
   reason quotes the last 8 marker lines at most, each cut to 160 characters,
   and counts the earlier ones. Three dots in backticks stand where a code span
   sat.
-- A closing reply that ends with the declaration holds the stop while the
-  session's task list holds an ``in_progress`` task. The list is the task
-  store, ``<claude home>/tasks/<task list id>/*.json``, with
-  ``CLAUDE_CODE_TASK_LIST_ID`` or the payload's ``session_id`` as the id, or
-  the transcript's TaskCreate, TaskUpdate, TodoWrite, and plan calls when no
-  store exists. The reason names each such task by number and subject and
-  tells the agent to report where each stands and keep working on it.
 - Work with no marker line and no declaration holds the stop with the work
   reason.
 
@@ -93,6 +86,7 @@ if blocking_directory not in sys.path:
 from closing_question_gate_flag import is_bypass_on
 from closing_question_round_lines import transcript_lines
 from closing_question_round_open_items import declares_no_open_items, marked_open_lines
+from closing_question_round_tasks import declared_tasks_reason
 from closing_question_round_transcript import (
     assistant_texts,
     block_texts,
@@ -102,8 +96,6 @@ from closing_question_round_transcript import (
     stretch_start,
     top_level_records,
 )
-from open_tasks_stop_gate import task_store_items
-from open_tasks_transcript import TaskItem, replayed_transcript
 from open_tasks_transcript_records import is_assistant_record
 
 from hooks_constants.closing_question_round_gate_constants import (
@@ -116,10 +108,6 @@ from hooks_constants.closing_question_round_gate_constants import (
     DECISION_PROCESS_FLAG,
     FEEDBACK_OPENING_LENGTH,
     HEADLESS_SESSION_ATTENDED_TEXT,
-    IN_PROGRESS_TASK_LINE_TEMPLATE,
-    IN_PROGRESS_TASKS_INSTRUCTION,
-    IN_PROGRESS_TASKS_LABEL,
-    IN_PROGRESS_TASKS_REASON_LEAD,
     MAXIMUM_HOLD_COUNT,
     MAXIMUM_PAYLOAD_BYTES,
     MAXIMUM_QUOTED_LINE_COUNT,
@@ -138,14 +126,12 @@ from hooks_constants.closing_question_round_gate_constants import (
     WORK_REASON_LEAD,
 )
 from hooks_constants.hook_block_logger import log_hook_block
-from hooks_constants.once_per_session_constants import SESSION_ID_KEY
 from hooks_constants.setup_project_paths_constants import UTF8_BYTE_ORDER_MARK
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALLOW_EXIT_CODE,
     CONTENT_KEY,
     CURSOR_CONVERSATION_ID_KEY,
     HOOK_EVENT_NAME,
-    IN_PROGRESS_STATUS,
     MESSAGE_KEY,
     RECORD_TYPE_KEY,
     STOP_HOOK_FEEDBACK_PREFIX,
@@ -239,23 +225,6 @@ def work_reason() -> str:
     return REASON_PART_SEPARATOR.join([WORK_REASON_LEAD, WORK_INSTRUCTION])
 
 
-def _in_progress_task_items(all_hook_input_fields: dict[str, object]) -> list[TaskItem]:
-    all_store_items = task_store_items(all_hook_input_fields.get(SESSION_ID_KEY))
-    if all_store_items is None:
-        all_store_items = replayed_transcript(all_hook_input_fields.get(TRANSCRIPT_PATH_KEY)).items() or []
-    return [each_item for each_item in all_store_items if each_item.status == IN_PROGRESS_STATUS]
-
-
-def _in_progress_tasks_reason(all_in_progress_items: list[TaskItem]) -> str:
-    all_task_lines = [
-        IN_PROGRESS_TASK_LINE_TEMPLATE.format(task_id=each_item.item_id, subject=each_item.subject)
-        for each_item in all_in_progress_items
-    ]
-    return REASON_PART_SEPARATOR.join(
-        [IN_PROGRESS_TASKS_REASON_LEAD, IN_PROGRESS_TASKS_LABEL, *all_task_lines, IN_PROGRESS_TASKS_INSTRUCTION]
-    )
-
-
 def _covered_texts_and_records(
     all_hook_input_fields: dict[str, object], deadline_at: float
 ) -> tuple[list[str], list[dict[str, object]], list[dict[str, object]]] | None:
@@ -298,10 +267,9 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     all_open_item_lines = marked_open_lines(all_texts, deadline_at)
     if all_open_item_lines:
         return closing_round_reason(all_open_item_lines)
-    if all_texts and declares_no_open_items(all_texts[-1], deadline_at):
-        all_in_progress_items = _in_progress_task_items(all_hook_input_fields)
-        if all_in_progress_items:
-            return _in_progress_tasks_reason(all_in_progress_items)
+    tasks_reason = declared_tasks_reason(all_hook_input_fields, all_texts, deadline_at)
+    if tasks_reason:
+        return tasks_reason
     all_undeclared_records = _records_since_declaration(all_stretch_records, deadline_at)
     all_work_positions = [
         each_position
