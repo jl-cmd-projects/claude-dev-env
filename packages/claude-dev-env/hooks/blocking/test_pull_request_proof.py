@@ -463,10 +463,11 @@ def _repository_with_change(tmp_path: Path, changed_file_name: str) -> Path:
     return clone_path
 
 
-def _mcp_create_on_branch(body: str, working_directory: Path) -> dict[str, object]:
+def _mcp_create_on_branch(body: str, working_directory: Path, base: str | None = None) -> dict[str, object]:
+    tool_input = {"body": body, "head": "feature"} if base is None else {"body": body, "head": "feature", "base": base}
     return {
         "tool_name": "mcp__github__create_pull_request",
-        "tool_input": {"body": body, "head": "feature"},
+        "tool_input": tool_input,
         "cwd": str(working_directory),
     }
 
@@ -1179,9 +1180,11 @@ def test_one_gate_run_should_resolve_the_merge_base_once_for_the_waiver_and_look
     all_head_references: list[str] = []
     original_first_merge_base = gate._first_merge_base
 
-    def counted_first_merge_base(working_directory: str, head_reference: str) -> str | None:
+    def counted_first_merge_base(
+        working_directory: str, head_reference: str, all_base_references: tuple[str, ...]
+    ) -> str | None:
         all_head_references.append(head_reference)
-        return original_first_merge_base(working_directory, head_reference)
+        return original_first_merge_base(working_directory, head_reference, all_base_references)
 
     monkeypatch.setattr(gate, "_first_merge_base", counted_first_merge_base)
     payload = _mcp_create_on_branch(WAIVER_BODY, clone_path)
@@ -1786,3 +1789,41 @@ def test_first_merge_base_should_try_the_candidate_references_in_order(
         == parent_commit
     )
     assert gate._first_merge_base(str(clone_path), "HEAD") != parent_commit
+
+
+def _stacked_repository(tmp_path: Path, parent_file_name: str) -> Path:
+    origin_path = tmp_path / "origin"
+    clone_path = tmp_path / "clone"
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    (origin_path / "readme.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(origin_path), *git_identity, "commit", "-q", "-m", "base"], check=True)
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    for each_branch, each_file_name in (("parent", parent_file_name), ("feature", "tool.py")):
+        subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "-b", each_branch], check=True)
+        (clone_path / each_file_name).parent.mkdir(parents=True, exist_ok=True)
+        (clone_path / each_file_name).write_text("x\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(clone_path), "add", "."], check=True)
+        subprocess.run(["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", each_branch], check=True)
+        subprocess.run(["git", "-C", str(clone_path), "push", "-q", "origin", each_branch], check=True)
+    subprocess.run(["git", "-C", str(clone_path), "fetch", "-q", "origin"], check=True)
+    return clone_path
+
+
+def test_should_judge_a_stack_level_only_on_its_own_files_against_its_base(tmp_path: Path) -> None:
+    clone_path = _stacked_repository(tmp_path, "page.html")
+    payload = _mcp_create_on_branch(PROVEN_BODY, clone_path, "parent")
+
+    assert gate.visible_changed_files(str(clone_path), "feature", "parent") == []
+    assert gate.visible_changed_files(str(clone_path), "feature") == ["page.html"]
+    assert gate.missing_look_reason(payload) is None
+
+
+def test_should_list_only_the_workflows_a_stack_level_adds_over_its_base(tmp_path: Path) -> None:
+    clone_path = _stacked_repository(tmp_path, f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}")
+    payload = _mcp_create_on_branch(_workflow_body(AFTER_MERGE_SECTION), clone_path, "parent")
+
+    assert gate.added_workflow_files(str(clone_path), "feature", "parent") == []
+    assert gate.added_workflow_files(str(clone_path), "feature") == [f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"]
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)

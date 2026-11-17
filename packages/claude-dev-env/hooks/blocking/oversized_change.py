@@ -28,19 +28,14 @@ from blocking.gate_run_reads import answer_once
 from blocking.pull_request_proof import (
     CreateCall,
     _all_section_texts,
-    _cached_head_reference,
     _compare_lines,
     _create_calls,
-    _first_merge_base,
     _git_lines,
     _git_output,
     _merge_base_and_head,
     checkout_is_for,
 )
-from hooks_constants.pull_request_proof_constants import (
-    COMPARE_FILE_LIST_LIMIT,
-    REMOTE_BRANCH_PREFIX,
-)
+from hooks_constants.pull_request_proof_constants import COMPARE_FILE_LIST_LIMIT
 from hooks_constants.oversized_change_constants import (
     ALL_GENERATED_ATTRIBUTE_VALUES,
     ALL_LOCKFILE_NAMES,
@@ -132,7 +127,7 @@ def local_measured_line_count(
         base_branch: The base branch the create call names, or None.
         head_branch: The head branch the create call names, or None.
     """
-    merge_base_and_head = _merge_base_and_head_for_base(working_directory, base_branch, head_branch)
+    merge_base_and_head = _merge_base_and_head(working_directory, head_branch, base_branch)
     if merge_base_and_head is None:
         return None
     merge_base, head_reference = merge_base_and_head
@@ -177,20 +172,6 @@ def _counts_without_lockfiles(numstat_output: str) -> dict[str, int] | None:
         for each_path, each_count in count_by_path.items()
         if not _is_lockfile(each_path)
     }
-
-
-def _merge_base_and_head_for_base(
-    working_directory: str, base_branch: str | None, head_branch: str | None
-) -> tuple[str, str] | None:
-    if not base_branch:
-        return _merge_base_and_head(working_directory, head_branch)
-    head_reference = _cached_head_reference(working_directory, head_branch)
-    if head_reference is None:
-        return None
-    merge_base = _first_merge_base(
-        working_directory, head_reference, (REMOTE_BRANCH_PREFIX + base_branch, base_branch)
-    )
-    return None if merge_base is None else (merge_base, head_reference)
 
 
 def _numstat_counts(numstat_output: str) -> dict[str, int] | None:

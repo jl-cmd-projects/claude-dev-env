@@ -718,18 +718,23 @@ def _head_reference(working_directory: str, head_branch: object) -> str | None:
     return None
 
 
-def visible_changed_files(working_directory: str, head_branch: object) -> list[str] | None:
+def visible_changed_files(
+    working_directory: str, head_branch: object, base_branch: str | None = None
+) -> list[str] | None:
     """Return the changed files people see on the head branch, or None when git cannot tell.
 
     The head is the checked-out branch, or the named branch or its origin copy
-    when the checkout holds another branch. The base is the first of
-    origin/HEAD, origin/main and main that git can reach::
+    when the checkout holds another branch. The base is origin/<base> or <base>
+    when the create names one, so a stack level counts only its own files.
+    Otherwise it is the first of origin/HEAD, origin/main and main that git can
+    reach::
 
         checkout on feature, page.html changed -> ["page.html"]
         page.html renamed with no edit          -> []
         page.html renamed and edited            -> ["page.html"]
         named head exists nowhere in the clone  -> None
         no base reference reachable             -> None
+        stack level, --base parent, adds tool.py -> [] above the parent's page.html
 
     A rename whose old and new blob ids match and whose old and new names end the
     same way, such as a.html to b/a.html, changes nothing people see. One that
@@ -739,8 +744,9 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
     Args:
         working_directory: The session directory the hook payload names.
         head_branch: The head branch a create call names, or None.
+        base_branch: The base branch a create call names, or None.
     """
-    merge_base_and_head = _merge_base_and_head(working_directory, head_branch)
+    merge_base_and_head = _merge_base_and_head(working_directory, head_branch, base_branch)
     if merge_base_and_head is None:
         return None
     raw_output = _git_output(working_directory, "diff", "--raw", "--no-abbrev", "-M", "-z", *merge_base_and_head)
@@ -752,21 +758,28 @@ def visible_changed_files(working_directory: str, head_branch: object) -> list[s
     return _visible_paths(all_changes)
 
 
-def _merge_base_and_head(working_directory: str, head_branch: object) -> tuple[str, str] | None:
+def _merge_base_and_head(
+    working_directory: str, head_branch: object, base_branch: str | None = None
+) -> tuple[str, str] | None:
     named_head = head_branch if isinstance(head_branch, str) else None
     return answer_once(
-        ("merge base and head", working_directory, named_head),
-        lambda: _read_merge_base_and_head(working_directory, named_head),
+        ("merge base and head", working_directory, named_head, base_branch),
+        lambda: _read_merge_base_and_head(working_directory, named_head, base_branch),
     )
 
 
-def _read_merge_base_and_head(working_directory: str, head_branch: str | None) -> tuple[str, str] | None:
+def _read_merge_base_and_head(
+    working_directory: str, head_branch: str | None, base_branch: str | None
+) -> tuple[str, str] | None:
     if not working_directory:
         return None
     head_reference = _cached_head_reference(working_directory, head_branch)
     if head_reference is None:
         return None
-    merge_base = _first_merge_base(working_directory, head_reference)
+    all_base_references = (
+        (REMOTE_BRANCH_PREFIX + base_branch, base_branch) if base_branch else ALL_DEFAULT_BRANCH_REFERENCES
+    )
+    merge_base = _first_merge_base(working_directory, head_reference, all_base_references)
     return None if merge_base is None else (merge_base, head_reference)
 
 
@@ -825,7 +838,9 @@ def _workflow_paths(all_added_paths: list[str]) -> list[str]:
     return [each_path for each_path in all_added_paths if re.match(NEW_WORKFLOW_PATH_PATTERN, each_path)]
 
 
-def added_workflow_files(working_directory: str, head_branch: object) -> list[str] | None:
+def added_workflow_files(
+    working_directory: str, head_branch: object, base_branch: str | None = None
+) -> list[str] | None:
     """Return the workflow files the head branch adds, or None when git cannot tell.
 
     The head and base are chosen as in visible_changed_files. Only a file git
@@ -839,8 +854,9 @@ def added_workflow_files(working_directory: str, head_branch: object) -> list[st
     Args:
         working_directory: The session directory the hook payload names.
         head_branch: The head branch a create call names, or None.
+        base_branch: The base branch a create call names, or None.
     """
-    merge_base_and_head = _merge_base_and_head(working_directory, head_branch)
+    merge_base_and_head = _merge_base_and_head(working_directory, head_branch, base_branch)
     if merge_base_and_head is None:
         return None
     all_added_paths = _git_lines(
@@ -959,7 +975,7 @@ def _read_added_workflow_files(
 ) -> list[str]:
     all_workflow_paths = None
     if _local_checkout_may_answer(working_directory, repository, head_branch):
-        all_workflow_paths = added_workflow_files(working_directory, head_branch)
+        all_workflow_paths = added_workflow_files(working_directory, head_branch, base_branch)
     if all_workflow_paths is None:
         all_workflow_paths = remote_added_workflow_files(repository, base_branch, head_branch)
     return all_workflow_paths or []
@@ -1116,7 +1132,7 @@ def _visible_files_for_create(create_call: CreateCall, working_directory: str) -
 def _read_visible_files(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str] | None:
-    all_visible_files = visible_changed_files(working_directory, head_branch)
+    all_visible_files = visible_changed_files(working_directory, head_branch, base_branch)
     if all_visible_files is None:
         return remote_visible_changed_files(repository, base_branch, head_branch)
     return all_visible_files
