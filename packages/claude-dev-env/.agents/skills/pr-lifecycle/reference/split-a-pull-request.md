@@ -32,7 +32,7 @@ Sources: [Google small CLs](https://google.github.io/eng-practices/review/develo
 1. Pin the head SHA, and stop if it moves. Build the new branches from it. Never rewrite or push to a branch another session or person owns. The owner closes the original.
 2. Read the body, the open review threads, and the latest review findings, and map each open finding to the slice it lands in.
 3. Sort hunks by purpose. One file can hold hunks for two slices. Check imports across each seam before you fix the order, and put foundational work at the bottom.
-4. Post the plan: the slices in order, the purpose sentence and proof command for each, and the cuts that failed the tests. Then get the owner's go before you build.
+4. Post the plan as a comment on the original pull request: the slices in order, the purpose sentence and proof command for each, and the cuts that failed the tests. Then build without waiting for a reply. The split only adds new branches, so the owner can redirect it after.
 5. Change no code during the split. The tree at the top of the stack equals the tree at the pinned head, so `git diff <pinned-sha> <tip> --stat` prints nothing.
 6. Prove each level alone, as [each stack level stands on its own](../SKILL.md#each-stack-level-stands-on-its-own) describes. Where CI runs only on the stack tip, a lower level has no verdict until you run its checks.
 7. Each new pull request links the original pull request and carries its own proof. Approvals do not carry over, so name the approvals each one still needs.
