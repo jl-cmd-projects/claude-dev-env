@@ -256,6 +256,18 @@ def test_tests_only_commit_passes(repository: Path, tmp_path: Path) -> None:
     )
 
 
+def test_spec_conftest_and_test_folder_commit_passes(repository: Path, tmp_path: Path) -> None:
+    (repository / "app.spec.ts").write_text("export {};\n", encoding="utf-8")
+    (repository / "conftest.py").write_text("FIXTURE = 1\n", encoding="utf-8")
+    (repository / "app_test.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (repository / "__tests__").mkdir()
+    (repository / "__tests__" / "app.js").write_text("export {};\n", encoding="utf-8")
+    _git(repository, "add", "-A")
+    assert not _is_denied(
+        _payload("git commit -m tests", repository, _unverified(tmp_path))
+    )
+
+
 def test_docs_plus_code_commit_is_denied(repository: Path, tmp_path: Path) -> None:
     (repository / "README.md").write_text("Readme two\n", encoding="utf-8")
     (repository / "app.py").write_text("VALUE = 2\n", encoding="utf-8")

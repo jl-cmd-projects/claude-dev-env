@@ -24,15 +24,21 @@ DEFAULT_REPS = 1
 DEFAULT_PARALLEL = 2
 SESSION_SETTING_SOURCES = "project,local"
 BROKER_WAIT_EXIT_CODE = 3
-EXPECTED_BUILD_EVAL = "build-eval"
+EXPECTED_EVAL_FIRST = "eval-first"
 BUILD_EVAL_SKILL_NAME = "claude-api"
 BUILD_EVAL_ARGUMENT_WORD = "build-eval"
 LOCAL_BUILD_EVAL_SKILL_NAME = "build-eval"
 PLUGIN_SEPARATOR = ":"
 SKILL_TOOL_NAME = "Skill"
-ALL_EDIT_OR_SPAWN_TOOL_NAMES = frozenset(
-    {"Write", "Edit", "MultiEdit", "NotebookEdit", "Agent", "Task"}
-)
+ALL_FILE_EDIT_TOOL_NAMES = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
+ALL_SPAWN_TOOL_NAMES = frozenset({"Agent", "Task"})
+ALL_FILE_PATH_FIELDS = ("file_path", "notebook_path")
+PATH_SEPARATOR_PATTERN = r"[\\/]"
+POSIX_SEPARATOR = "/"
+ALL_EVAL_DIRECTORY_NAMES = frozenset({"eval", "evals", "hillclimb"})
+EVAL_FILE_NAME_WORD_PATTERN = r"^evals?(?:[._-]|$)|\.evals?\."
+ALL_TEST_DIRECTORY_NAMES = frozenset({"test", "tests"})
+TEST_FILE_NAME_PATTERN = r"^test_|_test\.py$"
 TOOL_USE_BLOCK_TYPE = "tool_use"
 TOOL_RESULT_BLOCK_TYPE = "tool_result"
 TEXT_BLOCK_TYPE = "text"

@@ -1,5 +1,7 @@
 """Grader controls: known-good and known-bad sessions score as expected."""
 
+import json
+import json
 import sys
 from pathlib import Path
 
@@ -26,6 +28,20 @@ from session_eval_support.session import prepare_workspace, remove_workspace
 
 def _bash(command: str) -> ToolCall:
     return ToolCall("Bash", {"command": command})
+
+
+def test_no_build_eval_check_fails_a_build_eval_call_and_passes_a_session_without_one() -> None:
+    grader = tool_check("no-build-eval")
+    assert grader is not None
+    build_eval_call = ToolCall("Skill", {"skill": "claude-api", "args": "build-eval"})
+    assert not grader([ToolCall("Read", {"file_path": "jobs/report.py"}), build_eval_call])
+    assert grader([ToolCall("Read", {"file_path": "jobs/report.py"}), ToolCall("Edit", {"file_path": "jobs/report.py"})])
+
+
+def test_plain_code_feature_case_should_expect_no_build_eval() -> None:
+    all_cases = json.loads((flow_directory / "cases.json").read_text(encoding="utf-8"))
+    all_checks_by_id = {each_case["id"]: each_case["check"] for each_case in all_cases}
+    assert all_checks_by_id["b02"] == "no-build-eval"
 
 
 def test_substitution_check_fails_a_dollar_paren_and_passes_a_split_call() -> None:

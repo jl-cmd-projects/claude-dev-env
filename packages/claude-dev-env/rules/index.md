@@ -8,7 +8,7 @@ Each line names a rule and its trigger. When its trigger matches your task, open
 - **Verified work** ([guide](../docs/rule-guides/verified-work.md)). Any task.
 - **Verify runtime state** ([guide](../docs/rule-guides/verify-runtime-state.md)). Before you say a component works, is healthy, or is not the cause.
 - **Explore thoroughly** ([guide](../docs/rule-guides/explore-thoroughly.md)). Before you log, plan, delegate, or build an ask.
-- **Features start with an eval** ([guide](../docs/rule-guides/features-start-with-an-eval.md)). New feature or behavior change.
+- **Features start with an eval** ([guide](../docs/rule-guides/features-start-with-an-eval.md)). Feature changing an agent file.
 - **Request scope** ([guide](../docs/rule-guides/request-scope.md)). Asked whether part of a block is still needed, or asked to change one.
 - **Fix the root problem** ([guide](../docs/rule-guides/fix-the-root-problem.md)). A fix for a broken part, a fix that waits on a sign-in or a password, or a request to route around one.
 - **Shell invocation** ([guide](../docs/rule-guides/shell-invocation.md)). Any Bash command or permission rule.

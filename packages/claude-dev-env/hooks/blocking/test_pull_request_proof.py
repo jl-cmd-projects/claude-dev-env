@@ -12,6 +12,7 @@ if str(HOOKS_DIRECTORY) not in sys.path:
     sys.path.insert(0, str(HOOKS_DIRECTORY))
 
 from blocking import pull_request_proof as gate
+from blocking.evidence_tier import TierCause, TierChoice
 from blocking.gate_run_reads import gate_run
 from blocking.pr_lifecycle_skill_gate import decision_for
 from hooks_constants.pull_request_proof_constants import (
@@ -30,6 +31,8 @@ from hooks_constants.pull_request_proof_constants import (
     UNREADABLE_CHANGES_REASON,
 )
 
+UNREAD_LIVE_TIER = gate.tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
+UNREAD_EVAL_NEED = gate.eval_owed_sentence(None)
 PROVEN_BODY = "## Summary\nAdds a gate.\n\n## Proof in practice\nRan `python run.py`.\n> denied\n"
 UNPROVEN_BODY = "## Summary\nAdds a gate.\n\n## Verification\nUnit tests pass.\n"
 SEARCHED_BODY = (
@@ -37,6 +40,11 @@ SEARCHED_BODY = (
     "## Proof in practice\nRan `python run.py`.\n"
 )
 EMPTY_EXISTING_WORK_BODY = "## Existing work\n\n## Proof in practice\nRan `python run.py`.\n"
+
+
+@pytest.fixture(autouse=True)
+def _no_github_reads(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(gate, "_gh_api_lines", lambda endpoint, query: None)
 
 
 def _shell(command: str, working_directory: Path | None = None) -> dict[str, object]:
@@ -64,11 +72,11 @@ def test_proof_section_should_return_none_without_the_heading() -> None:
 
 
 def test_mcp_create_without_proof_should_be_denied() -> None:
-    assert gate.missing_proof_reason(_mcp_create(UNPROVEN_BODY)) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(UNPROVEN_BODY)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_mcp_create_with_no_body_should_be_denied() -> None:
-    assert gate.missing_proof_reason(_mcp_create(None)) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(None)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_mcp_create_with_proof_should_pass() -> None:
@@ -77,7 +85,7 @@ def test_mcp_create_with_proof_should_pass() -> None:
 
 def test_heading_with_no_command_should_be_denied() -> None:
     body = "## Proof in practice\nIt works.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_gh_create_body_file_with_proof_should_pass(tmp_path: Path) -> None:
@@ -89,12 +97,12 @@ def test_gh_create_body_file_with_proof_should_pass(tmp_path: Path) -> None:
 def test_gh_create_body_file_without_proof_should_be_denied(tmp_path: Path) -> None:
     (tmp_path / "body.md").write_text(UNPROVEN_BODY, encoding="utf-8")
     payload = _shell("gh pr create -F body.md", tmp_path)
-    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_whose_only_command_is_a_test_run_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest tests/test_x.py`.\n> 4 passed\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_test_run_and_a_live_command_should_pass() -> None:
@@ -112,12 +120,12 @@ def test_proof_with_several_test_runners_should_be_denied() -> None:
         "## Proof in practice\n`python -m pytest -q`, `python3 -m unittest discover`,"
         " `uv run pytest`, `npm test`, `npx vitest run`, `jest`, `go test ./...`, `cargo test`\n"
     )
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_test_run_and_file_references_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest tests/x.py` against `gate.py:12` and `src/x.py`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_that_says_its_target_run_is_not_proven_should_be_denied() -> None:
@@ -167,7 +175,7 @@ def test_unproven_admission_after_a_one_line_triple_backtick_span_should_be_deni
 
 def test_test_run_after_a_one_line_triple_backtick_span_should_be_denied() -> None:
     body = "## Proof in practice\n```pytest``` ok\nRan `pytest tests/`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_unproven_words_in_a_fence_inside_a_blockquote_should_pass() -> None:
@@ -208,12 +216,12 @@ def test_unproven_admission_inside_a_blockquote_should_be_denied() -> None:
 
 def test_proof_with_a_test_run_piped_into_tee_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest x | tee log`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_test_run_piped_into_tail_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest x 2>&1 | tail -5`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_live_script_piped_into_tail_should_pass() -> None:
@@ -228,23 +236,23 @@ def test_proof_with_a_fenced_live_command_beside_a_test_run_should_pass() -> Non
 
 def test_proof_with_only_a_fenced_test_run_should_be_denied() -> None:
     body = "## Proof in practice\n```\n$ npm test\n12 passing\n```\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_gh_create_body_file_with_test_only_proof_should_be_denied(tmp_path: Path) -> None:
     (tmp_path / "body.md").write_text("## Proof in practice\nRan `go test ./...`.\n", encoding="utf-8")
     payload = _shell("gh pr create --draft --body-file body.md", tmp_path)
-    assert gate.missing_proof_reason(payload) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(payload) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_only_py_test_should_be_denied() -> None:
     body = "## Proof in practice\nRan `py.test`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_only_a_fenced_pytest_exe_should_be_denied() -> None:
     body = "## Proof in practice\n```\n$ pytest.exe\n```\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_only_a_source_citation_should_pass() -> None:
@@ -254,12 +262,12 @@ def test_proof_with_only_a_source_citation_should_pass() -> None:
 
 def test_proof_with_unittest_after_an_interpreter_flag_should_be_denied() -> None:
     body = "## Proof in practice\nRan `python -q -m unittest discover`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_unittest_after_a_valued_interpreter_flag_should_be_denied() -> None:
     body = "## Proof in practice\nRan `python -W default -m unittest`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_script_that_mentions_unittest_should_pass() -> None:
@@ -274,17 +282,17 @@ def test_proof_with_a_module_other_than_unittest_should_pass() -> None:
 
 def test_proof_with_a_quoted_test_runner_word_should_be_denied() -> None:
     body = "## Proof in practice\nRan `npm \"test\"` and `cargo \"test\"`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_a_quoted_unittest_module_should_be_denied() -> None:
     body = "## Proof in practice\nRan `python -m \"unittest\"`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_coverage_running_unittest_should_be_denied() -> None:
     body = "## Proof in practice\nRan `coverage run -m unittest discover`.\n"
-    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.missing_proof_reason(_mcp_create(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_proof_with_coverage_running_an_application_should_pass() -> None:
@@ -298,13 +306,15 @@ def test_gh_create_with_fill_should_ask_for_a_body() -> None:
 
 def test_wrapped_gh_create_should_be_read() -> None:
     payload = _shell("bash -c 'gh pr create --body \"no proof\"'")
-    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON + gate.tier_sentence(
+        TierChoice(TierCause.SHARED_COMMAND, None)
+    )
 
 
 def test_pull_request_script_create_should_be_read(tmp_path: Path) -> None:
     (tmp_path / "body.md").write_text(UNPROVEN_BODY, encoding="utf-8")
     payload = _shell("python3 scripts/pull_request.py create --body-file body.md", tmp_path)
-    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_other_pull_request_commands_should_pass() -> None:
@@ -843,7 +853,7 @@ def _titled_mcp_create(title: object, body: object) -> dict[str, object]:
 
 def test_feature_mcp_create_without_an_eval_section_should_be_denied() -> None:
     payload = _titled_mcp_create("feat: add a gate", SEARCHED_BODY)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_feature_mcp_create_with_an_eval_section_naming_a_command_should_pass() -> None:
@@ -852,13 +862,13 @@ def test_feature_mcp_create_with_an_eval_section_naming_a_command_should_pass() 
 
 def test_feature_mcp_create_with_an_eval_heading_and_no_backtick_should_be_denied() -> None:
     payload = _titled_mcp_create("feat: add a gate", EVAL_WITHOUT_COMMAND_BODY)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_eval_section_should_stop_at_a_heading_of_the_same_level() -> None:
     body = SEARCHED_BODY + "\n## Evals\nCases listed.\n\n## Notes\nRan `python eval.py`.\n"
     payload = _titled_mcp_create("feat: add a gate", body)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_fix_and_docs_titles_without_an_eval_section_should_pass() -> None:
@@ -882,7 +892,7 @@ def test_gh_create_title_flag_should_be_read(tmp_path: Path) -> None:
     (tmp_path / "b.md").write_text(SEARCHED_BODY, encoding="utf-8")
     payload = _shell('gh pr create --title "feat: x" --body-file b.md', tmp_path)
     assert gate.is_feature_pull_request(payload)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_gh_create_title_assignment_should_be_read(tmp_path: Path) -> None:
@@ -898,7 +908,7 @@ def test_pull_request_script_create_title_should_be_read(tmp_path: Path) -> None
         'python pull_request.py create --title "feat(x): y" --body-file b.md --repo o/r', tmp_path
     )
     assert gate.is_feature_pull_request(payload)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_gh_create_without_a_title_should_not_count_as_a_feature(tmp_path: Path) -> None:
@@ -930,17 +940,17 @@ def _dispatch(all_inputs: dict[str, object], method: str = "run_workflow") -> di
 
 def test_pull_request_dispatch_without_proof_should_be_denied() -> None:
     payload = _dispatch({"head": "feature", "title": "fix: y", "body": UNPROVEN_BODY})
-    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(payload) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_pull_request_dispatch_with_no_body_input_should_be_denied() -> None:
-    assert gate.missing_proof_reason(_dispatch({"head": "feature", "title": "fix: y"})) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(_dispatch({"head": "feature", "title": "fix: y"})) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_feature_dispatch_without_an_eval_section_should_be_denied() -> None:
     payload = _dispatch({"head": "feature", "title": "feat: x", "body": SEARCHED_BODY})
     assert gate.is_feature_pull_request(payload)
-    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON
+    assert gate.missing_eval_section_reason(payload) == MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
 
 
 def test_dispatch_that_names_no_head_or_runs_no_workflow_should_not_count_as_a_create() -> None:
@@ -973,7 +983,7 @@ def test_is_create_call_should_name_shell_and_mcp_creates() -> None:
 )
 def test_every_create_spelling_should_need_a_proof_section(command: str) -> None:
     assert gate.is_create_call(_shell(command))
-    assert gate.missing_proof_reason(_shell(command)) == MISSING_PROOF_REASON
+    assert gate.missing_proof_reason(_shell(command)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 WORKFLOW_DIRECTORY = ".github/workflows"
@@ -1645,17 +1655,17 @@ def test_shell_body_edit_with_an_unrun_proof_line_should_be_denied(command: str,
 
 def test_body_edit_that_leaves_only_a_test_run_in_the_proof_should_be_denied() -> None:
     body = "## Proof in practice\nRan `pytest -q`.\n"
-    assert gate.edit_proof_reason(_mcp_update(body)) == TEST_ONLY_PROOF_REASON
+    assert gate.edit_proof_reason(_mcp_update(body)) == TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_body_edit_that_leaves_an_empty_proof_heading_should_be_denied() -> None:
     body = "## Summary\nx\n\n## Proof in practice\n\n## Notes\nok\n"
-    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_body_edit_that_leaves_a_proof_section_with_no_command_should_be_denied() -> None:
     body = "## Proof in practice\nIt works.\n"
-    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON
+    assert gate.edit_proof_reason(_mcp_update(body)) == MISSING_PROOF_REASON + UNREAD_LIVE_TIER
 
 
 def test_gh_command_with_other_words_should_not_read_as_an_edit(tmp_path: Path) -> None:

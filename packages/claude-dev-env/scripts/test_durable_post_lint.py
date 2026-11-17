@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 
 import durable_post_lint
+from blocking.evidence_tier import TierCause, TierChoice
+from blocking.pull_request_proof import eval_owed_sentence, tier_sentence
 from dev_env_scripts_constants.private_term_constants import PrivateTermDigest
 from hooks_constants.pull_request_proof_constants import (
     MISSING_EVAL_SECTION_REASON,
@@ -17,6 +19,8 @@ from hooks_constants.pull_request_proof_constants import (
     TEST_ONLY_PROOF_REASON,
 )
 
+UNREAD_LIVE_TIER = tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
+UNREAD_EVAL_NEED = eval_owed_sentence(None)
 SCRIPT_PATH = Path(__file__).resolve().parent / "durable_post_lint.py"
 FLOWCHART_BLOCK = """```mermaid
 flowchart LR
@@ -387,7 +391,7 @@ def should_report_a_create_body_whose_proof_runs_only_tests() -> None:
         body_text=body_text,
     )
     assert [each_finding.message for each_finding in all_findings] == [
-        TEST_ONLY_PROOF_REASON
+        TEST_ONLY_PROOF_REASON + UNREAD_LIVE_TIER
     ]
 
 
@@ -399,7 +403,7 @@ def should_report_a_feature_create_body_with_no_eval_section() -> None:
         body_text=body_text,
     )
     assert [each_finding.message for each_finding in all_findings] == [
-        MISSING_EVAL_SECTION_REASON
+        MISSING_EVAL_SECTION_REASON + UNREAD_EVAL_NEED
     ]
 
 
@@ -992,3 +996,103 @@ def should_report_an_unproven_run_when_the_after_merge_section_names_another_wor
         durable_post_lint.PULL_REQUEST_PROOF_FINDING_CODE
     ]
     assert "Not proven here: the live GitHub Actions run." in all_findings[0].message
+
+
+def _repository_changing_a_guide(tmp_path: Path) -> Path:
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
+    repository_path = tmp_path / "repository"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(repository_path)], check=True)
+    (repository_path / "readme.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repository_path), *git_identity, "commit", "-q", "-m", "base"], check=True)
+    subprocess.run(["git", "-C", str(repository_path), "checkout", "-q", "-b", "feature"], check=True)
+    subprocess.run(
+        ["git", "-C", str(repository_path), "remote", "add", "origin", "https://github.com/o/r.git"], check=True
+    )
+    (repository_path / "guide.md").write_text("new words\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(repository_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(repository_path), *git_identity, "commit", "-q", "-m", "change"], check=True)
+    return repository_path
+
+
+def should_accept_a_docs_only_create_body_with_no_proof_section(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(_repository_changing_a_guide(tmp_path))
+    body_text = VALID_PR_BODY.split("## Proof in practice")[0]
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="docs: reword the guide",
+        body_text=body_text,
+        head_branch="feature",
+        repository="o/r",
+    )
+    assert [each_finding.code for each_finding in all_findings] == []
+
+
+def _git_in(repository_path: Path, *all_arguments: str) -> None:
+    git_identity = ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false"]
+    subprocess.run(["git", "-C", str(repository_path), *git_identity, *all_arguments], check=True)
+
+
+def _clone_stacked_on_a_feature_base(tmp_path: Path) -> Path:
+    origin_path = tmp_path / "origin"
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    (origin_path / "readme.md").write_text("base\n", encoding="utf-8")
+    _git_in(origin_path, "add", ".")
+    _git_in(origin_path, "commit", "-q", "-m", "base")
+    _git_in(origin_path, "checkout", "-q", "-b", "feature")
+    (origin_path / "src").mkdir()
+    (origin_path / "src" / "gate.py").write_text("x = 2\n", encoding="utf-8")
+    _git_in(origin_path, "add", ".")
+    _git_in(origin_path, "commit", "-q", "-m", "code on the feature base")
+    _git_in(origin_path, "checkout", "-q", "main")
+    clone_path = tmp_path / "clone"
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    _git_in(clone_path, "checkout", "-q", "-b", "feature-part-two", "origin/feature")
+    (clone_path / "guide.md").write_text("new words\n", encoding="utf-8")
+    _git_in(clone_path, "add", ".")
+    _git_in(clone_path, "commit", "-q", "-m", "docs")
+    _git_in(clone_path, "push", "-q", "origin", "feature-part-two")
+    _git_in(clone_path, "remote", "set-url", "origin", "https://github.com/o/r.git")
+    return clone_path
+
+
+def should_read_the_changed_paths_against_the_named_base_of_a_stacked_create(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(_clone_stacked_on_a_feature_base(tmp_path))
+    all_findings = durable_post_lint.lint_durable_post(
+        action="pr-create",
+        title="docs: reword the guide",
+        body_text=VALID_PR_BODY.split("## Proof in practice")[0],
+        head_branch="feature-part-two",
+        repository="o/r",
+        base_branch="feature",
+    )
+    assert all_findings == ()
+
+
+def should_take_the_base_branch_from_the_command_line(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(_clone_stacked_on_a_feature_base(tmp_path))
+    body_path = tmp_path / "body.md"
+    body_path.write_text(VALID_PR_BODY.split("## Proof in practice")[0], encoding="utf-8")
+    exit_code = durable_post_lint.main(
+        [
+            "--action",
+            "pr-create",
+            "--title",
+            "docs: reword the guide",
+            "--body-file",
+            str(body_path),
+            "--head-branch",
+            "feature-part-two",
+            "--repository",
+            "o/r",
+            "--base-branch",
+            "feature",
+        ]
+    )
+    assert exit_code == durable_post_lint.CLEAN_EXIT_CODE
