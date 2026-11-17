@@ -1219,3 +1219,58 @@ def test_should_read_the_exported_codex_home_without_its_padding(
     account = support.codex_default_account()
 
     assert account.home == exported_home.resolve()
+
+
+def test_should_name_the_main_home_as_the_main_claude_account(isolated_home: Path) -> None:
+    account = support.main_claude_account()
+
+    assert account == Account(Product.CLAUDE, "main", (isolated_home / ".claude").resolve(), True, "claude")
+
+
+def test_should_mark_the_cloud_session_reading_as_the_session_account(isolated_home: Path) -> None:
+    read_time = datetime(2026, 11, 17, tzinfo=timezone.utc)
+
+    reading = support.cloud_session_reading(read_time)
+
+    assert reading.account == support.main_claude_account()
+    assert reading.meters is None
+    assert reading.unread_reason == "cloud session: the usage meter is not read"
+    assert reading.measured_at == read_time
+    assert reading.is_cloud_session_account
+
+
+def test_should_read_no_meter_and_no_roster_for_claude_in_a_cloud_session(
+    monkeypatch: pytest.MonkeyPatch, isolated_home: Path
+) -> None:
+    monkeypatch.setenv("CLAUDE_CODE_REMOTE", "true")
+    read_time = datetime(2026, 11, 17, tzinfo=timezone.utc)
+    all_state = {"meters": {}, "spent": {}, "affinity": {}}
+    adapter = ProductAdapter(
+        lambda: pytest.fail("the roster was read"),
+        lambda account: pytest.fail("a meter was read"),
+        "CLAUDE_CONFIG_DIR",
+        (),
+    )
+
+    all_readings = support.read_accounts(Product.CLAUDE, adapter, all_state=all_state, now=read_time)
+
+    assert all_readings == (support.cloud_session_reading(read_time),)
+    assert all_readings[0].is_cloud_session_account
+    assert all_state["meters"] == {}
+    assert not support.broker_state_path().exists()
+
+
+def test_should_read_the_codex_roster_as_usual_in_a_cloud_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("CLAUDE_CODE_REMOTE", "true")
+    read_time = datetime(2026, 11, 17, tzinfo=timezone.utc)
+    codex_account = Account(Product.CODEX, "codex-1", Path("/profiles/codex-1"), command="codex-1")
+    codex_meters = Meters(80, read_time + timedelta(hours=5), 80, read_time + timedelta(days=3), "pro")
+    adapter = ProductAdapter(lambda: (codex_account,), lambda account: codex_meters, "CODEX_HOME", ())
+
+    all_readings = support.read_accounts(
+        Product.CODEX, adapter, all_state={"meters": {}, "spent": {}, "affinity": {}}, now=read_time
+    )
+
+    assert [each_reading.account.name for each_reading in all_readings] == ["codex-1"]
+    assert all_readings[0].meters == codex_meters
+    assert not all_readings[0].is_cloud_session_account

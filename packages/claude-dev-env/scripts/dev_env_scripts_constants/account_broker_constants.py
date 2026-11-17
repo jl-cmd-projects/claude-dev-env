@@ -71,6 +71,8 @@ WAIT_EXIT_CODE = 3
 COMMAND_MISSING_EXIT_CODE = 127
 TIMEOUT_EXIT_CODE = 124
 NO_USABLE_ACCOUNT_EXIT_CODE = 4
+CLOUD_SESSION_UNREAD_REASON = "cloud session: the usage meter is not read"
+CLOUD_SESSION_RUN_REASON = "cloud session: the job runs on the session's own account, and no usage meter is read"
 NO_USABLE_ACCOUNT_STATUS = "no_usable_account"
 NO_USABLE_REASON_SEPARATOR = "; "
 SIGN_IN_FAILED_STATUS = "sign_in_failed"
@@ -251,6 +253,7 @@ class Reading:
     unread_reason: str | None = None
     measured_at: datetime | None = None
     retry_at: datetime | None = None
+    is_cloud_session_account: bool = False
 
 
 @dataclass(frozen=True)
@@ -348,6 +351,9 @@ def _claude_has_room(reading: Reading) -> bool:
 
 
 def _choose_claude(all_available: Sequence[Reading], preferred_command: str | None) -> Decision | None:
+    for each_reading in all_available:
+        if each_reading.is_cloud_session_account:
+            return Decision("run", each_reading.account, None, CLOUD_SESSION_RUN_REASON, TIER_NORMAL)
     all_with_room = [each_reading for each_reading in all_available if _claude_has_room(each_reading)]
     for each_reading in all_with_room:
         is_bound = preferred_command in (each_reading.account.command, each_reading.account.name)
