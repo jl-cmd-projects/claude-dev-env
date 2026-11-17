@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.128.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.128.0...claude-dev-env-v8.128.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **hooks:** judge the look and workflow checks against the named base ([#2417](https://github.com/jl-cmd-projects/claude-dev-env/issues/2417)) ([a19eeec](https://github.com/jl-cmd-projects/claude-dev-env/commit/a19eeec5da17058a0e7ee62646302ef5a0c8bba2))
+
 ## [8.128.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.127.0...claude-dev-env-v8.128.0) (2026-11-17)
 
 
