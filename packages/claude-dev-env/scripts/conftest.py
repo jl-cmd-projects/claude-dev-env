@@ -37,6 +37,7 @@ for each_import_directory in (
         sys.path.insert(0, str(each_import_directory))
 
 from dev_env_scripts_constants.account_broker_constants import ALL_ACCOUNT_ENVIRONMENT_VARIABLES
+from hooks_constants.cloud_session_constants import CLOUD_SESSION_ENV_VAR
 
 
 @pytest.fixture(autouse=True)
@@ -63,6 +64,20 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     for each_account_variable in ALL_ACCOUNT_ENVIRONMENT_VARIABLES:
         monkeypatch.delenv(each_account_variable, raising=False)
     return isolated_home_directory
+
+
+@pytest.fixture(autouse=True)
+def isolate_from_live_cloud_session(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove the cloud session marker before each scripts test.
+
+    A Claude Code cloud session exports CLAUDE_CODE_REMOTE, and the account
+    broker then runs each Claude job on the session's own account with no
+    meter read. Tests of that path set the variable themselves.
+
+    Args:
+        monkeypatch: Pytest's environment-variable patcher, torn down after the test.
+    """
+    monkeypatch.delenv(CLOUD_SESSION_ENV_VAR, raising=False)
 
 
 def _link_directory(*, from_link: Path, to_target: Path) -> None:

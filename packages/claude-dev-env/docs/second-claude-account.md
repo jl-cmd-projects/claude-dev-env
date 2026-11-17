@@ -59,6 +59,10 @@ when the reply has none.
 [Proof before a pull request](rule-guides/proof-before-pull-request.md) says
 what a session does next.
 
+A Claude Code cloud session has one account and no credential the usage
+endpoint accepts. There the broker reads no meter and runs each job on the
+session's own account; [Account broker](account-broker.md) has the details.
+
 ```
 python packages/claude-dev-env/scripts/account_broker.py choose --product claude
 ```

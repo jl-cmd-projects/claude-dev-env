@@ -29,6 +29,7 @@ else:
 import codex_account_choice
 import codex_account_meters
 from claude_account_profile import default_profile_home, validate_profile_name
+from cloud_session_access import is_cloud_session
 from claude_chain_usage import ClaudeSignedOutError, WeeklyUtilizationProbeError, probe_account_meters
 from dev_env_scripts_constants.account_broker_constants import (
     ALL_BATCH_FILE_EXTENSIONS,
@@ -41,6 +42,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     Account,
     BrokerConfigurationError,
     CLAUDE_BINARY_NAME,
+    CLOUD_SESSION_UNREAD_REASON,
     CMD_SHELL_METACHARACTERS,
     Decision,
     JobOutcome,
@@ -196,6 +198,34 @@ def _home_profile(home: Path) -> str | None:
     return home.name if profile_home == home else None
 
 
+def main_claude_account() -> Account:
+    """Return the account for the main Claude home, ``~/.claude``."""
+    main_home = (Path.home() / MAIN_CLAUDE_HOME_DIRECTORY_NAME).resolve()
+    return Account(Product.CLAUDE, "main", main_home, True, "claude")
+
+
+def cloud_session_reading(now: datetime) -> Reading:
+    """Return the one reading a Claude Code cloud session chooses from.
+
+    ::
+
+        CLAUDE_CODE_REMOTE=true  ->  Reading(main, meters=None,
+                                             unread_reason="cloud session: the usage meter is not read",
+                                             is_cloud_session_account=True)
+
+    A cloud session runs on one account, the main home, and holds no
+    credential the usage endpoint accepts. So no meter is read, and the
+    broker runs the job on that account.
+
+    Args:
+        now: The time the reading is dated.
+
+    Returns:
+        The main account's reading, marked as the cloud session's own account.
+    """
+    return Reading(main_claude_account(), None, CLOUD_SESSION_UNREAD_REASON, now, is_cloud_session_account=True)
+
+
 def load_claude_accounts() -> tuple[Account, ...]:
     """Read the Claude account list.
 
@@ -207,8 +237,9 @@ def load_claude_accounts() -> tuple[Account, ...]:
     Raises:
         BrokerConfigurationError: An account list is unreadable.
     """
-    main_home = (Path.home() / MAIN_CLAUDE_HOME_DIRECTORY_NAME).resolve()
-    all_accounts = [Account(Product.CLAUDE, "main", main_home, True, "claude")]
+    main_account = main_claude_account()
+    main_home = main_account.home
+    all_accounts = [main_account]
     all_seen = {str(main_home).casefold()}
     for each_entry in _chain_entries(main_home / "claude-chain.json", main_home):
         _append_claude_account(all_accounts, all_seen, each_entry, main_home)
@@ -807,10 +838,14 @@ def read_accounts(product: Product, adapter: ProductAdapter | None = None, *, al
 
     Returns:
         Account readings in roster order. A Codex product with no roster reads
-        its default home as the one account.
+        its default home as the one account. In a Claude Code cloud session the
+        Claude product gives the session's own account as the one reading, with
+        no meter read and no roster read.
     """
     active = adapter or all_product_adapters[product]
     current = now or datetime.now(timezone.utc)
+    if product is Product.CLAUDE and is_cloud_session():
+        return (cloud_session_reading(current),)
     all_cache = all_state.get("meters", {}) if all_state is not None else {}
     all_readings: list[Reading] = []
     is_updated = False

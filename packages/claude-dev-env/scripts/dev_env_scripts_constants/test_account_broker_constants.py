@@ -615,3 +615,23 @@ def test_should_double_the_meter_read_delay_up_to_its_cap() -> None:
     all_delays = [broker_constants.meter_read_delay_seconds(each_attempt) for each_attempt in range(1, 6)]
 
     assert all_delays == [1.0, 2.0, 4.0, 8.0, 8.0]
+
+
+def test_should_choose_the_cloud_session_account_though_its_meter_is_unread() -> None:
+    session_account = Account(Product.CLAUDE, "main", Path("/home/.claude"), True, "claude")
+    session_reading = broker_constants.Reading(
+        session_account, None, broker_constants.CLOUD_SESSION_UNREAD_REASON, is_cloud_session_account=True
+    )
+
+    decision = broker_constants._choose_claude([session_reading], None)
+
+    assert decision == broker_constants.Decision(
+        "run", session_account, None, broker_constants.CLOUD_SESSION_RUN_REASON, "normal"
+    )
+
+
+def test_should_choose_no_claude_account_with_an_unread_meter_outside_a_cloud_session() -> None:
+    main_account = Account(Product.CLAUDE, "main", Path("/home/.claude"), True, "claude")
+    unread_reading = broker_constants.Reading(main_account, None, "usage probe failed: HTTP Error 403: Forbidden")
+
+    assert broker_constants._choose_claude([unread_reading], None) is None
