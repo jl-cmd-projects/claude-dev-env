@@ -1,14 +1,18 @@
-import io
 import json
-import sys
 from pathlib import Path
 
 import pytest
 
 import question_brief_gate
-
-QUESTION_ID = "toolu_value_card"
-SHORT_POLL_LIMIT_SECONDS = 0.3
+from test_question_brief_gate import (
+    QUESTION_ID,
+    prompt_entry,
+    question_entry,
+    question_payload,
+    run_main,
+    text_entry,
+    write_transcript,
+)
 
 SALE_WINDOW_CARD = {
     "questions": [
@@ -132,46 +136,16 @@ def run_gate_on_card(
     capsys: pytest.CaptureFixture[str],
     question_input: dict[str, object],
 ) -> tuple[int, str]:
-    transcript_entries = [
-        {"type": "user", "message": {"role": "user", "content": "Plan the sale."}},
-        {
-            "type": "assistant",
-            "message": {
-                "id": "msg_a",
-                "role": "assistant",
-                "stop_reason": "tool_use",
-                "content": [
-                    {"type": "text", "text": "One call needs you."},
-                    {
-                        "type": "tool_use",
-                        "id": QUESTION_ID,
-                        "name": "AskUserQuestion",
-                        "input": question_input,
-                    },
-                ],
-            },
-        },
-    ]
-    transcript_path = tmp_path / "transcript.jsonl"
-    transcript_path.write_text(
-        "\n".join(json.dumps(each_entry) for each_entry in transcript_entries) + "\n",
-        encoding="utf-8",
+    transcript_path = write_transcript(
+        tmp_path,
+        [
+            prompt_entry("Plan the sale."),
+            text_entry("One call needs you."),
+            question_entry(QUESTION_ID),
+        ],
     )
-    payload = {
-        "hook_event_name": "PreToolUse",
-        "tool_name": "AskUserQuestion",
-        "tool_use_id": QUESTION_ID,
-        "transcript_path": str(transcript_path),
-        "tool_input": question_input,
-    }
-    monkeypatch.setattr(
-        question_brief_gate, "TRANSCRIPT_POLL_LIMIT_SECONDS", SHORT_POLL_LIMIT_SECONDS
-    )
-    monkeypatch.setattr(
-        sys, "stdin", io.TextIOWrapper(io.BytesIO(json.dumps(payload).encode()), encoding="utf-8")
-    )
-    exit_code = question_brief_gate.main()
-    return exit_code, capsys.readouterr().err
+    payload = question_payload(str(transcript_path), tool_input=question_input)
+    return run_main(monkeypatch, capsys, json.dumps(payload).encode())
 
 
 @pytest.mark.parametrize(
@@ -221,7 +195,12 @@ def test_should_pass_a_card_that_asks_for_a_preference_an_approval_or_a_watched_
         ("Start 2026-11-16", True),
         ("11/16 to 11/30", True),
         ("A 7-day window", True),
+        ("30 min timeout", True),
+        ("24h window", True),
         ("Two weeks", False),
+        ("Option 3 may run longer", False),
+        ("Rerun 1/3 of the suite", False),
+        ("Keep 24/7 support", False),
         ("Stack on PR 5384", False),
         ("About 5 themes per account", False),
         ("Market 3 first", False),
@@ -234,22 +213,68 @@ def test_should_tell_a_label_that_names_a_value_from_one_that_names_a_step(
     assert question_brief_gate.label_holds_value(label) is is_expected_value
 
 
-def test_should_not_count_a_duration_that_a_description_states_as_an_effect(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize(
+    ("first_option", "second_option"),
+    [
+        (
+            {"label": "Grade in parallel", "description": "About 5 hours total."},
+            {"label": "Keep it serial", "description": "About 19 hours total."},
+        ),
+        (
+            {"label": "Full suite", "description": "Covers 100% of tests."},
+            {"label": "Smoke only", "description": "About 20% of tests."},
+        ),
+        (
+            {"label": "Opus", "description": "Costs about $40."},
+            {"label": "Sonnet", "description": "Costs about $8."},
+        ),
+    ],
+)
+def test_should_not_count_an_effect_that_a_description_states(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    first_option: dict[str, str],
+    second_option: dict[str, str],
 ) -> None:
-    effect_duration_card = {
+    effect_card = {
         "questions": [
             {
-                "question": "Grading runs one judge call at a time. Should grades run in parallel?",
-                "header": "Grading",
-                "options": [
-                    {"label": "Grade in parallel", "description": "About 5 hours total."},
-                    {"label": "Keep it serial", "description": "About 19 hours total."},
-                ],
+                "question": "Which run should go next?",
+                "header": "Next run",
+                "options": [first_option, second_option],
             }
         ]
     }
-    assert run_gate_on_card(tmp_path, monkeypatch, capsys, effect_duration_card) == (0, "")
+    assert run_gate_on_card(tmp_path, monkeypatch, capsys, effect_card) == (0, "")
+
+
+def test_should_pass_a_multi_select_question_that_picks_dated_items(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    dated_items_card = {
+        "questions": [
+            {
+                "question": "Which failed runs should I retry?",
+                "header": "Retry",
+                "multiSelect": True,
+                "options": [{"label": "Run from Nov 12"}, {"label": "Run from Nov 14"}],
+            }
+        ]
+    }
+    assert run_gate_on_card(tmp_path, monkeypatch, capsys, dated_items_card) == (0, "")
+
+
+def test_should_name_an_unlabeled_value_option_by_its_description() -> None:
+    unlabeled_card = {
+        "questions": [
+            {"options": [{"description": "Nov 23 to Nov 30"}, {"description": "Nov 27 to Nov 30"}]}
+        ]
+    }
+    assert question_brief_gate.value_menu_labels(unlabeled_card) == [
+        "Nov 23 to Nov 30",
+        "Nov 27 to Nov 30",
+    ]
 
 
 def test_should_pass_a_card_with_one_value_option(

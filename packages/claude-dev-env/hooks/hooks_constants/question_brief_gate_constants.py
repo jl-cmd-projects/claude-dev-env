@@ -26,23 +26,28 @@ QUESTIONS_INPUT_KEY = "questions"
 OPTIONS_INPUT_KEY = "options"
 LABEL_INPUT_KEY = "label"
 DESCRIPTION_INPUT_KEY = "description"
+MULTI_SELECT_INPUT_KEY = "multiSelect"
 
 MINIMUM_VALUE_OPTION_COUNT = 2
 MONTH_NAME_PATTERN_TEXT = (
     r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?"
     r"|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
 )
-VALUE_PATTERN = re.compile(
-    r"\d+(?:\.\d+)?\s*(?:%|percent\b)"
-    r"|[$€£]\s?\d"
-    rf"|\b{MONTH_NAME_PATTERN_TEXT}\.?\s+\d{{1,2}}\b"
-    rf"|\b\d{{1,2}}(?:st|nd|rd|th)?\s+{MONTH_NAME_PATTERN_TEXT}\b"
+MONTH_NAME_AFTER_DAY_PATTERN_TEXT = (
+    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|june?|july?|aug(?:ust)?"
+    r"|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+)
+DATE_PATTERN = re.compile(
+    rf"\b{MONTH_NAME_PATTERN_TEXT}\.?\s+\d{{1,2}}\b"
+    rf"|\b\d{{1,2}}(?:st|nd|rd|th)?\s+{MONTH_NAME_AFTER_DAY_PATTERN_TEXT}\b"
     r"|\b\d{4}-\d{2}-\d{2}\b"
-    r"|\b\d{1,2}/\d{1,2}\b",
+    r"|\b(?:1[0-2]|0?[1-9])/(?:[12]\d|3[01])\b",
     re.IGNORECASE,
 )
+PERCENT_OR_PRICE_PATTERN = re.compile(r"\d+(?:\.\d+)?\s*(?:%|percent\b)|[$€£]\s?\d", re.IGNORECASE)
 DURATION_PATTERN = re.compile(
-    r"\b\d+\s*-?\s*(?:minute|hour|day|week|month|year)s?\b", re.IGNORECASE
+    r"\b\d+\s*-?\s*(?:minutes?|mins?|hours?|hrs?|h|days?|weeks?|months?|years?)\b",
+    re.IGNORECASE,
 )
 
 ENTRY_TYPE_KEY = "type"
@@ -95,6 +100,6 @@ VALUE_MENU_REFUSAL_TEMPLATE = (
     "yours to settle. Look it up in published research and the user's own records, decide "
     "the value, and name its source. When the data leaves it open, take the default the "
     "research supports or a measured test, and report that call. Ask the user only to "
-    "approve the one value you chose, for a preference no data can settle, or for a step "
-    "that needs their hands or eyes."
+    "approve the one value you chose, with no other value in the card's other options, for "
+    "a preference no data can settle, or for a step that needs their hands or eyes."
 )

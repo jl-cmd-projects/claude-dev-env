@@ -3,8 +3,8 @@
 
 Registered on ``AskUserQuestion``. A percent, price, date, window, or
 duration is a research and data output, so the hook first reads the call's
-options and refuses a question when two or more of its options offer such a
-value::
+options and refuses a single-select question when two or more of its
+options offer such a value::
 
     "30% with a holdout", "30% on all sellers", "No discount"  -> exit 2
     "Fri Nov 27 to Mon Nov 30", "Mon Nov 23 to Mon Nov 30"     -> exit 2
@@ -12,13 +12,17 @@ value::
     "Approve Nov 16 to Nov 30", "Hold the plan"                -> exit 0
     "Small watched batch", "Full run on approval"              -> exit 0
     "Keep it serial" (19 hours), "Grade in parallel" (5 hours) -> exit 0
+    "Full suite" (100% of tests), "Smoke only" (20% of tests)  -> exit 0
 
-An option offers a value when its label or its description holds a percent
-("30%", "40 percent"), a dollar, euro, or pound amount, or a calendar date
-("Nov 27", "27 November", "2026-11-27", "11/27"), or when its label holds a
-duration written with digits ("7 days", "7-day"). A duration in a
-description states an option's effect, so it does not count. A bare count
-such as "5 themes" or "PR 5384" is no value. The question text is not read.
+An option offers a value when its label holds a percent ("30%", "40
+percent"), a dollar, euro, or pound amount, a calendar date, or a duration
+written with digits ("7 days", "7-day", "30 min", "24h"), or when its
+description holds a calendar date. A calendar date is "Nov 27", "27
+November", "2026-11-27", or "11/27" with a two-digit day, so "1/3" and
+"24/7" are no date, and "3 may" is no date. A percent, price, or duration in
+a description states an option's effect, so it does not count. A bare count
+such as "5 themes" or "PR 5384" is no value. A multi-select question picks
+items, so it is not read, and neither is the question text.
 
 The user reviews items one question at a time. The hook then measures the
 chat text Claude wrote in the current turn before the question: the text
@@ -82,6 +86,7 @@ from hooks_constants.question_brief_gate_constants import (
     BLOCK_TYPE_KEY,
     BRIEF_TEXT_SEPARATOR,
     CODE_FENCE_LINE_PATTERN,
+    DATE_PATTERN,
     DESCRIPTION_INPUT_KEY,
     DURATION_PATTERN,
     ENTRY_TYPE_KEY,
@@ -92,6 +97,7 @@ from hooks_constants.question_brief_gate_constants import (
     MAXIMUM_BRIEF_WORD_COUNT,
     MESSAGE_KEY,
     MINIMUM_VALUE_OPTION_COUNT,
+    MULTI_SELECT_INPUT_KEY,
     OPTIONS_INPUT_KEY,
     PROMPT_TEXT_SEPARATOR,
     QUESTIONS_INPUT_KEY,
@@ -121,19 +127,22 @@ from hooks_constants.question_brief_gate_constants import (
     USER_ENTRY_TYPE,
     VALUE_MENU_LABEL_SEPARATOR,
     VALUE_MENU_REFUSAL_TEMPLATE,
-    VALUE_PATTERN,
+    PERCENT_OR_PRICE_PATTERN,
     WORD_LIMIT_PART_TEMPLATE,
 )
 
 
 def description_holds_value(description: str) -> bool:
-    """Return True when an option description holds a percent, a price, or a calendar date."""
-    return bool(VALUE_PATTERN.search(description))
+    """Return True when an option description holds a calendar date."""
+    return bool(DATE_PATTERN.search(description))
 
 
 def label_holds_value(label: str) -> bool:
     """Return True when an option label holds a percent, a price, a calendar date, or a digit duration."""
-    return description_holds_value(label) or bool(DURATION_PATTERN.search(label))
+    return any(
+        each_pattern.search(label)
+        for each_pattern in (DATE_PATTERN, PERCENT_OR_PRICE_PATTERN, DURATION_PATTERN)
+    )
 
 
 def _option_text(option: object, text_key: str) -> str:
@@ -143,25 +152,31 @@ def _option_text(option: object, text_key: str) -> str:
     return option_text if isinstance(option_text, str) else ""
 
 
-def _value_option_labels(question: object) -> list[str]:
-    if not isinstance(question, dict):
+def _value_option_name(option: object) -> str | None:
+    label = _option_text(option, LABEL_INPUT_KEY)
+    description = _option_text(option, DESCRIPTION_INPUT_KEY)
+    if label_holds_value(label) or description_holds_value(description):
+        return label or description
+    return None
+
+
+def _value_option_names(question: object) -> list[str]:
+    if not isinstance(question, dict) or question.get(MULTI_SELECT_INPUT_KEY) is True:
         return []
     all_options = question.get(OPTIONS_INPUT_KEY)
     if not isinstance(all_options, list):
         return []
-    return [
-        _option_text(each_option, LABEL_INPUT_KEY)
-        for each_option in all_options
-        if label_holds_value(_option_text(each_option, LABEL_INPUT_KEY))
-        or description_holds_value(_option_text(each_option, DESCRIPTION_INPUT_KEY))
-    ]
+    all_option_names = [_value_option_name(each_option) for each_option in all_options]
+    return [each_name for each_name in all_option_names if each_name is not None]
 
 
 def value_menu_labels(question_input: object) -> list[str]:
-    """Return the option labels of the first question whose options offer two or more values.
+    """Return the option names of the first single-select question whose options offer two or more values.
 
-    An option offers a value when its label holds one, or its description
-    holds a percent, a price, or a calendar date.
+    An option offers a value when its label holds a percent, a price, a
+    calendar date, or a digit duration, or when its description holds a
+    calendar date. Each option is named by its label, or by its description
+    when it has no label. A multi-select question is skipped.
 
     ::
 
@@ -174,7 +189,7 @@ def value_menu_labels(question_input: object) -> list[str]:
         question_input: The ``AskUserQuestion`` tool input, in any shape.
 
     Returns:
-        The labels of the options that offer a value, or an empty list when no question offers a value menu.
+        The names of the options that offer a value, or an empty list when no question offers a value menu.
     """
     if not isinstance(question_input, dict):
         return []
@@ -182,7 +197,7 @@ def value_menu_labels(question_input: object) -> list[str]:
     if not isinstance(all_questions, list):
         return []
     for each_question in all_questions:
-        all_value_labels = _value_option_labels(each_question)
+        all_value_labels = _value_option_names(each_question)
         if len(all_value_labels) >= MINIMUM_VALUE_OPTION_COUNT:
             return all_value_labels
     return []
