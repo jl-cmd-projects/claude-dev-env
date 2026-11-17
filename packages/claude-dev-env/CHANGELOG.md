@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.128.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.127.0...claude-dev-env-v8.128.0) (2026-11-17)
+
+
+### Features
+
+* **ci:** restack the levels above a stack level once it lands ([#2414](https://github.com/jl-cmd-projects/claude-dev-env/issues/2414)) ([a9bb3bc](https://github.com/jl-cmd-projects/claude-dev-env/commit/a9bb3bc7919f3e0fdf256b49a93c8d93f07582e4))
+
 ## [8.127.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.6...claude-dev-env-v8.127.0) (2026-11-17)
 
 
