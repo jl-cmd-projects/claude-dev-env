@@ -36,3 +36,7 @@ Sources: [Google small CLs](https://google.github.io/eng-practices/review/develo
 5. Change no code during the split. The tree at the top of the stack equals the tree at the pinned head, so `git diff <pinned-sha> <tip> --stat` prints nothing.
 6. Prove each level alone, as [each stack level stands on its own](../SKILL.md#each-stack-level-stands-on-its-own) describes. Where CI runs only on the stack tip, a lower level has no verdict until you run its checks.
 7. Each new pull request links the original pull request and carries its own proof. Approvals do not carry over, so name the approvals each one still needs.
+
+## After a level merges
+
+The levels above a merged level restack themselves. A workflow rebases each one onto its new base and pushes it. A level with the `status: needs-rebase` label and a restack comment needs a hand restack, so run the commands in that comment.
