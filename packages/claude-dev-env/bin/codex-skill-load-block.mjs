@@ -127,7 +127,10 @@ export function renderCodexRuleGuidance(sourceDirectory, installedDirectory) {
         const rule = readFileSync(join(sourceDirectory, name), 'utf8').trim();
         const scope = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u.exec(rule);
         if (!scope) {
-            globalRules.push(rule);
+            globalRules.push(rule.replace(/\]\((\.\.?\/[^)\s]+)\)/gu, (_, target) => {
+                const installedTarget = resolve(installedDirectory, target).replaceAll('\\', '/');
+                return `](<${installedTarget}>)`;
+            }));
             continue;
         }
         const installedPath = join(installedDirectory, name).replaceAll('\\', '/');

@@ -59,12 +59,14 @@ test('Codex guidance loads shared rules and directs scoped reads to installed fi
     const source = join(homes.root, 'rules');
     const target = join(homes.root, '.claude', 'rules');
     mkdirSync(source);
-    writeFileSync(join(source, 'shared.md'), '# Verified output\n\nReport the check result.\n');
+    writeFileSync(join(source, 'shared.md'), '# Verified output\n\nReport the check result. Read [guide](../docs/guide.md).\n');
     writeFileSync(join(source, 'testing.md'), '---\npaths:\n  - "**/test_*.py"\n  - "**/*.spec.*"\n---\n\nRun focused tests.\n');
     writeFileSync(join(source, 'scripts.md'), '---\npaths: "**/scripts/**"\n---\n\nCheck the entry point.\n');
 
     const rendered = renderCodexRuleGuidance(source, target);
     assert.match(rendered, /Report the check result\./u);
+    const installedGuide = join(homes.root, '.claude', 'docs', 'guide.md').replaceAll('\\', '/');
+    assert.ok(rendered.includes(`[guide](<${installedGuide}>)`));
     assert.ok(rendered.includes(`For \`**/test_*.py\`, \`**/*.spec.*\`, read \`${join(target, 'testing.md').replaceAll('\\', '/')}\`.`));
     assert.ok(rendered.includes(`For \`**/scripts/**\`, read \`${join(target, 'scripts.md').replaceAll('\\', '/')}\`.`));
     assert.ok(!rendered.includes('Run focused tests.'));
