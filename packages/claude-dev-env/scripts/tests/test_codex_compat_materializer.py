@@ -107,6 +107,9 @@ def test_materializes_instructions_from_an_installed_agent_directory(tmp_path: P
     reference = source / "reference"
     reference.mkdir(parents=True)
     (reference / "guide.md").write_text("# Reference material\n", encoding="utf-8")
+    (reference / "helper.md").write_text(
+        "---\nname: helper\ndescription: Extra check\n---\nRead the result.\n", encoding="utf-8",
+    )
     instructions = 'Check the diff.\n\nReport "pass" when the checks pass.'
     (source / "verifier.md").write_text(
         f"---\nname: verifier\ndescription: Verify a change\ntools: [Read]\n---\n\n{instructions}\n",
@@ -116,6 +119,7 @@ def test_materializes_instructions_from_an_installed_agent_directory(tmp_path: P
     assert materializer.main([str(source), str(target), "--apply"]) == 0
     agent = tomllib.loads((target / "verifier.toml").read_text(encoding="utf-8"))
     assert agent["developer_instructions"] == instructions
+    assert (target / "helper.toml").is_file()
     assert not (target / "guide.toml").exists()
 
 

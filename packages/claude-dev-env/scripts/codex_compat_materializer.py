@@ -1014,7 +1014,7 @@ def discover_agents(config: MaterializerConfig) -> list[ClaudeAgent]:
     all_agents: list[ClaudeAgent] = []
     for each_path in sorted(config.source_root.rglob("*.md"), key=lambda path: path.as_posix().casefold()):
         relative_path = each_path.relative_to(config.source_root)
-        if each_path.name in instruction_alias_filenames or relative_path.parts[0] == "reference":
+        if each_path.name in instruction_alias_filenames:
             _validate_containment(config.source_root, each_path)
             continue
         if _is_reparse_point(each_path):
@@ -1024,7 +1024,10 @@ def discover_agents(config: MaterializerConfig) -> list[ClaudeAgent]:
             _validate_containment(config.source_root, each_path)
             continue
         _validate_containment(config.source_root, each_path)
-        all_agents.append(parse_frontmatter(each_path, each_path.read_text(encoding="utf-8"), relative_source))
+        source_text = each_path.read_text(encoding="utf-8")
+        if relative_path.parts[0] == "reference" and source_text.partition(line_separator)[0].strip() != "---":
+            continue
+        all_agents.append(parse_frontmatter(each_path, source_text, relative_source))
     return all_agents
 
 
