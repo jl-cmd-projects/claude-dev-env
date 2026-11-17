@@ -1139,9 +1139,12 @@ def _visible_files_for_create(create_call: CreateCall, working_directory: str) -
 def _read_visible_files(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str] | None:
-    all_visible_files = visible_changed_files(working_directory, head_branch, base_branch)
+    local_may_answer = _local_checkout_may_answer(working_directory, repository, head_branch)
+    all_visible_files = None
+    if local_may_answer:
+        all_visible_files = visible_changed_files(working_directory, head_branch, base_branch)
     if all_visible_files is None:
         all_visible_files = remote_visible_changed_files(repository, base_branch, head_branch)
-    if all_visible_files is None and base_branch:
+    if all_visible_files is None and base_branch and local_may_answer:
         all_visible_files = visible_changed_files(working_directory, head_branch, None)
     return all_visible_files

@@ -1851,3 +1851,20 @@ def test_should_measure_a_named_main_base_against_origin_main(tmp_path: Path) ->
     _run_git(clone_path, "update-ref", "-d", "refs/remotes/origin/main")
     assert gate.visible_changed_files(str(clone_path), "feature", "main") is None
     assert gate._read_visible_files(str(clone_path), None, "main", "feature") == []
+
+
+def test_should_ask_the_compare_api_when_the_create_names_another_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _stacked_repository(tmp_path / "checkout", "page.html")
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(
+        gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "tool.py")]}, all_endpoints)
+    )
+    body_path = tmp_path / "body.md"
+    body_path.write_text(PROVEN_BODY, encoding="utf-8")
+    payload = _shell(f'gh pr create --title t --body-file "{body_path}" --repo o/r --base main --head feature', clone_path)
+
+    assert gate.missing_look_reason(payload) is None
+    assert all_endpoints == [compare_endpoint]

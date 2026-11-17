@@ -633,6 +633,8 @@ def test_build_eval_invocation_in_the_agent_transcript_should_pass(tmp_path: Pat
 
 
 def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_path: Path) -> dict[str, object]:
+    checkout_path = _checkout_without_visible_changes(tmp_path)
+    subprocess.run(["git", "-C", checkout_path, "remote", "add", "origin", "https://github.com/o/r.git"], check=True)
     return {
         "tool_name": "mcp__github__actions_run_trigger",
         "tool_input": {
@@ -644,7 +646,7 @@ def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_
             "inputs": all_inputs,
         },
         "transcript_path": str(transcript_path),
-        "cwd": _checkout_without_visible_changes(tmp_path),
+        "cwd": checkout_path,
     }
 
 
