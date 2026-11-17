@@ -48,6 +48,9 @@ PROVEN_FOLLOWUP_BODY = (
 )
 
 
+unstubbed_gh_api_lines = gate.proof._gh_api_lines
+
+
 @pytest.fixture(autouse=True)
 def _no_github_reads(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(gate.proof, "_gh_api_lines", lambda endpoint, query: None)
@@ -507,13 +510,12 @@ def test_deny_should_add_the_reads_ran_out_sentence_when_the_deadline_cuts_the_s
 ) -> None:
     all_asked_commands = _unstarted_children(monkeypatch)
     clock = SettableClock()
-    original_gh_api_lines = gate.proof._gh_api_lines
 
     def compare_that_spends_the_slice(endpoint: str, query: str) -> list[str] | None:
         if endpoint.endswith("...x"):
             clock.seconds = PROOF_AND_LOOK_READS_SECONDS + 1.0
             return [json.dumps(["M", "", "tool.py"])]
-        return original_gh_api_lines(endpoint, query)
+        return unstubbed_gh_api_lines(endpoint, query)
 
     monkeypatch.setattr(gate.proof, "_gh_api_lines", compare_that_spends_the_slice)
     body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.")
@@ -598,6 +600,8 @@ def test_non_feature_pull_request_should_pass(tmp_path: Path) -> None:
 
 
 def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_path: Path) -> dict[str, object]:
+    checkout_path = _checkout_without_visible_changes(tmp_path)
+    subprocess.run(["git", "-C", checkout_path, "remote", "add", "origin", "https://github.com/o/r.git"], check=True)
     return {
         "tool_name": "mcp__github__actions_run_trigger",
         "tool_input": {
@@ -609,7 +613,7 @@ def _dispatch_payload(tmp_path: Path, all_inputs: dict[str, object], transcript_
             "inputs": all_inputs,
         },
         "transcript_path": str(transcript_path),
-        "cwd": _checkout_without_visible_changes(tmp_path),
+        "cwd": checkout_path,
     }
 
 

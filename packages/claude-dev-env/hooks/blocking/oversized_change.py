@@ -33,7 +33,7 @@ from blocking.pull_request_proof import (
     _git_lines,
     _git_output,
     _merge_base_and_head,
-    checkout_is_for,
+    read_named_base_first,
 )
 from hooks_constants.pull_request_proof_constants import COMPARE_FILE_LIST_LIMIT
 from hooks_constants.oversized_change_constants import (
@@ -99,15 +99,14 @@ def _measured_line_count_for_create(create_call: CreateCall, working_directory: 
 def _read_measured_line_count(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> int | None:
-    local_may_answer = bool(working_directory) and checkout_is_for(working_directory, repository)
-    measured_line_count = None
-    if local_may_answer:
-        measured_line_count = local_measured_line_count(working_directory, base_branch, head_branch)
-    if measured_line_count is None:
-        measured_line_count = remote_measured_line_count(repository, base_branch, head_branch)
-    if measured_line_count is None and base_branch and local_may_answer:
-        measured_line_count = local_measured_line_count(working_directory, None, head_branch)
-    return measured_line_count
+    return read_named_base_first(
+        working_directory,
+        repository,
+        head_branch,
+        base_branch,
+        lambda each_base_branch: local_measured_line_count(working_directory, each_base_branch, head_branch),
+        lambda: remote_measured_line_count(repository, base_branch, head_branch),
+    )
 
 
 def local_measured_line_count(

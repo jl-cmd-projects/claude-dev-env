@@ -1861,3 +1861,50 @@ def test_should_measure_a_named_main_base_against_origin_main(tmp_path: Path) ->
     _run_git(clone_path, "update-ref", "-d", "refs/remotes/origin/main")
     assert gate.visible_changed_files(str(clone_path), "feature", "main") is None
     assert gate._read_visible_files(str(clone_path), None, "main", "feature") == []
+
+
+def test_should_ask_the_compare_api_when_the_create_names_another_repository(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _stacked_repository(tmp_path / "checkout", "page.html")
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/main...feature"
+    monkeypatch.setattr(
+        gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "tool.py")]}, all_endpoints)
+    )
+    body_path = tmp_path / "body.md"
+    body_path.write_text(PROVEN_BODY, encoding="utf-8")
+    payload = _shell(f'gh pr create --title t --body-file "{body_path}" --repo o/r --base main --head feature', clone_path)
+
+    assert gate.missing_look_reason(payload) is None
+    assert all_endpoints == [compare_endpoint]
+
+
+@pytest.mark.parametrize(
+    ("repository_flag_value", "expected_repository"),
+    [
+        ("o/r", "o/r"),
+        ("github.com/o/r", "o/r"),
+        ("https://github.com/o/r", "o/r"),
+        ("https://github.com/o/r.git/", "o/r"),
+        ("HTTPS://GitHub.com/o/r", "o/r"),
+    ],
+)
+def test_should_read_a_repository_flag_as_its_owner_and_name(
+    tmp_path: Path, repository_flag_value: str, expected_repository: str
+) -> None:
+    payload = _shell(f"gh pr create --title t --repo {repository_flag_value} --head feature", tmp_path)
+
+    assert [each_call.repository for each_call in gate._create_calls(payload)] == [expected_repository]
+
+
+def test_should_leave_the_workflows_of_another_repository_out_of_the_workflow_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _stacked_repository(tmp_path, f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}")
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({}, []))
+
+    assert gate._read_added_workflow_files(str(clone_path), "o/r", "main", "feature") == []
+    assert gate._read_added_workflow_files(str(clone_path), None, "main", "feature") == [
+        f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"
+    ]
