@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.127.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.6...claude-dev-env-v8.127.0) (2026-11-17)
+
+
+### Features
+
+* **hooks:** refuse a pull request create over 1,000 changed lines ([#2412](https://github.com/jl-cmd-projects/claude-dev-env/issues/2412)) ([009dde3](https://github.com/jl-cmd-projects/claude-dev-env/commit/009dde39ed7ccee53282004f0674cea8a2032955))
+
 ## [8.126.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.126.5...claude-dev-env-v8.126.6) (2026-11-16)
 
 
