@@ -28,19 +28,14 @@ from blocking.gate_run_reads import answer_once
 from blocking.pull_request_proof import (
     CreateCall,
     _all_section_texts,
-    _cached_head_reference,
     _compare_lines,
     _create_calls,
-    _first_merge_base,
     _git_lines,
     _git_output,
     _merge_base_and_head,
     checkout_is_for,
 )
-from hooks_constants.pull_request_proof_constants import (
-    COMPARE_FILE_LIST_LIMIT,
-    REMOTE_BRANCH_PREFIX,
-)
+from hooks_constants.pull_request_proof_constants import COMPARE_FILE_LIST_LIMIT
 from hooks_constants.oversized_change_constants import (
     ALL_GENERATED_ATTRIBUTE_VALUES,
     ALL_LOCKFILE_NAMES,
@@ -65,6 +60,7 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
         create, 1,500 changed lines, no 'Why one pull request' section -> OVERSIZED_PULL_REQUEST_REASON
         create, 1,500 changed lines, the section states a reason      -> None
         create, 900 changed lines                                      -> None
+        named base neither origin/<base> nor the compare API can read  -> measured against main
         create whose size git and the compare API cannot read          -> None
         a body edit, a merge, any other tool                           -> None
 
@@ -103,11 +99,14 @@ def _measured_line_count_for_create(create_call: CreateCall, working_directory: 
 def _read_measured_line_count(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> int | None:
+    local_may_answer = bool(working_directory) and checkout_is_for(working_directory, repository)
     measured_line_count = None
-    if working_directory and checkout_is_for(working_directory, repository):
+    if local_may_answer:
         measured_line_count = local_measured_line_count(working_directory, base_branch, head_branch)
     if measured_line_count is None:
         measured_line_count = remote_measured_line_count(repository, base_branch, head_branch)
+    if measured_line_count is None and base_branch and local_may_answer:
+        measured_line_count = local_measured_line_count(working_directory, None, head_branch)
     return measured_line_count
 
 
@@ -124,15 +123,16 @@ def local_measured_line_count(
         base names a branch the clone does not hold            -> None
 
     The head is the checked-out branch, or the named branch or its origin copy.
-    The base is ``origin/<base>`` or ``<base>``, else the first of origin/HEAD,
-    origin/main and main. A rename counts only its edited lines.
+    A named base is read only as ``origin/<base>``. With no base named, it is
+    the first of origin/HEAD, origin/main and main. A rename counts only its
+    edited lines.
 
     Args:
         working_directory: The session directory the hook payload names.
         base_branch: The base branch the create call names, or None.
         head_branch: The head branch the create call names, or None.
     """
-    merge_base_and_head = _merge_base_and_head_for_base(working_directory, base_branch, head_branch)
+    merge_base_and_head = _merge_base_and_head(working_directory, head_branch, base_branch)
     if merge_base_and_head is None:
         return None
     merge_base, head_reference = merge_base_and_head
@@ -177,20 +177,6 @@ def _counts_without_lockfiles(numstat_output: str) -> dict[str, int] | None:
         for each_path, each_count in count_by_path.items()
         if not _is_lockfile(each_path)
     }
-
-
-def _merge_base_and_head_for_base(
-    working_directory: str, base_branch: str | None, head_branch: str | None
-) -> tuple[str, str] | None:
-    if not base_branch:
-        return _merge_base_and_head(working_directory, head_branch)
-    head_reference = _cached_head_reference(working_directory, head_branch)
-    if head_reference is None:
-        return None
-    merge_base = _first_merge_base(
-        working_directory, head_reference, (REMOTE_BRANCH_PREFIX + base_branch, base_branch)
-    )
-    return None if merge_base is None else (merge_base, head_reference)
 
 
 def _numstat_counts(numstat_output: str) -> dict[str, int] | None:

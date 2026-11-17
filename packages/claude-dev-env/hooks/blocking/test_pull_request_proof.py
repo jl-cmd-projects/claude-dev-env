@@ -15,6 +15,7 @@ from blocking import pull_request_proof as gate
 from blocking.gate_run_reads import gate_run
 from blocking.pr_lifecycle_skill_gate import decision_for
 from hooks_constants.pull_request_proof_constants import (
+    ALL_DEFAULT_BRANCH_REFERENCES,
     COMPARE_FILE_LIST_LIMIT,
     COMPARE_FILE_STATUS_QUERY,
     DEFERRED_PROOF_REASON,
@@ -463,10 +464,13 @@ def _repository_with_change(tmp_path: Path, changed_file_name: str) -> Path:
     return clone_path
 
 
-def _mcp_create_on_branch(body: str, working_directory: Path) -> dict[str, object]:
+def _mcp_create_on_branch(body: str, working_directory: Path, base: str | None = None) -> dict[str, object]:
+    tool_input = {"body": body, "head": "feature"}
+    if base is not None:
+        tool_input["base"] = base
     return {
         "tool_name": "mcp__github__create_pull_request",
-        "tool_input": {"body": body, "head": "feature"},
+        "tool_input": tool_input,
         "cwd": str(working_directory),
     }
 
@@ -504,8 +508,8 @@ def test_should_allow_a_python_only_change_without_a_picture(tmp_path: Path) -> 
 
 def test_visible_changed_files_skips_a_different_head_branch(tmp_path: Path) -> None:
     clone_path = _repository_with_change(tmp_path, "page.html")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["page.html"]
-    assert gate.visible_changed_files(str(clone_path), "other-branch") is None
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["page.html"]
+    assert gate.visible_changed_files(str(clone_path), "other-branch", None) is None
 
 
 def test_should_deny_when_git_cannot_read_the_branch_and_proof_shows_no_picture(tmp_path: Path) -> None:
@@ -587,13 +591,13 @@ def _repository_with_rename(
 
 def test_should_allow_a_pure_html_rename_without_a_picture(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, None)
-    assert gate.visible_changed_files(str(clone_path), "feature") == []
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == []
     assert gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path)) is None
 
 
 def test_should_deny_an_html_rename_that_also_edits_the_page(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, "<p>new line</p>\n")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["references/asset-specs.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["references/asset-specs.html"]
     reason = gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path))
     assert reason is not None
     assert "references/asset-specs.html" in reason
@@ -672,18 +676,18 @@ def test_should_report_an_unparseable_compare_line_as_unknown(monkeypatch: pytes
 
 def test_should_deny_a_byte_identical_rename_from_a_hidden_suffix_to_a_page(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, None, "notes.txt", "site/notes.html")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["site/notes.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["site/notes.html"]
     assert gate.missing_look_reason(_mcp_create_on_branch(PROVEN_BODY, clone_path)) is not None
 
 
 def test_should_deny_a_rename_whose_lines_were_reordered(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, None, reorder_lines=True)
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["references/asset-specs.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["references/asset-specs.html"]
 
 
 def test_should_deny_a_byte_identical_rename_from_one_page_type_to_another(tmp_path: Path) -> None:
     clone_path = _repository_with_rename(tmp_path, None, "Widget.tsx", "site/widget.html")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["site/widget.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["site/widget.html"]
 
 
 def test_should_report_unreadable_git_output_as_unknown() -> None:
@@ -694,12 +698,12 @@ def test_should_report_unreadable_git_output_as_unknown() -> None:
 
 def test_should_keep_a_page_whose_name_holds_an_apostrophe(tmp_path: Path) -> None:
     clone_path = _repository_with_change(tmp_path, "q't.html")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["q't.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["q't.html"]
 
 
 def test_should_keep_a_page_whose_name_has_non_ascii_letters(tmp_path: Path) -> None:
     clone_path = _repository_with_change(tmp_path, "página.html")
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["página.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["página.html"]
 
 
 def test_should_deny_as_unreadable_when_the_compare_api_fails(
@@ -809,7 +813,7 @@ def test_visible_changed_files_falls_back_to_origin_main_without_origin_head(tmp
     clone_path = _repository_with_change(tmp_path, "page.html")
     subprocess.run(["git", "-C", str(clone_path), "remote", "set-head", "origin", "-d"], check=True)
     subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "main"], check=True)
-    assert gate.visible_changed_files(str(clone_path), "feature") == ["page.html"]
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["page.html"]
 
 
 def test_should_read_the_head_flag_of_a_shell_create(tmp_path: Path) -> None:
@@ -1083,11 +1087,11 @@ def test_added_workflow_files_should_list_only_files_the_branch_adds(
         tmp_path / "added", NEW_WORKFLOW_NAME
     )
     edited_clone = _repository_with_workflow_change(tmp_path / "edited", "ci.yml")
-    assert gate.added_workflow_files(str(added_clone), "feature") == [
+    assert gate.added_workflow_files(str(added_clone), "feature", None) == [
         f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"
     ]
-    assert gate.added_workflow_files(str(edited_clone), "feature") == []
-    assert gate.added_workflow_files(str(added_clone), "other-branch") is None
+    assert gate.added_workflow_files(str(edited_clone), "feature", None) == []
+    assert gate.added_workflow_files(str(added_clone), "other-branch", None) is None
 
 
 def _workflow_compare_lines(count: int, all_added_paths: list[str]) -> list[str]:
@@ -1179,9 +1183,11 @@ def test_one_gate_run_should_resolve_the_merge_base_once_for_the_waiver_and_look
     all_head_references: list[str] = []
     original_first_merge_base = gate._first_merge_base
 
-    def counted_first_merge_base(working_directory: str, head_reference: str) -> str | None:
+    def counted_first_merge_base(
+        working_directory: str, head_reference: str, all_base_references: tuple[str, ...]
+    ) -> str | None:
         all_head_references.append(head_reference)
-        return original_first_merge_base(working_directory, head_reference)
+        return original_first_merge_base(working_directory, head_reference, all_base_references)
 
     monkeypatch.setattr(gate, "_first_merge_base", counted_first_merge_base)
     payload = _mcp_create_on_branch(WAIVER_BODY, clone_path)
@@ -1261,7 +1267,7 @@ def test_added_workflow_files_should_count_a_renamed_workflow_as_added(
         check=True,
     )
     assert f"{WORKFLOW_DIRECTORY}/renamed.yml" in gate.added_workflow_files(
-        str(clone_path), "feature"
+        str(clone_path), "feature", None
     )
 
 
@@ -1753,6 +1759,7 @@ def _run_git(repository_path: Path, *all_arguments: str) -> None:
 
 
 def _commit_file(repository_path: Path, file_name: str) -> None:
+    (repository_path / file_name).parent.mkdir(parents=True, exist_ok=True)
     (repository_path / file_name).write_text("x\n", encoding="utf-8")
     _run_git(repository_path, "add", ".")
     _run_git(repository_path, "commit", "-q", "-m", f"add {file_name}")
@@ -1785,4 +1792,62 @@ def test_first_merge_base_should_try_the_candidate_references_in_order(
         gate._first_merge_base(str(clone_path), "HEAD", ("no-such-branch", "parent"))
         == parent_commit
     )
-    assert gate._first_merge_base(str(clone_path), "HEAD") != parent_commit
+    assert gate._first_merge_base(str(clone_path), "HEAD", ALL_DEFAULT_BRANCH_REFERENCES) != parent_commit
+
+
+def _stacked_repository(tmp_path: Path, parent_file_name: str) -> Path:
+    clone_path = _repository_on_branch(tmp_path)
+    _commit_file(clone_path, parent_file_name)
+    _run_git(clone_path, "push", "-q", "origin", "parent")
+    _run_git(clone_path, "checkout", "-q", "-b", "feature")
+    _commit_file(clone_path, "tool.py")
+    _run_git(clone_path, "push", "-q", "origin", "feature")
+    return clone_path
+
+
+def test_should_judge_a_stack_level_only_on_its_own_files_against_its_base(tmp_path: Path) -> None:
+    clone_path = _stacked_repository(tmp_path, "page.html")
+    payload = _mcp_create_on_branch(PROVEN_BODY, clone_path, "parent")
+
+    assert gate.visible_changed_files(str(clone_path), "feature", "parent") == []
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == ["page.html"]
+    assert gate.missing_look_reason(payload) is None
+
+
+def test_should_list_only_the_workflows_a_stack_level_adds_over_its_base(tmp_path: Path) -> None:
+    clone_path = _stacked_repository(tmp_path, f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}")
+    payload = _mcp_create_on_branch(_workflow_body(AFTER_MERGE_SECTION), clone_path, "parent")
+
+    assert gate.added_workflow_files(str(clone_path), "feature", "parent") == []
+    assert gate.added_workflow_files(str(clone_path), "feature", None) == [f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"]
+    assert gate.missing_proof_reason(payload) == UNPROVEN_PROOF_REASON.format(admission=UNPROVEN_RUN_LINE)
+
+
+def test_should_leave_a_base_that_exists_only_locally_to_the_compare_api(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _stacked_repository(tmp_path, "page.html")
+    _run_git(clone_path, "branch", "local-only", "feature")
+    all_endpoints: list[str] = []
+    compare_endpoint = "repos/o/r/compare/local-only...feature"
+    monkeypatch.setattr(
+        gate, "_gh_api_lines", _fake_gh_api({compare_endpoint: [_compare_line("M", "", "page.html")]}, all_endpoints)
+    )
+
+    assert gate.visible_changed_files(str(clone_path), "feature", "local-only") is None
+    assert gate.added_workflow_files(str(clone_path), "feature", "local-only") is None
+    assert gate._read_visible_files(str(clone_path), "o/r", "local-only", "feature") == ["page.html"]
+    assert all_endpoints == [compare_endpoint]
+    assert gate._read_visible_files(str(clone_path), None, "local-only", "feature") == ["page.html"]
+
+
+def test_should_measure_a_named_main_base_against_origin_main(tmp_path: Path) -> None:
+    clone_path = _stacked_repository(tmp_path, "page.html")
+    _run_git(clone_path, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/parent")
+
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == []
+    assert gate.visible_changed_files(str(clone_path), "feature", "main") == ["page.html"]
+
+    _run_git(clone_path, "update-ref", "-d", "refs/remotes/origin/main")
+    assert gate.visible_changed_files(str(clone_path), "feature", "main") is None
+    assert gate._read_visible_files(str(clone_path), None, "main", "feature") == []

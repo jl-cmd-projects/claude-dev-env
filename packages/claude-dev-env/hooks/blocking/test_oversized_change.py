@@ -137,13 +137,17 @@ def test_should_pass_a_body_edit(large_branch: Path) -> None:
     assert size.oversized_pull_request_reason(payload) is None
 
 
-def test_should_pass_when_no_base_can_be_resolved(large_branch: Path) -> None:
+def test_should_measure_against_main_when_neither_the_named_base_nor_the_compare_api_answers(
+    large_branch: Path,
+) -> None:
+    subprocess.run(["git", "-C", str(large_branch), "branch", "local-only"], check=True)
     assert size.local_measured_line_count(str(large_branch), "no-such-branch", None) is None
+    assert size.local_measured_line_count(str(large_branch), "local-only", None) is None
     assert (
         size.oversized_pull_request_reason(
-            _create(large_branch, PLAIN_BODY, "--base no-such-branch")
+            _create(large_branch, PLAIN_BODY, "--base local-only")
         )
-        is None
+        is not None
     )
 
 
@@ -224,7 +228,7 @@ def test_should_ask_git_for_the_head_once_when_the_proof_check_already_did(
 
     monkeypatch.setattr(gate_run_reads, "started_child", recording_start)
     with gate_run_reads.gate_run():
-        assert proof.visible_changed_files(str(large_branch), "feature") == []
+        assert proof.visible_changed_files(str(large_branch), "feature", None) == []
         assert size.local_measured_line_count(str(large_branch), None, "feature") == 1500
     assert sum("--show-current" in each_command for each_command in all_started_commands) == 1
 
@@ -266,7 +270,7 @@ def test_should_find_the_merge_base_once_when_the_proof_check_already_did(
 
     monkeypatch.setattr(gate_run_reads, "started_child", recording_start)
     with gate_run_reads.gate_run():
-        assert proof.visible_changed_files(str(large_branch), None) == []
+        assert proof.visible_changed_files(str(large_branch), None, None) == []
         assert size.local_measured_line_count(str(large_branch), None, None) == 1500
     assert sum("merge-base" in each_command for each_command in all_started_commands) == 1
 
