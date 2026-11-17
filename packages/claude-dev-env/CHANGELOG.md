@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.128.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.128.1...claude-dev-env-v8.128.2) (2026-11-17)
+
+
+### Bug Fixes
+
+* **hooks:** read the clone only for the repository a create names ([#2421](https://github.com/jl-cmd-projects/claude-dev-env/issues/2421)) ([a70ab1c](https://github.com/jl-cmd-projects/claude-dev-env/commit/a70ab1c30aa4c838f91546ca968641e769303a18))
+
 ## [8.128.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.128.0...claude-dev-env-v8.128.1) (2026-11-17)
 
 
