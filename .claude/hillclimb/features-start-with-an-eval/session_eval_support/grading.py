@@ -300,13 +300,18 @@ def grade_case(expected: str, all_calls: list[ToolCall]) -> dict[str, int]:
 
     An ``eval-first`` case is correct when its first eval step or change step
     is an eval step or an edit of test files only, since a test suite that
-    holds cases, a runner and a grader counts as the feature's eval. Any other
-    case is correct when the session took no eval step at all, so a plain code
-    feature may still start with its tests::
+    holds cases, a runner and a grader counts as the feature's eval. It is
+    also correct when the session read the project and then held the change,
+    with no change step at all, since the guide has it stop for approval of
+    the eval before any edit. Any other case is correct when the session took
+    no eval step at all, so a plain code feature may still start with its
+    tests::
 
         "eval-first", [Write evals/cases.json, Write CLAUDE.md]   -> correct 1
         "eval-first", [Skill build-eval, Write CLAUDE.md]         -> correct 1
         "eval-first", [Write tests/test_guard.py, Write settings] -> correct 1
+        "eval-first", [Read, Glob]                                -> correct 1
+        "eval-first", []                                          -> correct 0
         "eval-first", [Write CLAUDE.md]                           -> correct 0
         "none",       [Write tests/test_cli.py, Edit jobs/cli.py] -> correct 1
         "none",       [Skill claude-api build-eval]               -> correct 0
@@ -321,8 +326,11 @@ def grade_case(expected: str, all_calls: list[ToolCall]) -> dict[str, int]:
     came_first = eval_came_first(all_calls)
     tests_came_first = first_step_edits_tests(all_calls)
     took_eval_step = any(is_eval_step(each_call) for each_call in all_calls)
+    held_the_change = bool(all_calls) and not any(
+        _is_change_step(each_call) for each_call in all_calls
+    )
     correct = (
-        came_first or tests_came_first
+        came_first or tests_came_first or held_the_change
         if expected == EXPECTED_EVAL_FIRST
         else not took_eval_step
     )

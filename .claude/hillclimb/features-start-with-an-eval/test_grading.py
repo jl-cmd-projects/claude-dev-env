@@ -114,6 +114,10 @@ def test_feature_session_with_no_tool_calls_should_fail() -> None:
     assert _grade("eval-first")["correct"] == 0
 
 
+def test_feature_session_that_reads_and_holds_the_change_should_pass() -> None:
+    assert _grade("eval-first", READ, READ_EVAL)["correct"] == 1
+
+
 def test_feature_session_that_only_reads_an_eval_should_fail() -> None:
     assert _grade("eval-first", READ_EVAL, WRITE_SURFACE)["correct"] == 0
 
