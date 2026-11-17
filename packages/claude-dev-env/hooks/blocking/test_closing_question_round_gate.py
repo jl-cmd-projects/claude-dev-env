@@ -983,3 +983,20 @@ def test_should_leave_no_hold_on_stdout_when_stderr_cannot_be_written(
         os.close(stderr_target)
     assert completed_gate.returncode == 0
     assert b'"block"' not in completed_gate.stdout
+
+
+def test_should_hold_a_declaration_beside_an_in_progress_task_in_the_store(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / ".claude"))
+    monkeypatch.delenv("CLAUDE_CODE_TASK_LIST_ID", raising=False)
+    task_directory = tmp_path / ".claude" / "tasks" / SESSION_ID
+    task_directory.mkdir(parents=True)
+    (task_directory / "1.json").write_text(
+        json.dumps({"id": "1", "subject": "Ship the export", "status": "in_progress"}),
+        encoding="utf-8",
+    )
+    all_records = [typed_prompt_record(), reply_record("Done.\n\nOpen items: none.")]
+    reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records))
+    assert reason.startswith(IN_PROGRESS_TASKS_REASON_LEAD)
+    assert '#1 "Ship the export"' in reason

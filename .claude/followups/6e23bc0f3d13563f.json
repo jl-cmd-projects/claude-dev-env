@@ -1,8 +1,0 @@
-{
-  "rule_id": "validators",
-  "file_path": "packages/claude-dev-env/hooks/blocking/closing_question_round_gate.py",
-  "message": "packages/claude-dev-env/hooks/blocking/closing_question_round_gate.py:1: File is 432 lines (max 400) - consider splitting",
-  "check_id": "validators/file-length",
-  "severity": "smell",
-  "origin_commit": "2aba1370b3b952200de4aec7a3cd9643bfbf15e1"
-}
