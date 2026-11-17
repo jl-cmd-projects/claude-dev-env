@@ -1871,11 +1871,30 @@ def test_should_ask_the_compare_api_when_the_create_names_another_repository(
 
 
 @pytest.mark.parametrize(
-    "repository_flag_value", ["o/r", "github.com/o/r", "https://github.com/o/r", "https://github.com/o/r.git/"]
+    ("repository_flag_value", "expected_repository"),
+    [
+        ("o/r", "o/r"),
+        ("github.com/o/r", "o/r"),
+        ("https://github.com/o/r", "o/r"),
+        ("https://github.com/o/r.git/", "o/r"),
+        ("ghe.example.com/o/r", "ghe.example.com/o/r"),
+    ],
 )
-def test_should_read_a_repository_flag_with_a_host_as_its_owner_and_name(
-    tmp_path: Path, repository_flag_value: str
+def test_should_read_a_github_repository_flag_as_its_owner_and_name(
+    tmp_path: Path, repository_flag_value: str, expected_repository: str
 ) -> None:
     payload = _shell(f"gh pr create --title t --repo {repository_flag_value} --head feature", tmp_path)
 
-    assert [each_call.repository for each_call in gate._create_calls(payload)] == ["o/r"]
+    assert [each_call.repository for each_call in gate._create_calls(payload)] == [expected_repository]
+
+
+def test_should_leave_the_workflows_of_another_repository_out_of_the_workflow_check(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clone_path = _stacked_repository(tmp_path, f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}")
+    monkeypatch.setattr(gate, "_gh_api_lines", _fake_gh_api({}, []))
+
+    assert gate._read_added_workflow_files(str(clone_path), "o/r", "main", "feature") == []
+    assert gate._read_added_workflow_files(str(clone_path), None, "main", "feature") == [
+        f"{WORKFLOW_DIRECTORY}/{NEW_WORKFLOW_NAME}"
+    ]

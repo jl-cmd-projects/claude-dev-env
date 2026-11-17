@@ -6,7 +6,7 @@ import json
 import re
 import sys
 from collections.abc import Callable, Iterator, Mapping, Sequence
-from typing import NamedTuple, TypeVar
+from typing import NamedTuple
 from pathlib import Path
 
 hooks_directory = str(Path(__file__).resolve().parent.parent)
@@ -22,12 +22,12 @@ from blocking.followup_pr_dedupe import (
     shell_command,
     title_from_arguments,
 )
-from blocking.gate_run_reads import ReadSlice, answer_once, child_stdout
+from blocking.gate_run_reads import AnswerType, ReadSlice, answer_once, child_stdout
 from hooks_constants.pr_lifecycle_skill_gate_constants import UPDATE_PULL_REQUEST_TOOL_SUFFIX
 from hooks_constants.pull_request_proof_constants import (
     ADDED_FILE_NAMES_QUERY,
+    ALL_GITHUB_REPOSITORY_PREFIXES,
     GIT_URL_SUFFIX,
-    OWNER_AND_NAME_PART_COUNT,
     REMOTE_LINE_FIELD_COUNT,
     REPOSITORY_PATH_SEPARATOR,
     RUN_WORD_PATTERN,
@@ -212,10 +212,10 @@ def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall
 def _owner_and_name(repository_flag_value: str | None) -> str | None:
     if not repository_flag_value:
         return None
-    all_path_parts = repository_flag_value.rstrip(REPOSITORY_PATH_SEPARATOR).removesuffix(GIT_URL_SUFFIX).split(
-        REPOSITORY_PATH_SEPARATOR
-    )
-    return REPOSITORY_PATH_SEPARATOR.join(all_path_parts[-OWNER_AND_NAME_PART_COUNT:])
+    repository = repository_flag_value.rstrip(REPOSITORY_PATH_SEPARATOR).removesuffix(GIT_URL_SUFFIX)
+    for each_prefix in ALL_GITHUB_REPOSITORY_PREFIXES:
+        repository = repository.removeprefix(each_prefix)
+    return repository
 
 
 def _flag_value(all_create_arguments: list[str], all_flags: frozenset[str], assignment_prefix: str) -> str | None:
@@ -989,7 +989,9 @@ def _read_added_workflow_files(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str]:
     all_workflow_paths = read_named_base_first(
-        _local_checkout_may_answer(working_directory, repository, head_branch),
+        working_directory,
+        repository,
+        head_branch,
         base_branch,
         lambda each_base_branch: added_workflow_files(working_directory, head_branch, each_base_branch),
         lambda: remote_added_workflow_files(repository, base_branch, head_branch),
@@ -997,11 +999,10 @@ def _read_added_workflow_files(
     return all_workflow_paths or []
 
 
-AnswerType = TypeVar("AnswerType")
-
-
 def read_named_base_first(
-    local_may_answer: bool,
+    working_directory: str,
+    repository: str | None,
+    head_branch: str | None,
     base_branch: str | None,
     read_local: Callable[[str | None], AnswerType | None],
     read_remote: Callable[[], AnswerType | None],
@@ -1012,27 +1013,30 @@ def read_named_base_first(
 
         clone reads origin/parent                        -> the clone's answer
         clone lacks origin/parent, compare API answers   -> the compare API's answer
-        neither answers, base named, clone may answer    -> the clone's answer against main
+        neither answers, base named, clone may answer    -> the clone's answer, default base
         clone is for another repository, API is silent   -> None
 
+    The clone may answer when it is for the named repository, or when no head
+    is named, since gh then proposes the clone's own branch. The default base is
+    the first of origin/HEAD, origin/main and main that git can reach.
+
     Args:
-        local_may_answer: Whether the clone is for the repository the create names.
+        working_directory: The session directory the hook payload names.
+        repository: The repository a create call names, or None.
+        head_branch: The head branch a create call names, or None.
         base_branch: The base branch a create call names, or None.
         read_local: Reads the clone against a base, or against the defaults for None.
         read_remote: Reads the compare API against the named base.
     """
+    local_may_answer = bool(working_directory) and (
+        not head_branch or checkout_is_for(working_directory, repository)
+    )
     answer = read_local(base_branch) if local_may_answer else None
     if answer is None:
         answer = read_remote()
     if answer is None and base_branch and local_may_answer:
         answer = read_local(None)
     return answer
-
-
-def _local_checkout_may_answer(
-    working_directory: str, repository: str | None, head_branch: str | None
-) -> bool:
-    return not head_branch or checkout_is_for(working_directory, repository)
 
 
 def checkout_is_for(working_directory: str, repository: str | None) -> bool:
@@ -1188,7 +1192,9 @@ def _read_visible_files(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str] | None:
     return read_named_base_first(
-        _local_checkout_may_answer(working_directory, repository, head_branch),
+        working_directory,
+        repository,
+        head_branch,
         base_branch,
         lambda each_base_branch: visible_changed_files(working_directory, head_branch, each_base_branch),
         lambda: remote_visible_changed_files(repository, base_branch, head_branch),

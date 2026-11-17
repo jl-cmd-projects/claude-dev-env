@@ -33,7 +33,6 @@ from blocking.pull_request_proof import (
     _git_lines,
     _git_output,
     _merge_base_and_head,
-    checkout_is_for,
     read_named_base_first,
 )
 from hooks_constants.pull_request_proof_constants import COMPARE_FILE_LIST_LIMIT
@@ -101,7 +100,9 @@ def _read_measured_line_count(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> int | None:
     return read_named_base_first(
-        bool(working_directory) and checkout_is_for(working_directory, repository),
+        working_directory,
+        repository,
+        head_branch,
         base_branch,
         lambda each_base_branch: local_measured_line_count(working_directory, each_base_branch, head_branch),
         lambda: remote_measured_line_count(repository, base_branch, head_branch),

@@ -254,7 +254,7 @@ def test_should_measure_remotely_when_the_create_names_another_repository(
     large_branch: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(size, "remote_measured_line_count", lambda *all_arguments: None)
-    payload = _create(large_branch, PLAIN_BODY, "--repo other-owner/other-repository")
+    payload = _create(large_branch, PLAIN_BODY, "--repo other-owner/other-repository --head feature")
     assert size.oversized_pull_request_reason(payload) is None
 
 
@@ -309,3 +309,12 @@ def test_should_count_the_whole_branch_when_git_diffs_relative_to_the_session_fo
     clone_path = _generated_schema_branch(tmp_path)
     _git(clone_path, "config", "diff.relative", "true")
     assert size.local_measured_line_count(str(clone_path / "sub"), None, None) == 41
+
+
+def test_should_not_measure_the_clone_for_a_create_aimed_at_another_repository(
+    large_branch: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(size, "remote_measured_line_count", lambda *all_arguments: None)
+
+    assert size._read_measured_line_count(str(large_branch), "o/r", "main", "feature") is None
+    assert size._read_measured_line_count(str(large_branch), "o/r", "main", None) == 1500
