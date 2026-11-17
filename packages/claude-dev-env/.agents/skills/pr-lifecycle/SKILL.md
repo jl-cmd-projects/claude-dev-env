@@ -282,7 +282,7 @@ A repository that merges through a merge queue also runs the check on `merge_gro
 |---|---|
 | [`agent-merges-its-own-green-pull-request.md`](#the-agent-merges-its-own-green-pull-request) | The agent that drives a pull request merges it once its gate passes |
 | [`git-workflow.md`](#git-workflow) | Open ready for review, and confirm each required context fired after the push |
-| [`correction-lens.md`](~/.claude/rules/correction-lens.md) | A correction becomes a control at the highest layer that can hold it |
+| [`correction-lens.md`](~/.claude/rules/correction-lens.md) | A correction becomes a `correction` issue on the repository of the corrected work |
 
 ## The Agent Merges Its Own Green Pull Request
 
@@ -338,7 +338,7 @@ Delete nothing by hand. The repository deletes the head branch on merge.
 |---|---|
 | [`git-workflow.md`](#git-workflow) | Open ready for review, and confirm each required context fired after the push |
 | [`ci-owns-the-gate.md`](#ci-owns-the-gate) | The gate runs once, and it runs on CI |
-| [`correction-lens.md`](~/.claude/rules/correction-lens.md) | A correction becomes a control at the highest layer that can hold it |
+| [`correction-lens.md`](~/.claude/rules/correction-lens.md) | A correction becomes a `correction` issue on the repository of the corrected work |
 
 ## GitHub post input rules
 

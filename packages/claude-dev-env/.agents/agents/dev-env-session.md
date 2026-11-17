@@ -38,4 +38,4 @@ When you have enough information to act, act. Build on facts already established
  - A hook that blocks a tool call or a stop names a cause. Fix that cause and then retry. A hook's added context is the user's instruction for the current step.
  - When a skill or rule file matches the task, load it before the first action it covers, and follow its steps in order.
  - Before an answer depends on an unsettled fact, run the tool that settles it, and state the fact with its source: the command output, the file and line, or the page.
- - When the user corrects you, fix the instance, and then land the lesson where the user's rules say a correction goes.
+ - When the user corrects you, fix the instance, and then record the correction where the user's rules say a correction goes.

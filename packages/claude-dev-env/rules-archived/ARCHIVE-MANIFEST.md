@@ -72,7 +72,7 @@ rewrite that would move it here stops instead, and says which rule stopped it.
 
 | File | Why it stays |
 |---|---|
-| `rules/correction-lens.md` | The rule that turns a correction into a control. Archiving it removes the mechanism by which every other rule in this package gets written, so the loss covers the whole feedback path. Its own permanence section states the same exemption. |
+| `rules/correction-lens.md` | The rule that records every correction as an issue, from which its control is built. Archiving it removes the mechanism by which every other rule in this package gets written, so the loss covers the whole feedback path. Its own permanence section states the same exemption. |
 
 Sharpening the text of an exempt file is ordinary work. The file stays in
 service.

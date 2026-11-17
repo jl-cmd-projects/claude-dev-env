@@ -120,7 +120,7 @@ Behavioral rules loaded into every session.
 | `bdd` | Discovery, illustration, and should-style specifications around the TDD loop |
 | `cleanup-temp-files` | Remove scratch files after tasks complete |
 | `code-standards` | Point at CODE_RULES.md for review and code generation |
-| `correction-lens` | Every correction becomes a control at the highest layer that can hold it |
+| `correction-lens` | Every correction becomes a `correction` issue on the repository of the corrected work |
 | `destructive-commands` | Allowed removal forms, and destructive literals kept out of command strings |
 | `doc-inventory-integrity` | A doc that inventories code stays in step with the directory |
 | `docstring-prose-matches-implementation` | A docstring's enumeration covers every behavior the body applies |

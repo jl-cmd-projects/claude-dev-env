@@ -72,5 +72,5 @@ ranking of one thing over another.
 | Rule | Role |
 |---|---|
 | [`asd-ste100-language.md`](asd-ste100-language.md) | Plain word choice, sentence style, and tone |
-| [`correction-lens.md`](../../rules/correction-lens.md) | Every correction becomes a control at the highest layer that can hold it |
+| [`correction-lens.md`](../../rules/correction-lens.md) | Every correction becomes a `correction` issue on the repository of the corrected work |
 | [`research-mode.md`](research-mode.md) | A claim carries its source |

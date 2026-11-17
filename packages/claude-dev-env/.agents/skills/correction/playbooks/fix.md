@@ -1,14 +1,14 @@
 # Fix
 
-Use this playbook when this session lands the fix for the correction itself. One correction gets one control and one pull request.
+Use this playbook only when the user typed `/correction fix`, or when a session picks up an open `correction` issue to fix it. A correction with no typed `fix` stops at the posted issue. One correction gets one control and one pull request.
 
-1. Write the brief from [`../SKILL.md`](../SKILL.md) first. It is the record every later step reads.
+1. Write the brief from [`../SKILL.md`](../SKILL.md) and post it as the `correction` issue, as that file's Post the issue section says. The issue is the record every later step reads. A session that picked up an open issue reads that issue and skips the post.
 2. When pstack is loaded, invoke `/pstack:poteto-mode`, then `/pstack:correct`. Point `/pstack:correct` at the brief's mistake alone, and skip its sweep of the whole repository.
 3. Read the correction instructions of the repository the mistake happened in. Open each `AGENTS.md` or `CLAUDE.md` index line that names corrections, and any intake note it points to. Where they name the target repository, the proof, or the run route, they win over this playbook.
 4. Search for an existing control: a rule, hook, lint, test, or skill that already names this mistake. A control that exists and still let the mistake through makes this a repeat.
-5. Choose the layer with [`correction-lens.md`](../../../../docs/rule-guides/correction-lens.md). When `Repeat` is `yes`, or step 4 found a control, go one layer above the one that failed.
-6. Land the control in the repository whose code, CI, or agents it guards, per the guide's "Where the control lands" section. When that repository is not in this session, add it. When it cannot be added, print the brief, name the missing repository, and stop.
+5. Choose the layer with [`correction-lens.md`](../../../../docs/rule-guides/correction-lens.md). When `Repeat` is `yes`, the issue has a repeat comment, or step 4 found a control, go one layer above the one that failed.
+6. Land the control in the repository whose code, CI, or agents it guards, per the guide's "Where the control lands" section. When that repository is not in this session, add it. When it cannot be added, comment the missing repository on the issue and stop.
 7. Prove the control. Show it fail on the mistake from the brief's `Evidence` line, then pass with the change, per [`falsify-before-green.md`](../../../../rules/falsify-before-green.md) and [`proof-before-pull-request.md`](../../../../docs/rule-guides/proof-before-pull-request.md). Without that proof, open no pull request. When the control is a hook, read the correction instructions of the repository from step 6 as step 3 does. When they name an incident eval, add the incident as a case to that eval in the same pull request. Run the eval's compare against the base branch and keep the line that shows the case fails on the base and holds on the branch.
-8. Open the pull request through `pr-lifecycle`. Put the brief, the layer, and both proof results in the body. When step 7 added an incident case, also name its path and its compare line.
+8. Open the pull request through `pr-lifecycle`. Put the brief, the layer, and both proof results in the body, and a `Closes` line for the issue when it lives in the same repository, or a link to it when it does not. When step 7 added an incident case, also name its path and its compare line.
 
-**Reply:** the layer chosen, why each higher layer cannot hold the lesson, and the pull request link.
+**Reply:** the issue link, the layer chosen, why each higher layer cannot hold the lesson, and the pull request link.

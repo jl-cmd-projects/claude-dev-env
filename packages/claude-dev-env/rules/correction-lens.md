@@ -2,7 +2,7 @@
 
 **When:** A user corrects you.
 
-Open a control in the guarded repository, in the same run, at the highest capable layer.
+Fix the instance in front of you. Then post the correction as an issue labelled `correction` on the repository of the corrected work, with the `correction` skill, and name the issue in your reply. Build no control and open no pull request for it in this run, unless the user typed `/correction fix`.
 
 ## Permanence
 
@@ -10,4 +10,4 @@ Keep this file in `rules/`. A prune, archive, consolidation, or rewrite that wou
 
 **Enforcement:** none.
 
-**Full text:** [guide](../docs/rule-guides/correction-lens.md). Read it when choosing a layer or locating a control.
+**Full text:** [guide](../docs/rule-guides/correction-lens.md). Read it when picking the repository, or when you pick up a `correction` issue and choose its layer.

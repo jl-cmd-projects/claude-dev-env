@@ -7,18 +7,28 @@ clause at the end of this document states what that binds.
 
 **When this applies:** Every correction the user gives. A "no, do it this way", a
 "stop writing that word", a repeated review comment, a fix the user makes by hand
-after an agent hands work back. Each one is evidence that a control is missing,
-and the correction is handled by building that control.
+after an agent hands work back. Each one is evidence that a control is missing.
+The corrected agent records that evidence as an issue, and a later session builds
+the control from it on purpose.
 
 ## In brief
 
-Open a control in the guarded repository, in the same run, at the highest capable layer. State the layer, why higher layers fail, and the change opened. Pair layers when both help. Move repeated corrections up a layer. Memory records the decision.
+Fix the instance in front of you. Post the correction as an issue labelled `correction` on the repository of the corrected work, and name the issue in your reply. Build no control and open no pull request for it in this run, unless the user typed `/correction fix`. Whoever picks up the issue lands the control at the highest capable layer.
 
-## Rule
+## What the corrected agent does
+
+1. Fix the instance in front of you: the reply, file, or command the user corrected.
+2. Write the brief the [`correction` skill](../../.agents/skills/correction/SKILL.md) defines. It carries the correction, what was asked, what the agent did, what the user wanted, where, the evidence, whether it repeats, and a suggested layer when one is clear.
+3. Post it with the skill's `correction_filing.py`. The script picks the repository, adds the `correction` label, masks secrets and, on a public repository, personal detail, and marks a repeat on the earlier issue.
+4. Name the issue in your reply with the line the script printed. When it posted to the fallback inbox, or posted nothing, say why.
+
+The repository is the one whose work the user corrected. A correction to work on a themes automation repository goes on that repository, and a correction to the agent tooling goes on the tooling repository. The script reads it from the `origin` remote of the session's checkout, so a worktree resolves to its repository. When the session has no repository, or that repository has no GitHub access or has issues turned off, the script posts on the private fallback inbox and says why. With no inbox it posts nothing, and the agent prints the brief in its reply. [`references/filing.md`](../../.agents/skills/correction/references/filing.md) carries the details.
+
+## Layers, for whoever picks up the issue
 
 A correction runs through five layers, in this order, and the lesson lands at the
-highest layer that can hold it. The change opens in the same run as the
-correction.
+highest layer that can hold it. The issue may name a suggested layer. The session
+that picks up the issue decides it.
 
 | Priority | Layer | What holds the lesson | The lesson lands as |
 |---|---|---|---|
@@ -33,11 +43,11 @@ and no agent to remember it. The wrong call has nowhere to live.
 
 ## Choosing the layer
 
-Three sentences close every correction:
+Three sentences close every correction issue:
 
 1. The layer chosen.
 2. Why each higher layer cannot hold this lesson.
-3. The change opened at the chosen layer, by pull request.
+3. The change opened at the chosen layer, by a pull request that closes the issue.
 
 A layer holds a lesson when its own test passes:
 
@@ -60,8 +70,9 @@ check at layer 2 cost one run together and each covers what the other misses.
 ## A repeated correction moves up a layer
 
 The same correction arriving a second time is the measurement. The layer chosen
-the first time was too low. Move the lesson one layer up and say so in the same
-run.
+the first time was too low. The filing script marks the repeat: a comment on the
+open issue, or a new issue that links the closed one. Whoever picks it up moves
+the lesson one layer up and says so.
 
 A review comment that repeats across pull requests reads the same way. Each
 repetition names the layer below the reviewer as the one that needs the control.
@@ -78,8 +89,8 @@ instructions reaches that project alone, and a control written into a chat reply
 reaches that conversation alone.
 
 Memory holds the decision. The control holds the behavior. A correction that
-produced a memory file and nothing else has been recorded and never encoded, so
-the rule still binds. Open the control.
+produced a memory file and no issue is recorded where no fixer looks, so the rule
+still binds. Post the issue.
 
 ## Trust grows as the controls catch the common mistakes
 
