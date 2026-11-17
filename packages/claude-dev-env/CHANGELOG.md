@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.131.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.0...claude-dev-env-v8.131.1) (2026-11-17)
+
+
+### Refactoring
+
+* **hooks:** move the in-progress task hold into its own module ([#2431](https://github.com/jl-cmd-projects/claude-dev-env/issues/2431)) ([8e46669](https://github.com/jl-cmd-projects/claude-dev-env/commit/8e466695a234ae807ef58ba71dd2aeeb64ff8348))
+
 ## [8.131.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.130.1...claude-dev-env-v8.131.0) (2026-11-17)
 
 
