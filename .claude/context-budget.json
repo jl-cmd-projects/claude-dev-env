@@ -140,6 +140,19 @@
       "char_limit": 700
     },
     {
+      "name": "closing question gate bypass",
+      "command": [
+        "python3",
+        "packages/claude-dev-env/hooks/session/closing_question_gate_bypass.py"
+      ],
+      "stdin": {
+        "hook_event_name": "UserPromptSubmit",
+        "session_id": "context-budget-measure",
+        "prompt": "!nocards"
+      },
+      "char_limit": 200
+    },
+    {
       "name": "spawn readiness reminder",
       "command": [
         "python3",

@@ -3,7 +3,8 @@
 Groups: the payload and transcript fields that mark a stop the gate leaves
 alone, the transcript text each cheap scan looks for, the time and size
 budget, the wording that marks an open item, the masking of indented code,
-the declaration line, the hold cap, and the two hold reasons.
+the declaration line, the hold cap, the two hold reasons, and the keyword
+and flag file that turn the gate off for one session.
 """
 
 from __future__ import annotations
@@ -165,3 +166,13 @@ WORK_INSTRUCTION = (
     f" exact line alone, in plain text with no backticks or list marker: {NO_OPEN_ITEMS_DECLARATION}"
 )
 REASON_PART_SEPARATOR = "\n"
+
+SESSION_ID_KEY = "session_id"
+BYPASS_KEYWORD = "!nocards"
+BYPASS_KEYWORD_PATTERN = re.compile(rf"(?<![\w!]){re.escape(BYPASS_KEYWORD)}(?!\w)", re.IGNORECASE)
+BYPASS_FLAG_FILE_PREFIX = "claude-closing-question-gate-off."
+BYPASS_FLAG_FILE_SUFFIX = ".flag"
+BYPASS_FLAG_CREATE_MODE = "x"
+ADDITIONAL_CONTEXT_KEY = "additionalContext"
+GATE_TURNED_OFF_CONTEXT = "Question-card stop gate is now OFF"
+GATE_TURNED_ON_CONTEXT = "Question-card stop gate is now ON"
