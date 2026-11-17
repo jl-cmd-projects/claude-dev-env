@@ -29,13 +29,30 @@ DESCRIPTION_INPUT_KEY = "description"
 MULTI_SELECT_INPUT_KEY = "multiSelect"
 
 MINIMUM_VALUE_OPTION_COUNT = 2
-MONTH_NAME_PATTERN_TEXT = (
-    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?"
-    r"|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+MAY_MONTH_PATTERN_TEXT = "may"
+ALL_MONTH_NAME_PATTERN_TEXTS = (
+    r"jan(?:uary)?",
+    r"feb(?:ruary)?",
+    r"mar(?:ch)?",
+    r"apr(?:il)?",
+    MAY_MONTH_PATTERN_TEXT,
+    r"june?",
+    r"july?",
+    r"aug(?:ust)?",
+    r"sep(?:t(?:ember)?)?",
+    r"oct(?:ober)?",
+    r"nov(?:ember)?",
+    r"dec(?:ember)?",
 )
+MONTH_NAME_PATTERN_TEXT = "(?:" + "|".join(ALL_MONTH_NAME_PATTERN_TEXTS) + ")"
 MONTH_NAME_AFTER_DAY_PATTERN_TEXT = (
-    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|june?|july?|aug(?:ust)?"
-    r"|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)"
+    "(?:"
+    + "|".join(
+        each_month
+        for each_month in ALL_MONTH_NAME_PATTERN_TEXTS
+        if each_month != MAY_MONTH_PATTERN_TEXT
+    )
+    + ")"
 )
 DATE_PATTERN = re.compile(
     rf"\b{MONTH_NAME_PATTERN_TEXT}\.?\s+\d{{1,2}}\b"
@@ -46,7 +63,7 @@ DATE_PATTERN = re.compile(
 )
 PERCENT_OR_PRICE_PATTERN = re.compile(r"\d+(?:\.\d+)?\s*(?:%|percent\b)|[$€£]\s?\d", re.IGNORECASE)
 DURATION_PATTERN = re.compile(
-    r"\b\d+\s*-?\s*(?:minutes?|mins?|hours?|hrs?|h|days?|weeks?|months?|years?)\b",
+    r"\b\d+(?:-|\s*)(?:minutes?|mins?|hours?|hrs?|h|days?|weeks?|months?|years?)\b",
     re.IGNORECASE,
 )
 

@@ -204,6 +204,7 @@ def test_should_pass_a_card_that_asks_for_a_preference_an_approval_or_a_watched_
         ("Stack on PR 5384", False),
         ("About 5 themes per account", False),
         ("Market 3 first", False),
+        ("Step 2 - Days", False),
         ("I'll approve it", False),
     ],
 )
