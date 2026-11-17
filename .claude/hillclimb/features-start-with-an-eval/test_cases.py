@@ -1,4 +1,4 @@
-"""The cases expect build-eval only for a feature that changes a file agents read or load."""
+"""The cases expect an eval step first only for a feature that changes a file agents read or load."""
 
 import json
 from pathlib import Path
@@ -11,11 +11,11 @@ def _all_cases() -> list[dict[str, str]]:
     return json.loads(CASES_PATH.read_text(encoding="utf-8"))
 
 
-def test_only_agent_surface_features_should_expect_build_eval() -> None:
+def test_only_agent_surface_features_should_expect_eval_first() -> None:
     all_mismatched_ids = [
         each_case["id"]
         for each_case in _all_cases()
-        if (each_case["expected"] == "build-eval")
+        if (each_case["expected"] == "eval-first")
         != (each_case["group"] == AGENT_SURFACE_FEATURE_GROUP)
     ]
     assert all_mismatched_ids == []

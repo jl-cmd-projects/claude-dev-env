@@ -39,7 +39,7 @@ from session_eval_support.config.constants import (
     DEFAULT_REPS,
     DEFAULT_TIMEOUT_SECONDS,
     ERRORS_FILE_NAME,
-    EXPECTED_BUILD_EVAL,
+    EXPECTED_EVAL_FIRST,
     FIRST_TOOLS_PER_TURN,
     FLOW_ROOT,
     RUN_DIGEST_FIELD,
@@ -184,10 +184,10 @@ def _run_one(
 
 def _summary_line(all_rows: list[dict[str, object]], error_count: int) -> str:
     all_feature = [
-        each_row for each_row in all_rows if each_row["tags"][1] == EXPECTED_BUILD_EVAL
+        each_row for each_row in all_rows if each_row["tags"][1] == EXPECTED_EVAL_FIRST
     ]
     all_other = [
-        each_row for each_row in all_rows if each_row["tags"][1] != EXPECTED_BUILD_EVAL
+        each_row for each_row in all_rows if each_row["tags"][1] != EXPECTED_EVAL_FIRST
     ]
     feature_passes = sum(each_row["grade"]["correct"] for each_row in all_feature)
     other_passes = sum(each_row["grade"]["correct"] for each_row in all_other)
