@@ -750,13 +750,17 @@ def visible_changed_files(
     merge_base_and_head = _merge_base_and_head(working_directory, head_branch, base_branch)
     if merge_base_and_head is None:
         return None
-    raw_output = _git_output(working_directory, "diff", "--raw", "--no-abbrev", "-M", "-z", *merge_base_and_head)
+    raw_output = _raw_diff_output(working_directory, *merge_base_and_head)
     if raw_output is None:
         return None
     all_changes = _git_changes(raw_output.split("\0"))
     if all_changes is None:
         return None
     return _visible_paths(all_changes)
+
+
+def _raw_diff_output(working_directory: str, merge_base: str, head_reference: str) -> str | None:
+    return _git_output(working_directory, "diff", "--raw", "--no-abbrev", "-M", "-z", merge_base, head_reference)
 
 
 def _merge_base_and_head(
