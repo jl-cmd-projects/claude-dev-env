@@ -1,9 +1,28 @@
 #!/usr/bin/env python3
-"""PreToolUse hook that refuses a question after a long chat brief.
+"""PreToolUse hook that refuses a question after a long chat brief, or one that asks the user to pick a value.
 
-Registered on ``AskUserQuestion``. The user reviews items one question at a
-time. The hook measures the chat text Claude wrote in the current turn before
-the question: the text after the latest of these marks.
+Registered on ``AskUserQuestion``. A percent, price, date, window, or
+duration is a research and data output, so the hook first reads the call's
+options and refuses a question when two or more of its options offer such a
+value::
+
+    "30% with a holdout", "30% on all sellers", "No discount"  -> exit 2
+    "Fri Nov 27 to Mon Nov 30", "Mon Nov 23 to Mon Nov 30"     -> exit 2
+    "Weekend only" (Nov 27 to 30), "Full week" (Nov 23 to 30)  -> exit 2
+    "Approve Nov 16 to Nov 30", "Hold the plan"                -> exit 0
+    "Small watched batch", "Full run on approval"              -> exit 0
+    "Keep it serial" (19 hours), "Grade in parallel" (5 hours) -> exit 0
+
+An option offers a value when its label or its description holds a percent
+("30%", "40 percent"), a dollar, euro, or pound amount, or a calendar date
+("Nov 27", "27 November", "2026-11-27", "11/27"), or when its label holds a
+duration written with digits ("7 days", "7-day"). A duration in a
+description states an option's effect, so it does not count. A bare count
+such as "5 themes" or "PR 5384" is no value. The question text is not read.
+
+The user reviews items one question at a time. The hook then measures the
+chat text Claude wrote in the current turn before the question: the text
+after the latest of these marks.
 
 - A prompt the user typed, or a message the user queued mid-turn.
 - A result of an earlier question, refused or answered.
@@ -24,9 +43,10 @@ rows are not items; each body row is one.
 Claude Code writes the message holding the call to the transcript after this
 hook starts, so the hook polls the transcript tail until its own tool_use
 entry appears, up to ``TRANSCRIPT_POLL_LIMIT_SECONDS``. That wait is the only
-poll. A payload or transcript the hook cannot read, a transcript path that
-is not a regular file, a call that does not appear in time, a subagent call,
-and any other tool pass with exit 0.
+poll. A payload the hook cannot read, a subagent call, and any other tool
+pass with exit 0. Past the value check, a transcript the hook cannot read, a
+transcript path that is not a regular file, and a call that does not appear
+in time pass with exit 0.
 
 The hook reads only the last ``TAIL_WINDOW_BYTES`` (1 MB) of the transcript,
 so a long review followed by more than 1 MB of tool output in the same turn
@@ -62,13 +82,19 @@ from hooks_constants.question_brief_gate_constants import (
     BLOCK_TYPE_KEY,
     BRIEF_TEXT_SEPARATOR,
     CODE_FENCE_LINE_PATTERN,
+    DESCRIPTION_INPUT_KEY,
+    DURATION_PATTERN,
     ENTRY_TYPE_KEY,
+    LABEL_INPUT_KEY,
     LIST_ITEM_LIMIT_PART_TEMPLATE,
     LIST_ITEM_LINE_PATTERN,
     MAXIMUM_BRIEF_LIST_ITEM_COUNT,
     MAXIMUM_BRIEF_WORD_COUNT,
     MESSAGE_KEY,
+    MINIMUM_VALUE_OPTION_COUNT,
+    OPTIONS_INPUT_KEY,
     PROMPT_TEXT_SEPARATOR,
+    QUESTIONS_INPUT_KEY,
     QUESTION_TOOL_NAME,
     QUEUED_COMMAND_ATTACHMENT_TYPE,
     QUEUED_PROMPT_KEY,
@@ -83,6 +109,7 @@ from hooks_constants.question_brief_gate_constants import (
     TABLE_SEPARATOR_LINE_PATTERN,
     TEXT_BLOCK_TYPE,
     TEXT_KEY,
+    TOOL_INPUT_PAYLOAD_KEY,
     TOOL_NAME_PAYLOAD_KEY,
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
@@ -92,8 +119,73 @@ from hooks_constants.question_brief_gate_constants import (
     TRANSCRIPT_POLL_LIMIT_SECONDS,
     TURN_END_STOP_REASON,
     USER_ENTRY_TYPE,
+    VALUE_MENU_LABEL_SEPARATOR,
+    VALUE_MENU_REFUSAL_TEMPLATE,
+    VALUE_PATTERN,
     WORD_LIMIT_PART_TEMPLATE,
 )
+
+
+def description_holds_value(description: str) -> bool:
+    """Return True when an option description holds a percent, a price, or a calendar date."""
+    return bool(VALUE_PATTERN.search(description))
+
+
+def label_holds_value(label: str) -> bool:
+    """Return True when an option label holds a percent, a price, a calendar date, or a digit duration."""
+    return description_holds_value(label) or bool(DURATION_PATTERN.search(label))
+
+
+def _option_text(option: object, text_key: str) -> str:
+    if not isinstance(option, dict):
+        return ""
+    option_text = option.get(text_key)
+    return option_text if isinstance(option_text, str) else ""
+
+
+def _value_option_labels(question: object) -> list[str]:
+    if not isinstance(question, dict):
+        return []
+    all_options = question.get(OPTIONS_INPUT_KEY)
+    if not isinstance(all_options, list):
+        return []
+    return [
+        _option_text(each_option, LABEL_INPUT_KEY)
+        for each_option in all_options
+        if label_holds_value(_option_text(each_option, LABEL_INPUT_KEY))
+        or description_holds_value(_option_text(each_option, DESCRIPTION_INPUT_KEY))
+    ]
+
+
+def value_menu_labels(question_input: object) -> list[str]:
+    """Return the option labels of the first question whose options offer two or more values.
+
+    An option offers a value when its label holds one, or its description
+    holds a percent, a price, or a calendar date.
+
+    ::
+
+        options "30% on all", "50% on all", "Hold"           -> ["30% on all", "50% on all"]
+        "Weekend only" (Nov 27 to Nov 30), "Full week" (Nov 23 to Nov 30)
+                                                             -> ["Weekend only", "Full week"]
+        options "Approve Nov 16 to Nov 30", "Hold"           -> []
+
+    Args:
+        question_input: The ``AskUserQuestion`` tool input, in any shape.
+
+    Returns:
+        The labels of the options that offer a value, or an empty list when no question offers a value menu.
+    """
+    if not isinstance(question_input, dict):
+        return []
+    all_questions = question_input.get(QUESTIONS_INPUT_KEY)
+    if not isinstance(all_questions, list):
+        return []
+    for each_question in all_questions:
+        all_value_labels = _value_option_labels(each_question)
+        if len(all_value_labels) >= MINIMUM_VALUE_OPTION_COUNT:
+            return all_value_labels
+    return []
 
 
 def _content_blocks(entry: dict) -> list[dict]:
@@ -350,19 +442,30 @@ def _read_payload() -> dict[str, object] | None:
 
 
 def main() -> int:
-    """Read the PreToolUse payload and refuse a question after a long brief.
+    """Read the PreToolUse payload and refuse a question that offers a value menu or follows a long brief.
 
     Returns:
         2 with the reason on stderr to refuse, else 0.
     """
     hook_payload = _read_payload()
-    if hook_payload is None or hook_payload.get(SUBAGENT_ID_PAYLOAD_KEY):
+    if (
+        hook_payload is None
+        or hook_payload.get(SUBAGENT_ID_PAYLOAD_KEY)
+        or hook_payload.get(TOOL_NAME_PAYLOAD_KEY) != QUESTION_TOOL_NAME
+    ):
         return ALLOW_EXIT_CODE
+    all_value_labels = value_menu_labels(hook_payload.get(TOOL_INPUT_PAYLOAD_KEY))
+    if all_value_labels:
+        sys.stderr.write(
+            VALUE_MENU_REFUSAL_TEMPLATE.format(
+                labels=VALUE_MENU_LABEL_SEPARATOR.join(all_value_labels)
+            )
+        )
+        return BLOCK_EXIT_CODE
     tool_use_id = hook_payload.get(TOOL_USE_ID_PAYLOAD_KEY)
     transcript_path_text = hook_payload.get(TRANSCRIPT_PATH_PAYLOAD_KEY)
     if (
-        hook_payload.get(TOOL_NAME_PAYLOAD_KEY) != QUESTION_TOOL_NAME
-        or not isinstance(tool_use_id, str)
+        not isinstance(tool_use_id, str)
         or not tool_use_id
         or not isinstance(transcript_path_text, str)
     ):

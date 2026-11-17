@@ -8,7 +8,7 @@ Look in files, config, environment, and tools first; ask only for a judgment or 
 
 Inspect files, directories, configuration, environment, databases, and available tools for the answer. Recheck facts recalled from earlier sessions. Apply any criterion the user already supplied and state the decision. Ask only for a judgment, preference, or inaccessible fact.
 
-**Enforcement:** none.
+**Enforcement:** `hooks/blocking/question_brief_gate.py` refuses an `AskUserQuestion` call whose options offer the user two or more values to pick, such as two discount percents or two sale windows. The rest of this rule has no check.
 
 **When this applies:** Before asking the user any clarifying question during discovery, scoping, or implementation planning.
 
@@ -60,3 +60,6 @@ A preference question is one where the user has not yet given the line. Once the
 
 **Wrong:** "Is there a Prisma schema in this project?"
 **Right:** Glob for `schema.prisma` and check.
+
+**Wrong:** A card that asks "Which discount window should the sale use?" with two date ranges as its options, or "How deep should the discount go?" with 50% and 70% as its options.
+**Right:** Read published research and the user's own sales records, set the value, name its source, and report the call. When the data leaves it open, take the default the research supports or a measured test. Ask only to approve the one value you chose.

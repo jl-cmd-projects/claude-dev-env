@@ -890,6 +890,27 @@ def test_should_exit_two_from_the_script_for_a_long_brief(tmp_path: Path) -> Non
     assert "over the" in completed.stderr
 
 
+def test_should_exit_two_from_the_script_for_a_value_menu_with_no_transcript() -> None:
+    value_menu_input = {
+        "questions": [
+            {
+                "question": "How deep should the sale go?",
+                "header": "Depth",
+                "options": [{"label": "50% on all"}, {"label": "70% on all"}],
+            }
+        ]
+    }
+    completed = subprocess.run(
+        [sys.executable, str(GATE_SCRIPT)],
+        input=json.dumps(question_payload(None, tool_input=value_menu_input)),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == 2
+    assert '"50% on all", "70% on all"' in completed.stderr
+
+
 def test_should_exit_zero_for_a_subagent_question(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
