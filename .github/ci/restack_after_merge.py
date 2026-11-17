@@ -12,11 +12,10 @@ conflicts, whose push is refused, or that carries none of the stack's commits
 gets a comment with the commands to restack it by hand, then the
 `status: needs-rebase` label, and the levels above it stay as they are. A
 refused push puts back the base the run set, unless something changed it
-since. A level found already restacked, before or after its refused push, gets
-its base and label settled and its levels above followed. The default branch,
-and a branch whose protection or rulesets guard its history, is never
-rewritten. A git or gh step that fails for one level leaves that level as it
-is, and the run goes on with the others and exits nonzero at the end.
+since. A level found already restacked gets its base and label settled and
+its levels above followed. The default branch, and a branch whose protection
+or rulesets guard its history, is never rewritten. A failed git or gh step
+leaves its level as it is, and the run exits nonzero after the others.
 """
 
 import argparse
@@ -363,7 +362,7 @@ def parse_command_line_arguments(all_argv: Sequence[str]) -> argparse.Namespace:
     return argument_parser.parse_args(all_argv)
 
 
-def main(all_argv: Sequence[str], error_stream: TextIO = sys.stderr) -> int:
+def main(all_argv: Sequence[str], error_stream: TextIO = sys.stderr, report_stream: TextIO = sys.stdout) -> int:
     """Restack the stack above one merged pull request.
 
     ::
@@ -375,10 +374,10 @@ def main(all_argv: Sequence[str], error_stream: TextIO = sys.stderr) -> int:
     Args:
         all_argv: The argument vector, excluding the program name.
         error_stream: Where the error for a failed run is written.
+        report_stream: Where one line per visited level is written.
 
     Returns:
-        0 when the run finished, 1 when a step every level depends on failed or a
-        step failed for one level.
+        0 when the run finished, 1 when any git or gh step failed.
     """
     parsed_arguments = parse_command_line_arguments(all_argv)
     merged_pull_request = MergedPullRequest(
@@ -388,7 +387,8 @@ def main(all_argv: Sequence[str], error_stream: TextIO = sys.stderr) -> int:
     )
     try:
         restack_after_merge(
-            parsed_arguments.repo, merged_pull_request, parsed_arguments.remote, parsed_arguments.default_branch
+            parsed_arguments.repo, merged_pull_request, parsed_arguments.remote, parsed_arguments.default_branch,
+            report_stream,
         )
     except RestackRunFatal as run_fatal:
         error_stream.write(f"::error::{run_fatal}\n")
