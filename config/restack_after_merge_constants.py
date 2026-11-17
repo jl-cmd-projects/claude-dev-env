@@ -21,6 +21,7 @@ query($owner: String!, $name: String!, $cursor: String) {
         headRefName
         baseRefName
         isCrossRepository
+        labels(first: 100) { nodes { name } }
         timelineItems(itemTypes: [BASE_REF_CHANGED_EVENT, AUTOMATIC_BASE_CHANGE_SUCCEEDED_EVENT], last: 1) {
           nodes {
             __typename
@@ -56,6 +57,7 @@ Pull requests stacked on this one were left as they are. Restack each onto the n
 REASON_REBASE_CONFLICT: str = "the rebase hit a conflict"
 REASON_PUSH_REJECTED: str = "the force push with lease was rejected"
 REASON_NOT_STACKED: str = "the branch carries none of the merged pull request's commits, so it may not be a stack level"
+STEP_FAILURES_SEPARATOR: str = "; "
 
 ISSUE_COMMENTS_ENDPOINT_TEMPLATE: str = "repos/%s/issues/%s/comments"
 BRANCH_ENDPOINT_TEMPLATE: str = "repos/%s/branches/%s"
@@ -64,6 +66,7 @@ BRANCH_RULES_ENDPOINT_TEMPLATE: str = "repos/%s/rules/branches/%s"
 RULE_TYPES_JQ_FILTER: str = ".[].type"
 ALL_HISTORY_GUARDING_RULE_TYPES: frozenset[str] = frozenset({"non_fast_forward", "update", "deletion"})
 FORCE_WITH_LEASE_FLAG_TEMPLATE: str = "--force-with-lease=%s:%s"
+FORCE_WITH_LEASE_ON_TRACKING_REF_TEMPLATE: str = "--force-with-lease=%s"
 REMOTE_BRANCH_TEMPLATE: str = "%s/%s"
 PUSH_TO_BRANCH_REFSPEC_TEMPLATE: str = "%s:refs/heads/%s"
 COMMENT_BODIES_JQ_FILTER: str = ".[].body"

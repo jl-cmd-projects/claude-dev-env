@@ -4,7 +4,7 @@
 
     git:  fetch, ancestry, merge base, stack-commit check, rebase, push with lease
     gh:   list open pull requests, read branch protection and rules, set a
-          base, add a label, comment once
+          base, add or remove a label, comment once
 
 Every subprocess the restack makes lives here, so the stack logic in
 `restack_after_merge.py` reads as decisions only.
@@ -151,7 +151,7 @@ def resolve_remote_branch(remote_name: str, branch_name: str) -> str | None:
 
 
 def shares_commit_missing_from_base(
-    remote_name: str, branch_name: str, merged_head_sha: str, base_ref: str
+    remote_name: str, branch_name: str, merged_head_sha: str, base_head_sha: str
 ) -> bool:
     """Say whether a branch shares a commit with the merged head that the base branch lacks.
 
@@ -159,14 +159,13 @@ def shares_commit_missing_from_base(
         remote_name: The git remote holding the branches.
         branch_name: The candidate branch.
         merged_head_sha: The head of the pull request that merged.
-        base_ref: The branch that pull request merged into.
+        base_head_sha: The head of the branch it merged into, as the run fetched it.
 
     Returns:
         True when the fork point of the branch and the merged head is not on the base.
     """
     branch_head_sha = resolve_remote_branch(remote_name, branch_name)
-    base_head_sha = resolve_remote_branch(remote_name, base_ref)
-    if branch_head_sha is None or base_head_sha is None:
+    if branch_head_sha is None:
         return False
     fork_sha = find_merge_base(branch_head_sha, merged_head_sha)
     return fork_sha is not None and not is_ancestor(fork_sha, base_head_sha)
@@ -209,6 +208,8 @@ def carries_stack_commit(seen_sha: str, upstream_sha: str, onto_sha: str) -> boo
         stack commits:  onto_sha..upstream_sha, merges left out as `git cherry` does
         carries:        one of them is in seen_sha, or has a twin patch there
         not:            a branch that shares only the default branch's history
+        none to find:   the merged level is already on the new base, as after a
+                        merge commit, so the branch counts as stacked
 
     An amended parent still counts, because its old commit's patch matches.
 
@@ -223,6 +224,8 @@ def carries_stack_commit(seen_sha: str, upstream_sha: str, onto_sha: str) -> boo
     all_stack_commits = run_required_command(
         ["git", "rev-list", "--no-merges", f"{onto_sha}..{upstream_sha}"]
     ).split()
+    if not all_stack_commits:
+        return True
     all_cherry_lines = run_required_command(["git", "cherry", seen_sha, upstream_sha, onto_sha]).splitlines()
     unmatched_count = sum(each_line.startswith("+") for each_line in all_cherry_lines)
     return len(all_stack_commits) > unmatched_count
@@ -307,6 +310,21 @@ def set_pull_request_base(repository: str, pull_request_number: int, base_branch
     """
     run_required_command(
         ["gh", "pr", "edit", str(pull_request_number), "--repo", repository, "--base", base_branch]
+    )
+
+
+def remove_needs_rebase_label(repository: str, pull_request_number: int) -> None:
+    """Take the needs-rebase label off a pull request the restack moved.
+
+    Args:
+        repository: The owner/name of the repository.
+        pull_request_number: The pull request to edit.
+    """
+    run_required_command(
+        [
+            "gh", "pr", "edit", str(pull_request_number), "--repo", repository,
+            "--remove-label", NEEDS_REBASE_LABEL,
+        ]
     )
 
 

@@ -32,6 +32,7 @@ class OpenPullRequest:
     base_ref: str
     previous_base_ref: str | None
     is_cross_repository: bool
+    all_label_names: frozenset[str] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -69,15 +70,21 @@ class RestackOutcome(Enum):
     DEFAULT_BRANCH_REFUSED = "default branch refused"
     PROTECTED_BRANCH_REFUSED = "protected branch refused"
     NOT_STACKED = "carries no stack commit"
+    STEP_FAILED = "a git or gh step failed"
 
 
 @dataclass(frozen=True)
 class RestackedLevel:
-    """How one level ended, with its head before and after the run."""
+    """How one level ended, with its head before and after the run.
+
+    step_failure names a git or gh step that failed for this level alone. The run
+    goes on with the other levels and exits nonzero at the end.
+    """
 
     outcome: RestackOutcome
     seen_sha: str | None
     restacked_sha: str | None
+    step_failure: str | None = None
 
 
 def parse_open_pull_request(pull_request_node: dict) -> OpenPullRequest:
@@ -87,7 +94,8 @@ def parse_open_pull_request(pull_request_node: dict) -> OpenPullRequest:
         pull_request_node: A node from the open pull requests query.
 
     Returns:
-        The pull request, with previous_base_ref from its last base change event, or None.
+        The pull request, with previous_base_ref from its last base change event, or None,
+        and the names of its labels.
     """
     previous_base_ref = None
     for each_event in pull_request_node["timelineItems"]["nodes"]:
@@ -98,4 +106,7 @@ def parse_open_pull_request(pull_request_node: dict) -> OpenPullRequest:
         base_ref=pull_request_node["baseRefName"],
         previous_base_ref=previous_base_ref,
         is_cross_repository=pull_request_node["isCrossRepository"],
+        all_label_names=frozenset(
+            each_label["name"] for each_label in pull_request_node["labels"]["nodes"]
+        ),
     )
