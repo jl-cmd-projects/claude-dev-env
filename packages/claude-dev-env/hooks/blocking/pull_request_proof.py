@@ -19,6 +19,7 @@ from blocking.followup_pr_dedupe import (
     all_pull_request_argument_lists,
     body_from_arguments,
     create_tool_fields,
+    named_repository,
     shell_command,
     title_from_arguments,
 )
@@ -26,7 +27,6 @@ from blocking.gate_run_reads import AnswerType, ReadSlice, answer_once, child_st
 from hooks_constants.pr_lifecycle_skill_gate_constants import UPDATE_PULL_REQUEST_TOOL_SUFFIX
 from hooks_constants.pull_request_proof_constants import (
     ADDED_FILE_NAMES_QUERY,
-    ALL_GITHUB_REPOSITORY_PREFIXES,
     GIT_URL_SUFFIX,
     REMOTE_LINE_FIELD_COUNT,
     REPOSITORY_PATH_SEPARATOR,
@@ -212,10 +212,8 @@ def _shell_create_calls(command: str, working_directory: str) -> list[CreateCall
 def _owner_and_name(repository_flag_value: str | None) -> str | None:
     if not repository_flag_value:
         return None
-    repository = repository_flag_value.rstrip(REPOSITORY_PATH_SEPARATOR).removesuffix(GIT_URL_SUFFIX)
-    for each_prefix in ALL_GITHUB_REPOSITORY_PREFIXES:
-        repository = repository.removeprefix(each_prefix)
-    return repository
+    owner_and_name = named_repository(repository_flag_value.rstrip(REPOSITORY_PATH_SEPARATOR).removesuffix(GIT_URL_SUFFIX))
+    return None if owner_and_name is None else REPOSITORY_PATH_SEPARATOR.join(owner_and_name)
 
 
 def _flag_value(all_create_arguments: list[str], all_flags: frozenset[str], assignment_prefix: str) -> str | None:

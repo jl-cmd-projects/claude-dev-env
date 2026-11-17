@@ -1877,10 +1877,10 @@ def test_should_ask_the_compare_api_when_the_create_names_another_repository(
         ("github.com/o/r", "o/r"),
         ("https://github.com/o/r", "o/r"),
         ("https://github.com/o/r.git/", "o/r"),
-        ("ghe.example.com/o/r", "ghe.example.com/o/r"),
+        ("HTTPS://GitHub.com/o/r", "o/r"),
     ],
 )
-def test_should_read_a_github_repository_flag_as_its_owner_and_name(
+def test_should_read_a_repository_flag_as_its_owner_and_name(
     tmp_path: Path, repository_flag_value: str, expected_repository: str
 ) -> None:
     payload = _shell(f"gh pr create --title t --repo {repository_flag_value} --head feature", tmp_path)
