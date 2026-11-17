@@ -1,4 +1,4 @@
-import { lstatSync, mkdirSync, readFileSync, readlinkSync, unlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readdirSync, readFileSync, readlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 export const SKILL_LOAD_BLOCK_START = '<!-- claude-dev-env skill load: start -->';
@@ -114,6 +114,33 @@ export function writeCodexPackageGuidance(codexHome, packageGuidanceText, allPac
         allPackageGuidancePaths,
         currentText => withPackageGuidanceBlock(currentText, packageGuidanceText),
     );
+}
+
+export function renderCodexRuleGuidance(sourceDirectory, installedDirectory) {
+    const ruleFiles = readdirSync(sourceDirectory, { withFileTypes: true })
+        .filter(entry => entry.isFile() && entry.name.endsWith('.md'))
+        .map(entry => entry.name)
+        .sort();
+    const globalRules = [];
+    const scopedRules = [];
+    for (const name of ruleFiles) {
+        const rule = readFileSync(join(sourceDirectory, name), 'utf8').trim();
+        const scope = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u.exec(rule);
+        if (!scope) {
+            globalRules.push(rule);
+            continue;
+        }
+        const installedPath = join(installedDirectory, name).replaceAll('\\', '/');
+        const patterns = scope[1].replace(/^paths:\s*/mu, '').replace(/^\s*-\s*/gmu, '').split(/\r?\n/u);
+        const pathsText = patterns.map(pattern => `\`${pattern.trim().replace(/^["']|["']$/gu, '')}\``).join(', ');
+        scopedRules.push(`- For ${pathsText}, read \`${installedPath}\`.`);
+    }
+    return [
+        '## Shared rules',
+        ...globalRules,
+        '## File-scoped rules',
+        scopedRules.join('\n'),
+    ].join('\n\n');
 }
 
 export function writeCodexQuestionGuidance(codexHome, policyText) {

@@ -102,6 +102,23 @@ def test_discover_agents_returns_sorted_parsed_agents(tmp_path: Path) -> None:
     assert [agent.name for agent in agents] == ["Alpha", "Zulu"]
 
 
+def test_materializes_instructions_from_an_installed_agent_directory(tmp_path: Path) -> None:
+    source = tmp_path / "agents"
+    reference = source / "reference"
+    reference.mkdir(parents=True)
+    (reference / "guide.md").write_text("# Reference material\n", encoding="utf-8")
+    instructions = 'Check the diff.\n\nReport "pass" when the checks pass.'
+    (source / "verifier.md").write_text(
+        f"---\nname: verifier\ndescription: Verify a change\ntools: [Read]\n---\n\n{instructions}\n",
+        encoding="utf-8",
+    )
+    target = tmp_path / ".codex" / "agents"
+    assert materializer.main([str(source), str(target), "--apply"]) == 0
+    agent = tomllib.loads((target / "verifier.toml").read_text(encoding="utf-8"))
+    assert agent["developer_instructions"] == instructions
+    assert not (target / "guide.toml").exists()
+
+
 def test_discover_agents_skips_instruction_aliases_and_keeps_real_agents(
     tmp_path: Path,
 ) -> None:

@@ -98,6 +98,7 @@ import {
     removeCodexDeepenGuidance,
     removeCodexPackageGuidance,
     removeCodexQuestionGuidance,
+    renderCodexRuleGuidance,
     writeCodexAgentsGuidance,
     writeCodexPackageGuidance,
     writeCodexQuestionGuidance,
@@ -3200,6 +3201,9 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         }
     }
     const packageGuidanceText = selectedGroups ? '' : readFileSync(join(PACKAGE_ROOT, 'AGENTS.md'), 'utf8');
+    const codexGuidanceText = selectedGroups
+        ? ''
+        : `${packageGuidanceText.trimEnd()}\n\n${renderCodexRuleGuidance(join(PACKAGE_ROOT, 'rules'), join(CLAUDE_HOME, 'rules'))}\n`;
     const allPackageGuidancePaths = [join(CLAUDE_HOME, 'AGENTS.md'), join(AGENTS_HOME, 'AGENTS.md')];
     if (!selectedGroups) {
         const cursorGuidanceHooksPath = writeCursorAgentsGuidanceHooks({
@@ -3228,7 +3232,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
             }
             const codexGuidancePath = writeCodexAgentsGuidance(
                 INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
-                packageGuidanceText,
+                codexGuidanceText,
                 allPackageGuidancePaths,
             );
             if (codexGuidancePath) {
@@ -3294,7 +3298,7 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     if (!selectedGroups) {
         const packageGuidancePath = writeCodexPackageGuidance(
             INSTALL_ROOT_RESOLUTION.codexHomeDirectory,
-            packageGuidanceText,
+            codexGuidanceText,
             allPackageGuidancePaths,
         );
         if (packageGuidancePath) {
