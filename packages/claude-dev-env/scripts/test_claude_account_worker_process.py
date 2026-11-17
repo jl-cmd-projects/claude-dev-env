@@ -62,9 +62,11 @@ def test_should_pass_the_live_log_to_the_runner_when_one_is_named(tmp_path: Path
         timeout_minutes=1,
         runner=recording_runner,
         live_log=live_log,
+        should_include_account_email=True,
     )
 
     assert captured_options["live_log"] == live_log
+    assert captured_options["should_include_account_email"] is True
 
 
 def test_should_measure_the_time_the_runner_spends_on_the_job(tmp_path: Path) -> None:

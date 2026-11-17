@@ -77,6 +77,8 @@ def test_should_run_the_job_on_the_session_account_in_a_cloud_session(
     assert all_seen_homes == [str((isolated_home / ".claude").resolve())]
     assert written_report["final_decision"]["action"] == "run"
     assert written_report["final_decision"]["account"] == "main"
+    assert written_report["final_decision"]["account_launcher"] is None
+    assert written_report["account_email"] is None
     assert written_report["final_decision"]["reason"] == CLOUD_SESSION_RUN_REASON
     assert written_report["final_decision"]["resets_at"] is None
     assert written_report["final_decision"]["meter_unread"] == ["main"]
@@ -108,6 +110,23 @@ def test_should_choose_the_session_account_through_the_choose_command_in_a_cloud
     assert choice["decision"]["account"] == "main"
     assert choice["decision"]["reason"] == CLOUD_SESSION_RUN_REASON
     assert choice["accounts"][0]["unread_reason"] == CLOUD_SESSION_UNREAD_REASON
+
+
+def test_identity_should_report_the_active_profile_without_probing_meters(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], isolated_home: Path
+) -> None:
+    home = isolated_home / ".claude-profiles" / "mel"
+    monkeypatch.setenv(CLAUDE_CONFIG_DIRECTORY_VARIABLE, str(home))
+
+    def auth_email(all_environment: dict[str, str]) -> str:
+        assert all_environment[CLAUDE_CONFIG_DIRECTORY_VARIABLE] == str(home)
+        return "mel@example.test"
+
+    monkeypatch.setattr(account_broker_support, "claude_auth_email", auth_email)
+    assert account_broker.main(("identity", "--product", "claude", "--include-account-email")) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "source": "parent_session", "account_launcher": "claude-mel", "account_email": "mel@example.test"
+    }
 
 
 def test_should_wait_after_the_session_account_hits_its_usage_limit_in_a_cloud_session(

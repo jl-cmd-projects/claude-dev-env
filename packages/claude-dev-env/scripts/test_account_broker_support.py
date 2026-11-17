@@ -23,6 +23,45 @@ from account_broker_support import Account, Meters, Product, ProductAdapter
 from codex_account_meters import CodexAccountMeters, UsageWindow
 
 
+def test_session_claude_account_should_identify_the_active_config(
+    monkeypatch: pytest.MonkeyPatch, isolated_home: Path
+) -> None:
+    home = isolated_home / ".claude-profiles" / "ev"
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(home))
+
+    account = support.session_claude_account()
+
+    assert account.home == home.resolve()
+    assert account.launcher == "claude-ev"
+
+
+@pytest.mark.parametrize(
+    ("status_json", "expected_email"),
+    (
+        ('{"loggedIn": true, "email": "mel@example.test"}', "mel@example.test"),
+        ('{"loggedIn": true}', None),
+        ('{"loggedIn": false, "email": "stale@example.test"}', None),
+        ("unavailable", None),
+    ),
+)
+def test_claude_auth_email_should_read_a_signed_in_status(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, status_json: str, expected_email: str | None
+) -> None:
+    launcher = tmp_path / "claude"
+    all_environment = {"CLAUDE_CONFIG_DIR": str(tmp_path / "mel")}
+
+    def run(command: list[str], **options: object) -> subprocess.CompletedProcess[bytes]:
+        assert command == [str(launcher), "auth", "status", "--json"]
+        assert options["env"] == all_environment
+        assert options["cwd"] == tmp_path
+        return subprocess.CompletedProcess(command, 0, status_json.encode(), b"")
+
+    monkeypatch.setattr(support, "resolve_claude_path", lambda: launcher)
+    monkeypatch.setattr(support.subprocess, "run", run)
+
+    assert support.claude_auth_email(all_environment, tmp_path) == expected_email
+
+
 def test_should_load_claude_roster_from_both_lists(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

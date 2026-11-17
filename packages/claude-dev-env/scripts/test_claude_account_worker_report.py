@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -140,6 +141,8 @@ def test_should_write_report_as_json_and_create_parent_directory(
     assert report_text.endswith("\n")
     assert json.loads(report_text) == {
         "account": "wait",
+        "account_launcher": None,
+        "account_email": None,
         "reason": "no account has room",
         "exit_code": WAIT_EXIT_CODE,
         "duration_seconds": 0.0,
@@ -160,13 +163,16 @@ def test_should_finalize_report_by_writing_it_printing_summary_and_returning_exi
         duration_seconds=2.0,
         stdout_text='{"result":"done","is_error":false}',
     )
+    report = replace(report, account_launcher="claude-mel", account_email="mel@example.test")
 
     exit_code = finalize_report(report_file, report)
 
     assert exit_code == 4
     written_report = json.loads(report_file.read_text(encoding="utf-8"))
     assert written_report["result"] == "done"
+    assert written_report["account_launcher"] == "claude-mel"
+    assert written_report["account_email"] == "mel@example.test"
     assert written_report["wait_reset_at"] is None
     assert (
-        capsys.readouterr().out == f"account=extra_2 exit_code=4 report={report_file}\n"
+        capsys.readouterr().out == f"account=claude-mel exit_code=4 report={report_file}\n"
     )
