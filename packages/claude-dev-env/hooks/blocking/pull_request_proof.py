@@ -21,7 +21,7 @@ import functools
 import json
 import re
 import sys
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from typing import NamedTuple
 from pathlib import Path
 
@@ -184,15 +184,18 @@ def _lines_until_heading(all_lines: list[str], heading_level: int) -> list[str]:
     return all_lines
 
 
-def _section_text(body: str, heading_pattern: str) -> str | None:
+def _all_section_texts(body: str, heading_pattern: str) -> Iterator[str]:
     all_lines = body.splitlines()
     all_fenced_flags = fenced_line_flags(all_lines)
     for each_index, each_line in enumerate(all_lines):
         heading_level = None if all_fenced_flags[each_index] else _heading_level(each_line, heading_pattern)
         if heading_level is not None:
             all_section_lines = _lines_until_heading(all_lines[each_index + 1 :], heading_level)
-            return LINE_SEPARATOR.join(all_section_lines).strip()
-    return None
+            yield LINE_SEPARATOR.join(all_section_lines).strip()
+
+
+def _section_text(body: str, heading_pattern: str) -> str | None:
+    return next(_all_section_texts(body, heading_pattern), None)
 
 
 def proof_section(body: str) -> str | None:
@@ -866,9 +869,12 @@ class ChangedFile(NamedTuple):
     is_pure_rename: bool
 
 
-def _git_output(working_directory: str, *all_git_arguments: str) -> str | None:
+def _git_output(working_directory: str, *all_git_arguments: str, standard_input: str | None = None) -> str | None:
     return child_stdout(
-        ["git", "-C", working_directory, *all_git_arguments], GIT_TIMEOUT_SECONDS, ReadSlice.PROOF_AND_LOOK
+        ["git", "-C", working_directory, *all_git_arguments],
+        GIT_TIMEOUT_SECONDS,
+        ReadSlice.PROOF_AND_LOOK,
+        standard_input=standard_input,
     )
 
 
@@ -877,14 +883,12 @@ def _git_lines(working_directory: str, *all_git_arguments: str) -> list[str] | N
     return output.splitlines() if output is not None else None
 
 
-def _base_references(base_branch: str | None) -> tuple[str, ...]:
-    if base_branch:
-        return (REMOTE_BRANCH_PREFIX + base_branch, base_branch)
-    return ALL_DEFAULT_BRANCH_REFERENCES
-
-
-def _first_merge_base(working_directory: str, head_reference: str, base_branch: str | None) -> str | None:
-    for each_base_reference in _base_references(base_branch):
+def _first_merge_base(
+    working_directory: str,
+    head_reference: str,
+    all_base_references: Sequence[str],
+) -> str | None:
+    for each_base_reference in all_base_references:
         all_merge_base_lines = _git_lines(working_directory, "merge-base", head_reference, each_base_reference)
         if all_merge_base_lines:
             return all_merge_base_lines[0]
@@ -894,6 +898,14 @@ def _first_merge_base(working_directory: str, head_reference: str, base_branch: 
 def _commit_of(working_directory: str, reference: str) -> str | None:
     all_commit_lines = _git_lines(working_directory, "rev-parse", "--verify", "--quiet", reference + "^{commit}")
     return all_commit_lines[0] if all_commit_lines else None
+
+
+def _cached_head_reference(working_directory: str, head_branch: object) -> str | None:
+    named_head = head_branch if isinstance(head_branch, str) else None
+    return answer_once(
+        ("head reference", working_directory, named_head),
+        lambda: _head_reference(working_directory, named_head),
+    )
 
 
 def _head_reference(working_directory: str, head_branch: object) -> str | None:
@@ -913,22 +925,25 @@ def _head_reference(working_directory: str, head_branch: object) -> str | None:
 
 
 def visible_changed_files(
-    working_directory: str, head_branch: object, base_branch: str | None = None
+    working_directory: str, head_branch: object, base_branch: str | None
 ) -> list[str] | None:
     """Return the changed files people see on the head branch, or None when git cannot tell.
 
     The head is the checked-out branch, or the named branch or its origin copy
-    when the checkout holds another branch. The base is origin/<base> or
-    <base> for a named base branch, else the first of origin/HEAD, origin/main
-    and main that git can reach::
+    when the checkout holds another branch. A named base is read only as
+    origin/<base>, the copy GitHub compares against, so a stack level counts
+    only its own files. A missing origin/<base> gives None, and the caller asks
+    the compare API. With no base named, the base is the first of origin/HEAD,
+    origin/main and main that git can reach::
 
         checkout on feature, page.html changed -> ["page.html"]
         page.html renamed with no edit          -> []
         page.html renamed and edited            -> ["page.html"]
         named head exists nowhere in the clone  -> None
         no base reference reachable             -> None
-        named base exists nowhere in the clone  -> None
         named head differs from origin/<head>   -> None
+        --base parent, parent holds page.html   -> []
+        --base parent, no origin/parent         -> None
 
     A rename whose old and new blob ids match and whose old and new names end the
     same way, such as a.html to b/a.html, changes nothing people see. One that
@@ -960,8 +975,12 @@ def _read_local_changes(
     merge_base_and_head = _merge_base_and_head(working_directory, head_branch, base_branch)
     if merge_base_and_head is None:
         return None
-    raw_output = _git_output(working_directory, "diff", "--raw", "--no-abbrev", "-M", "-z", *merge_base_and_head)
+    raw_output = _raw_diff_output(working_directory, *merge_base_and_head)
     return None if raw_output is None else _git_changes(raw_output.split("\0"))
+
+
+def _raw_diff_output(working_directory: str, merge_base: str, head_reference: str) -> str | None:
+    return _git_output(working_directory, "diff", "--raw", "--no-abbrev", "-M", "-z", merge_base, head_reference)
 
 
 def _merge_base_and_head(
@@ -979,10 +998,11 @@ def _read_merge_base_and_head(
 ) -> tuple[str, str] | None:
     if not working_directory:
         return None
-    head_reference = _head_reference(working_directory, head_branch)
+    head_reference = _cached_head_reference(working_directory, head_branch)
     if head_reference is None:
         return None
-    merge_base = _first_merge_base(working_directory, head_reference, base_branch)
+    all_base_references = (REMOTE_BRANCH_PREFIX + base_branch,) if base_branch else ALL_DEFAULT_BRANCH_REFERENCES
+    merge_base = _first_merge_base(working_directory, head_reference, all_base_references)
     return None if merge_base is None else (merge_base, head_reference)
 
 
@@ -1042,7 +1062,7 @@ def _workflow_paths(all_added_paths: list[str]) -> list[str]:
 
 
 def added_workflow_files(
-    working_directory: str, head_branch: object, base_branch: str | None = None
+    working_directory: str, head_branch: object, base_branch: str | None
 ) -> list[str] | None:
     """Return the workflow files the head branch adds, or None when git cannot tell.
 
@@ -1180,11 +1200,14 @@ def _added_workflow_files_for_create(create_call: CreateCall, working_directory:
 def _read_added_workflow_files(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str]:
+    local_may_answer = _local_checkout_may_answer(working_directory, repository, head_branch)
     all_workflow_paths = None
-    if _local_checkout_may_answer(working_directory, repository, head_branch):
+    if local_may_answer:
         all_workflow_paths = added_workflow_files(working_directory, head_branch, base_branch)
     if all_workflow_paths is None:
         all_workflow_paths = remote_added_workflow_files(repository, base_branch, head_branch)
+    if all_workflow_paths is None and base_branch and local_may_answer:
+        all_workflow_paths = added_workflow_files(working_directory, head_branch, None)
     return all_workflow_paths or []
 
 
@@ -1341,7 +1364,9 @@ def _read_visible_files(
 ) -> list[str] | None:
     all_visible_files = visible_changed_files(working_directory, head_branch, base_branch)
     if all_visible_files is None:
-        return remote_visible_changed_files(repository, base_branch, head_branch)
+        all_visible_files = remote_visible_changed_files(repository, base_branch, head_branch)
+    if all_visible_files is None and base_branch:
+        all_visible_files = visible_changed_files(working_directory, head_branch, None)
     return all_visible_files
 
 
@@ -1471,9 +1496,9 @@ def tier_choice_for_create(create_call: CreateCall, working_directory: str) -> T
     The changed paths come from git in the working directory when that
     checkout's origin is the repository the create names, else from the GitHub
     compare API. A rename or a copy adds the path it came from too. A local
-    read takes the merge base with origin/<base> or <base> when the create
-    names --base, else with origin/HEAD, origin/main or main; a named base git
-    cannot reach falls to the compare API. The declared globs come from
+    read takes the merge base with origin/<base> when the create names
+    --base, else with origin/HEAD, origin/main or main; a named base with no
+    origin/<base> in the clone falls to the compare API. The declared globs come from
     .claude/live-surfaces.txt at that merge base for a local read, or on the
     base branch through the contents API for a remote read; the working
     tree's copy is never read. Both reads take the file as UTF-8 and drop a

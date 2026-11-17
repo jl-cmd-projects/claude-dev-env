@@ -293,7 +293,9 @@ def test_should_name_every_step_and_skill_in_the_context() -> None:
         }
     )
     assert "jl-cmd-projects/claude-dev-env#42" in context
-    assert "efficient-review" in context
+    assert "In Claude Code, run /code-review high --max-findings all 42" in context
+    assert "in this session" in context
+    assert "In Codex, load the efficient-review skill" in context
     assert "three full passes" in context
     assert "/code-review low --fix 42" in context
     assert "gh pr ready 42 --repo jl-cmd-projects/claude-dev-env" in context
@@ -321,7 +323,7 @@ def test_main_should_emit_the_loop_after_gh_pr_create_on_an_owned_repository() -
     stdout = _run_hook(_shell_payload("gh pr create --fill", f"{OWNED_PR_URL}\n"))
     payload = json.loads(stdout)
     assert payload["hookSpecificOutput"]["hookEventName"] == "PostToolUse"
-    assert "efficient-review" in _context_of(stdout)
+    assert "/code-review high --max-findings all 42" in _context_of(stdout)
 
 
 def test_main_should_emit_the_loop_after_a_gh_api_pulls_post() -> None:
@@ -333,7 +335,9 @@ def test_main_should_emit_the_loop_after_a_gh_api_pulls_post() -> None:
         }
     )
     stdout = _run_hook(
-        _shell_payload("gh api repos/jl-cmd-projects/claude-dev-env/pulls --input pr.json", rest_response)
+        _shell_payload(
+            "gh api repos/jl-cmd-projects/claude-dev-env/pulls --input pr.json", rest_response
+        )
     )
     assert "jl-cmd-projects/claude-dev-env#42" in _context_of(stdout)
 
@@ -411,7 +415,12 @@ def test_hooks_json_should_route_shell_and_mcp_create_calls_to_the_hook() -> Non
 
 def test_should_leave_a_held_pull_request_with_the_user() -> None:
     context = owned_pr_review_loop.build_review_loop_context(
-        {"owner": "jl-cmd-projects", "repository": "claude-dev-env", "number": "42", "url": OWNED_PR_URL}
+        {
+            "owner": "jl-cmd-projects",
+            "repository": "claude-dev-env",
+            "number": "42",
+            "url": OWNED_PR_URL,
+        }
     )
     assert "When the user asked to hold this PR or to read it before it merges" in context
     assert "Blocked: jl-cmd-projects/claude-dev-env#42 - the user holds the merge." in context

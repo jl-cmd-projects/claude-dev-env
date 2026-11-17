@@ -91,6 +91,7 @@ from blocking.gate_run_reads import (
 from hooks_constants.gate_fault import gate_fault_reason
 from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
 from blocking import pull_request_proof as proof
+from blocking.oversized_change import oversized_pull_request_reason
 from transcript_skill_scan import (
     is_skill_loaded_after_last_compaction_newest_first,
 )
@@ -380,6 +381,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         pull request with no flowchart in What this does  -> MISSING_FLOWCHART_REASON
         feature changing an agent surface, no eval section -> MISSING_EVAL_SECTION_REASON + why
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
+        new pull request over 1,000 lines, no 'Why one pull request' -> OVERSIZED_PULL_REQUEST_REASON
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
         follow-up read of open pull requests unanswered   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         follow-up with no repository, origin unread       -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
@@ -419,6 +421,7 @@ def _first_broken_rule_reason(all_fields: dict[str, object], run: GateRun) -> st
         or proof.missing_flowchart_reason(all_fields)
         or proof.missing_eval_section_reason(all_fields)
         or proof.missing_look_reason(all_fields)
+        or oversized_pull_request_reason(all_fields)
         or duplicate_followup_reason(all_fields)
     )
 

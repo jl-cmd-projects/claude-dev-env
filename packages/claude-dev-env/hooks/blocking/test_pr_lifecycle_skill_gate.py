@@ -28,6 +28,7 @@ from hooks_constants.gate_run_reads_constants import (
     PROOF_AND_LOOK_READS_SECONDS,
     READS_RAN_OUT_SENTENCE,
 )
+from hooks_constants.oversized_change_constants import OVERSIZED_PULL_REQUEST_REASON
 from hooks_constants.pr_lifecycle_skill_gate_constants import DENY_REASON, SCAN_RAN_OUT_SENTENCE
 from hooks_constants.pull_request_proof_constants import (
     MISSING_PROOF_REASON,
@@ -36,6 +37,7 @@ from hooks_constants.pull_request_proof_constants import (
 )
 
 UNREAD_LIVE_TIER = gate.proof.tier_sentence(TierChoice(TierCause.UNREAD_FILE_LIST, None))
+UNDECLARED_TOOL_TIER = gate.proof.tier_sentence(TierChoice(TierCause.NO_DECLARED_SURFACES, "tool.py"))
 WHAT_THIS_DOES_SECTION = (
     "## What this does\nDraws the flow before and after.\n\n"
     "```mermaid\nflowchart LR\n    before --> after\n```\n\n"
@@ -796,3 +798,49 @@ def test_fault_before_the_call_is_known_governed_should_not_become_a_deny(
     monkeypatch.setattr(gate, "_matches_shell_command", matcher_that_raises)
     with pytest.raises(RuntimeError, match="matcher fault"):
         gate.decision_for(_payload("ls", _transcript(tmp_path)))
+
+
+def _clone_with_branch_lines(tmp_path: Path, line_count: int, body: str = "## Summary\nNo proof yet.\n") -> Path:
+    origin_path = tmp_path / "origin"
+    clone_path = tmp_path / "clone"
+    git_identity = ["-c", "user.name=Test", "-c", "user.email=test@example.com"]
+    subprocess.run(["git", "init", "-q", "-b", "main", str(origin_path)], check=True)
+    (origin_path / "README.md").write_text("base\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(origin_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(origin_path), *git_identity, "commit", "-q", "-m", "base"], check=True)
+    subprocess.run(["git", "clone", "-q", str(origin_path), str(clone_path)], check=True)
+    subprocess.run(["git", "-C", str(clone_path), "checkout", "-q", "-b", "feature"], check=True)
+    (clone_path / "tool.py").write_text("".join(f"x = {i}\n" for i in range(line_count)), encoding="utf-8")
+    subprocess.run(["git", "-C", str(clone_path), "add", "."], check=True)
+    subprocess.run(["git", "-C", str(clone_path), *git_identity, "commit", "-q", "-m", "change"], check=True)
+    (tmp_path / "body.md").write_text(body, encoding="utf-8")
+    return clone_path
+
+
+def _body_file_create(clone_path: Path) -> dict[str, object]:
+    return {
+        "tool_name": "Bash",
+        "tool_input": {"command": "gh pr create --title t --body-file ../body.md"},
+        "cwd": str(clone_path),
+    }
+
+
+def test_should_read_the_proof_of_an_oversized_create_before_its_size(tmp_path: Path) -> None:
+    decision = gate.decision_for(_body_file_create(_clone_with_branch_lines(tmp_path, 1500)))
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON + UNDECLARED_TOOL_TIER
+
+
+def test_should_deny_an_oversized_create_whose_other_sections_pass(tmp_path: Path) -> None:
+    body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.")
+    decision = gate.decision_for(_body_file_create(_clone_with_branch_lines(tmp_path, 1500, body)))
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == OVERSIZED_PULL_REQUEST_REASON.format(
+        measured_line_count=1500, measured_line_bar=1000
+    )
+
+
+def test_should_read_the_proof_of_a_create_under_the_size_bar(tmp_path: Path) -> None:
+    decision = gate.decision_for(_body_file_create(_clone_with_branch_lines(tmp_path, 20)))
+    assert decision is not None
+    assert decision["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON + UNDECLARED_TOOL_TIER

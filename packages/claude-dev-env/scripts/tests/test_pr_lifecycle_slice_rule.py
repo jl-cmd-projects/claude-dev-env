@@ -1,4 +1,4 @@
-"""The pr-lifecycle skill points at the slice rule, and the reference carries the four tests and the retro-split steps."""
+"""The pr-lifecycle skill points at the slice rule, and the reference carries the four tests, the size bar, and the retro-split steps."""
 
 from pathlib import Path
 
@@ -35,7 +35,7 @@ def test_the_reference_lists_the_four_slice_tests_in_order() -> None:
 def test_the_reference_merges_cosmetic_cuts_back_and_allows_one_pull_request() -> None:
     reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
     assert (
-        "A cut by folder, file count, or line cap that fails these tests is cosmetic. Merge it back."
+        "A cut by folder, file count, or line cap that fails these tests is cosmetic, and the [size bar](#size-bar) only says when to look for a seam. Merge it back."
         in reference_text
     )
     assert (
@@ -83,3 +83,45 @@ def test_the_retro_split_links_the_stack_level_proof_and_does_not_copy_it() -> N
     assert "(../SKILL.md#each-stack-level-stands-on-its-own)" in reference_text
     assert "A symbol belongs at the level that first" not in reference_text
     assert "CI runs only on the stack tip" in reference_text
+
+
+def test_the_decision_tree_points_every_pull_request_at_the_size_bar() -> None:
+    decision_tree = _decision_tree(PR_LIFECYCLE_PATH.read_text(encoding="utf-8"))
+    assert (
+        "Every PR, stacked or not, checks [the size bar](reference/split-a-pull-request.md#size-bar)."
+        in decision_tree
+    )
+
+
+def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
+    reference_text = SLICE_REFERENCE_PATH.read_text(encoding="utf-8")
+    fourth_test_position = reference_text.index("4. One sentence states its purpose")
+    size_bar_position = reference_text.index("## Size bar")
+    assert fourth_test_position < size_bar_position
+    retro_split_position = reference_text.index(
+        "## Split a pull request that is already open"
+    )
+    assert size_bar_position < retro_split_position
+    size_bar = reference_text[size_bar_position:retro_split_position]
+    all_required_phrases = (
+        "Apply the bar to each pull request, including each stack level.",
+        "A renamed or moved file counts only its edited lines.",
+        "Count against the merge base with the target branch, which for a stack level is the branch below it.",
+        "Every cut still passes the four tests.",
+        "Count added plus deleted lines, tests included, without lockfiles",
+        "without files marked `linguist-generated`",
+        "Up to 400 lines fits one review, and about 100 lines reads best.",
+        "Over 400 lines, look for a seam that passes the four tests.",
+        "When none passes, keep the slice whole and state the reason in the pull request body.",
+        "Over 1,000 lines, put that reason under a `## Why one pull request` heading.",
+        "google.github.io/eng-practices/review/developer/small-cls.html",
+        "smartbear.com/learn/code-review/best-practices-for-peer-code-review",
+    )
+    for each_phrase in all_required_phrases:
+        assert each_phrase in size_bar, each_phrase
+    all_bullet_positions = [
+        size_bar.index("- Up to 400 lines"),
+        size_bar.index("- Over 400 lines"),
+        size_bar.index("- Over 1,000 lines"),
+    ]
+    assert all_bullet_positions == sorted(all_bullet_positions)
