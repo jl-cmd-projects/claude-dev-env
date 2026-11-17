@@ -82,6 +82,7 @@ def test_should_send_prompt_and_flags_to_broker(
 
     assert exit_code == 0
     assert report["account"] == "extra_2"
+    assert report["account_email"] is None
     assert report["result"] == "ready"
     assert captured["product"] is Product.CLAUDE
     assert captured["argv"] == [

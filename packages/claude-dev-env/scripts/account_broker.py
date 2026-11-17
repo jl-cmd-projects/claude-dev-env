@@ -8,7 +8,7 @@ import json
 import os
 import subprocess
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Mapping, Sequence
@@ -48,6 +48,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     ALL_PARENT_CLAUDE_SESSION_VARIABLES,
     ALL_SIGN_IN_FAILURE_SIGNATURES,
     ALL_CHOOSE_AND_CHECK_ACTIONS,
+    CLAUDE_IDENTITY_ACTION,
     COMMAND_MISSING_EXIT_CODE,
     NO_USABLE_ACCOUNT_EXIT_CODE,
     NO_USABLE_REASON_SEPARATOR,
@@ -136,6 +137,7 @@ def decision_payload(decision: Decision, all_readings: Sequence[Reading]) -> dic
         "action": decision.action,
         "account": decision.account.name if decision.account else None,
         "profile": decision.account.profile if decision.account else None,
+        **_launcher_payload(decision.account),
         "home": str(decision.account.home) if decision.account else None,
         "reason": decision.reason,
         "tier": decision.tier,
@@ -155,10 +157,7 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
     """
     return [
         {
-            "name": each_reading.account.name,
-            "profile": each_reading.account.profile,
-            "home": str(each_reading.account.home),
-            "is_main": each_reading.account.is_main,
+            **_roster_entry(each_reading.account),
             "priority": each_reading.account.priority,
             "meters": _meter_payload(each_reading.meters),
             "unread_reason": each_reading.unread_reason,
@@ -166,6 +165,20 @@ def readings_payload(all_readings: Sequence[Reading]) -> list[dict[str, object]]
         }
         for each_reading in all_readings
     ]
+
+
+def _launcher_payload(account: Account | None) -> dict[str, str | None]:
+    return {"account_launcher": account.launcher} if account and account.product is Product.CLAUDE else {}
+
+
+def _roster_entry(account: Account) -> dict[str, object]:
+    return {
+        "name": account.name,
+        "profile": account.profile,
+        "home": str(account.home),
+        "is_main": account.is_main,
+        **_launcher_payload(account),
+    }
 
 
 def _stored_reset(raw: object, now: datetime) -> datetime | None:
@@ -239,6 +252,8 @@ def _write_report(path: Path, report: Report) -> None:
         "events": report.events,
         "final_decision": decision_payload(report.final_decision, report.all_readings) if report.final_decision else None,
     }
+    if report.product is Product.CLAUDE:
+        payload["account_email"] = report.account_email
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=REPORT_INDENT_SPACES) + "\n", encoding="utf-8", newline="\n")
 
@@ -355,7 +370,7 @@ def _wait_outcome(context: _RunContext, decision: Decision) -> JobOutcome:
 
 def _record_spent_attempt(context: _RunContext, account: Account, status: str, returncode: int | None) -> None:
     context.all_attempts.append((account.name, status))
-    context.report.events.append({"type": "attempt", "account": account.name, "status": status, "exit_code": returncode})
+    context.report.events.append(_attempt_event(account, status, returncode))
     reading = next(each_reading for each_reading in context.all_readings if each_reading.account == account)
     context.all_spent_accounts.add(account)
     context.all_attempted_accounts.add(account)
@@ -363,16 +378,27 @@ def _record_spent_attempt(context: _RunContext, account: Account, status: str, r
         context.all_spent_resets[account] = _mark_spent(context.all_state, reading, context.now)
 
 
-def _invoke(context: _RunContext, account: Account) -> subprocess.CompletedProcess[str]:
+def _attempt_event(account: Account, status: str, returncode: int | None) -> dict[str, object]:
+    return {
+        "type": "attempt", "account": account.name, **_launcher_payload(account),
+        "status": status, "exit_code": returncode,
+    }
+
+
+def _job_environment(context: _RunContext, account: Account) -> dict[str, str]:
     environment = {
         each_variable_name: each_setting
         for each_variable_name, each_setting in os.environ.items()
         if context.product is not Product.CLAUDE or each_variable_name not in ALL_PARENT_CLAUDE_SESSION_VARIABLES
     }
     environment[context.active.environment_variable] = str(account.home)
+    return environment
+
+
+def _invoke(context: _RunContext, all_environment: dict[str, str]) -> subprocess.CompletedProcess[str]:
     return support.subprocess_runner(
         context.all_argv,
-        env=environment,
+        env=all_environment,
         input=context.stdin_bytes,
         timeout=context.timeout_seconds,
         cwd=str(context.cwd) if context.cwd is not None else None,
@@ -386,7 +412,7 @@ def _finish_attempt(context: _RunContext, decision: Decision, completion: subpro
     account = decision.account
     status = "advisor_blocked" if context.product is Product.CLAUDE and completion.returncode != 0 else "served"
     context.all_attempts.append((account.name, status))
-    context.report.events.append({"type": "attempt", "account": account.name, "status": status, "exit_code": completion.returncode})
+    context.report.events.append(_attempt_event(account, status, completion.returncode))
     context.report.final_decision = decision
     session_id = extract_session_id_from_stdout(completion.stdout) if completion.returncode == 0 else None
     if context.product is Product.CLAUDE and session_id:
@@ -395,10 +421,10 @@ def _finish_attempt(context: _RunContext, decision: Decision, completion: subpro
     return JobOutcome(completion.returncode, completion.stdout, _skip_notes(context) + completion.stderr, account.name, tuple(context.all_attempts), status, session_id, None)
 
 
-def _attempt_once(context: _RunContext, decision: Decision) -> JobOutcome | None:
+def _attempt_once(context: _RunContext, decision: Decision, all_environment: dict[str, str]) -> JobOutcome | None:
     account = decision.account
     try:
-        completion = _invoke(context, account)
+        completion = _invoke(context, all_environment)
     except subprocess.TimeoutExpired as error:
         _record_spent_attempt(context, account, "timeout", TIMEOUT_EXIT_CODE)
         context.report.final_decision = decision
@@ -425,6 +451,7 @@ def _execute(
     timeout_seconds: float | None = None, stdin_text: str | bytes | None = None,
     cwd: str | Path | None = None, encoding: str = "utf-8", errors: str = "replace",
     live_log: Path | None = None,
+    should_include_account_email: bool = False,
 ) -> tuple[JobOutcome, Report]:
     context = _prepare_run(product, all_argv, now, timeout_seconds, stdin_text, cwd, encoding, errors)
     context.live_log = live_log
@@ -432,11 +459,15 @@ def _execute(
         picked = choose_from_readings(product, context.all_readings, now=now, all_spent_accounts=frozenset(context.all_spent_accounts), all_attempted_accounts=frozenset(context.all_attempted_accounts), preferred_command=context.preferred_command, all_spent_resets=context.all_spent_resets)
         decision = _with_outside_spent_marks(picked, _outside_roster_resets(product, context.all_readings, context.all_state, now))
         context.report.events.append({"type": "pick", "decision": decision_payload(decision, context.all_readings)})
-        if decision.account is None:
+        account = decision.account
+        if account is None:
             return _wait_outcome(context, decision), context.report
-        outcome = _attempt_once(context, decision)
+        environment = _job_environment(context, account)
+        email = support.claude_auth_email(environment, context.cwd) if should_include_account_email and product is Product.CLAUDE else None
+        outcome = _attempt_once(context, decision, environment)
         if outcome is not None:
-            return outcome, context.report
+            context.report.account_email = email
+            return replace(outcome, account_launcher=account.launcher, account_email=email), context.report
 
 
 def run_job(
@@ -449,17 +480,26 @@ def run_job(
     encoding: str = "utf-8",
     errors: str = "replace",
     live_log: Path | None = None,
+    should_include_account_email: bool = False,
 ) -> JobOutcome:
-    return _execute(product, all_argv, now=datetime.now(timezone.utc), timeout_seconds=timeout_seconds, stdin_text=stdin_text, cwd=cwd, encoding=encoding, errors=errors, live_log=live_log)[0]
+    outcome, _ = _execute(
+        product, all_argv, now=datetime.now(timezone.utc), timeout_seconds=timeout_seconds,
+        stdin_text=stdin_text, cwd=cwd, encoding=encoding, errors=errors,
+        live_log=live_log, should_include_account_email=should_include_account_email,
+    )
+    return outcome
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="action", required=True)
-    for each_action in ("choose", "check", "accounts", "limits", "run"):
+    for each_action in ("choose", "check", "accounts", CLAUDE_IDENTITY_ACTION, "limits", "run"):
         command = commands.add_parser(each_action)
-        all_product_choices = [Product.CODEX.value] if each_action == "limits" else [each_product.value for each_product in Product]
+        only_product = {CLAUDE_IDENTITY_ACTION: Product.CLAUDE, "limits": Product.CODEX}.get(each_action)
+        all_product_choices = [only_product.value] if only_product else [each_product.value for each_product in Product]
         command.add_argument("--product", choices=all_product_choices, required=True)
+        if each_action in (CLAUDE_IDENTITY_ACTION, "run"):
+            command.add_argument("--include-account-email", action="store_true")
         if each_action in ALL_CHOOSE_AND_CHECK_ACTIONS:
             command.add_argument(REQUIRE_TIER_ARGUMENT, choices=ALL_TIERS_BEST_FIRST, default=None)
             command.add_argument("--home", type=Path, default=None)
@@ -509,7 +549,14 @@ def _save_spent_arguments(all_marks: Sequence[str], all_readings: Sequence[Readi
 
 def _accounts_cli(product: Product) -> int:
     roster = all_product_adapters[product].load_accounts()
-    print(json.dumps({"accounts": [{"name": each_account.name, "profile": each_account.profile, "home": str(each_account.home), "is_main": each_account.is_main} for each_account in roster]}))
+    print(json.dumps({"accounts": [_roster_entry(each_account) for each_account in roster]}))
+    return 0
+
+
+def _identity_cli(should_include_account_email: bool) -> int:
+    account = support.session_claude_account()
+    email = support.claude_auth_email(os.environ) if should_include_account_email else None
+    print(json.dumps({"source": "parent_session", "account_launcher": account.launcher, "account_email": email}))
     return 0
 
 
@@ -531,7 +578,10 @@ def _run_cli(product: Product, parsed: argparse.Namespace, parser: argparse.Argu
     if not command:
         parser.error("run needs a command after --")
     stdin_bytes = sys.stdin.buffer.read()
-    outcome, report = _execute(product, command, stdin_text=stdin_bytes, now=datetime.now(timezone.utc))
+    outcome, report = _execute(
+        product, command, stdin_text=stdin_bytes, now=datetime.now(timezone.utc),
+        should_include_account_email=parsed.include_account_email,
+    )
     _write_report(parsed.report, report)
     sys.stdout.write(outcome.stdout)
     sys.stderr.write(outcome.stderr)
@@ -578,6 +628,8 @@ def main(all_arguments: Sequence[str]) -> int:
     try:
         if parsed.action == "accounts":
             return _accounts_cli(product)
+        if parsed.action == CLAUDE_IDENTITY_ACTION:
+            return _identity_cli(parsed.include_account_email)
         if parsed.action == "limits":
             return _limits_cli(parsed)
         if parsed.action == "run":

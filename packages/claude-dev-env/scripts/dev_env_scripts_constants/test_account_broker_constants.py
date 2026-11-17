@@ -44,6 +44,12 @@ TEMP_TREE_MARKER = "marker-only-in-the-temp-install-tree"
 FLOOR_TEST_PLAN_TYPE = "team"
 
 
+def test_should_report_only_a_named_claude_launcher() -> None:
+    assert Account(Product.CLAUDE, "main", Path(".claude"), command="claude").launcher is None
+    assert Account(Product.CLAUDE, "mel", Path("mel"), profile="mel").launcher == "claude-mel"
+    assert Account(Product.CODEX, "mel", Path("mel"), profile="mel").launcher is None
+
+
 def test_should_keep_claude_floors_tied_to_the_account_ceilings() -> None:
     assert ALL_CLAUDE_FLOORS == {
         "main_weekly_used_ceiling": MAIN_WEEKLY_USED_CEILING_PERCENT,

@@ -19,7 +19,7 @@ from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from http import HTTPStatus
 from pathlib import Path, PureWindowsPath
-from typing import Callable, Iterator, Sequence
+from typing import Callable, Iterator, Mapping, Sequence
 
 if sys.platform == "win32":
     import msvcrt
@@ -41,6 +41,7 @@ from dev_env_scripts_constants.account_broker_constants import (
     BROKER_STATE_TEMP_SUFFIX,
     Account,
     BrokerConfigurationError,
+    CLAUDE_AUTH_STATUS_TIMEOUT_SECONDS,
     CLAUDE_BINARY_NAME,
     CLOUD_SESSION_UNREAD_REASON,
     CMD_SHELL_METACHARACTERS,
@@ -286,6 +287,57 @@ def resolve_claude_path() -> Path | None:
         candidate = Path.home().joinpath(*each_parts)
         if candidate.is_file():
             return candidate
+    return None
+
+
+def session_claude_account() -> Account:
+    """Find the configured launcher for the current Claude session.
+
+    Returns:
+        The account for the active config home, with a launcher if known.
+    """
+    main_account = main_claude_account()
+    config_directory = os.environ.get(CLAUDE_CONFIG_DIR_ENV_VAR)
+    home = Path(config_directory).expanduser().resolve() if config_directory else main_account.home
+    profile = _home_profile(home)
+    fallback = Account(Product.CLAUDE, profile or "session", home, profile=profile)
+    try:
+        roster = load_claude_accounts()
+    except BrokerConfigurationError:
+        return fallback
+    return next((each_account for each_account in roster if each_account.home == home), fallback)
+
+
+def claude_auth_email(all_environment: Mapping[str, str], cwd: Path | str | None = None) -> str | None:
+    """Read the active login email from Claude's status command.
+
+    Args:
+        all_environment: Environment used by the session or worker.
+        cwd: Working directory used by the worker, if specified.
+
+    Returns:
+        The email from a signed-in status, or None if unavailable.
+    """
+    claude_path = resolve_claude_path()
+    if claude_path is None:
+        return None
+    try:
+        status = subprocess.run(
+            [str(claude_path), "auth", "status", "--json"],
+            env=all_environment,
+            cwd=cwd,
+            capture_output=True,
+            timeout=CLAUDE_AUTH_STATUS_TIMEOUT_SECONDS,
+            check=True,
+        )
+        payload = json.loads(status.stdout)
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None
+    if not isinstance(payload, dict) or payload.get("loggedIn") is not True:
+        return None
+    email = payload.get("email")
+    if isinstance(email, str):
+        return email.strip() or None
     return None
 
 

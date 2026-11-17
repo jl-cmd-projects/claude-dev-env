@@ -9,10 +9,11 @@ import types
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Callable, Mapping, Sequence
 
 from dev_env_scripts_constants.claude_account_constants import (
+    CLAUDE_LAUNCHER_PROGRAM,
     FULL_PERCENT,
     MAIN_SESSION_USED_CEILING_PERCENT,
     MAIN_WEEKLY_USED_CEILING_PERCENT,
@@ -41,6 +42,8 @@ from codex_plan_rules import codex_blocking_flags, is_pro_plan, refusal_text
 from shared_tree_paths import resolve_shared_scripts_directory
 
 ALL_CHOOSE_AND_CHECK_ACTIONS = ("choose", "check")
+CLAUDE_IDENTITY_ACTION = "identity"
+CLAUDE_AUTH_STATUS_TIMEOUT_SECONDS = 5
 
 ALL_CLAUDE_FLOORS = {
     "main_weekly_used_ceiling": MAIN_WEEKLY_USED_CEILING_PERCENT,
@@ -221,6 +224,17 @@ class Account:
     priority: int | None = None
     profile: str | None = field(default=None, compare=False)
 
+    @property
+    def launcher(self) -> str | None:
+        if self.product is not Product.CLAUDE:
+            return None
+        command = PureWindowsPath(self.command or "").stem
+        if command.casefold().startswith("claude-"):
+            return command
+        if self.profile:
+            return PureWindowsPath(CLAUDE_LAUNCHER_PROGRAM.file_name_template.format(profile_name=self.profile)).stem
+        return None
+
 
 @dataclass(frozen=True)
 class Meters:
@@ -276,6 +290,8 @@ class JobOutcome:
     session_id: str | None
     wait_reset_at: datetime | None
     wait_reason: str | None = None
+    account_launcher: str | None = None
+    account_email: str | None = None
 
 
 @dataclass
@@ -285,6 +301,7 @@ class Report:
     events: list[dict[str, object]] = field(default_factory=list)
     final_decision: Decision | None = None
     all_readings: tuple[Reading, ...] = ()
+    account_email: str | None = None
 
 
 MeterReader = Callable[[Account], Meters | None]

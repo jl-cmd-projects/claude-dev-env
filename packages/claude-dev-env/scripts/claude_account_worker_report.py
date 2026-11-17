@@ -37,6 +37,8 @@ class WorkerReport:
     payload: object
     is_error: bool
     wait_reset_at: datetime | None = None
+    account_launcher: str | None = None
+    account_email: str | None = None
 
 
 def _bounded_stdout_tail(stdout_text: str) -> str:
@@ -152,6 +154,8 @@ def write_report(report_file: Path, report: WorkerReport) -> None:
     report_file.parent.mkdir(parents=True, exist_ok=True)
     report_payload = {
         REPORT_ACCOUNT_KEY: report.account,
+        "account_launcher": report.account_launcher,
+        "account_email": report.account_email,
         REPORT_REASON_KEY: report.reason,
         REPORT_EXIT_CODE_KEY: report.exit_code,
         REPORT_DURATION_SECONDS_KEY: report.duration_seconds,
@@ -168,7 +172,7 @@ def write_report(report_file: Path, report: WorkerReport) -> None:
 def _print_summary(report: WorkerReport, report_file: Path) -> None:
     print(
         SUMMARY_LINE_TEMPLATE.format(
-            account=report.account,
+            account=report.account_launcher or ("unknown" if report.account == "main" else report.account),
             exit_code=report.exit_code,
             report_file=report_file,
         )

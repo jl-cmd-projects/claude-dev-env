@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from dataclasses import replace
 from pathlib import Path
 
 hooks_routing_directory = str(Path(__file__).resolve().parent.parent / "hooks" / "routing")
@@ -63,6 +64,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
     parser.add_argument(PERMISSION_MODE_FLAG, default=DEFAULT_PERMISSION_MODE)
     parser.add_argument(TIMEOUT_MINUTES_FLAG, type=_positive_timeout_minutes, default=DEFAULT_TIMEOUT_MINUTES)
     parser.add_argument(LIVE_LOG_FLAG, type=Path)
+    parser.add_argument("--include-account-email", action="store_true")
     return parser
 
 
@@ -124,6 +126,7 @@ def run_worker(
     timeout_minutes: int,
     live_log: Path | None = None,
     effort: str | None = None,
+    should_include_account_email: bool = False,
 ) -> int:
     """Run one worker and write its structured report.
 
@@ -151,6 +154,7 @@ def run_worker(
             timeout_minutes=timeout_minutes,
             runner=worker_job_runner,
             live_log=live_log,
+            should_include_account_email=should_include_account_email,
         )
     except BrokerConfigurationError as error:
         report = pre_launch_failure_report("none", str(error), CONFIGURATION_FAILURE_EXIT_CODE)
@@ -165,7 +169,9 @@ def run_worker(
         duration_seconds=duration_seconds,
         stdout_text=outcome.stdout,
     )
-    return finalize_report(report_file, report)
+    return finalize_report(
+        report_file, replace(report, account_launcher=outcome.account_launcher, account_email=outcome.account_email)
+    )
 
 
 def main() -> int:
@@ -180,6 +186,7 @@ def main() -> int:
         permission_mode=arguments.permission_mode,
         timeout_minutes=arguments.timeout_minutes,
         live_log=arguments.live_log,
+        should_include_account_email=arguments.include_account_email,
     )
 
 

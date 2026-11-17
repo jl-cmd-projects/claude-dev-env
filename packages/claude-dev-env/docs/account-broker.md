@@ -30,6 +30,21 @@ The broker stores cached meters, spent marks, and Claude session bindings in one
 
 ## Exit codes and report
 
+Claude account entries, run decisions, and attempt events include
+`account_launcher`, for example `claude-mel`. The headless worker also
+prints this label and writes it to its report. The field is null when the
+configuration supplies no named launcher. The `account` field still holds
+the broker's routing name, including `main` for the default config home.
+
+Run `python scripts/account_broker.py identity --product claude` from the
+parent Claude session to identify the login its built-in workers inherit.
+This uses the active config home and skips usage meters. Add
+`--include-account-email` to `identity`, broker `run`, or
+`claude_account_worker.py` to request `account_email`. The value comes from
+`claude auth status --json` for the corresponding config and is null when
+Claude supplies no signed-in email. For broker and worker runs, only the
+JSON report includes the email.
+
 | Code | Meaning |
 | --- | --- |
 | `0` | `choose` or `check` found an account, or the job exited successfully. |

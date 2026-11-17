@@ -990,6 +990,42 @@ def test_should_try_next_account_after_usage_limit(tmp_path: Path, monkeypatch: 
     assert report["final_decision"]["account"] == "second"
 
 
+def test_run_report_should_name_the_claude_profile_that_served_after_a_retry(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    accounts = (
+        Account(Product.CLAUDE, "ev", tmp_path / "ev", profile="ev"),
+        Account(Product.CLAUDE, "mel", tmp_path / "mel", profile="mel"),
+    )
+    adapter = ProductAdapter(
+        lambda: accounts, lambda account: _meters(80 if account.name == "ev" else 70, 80),
+        "CLAUDE_CONFIG_DIR", ("rate limit",),
+    )
+    monkeypatch.setitem(account_broker.all_product_adapters, Product.CLAUDE, adapter)
+
+    def auth_email(all_environment: dict[str, str], cwd: Path | None) -> str:
+        profile = Path(all_environment["CLAUDE_CONFIG_DIR"]).name
+        return f"{profile}@example.test"
+
+    def runner(command: object, **options: object) -> subprocess.CompletedProcess[str]:
+        if options["env"]["CLAUDE_CONFIG_DIR"] == str(accounts[0].home):
+            return subprocess.CompletedProcess(command, 1, "", "rate limit")
+        return subprocess.CompletedProcess(command, 0, "served", "")
+
+    monkeypatch.setattr(account_broker_support, "claude_auth_email", auth_email)
+    with account_broker.override_subprocess_runner(runner):
+        outcome, report = account_broker._execute(Product.CLAUDE, ("claude",), now=NOW, should_include_account_email=True)
+    report_path = tmp_path / "report.json"
+    account_broker._write_report(report_path, report)
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+
+    assert outcome.account_launcher == payload["final_decision"]["account_launcher"] == "claude-mel"
+    assert outcome.account_email == payload["account_email"] == "mel@example.test"
+    assert [event["account_launcher"] for event in payload["events"] if event["type"] == "attempt"] == [
+        "claude-ev", "claude-mel",
+    ]
+
+
 def test_should_wait_for_soonest_reset_and_exit_three(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     accounts = (_account("first"), _account("second"))
     first_reset = NOW + timedelta(hours=5)
@@ -2746,7 +2782,10 @@ def test_should_hand_the_live_log_to_the_subprocess_runner(tmp_path: Path, monke
 def test_decision_payload_should_carry_the_profile_of_a_claude_account() -> None:
     account = Account(Product.CLAUDE, "C:\\bin\\claude-editor.cmd", Path("/profiles/editor"), command="C:\\bin\\claude-editor.cmd", profile="editor")
 
-    assert account_broker.decision_payload(account_broker.Decision("run", account, None, "most room", "normal"), ())["profile"] == "editor"
+    decision = account_broker.Decision("run", account, None, "most room", "normal")
+    payload = account_broker.decision_payload(decision, ())
+    assert payload["profile"] == "editor"
+    assert payload["account_launcher"] == "claude-editor"
 
 
 def test_decision_payload_should_name_the_chosen_account_and_its_home() -> None:
