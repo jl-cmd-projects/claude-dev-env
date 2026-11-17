@@ -202,8 +202,8 @@ def _numstat_counts(numstat_output: str) -> dict[str, int] | None:
         all_counts_and_path = each_field.split(NUMSTAT_FIELD_SEPARATOR, NUMSTAT_FIELD_COUNT - 1)
         if len(all_counts_and_path) != NUMSTAT_FIELD_COUNT:
             return None
-        added_text, deleted_text, path = all_counts_and_path
-        path = path or _new_path_of_rename(all_fields)
+        added_text, deleted_text, listed_path = all_counts_and_path
+        path = listed_path or _new_path_of_rename(all_fields)
         line_count = _numstat_line_count(added_text, deleted_text)
         if not path or line_count is None:
             return None
