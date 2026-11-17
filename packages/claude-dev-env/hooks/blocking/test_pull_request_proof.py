@@ -1838,10 +1838,16 @@ def test_should_leave_a_base_that_exists_only_locally_to_the_compare_api(
     assert gate.added_workflow_files(str(clone_path), "feature", "local-only") is None
     assert gate._read_visible_files(str(clone_path), "o/r", "local-only", "feature") == ["page.html"]
     assert all_endpoints == [compare_endpoint]
+    assert gate._read_visible_files(str(clone_path), None, "local-only", "feature") == ["page.html"]
 
 
-def test_should_measure_a_main_base_from_the_default_references(tmp_path: Path) -> None:
+def test_should_measure_a_named_main_base_against_origin_main(tmp_path: Path) -> None:
     clone_path = _stacked_repository(tmp_path, "page.html")
-    _run_git(clone_path, "update-ref", "-d", "refs/remotes/origin/main")
+    _run_git(clone_path, "symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/parent")
 
+    assert gate.visible_changed_files(str(clone_path), "feature", None) == []
     assert gate.visible_changed_files(str(clone_path), "feature", "main") == ["page.html"]
+
+    _run_git(clone_path, "update-ref", "-d", "refs/remotes/origin/main")
+    assert gate.visible_changed_files(str(clone_path), "feature", "main") is None
+    assert gate._read_visible_files(str(clone_path), None, "main", "feature") == []

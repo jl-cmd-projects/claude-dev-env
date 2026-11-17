@@ -137,13 +137,17 @@ def test_should_pass_a_body_edit(large_branch: Path) -> None:
     assert size.oversized_pull_request_reason(payload) is None
 
 
-def test_should_pass_when_no_base_can_be_resolved(large_branch: Path) -> None:
+def test_should_measure_against_main_when_neither_the_named_base_nor_the_compare_api_answers(
+    large_branch: Path,
+) -> None:
+    subprocess.run(["git", "-C", str(large_branch), "branch", "local-only"], check=True)
     assert size.local_measured_line_count(str(large_branch), "no-such-branch", None) is None
+    assert size.local_measured_line_count(str(large_branch), "local-only", None) is None
     assert (
         size.oversized_pull_request_reason(
-            _create(large_branch, PLAIN_BODY, "--base no-such-branch")
+            _create(large_branch, PLAIN_BODY, "--base local-only")
         )
-        is None
+        is not None
     )
 
 

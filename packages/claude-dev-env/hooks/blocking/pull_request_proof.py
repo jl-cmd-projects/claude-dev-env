@@ -724,11 +724,10 @@ def visible_changed_files(
     """Return the changed files people see on the head branch, or None when git cannot tell.
 
     The head is the checked-out branch, or the named branch or its origin copy
-    when the checkout holds another branch. A named base other than main is
-    read only as origin/<base>, so a stack level counts only its own files. A
-    local branch of that name is never read, because the agent controls it,
-    and a missing origin/<base> gives None so the compare API measures it.
-    With main or no base named, the base is the first of origin/HEAD,
+    when the checkout holds another branch. A named base is read only as
+    origin/<base>, the copy GitHub compares against, so a stack level counts
+    only its own files. A missing origin/<base> gives None, and the caller asks
+    the compare API. With no base named, the base is the first of origin/HEAD,
     origin/main and main that git can reach::
 
         checkout on feature, page.html changed -> ["page.html"]
@@ -783,11 +782,7 @@ def _read_merge_base_and_head(
     head_reference = _cached_head_reference(working_directory, head_branch)
     if head_reference is None:
         return None
-    all_base_references = (
-        ALL_DEFAULT_BRANCH_REFERENCES
-        if not base_branch or base_branch in ALL_DEFAULT_BRANCH_REFERENCES
-        else (REMOTE_BRANCH_PREFIX + base_branch,)
-    )
+    all_base_references = (REMOTE_BRANCH_PREFIX + base_branch,) if base_branch else ALL_DEFAULT_BRANCH_REFERENCES
     merge_base = _first_merge_base(working_directory, head_reference, all_base_references)
     return None if merge_base is None else (merge_base, head_reference)
 
@@ -982,11 +977,14 @@ def _added_workflow_files_for_create(create_call: CreateCall, working_directory:
 def _read_added_workflow_files(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> list[str]:
+    local_may_answer = _local_checkout_may_answer(working_directory, repository, head_branch)
     all_workflow_paths = None
-    if _local_checkout_may_answer(working_directory, repository, head_branch):
+    if local_may_answer:
         all_workflow_paths = added_workflow_files(working_directory, head_branch, base_branch)
     if all_workflow_paths is None:
         all_workflow_paths = remote_added_workflow_files(repository, base_branch, head_branch)
+    if all_workflow_paths is None and base_branch and local_may_answer:
+        all_workflow_paths = added_workflow_files(working_directory, head_branch, None)
     return all_workflow_paths or []
 
 
@@ -1143,5 +1141,7 @@ def _read_visible_files(
 ) -> list[str] | None:
     all_visible_files = visible_changed_files(working_directory, head_branch, base_branch)
     if all_visible_files is None:
-        return remote_visible_changed_files(repository, base_branch, head_branch)
+        all_visible_files = remote_visible_changed_files(repository, base_branch, head_branch)
+    if all_visible_files is None and base_branch:
+        all_visible_files = visible_changed_files(working_directory, head_branch, None)
     return all_visible_files
