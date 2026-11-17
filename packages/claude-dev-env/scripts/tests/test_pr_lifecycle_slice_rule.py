@@ -64,7 +64,12 @@ def test_the_retro_split_pins_the_head_and_posts_the_plan_before_building() -> N
         in reference_text
     )
     assert "map each open finding to the slice it lands in" in reference_text
-    plan_position = reference_text.index("get the owner's go before you build")
+    plan_position = reference_text.index(
+        "Post the plan as a comment on the original pull request"
+    )
+    build_position = reference_text.index("Then build without waiting for a reply.")
+    assert plan_position < build_position
+    assert "owner's go" not in reference_text
     no_code_position = reference_text.index("Change no code during the split.")
     assert plan_position < no_code_position
 
