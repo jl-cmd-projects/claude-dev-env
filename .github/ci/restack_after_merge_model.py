@@ -86,6 +86,11 @@ class RestackedLevel:
     restacked_sha: str | None
     step_failure: str | None = None
 
+    @property
+    def is_settled(self) -> bool:
+        """True when the level's head is on its new base, so the levels above it can follow."""
+        return self.outcome in (RestackOutcome.RESTACKED, RestackOutcome.ALREADY_RESTACKED)
+
 
 def parse_open_pull_request(pull_request_node: dict) -> OpenPullRequest:
     """Turn one GraphQL pull request node into an OpenPullRequest.

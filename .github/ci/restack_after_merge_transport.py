@@ -3,8 +3,8 @@
 ::
 
     git:  fetch, ancestry, merge base, stack-commit check, rebase, push with lease
-    gh:   list open pull requests, read branch protection and rules, set a
-          base, add or remove a label, comment once
+    gh:   list open pull requests, read branch protection and rules, read or
+          set a base, add or remove a label, comment once
 
 Every subprocess the restack makes lives here, so the stack logic in
 `restack_after_merge.py` reads as decisions only.
@@ -27,7 +27,9 @@ from config.restack_after_merge_constants import (
     ALL_HEAD_COMMIT_ARGUMENTS,
     ALL_HISTORY_GUARDING_RULE_TYPES,
     ALL_REBASE_ABORT_ARGUMENTS,
+    ALL_UNMERGED_PATHS_ARGUMENTS,
     BRANCH_ENDPOINT_TEMPLATE,
+    BRANCH_FETCH_REFSPEC_TEMPLATE,
     BRANCH_PROTECTED_JQ_FILTER,
     BRANCH_RULES_ENDPOINT_TEMPLATE,
     COMMENT_BODIES_JQ_FILTER,
@@ -36,6 +38,7 @@ from config.restack_after_merge_constants import (
     MERGED_HEAD_FETCH_REFSPEC_TEMPLATE,
     NEEDS_REBASE_LABEL,
     OPEN_PULL_REQUESTS_QUERY,
+    PULL_REQUEST_BASE_JQ_FILTER,
     PUSH_TO_BRANCH_REFSPEC_TEMPLATE,
     REMOTE_TRACKING_REF_TEMPLATE,
     RULE_TYPES_JQ_FILTER,
@@ -43,7 +46,11 @@ from config.restack_after_merge_constants import (
 
 
 class RestackRunFatal(Exception):
-    """A git or gh step that every stack level depends on failed."""
+    """A git or gh step failed.
+
+    The caller decides whether the failure ends the run or only the stack level
+    the step was for.
+    """
 
 
 def run_command(all_arguments: Sequence[str]) -> subprocess.CompletedProcess[str]:
@@ -59,7 +66,7 @@ def run_command(all_arguments: Sequence[str]) -> subprocess.CompletedProcess[str
 
 
 def run_required_command(all_arguments: Sequence[str]) -> str:
-    """Run one command that every stack level depends on.
+    """Run one command whose failure the caller must handle.
 
     Args:
         all_arguments: The program and its arguments.
@@ -240,13 +247,21 @@ def rebase_onto(onto_sha: str, upstream_sha: str, seen_sha: str) -> str | None:
         seen_sha: The branch head to replay.
 
     Returns:
-        The new head, or None when the rebase hit a conflict.
+        The new head, or None when the rebase stopped with unmerged paths.
+
+    Raises:
+        RestackRunFatal: When the rebase failed with no unmerged paths, such as on
+            a dirty working tree. Any rebase it left in progress is aborted first.
     """
     rebase_arguments = ["git", "rebase", "--onto", onto_sha, upstream_sha, seen_sha]
-    if run_command(rebase_arguments).returncode != 0:
-        run_command(ALL_REBASE_ABORT_ARGUMENTS)
+    rebase_process = run_command(rebase_arguments)
+    if rebase_process.returncode == 0:
+        return run_required_command(ALL_HEAD_COMMIT_ARGUMENTS)
+    has_unmerged_paths = bool(run_command(ALL_UNMERGED_PATHS_ARGUMENTS).stdout.strip())
+    run_command(ALL_REBASE_ABORT_ARGUMENTS)
+    if has_unmerged_paths:
         return None
-    return run_required_command(ALL_HEAD_COMMIT_ARGUMENTS)
+    raise RestackRunFatal(f"{shlex.join(rebase_arguments)} failed: {rebase_process.stderr.strip()}")
 
 
 def push_with_lease(remote_name: str, head_ref: str, seen_sha: str, restacked_sha: str) -> bool:
@@ -313,6 +328,36 @@ def set_pull_request_base(repository: str, pull_request_number: int, base_branch
     )
 
 
+def read_pull_request_base(repository: str, pull_request_number: int) -> str:
+    """Read a pull request's current base branch from GitHub.
+
+    Args:
+        repository: The owner/name of the repository.
+        pull_request_number: The pull request to read.
+
+    Returns:
+        The base branch name.
+    """
+    view_arguments = ["gh", "pr", "view", str(pull_request_number), "--repo", repository, "--json", "baseRefName"]
+    return run_required_command([*view_arguments, "--jq", PULL_REQUEST_BASE_JQ_FILTER])
+
+
+def fetch_remote_branch(remote_name: str, branch_name: str) -> str | None:
+    """Fetch one branch again and read its head.
+
+    Args:
+        remote_name: The git remote holding the branch.
+        branch_name: The branch name.
+
+    Returns:
+        The head after the fetch, or the earlier fetched head when the fetch fails,
+        or None when there is neither.
+    """
+    fetch_refspec = BRANCH_FETCH_REFSPEC_TEMPLATE % (branch_name, remote_name, branch_name)
+    run_command(["git", "fetch", "--no-tags", remote_name, fetch_refspec])
+    return resolve_remote_branch(remote_name, branch_name)
+
+
 def remove_needs_rebase_label(repository: str, pull_request_number: int) -> None:
     """Take the needs-rebase label off a pull request the restack moved.
 
@@ -329,7 +374,9 @@ def remove_needs_rebase_label(repository: str, pull_request_number: int) -> None
 
 
 def flag_for_manual_restack(repository: str, pull_request_number: int, comment_body: str) -> None:
-    """Add the needs-rebase label, and post the comment unless its marker line is already there.
+    """Post the comment unless its marker line is already there, then add the needs-rebase label.
+
+    The comment goes first, so a failed label add still leaves the instructions.
 
     Args:
         repository: The owner/name of the repository.
@@ -337,16 +384,15 @@ def flag_for_manual_restack(repository: str, pull_request_number: int, comment_b
         comment_body: The comment, whose first line is its marker.
     """
     number_text = str(pull_request_number)
-    run_required_command(
-        ["gh", "pr", "edit", number_text, "--repo", repository, "--add-label", NEEDS_REBASE_LABEL]
-    )
     comments_endpoint = ISSUE_COMMENTS_ENDPOINT_TEMPLATE % (repository, number_text)
     existing_comment_bodies = run_required_command(
         ["gh", "api", "--paginate", comments_endpoint, "--jq", COMMENT_BODIES_JQ_FILTER]
     )
     comment_marker = comment_body.splitlines()[0]
-    if comment_marker in existing_comment_bodies:
-        return
+    if comment_marker not in existing_comment_bodies:
+        run_required_command(
+            ["gh", "pr", "comment", number_text, "--repo", repository, "--body", comment_body]
+        )
     run_required_command(
-        ["gh", "pr", "comment", number_text, "--repo", repository, "--body", comment_body]
+        ["gh", "pr", "edit", number_text, "--repo", repository, "--add-label", NEEDS_REBASE_LABEL]
     )

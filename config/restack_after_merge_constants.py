@@ -46,16 +46,21 @@ git fetch %(remote)s %(onto_branch)s %(head_ref)s
 git switch -C %(head_ref)s %(remote_head_ref)s
 git rebase --onto %(remote_onto_branch)s %(fork_sha)s
 git push %(lease_flag)s %(remote)s %(head_ref)s
+gh pr edit %(child_number)s --repo %(repository)s --base %(onto_branch)s
 gh pr edit %(child_number)s --remove-label %(label)s
 ```
 
-When the rebase stops on a change the merged pull request already landed, run `git rebase --skip`. When it stops on a commit of this pull request, fix the files, `git add` them, and run `git rebase --continue`. Then run the push and label commands.
+When the rebase stops on a change the merged pull request already landed, run `git rebase --skip`. When it stops on a commit of this pull request, fix the files, `git add` them, and run `git rebase --continue`. Then run the push, base, and label commands.
 
 Pull requests stacked on this one were left as they are. Restack each onto the new head of this pull request's branch the same way, with the fork point `git merge-base <its branch> %(seen_sha)s`.
 """
 
 REASON_REBASE_CONFLICT: str = "the rebase hit a conflict"
-REASON_PUSH_REJECTED: str = "the force push with lease was rejected"
+REASON_PUSH_REJECTED: str = (
+    "the force push was refused. The cause may be a lease mismatch, because the branch moved after"
+    " the run fetched it, a branch rule, or a change to a workflow file, which the app token cannot"
+    " push without the workflows permission"
+)
 REASON_NOT_STACKED: str = "the branch carries none of the merged pull request's commits, so it may not be a stack level"
 STEP_FAILURES_SEPARATOR: str = "; "
 
@@ -72,3 +77,6 @@ PUSH_TO_BRANCH_REFSPEC_TEMPLATE: str = "%s:refs/heads/%s"
 COMMENT_BODIES_JQ_FILTER: str = ".[].body"
 ALL_REBASE_ABORT_ARGUMENTS: tuple[str, ...] = ("git", "rebase", "--abort")
 ALL_HEAD_COMMIT_ARGUMENTS: tuple[str, ...] = ("git", "rev-parse", "HEAD")
+ALL_UNMERGED_PATHS_ARGUMENTS: tuple[str, ...] = ("git", "diff", "--name-only", "--diff-filter=U")
+PULL_REQUEST_BASE_JQ_FILTER: str = ".baseRefName"
+BRANCH_FETCH_REFSPEC_TEMPLATE: str = "+refs/heads/%s:refs/remotes/%s/%s"

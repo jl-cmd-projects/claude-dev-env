@@ -27,6 +27,7 @@ import restack_after_merge
 
 from config.restack_after_merge_constants import (
     NEEDS_REBASE_LABEL,
+    REASON_PUSH_REJECTED,
     RESTACK_COMMENT_MARKER_TEMPLATE,
 )
 
@@ -80,6 +81,8 @@ STUB_GH_SOURCE = textwrap.dedent(
         if "--remove-label" in all_arguments:
             pull["labels"] = sorted(set(pull.get("labels", [])) - {option("--remove-label")})
         save()
+    elif all_arguments[:2] == ["pr", "view"]:
+        print(next(each["base"] for each in state["pulls"] if str(each["number"]) == all_arguments[2]))
     elif all_arguments[:2] == ["pr", "comment"]:
         state["comments"].setdefault(all_arguments[2], []).append(option("--body"))
         save()
@@ -478,10 +481,7 @@ def test_should_label_and_comment_when_the_push_is_refused(
     sandbox.run_restack(merged_head_sha, merge_commit_sha)
 
     assert sandbox.origin_head("level-2") == level_2_head_before
-    assert (
-        "the force push with lease was rejected"
-        in sandbox.read_stub_state()["comments"]["2"][0]
-    )
+    assert REASON_PUSH_REJECTED in sandbox.read_stub_state()["comments"]["2"][0]
 
 
 def test_should_keep_a_commit_pushed_after_the_fetch(sandbox: StackSandbox) -> None:
@@ -607,7 +607,7 @@ def test_should_name_the_lease_and_fork_point_in_the_manual_comment(
     monkeypatch.chdir(sandbox.developer_path)
 
     comment_body = restack_after_merge.build_manual_restack_comment(
-        target, merged_pull_request, "abc123", "the rebase hit a conflict", "origin"
+        target, merged_pull_request, "abc123", "the rebase hit a conflict", "origin", REPOSITORY
     )
 
     assert f"git rebase --onto origin/main {fork_sha}" in comment_body
@@ -766,7 +766,7 @@ def test_should_quote_every_branch_name_in_the_manual_commands(
     monkeypatch.chdir(sandbox.developer_path)
 
     comment_body = restack_after_merge.build_manual_restack_comment(
-        target, merged_pull_request, "abc123", "the rebase hit a conflict", "origin"
+        target, merged_pull_request, "abc123", "the rebase hit a conflict", "origin", REPOSITORY
     )
     all_command_lines = (
         comment_body.split("```bash\n", 1)[1].split("```", 1)[0].splitlines()
@@ -777,6 +777,7 @@ def test_should_quote_every_branch_name_in_the_manual_commands(
         ["git", "switch", "-C", hostile_head, f"origin/{hostile_head}"],
         ["git", "rebase", "--onto", f"origin/{hostile_base}", fork_sha],
         ["git", "push", f"--force-with-lease={hostile_head}", "origin", hostile_head],
+        ["gh", "pr", "edit", "2", "--repo", REPOSITORY, "--base", hostile_base],
         ["gh", "pr", "edit", "2", "--remove-label", NEEDS_REBASE_LABEL],
     ]
 
@@ -1091,3 +1092,217 @@ def test_should_judge_a_child_on_main_against_the_base_head_the_run_fetched(
     assert not restack_after_merge.is_direct_child(
         child_on_main, merged_pull_request, "origin", "main", level_1_head
     )
+
+
+def install_refusing_hook(sandbox: StackSandbox, hook_body: str) -> Path:
+    refusing_hook_path = sandbox.origin_path / "hooks" / "pre-receive"
+    refusing_hook_path.write_text(f"#!/bin/sh\n{hook_body}\n", encoding="utf-8")
+    refusing_hook_path.chmod(0o755)
+    return refusing_hook_path
+
+
+def hand_restack_level_2(sandbox: StackSandbox, merged_head_sha: str, merge_commit_sha: str) -> str:
+    run_git(sandbox.developer_path, "checkout", "-q", "-B", "hand-level-2", "level-2")
+    run_git(sandbox.developer_path, "rebase", "-q", "--onto", merge_commit_sha, merged_head_sha)
+    commit_file(sandbox.developer_path, "hand.txt", "hand\n", "restacked by hand")
+    return run_git(sandbox.developer_path, "rev-parse", "HEAD")
+
+
+def pull_by_number(sandbox: StackSandbox, number: int) -> dict:
+    return next(each for each in sandbox.read_stub_state()["pulls"] if each["number"] == number)
+
+
+def manual_command_lines(comment_body: str) -> list[list[str]]:
+    return [
+        shlex.split(each_line)
+        for each_line in comment_body.split("```bash\n", 1)[1].split("```", 1)[0].splitlines()
+    ]
+
+
+def test_should_leave_a_level_restacked_during_its_refused_push_and_follow_its_children(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    hand_sha = hand_restack_level_2(sandbox, merged_head_sha, merge_commit_sha)
+    sandbox.all_pulls[0]["base"] = "level-1"
+    sandbox.all_pulls[0]["pushDuringBaseEdit"] = [
+        "git", "-C", str(sandbox.developer_path), "push", "-q", "--force", "origin",
+        f"{hand_sha}:refs/heads/level-2",
+    ]
+    sandbox.write_stub_state()
+
+    all_outcomes = run_restack_for_outcomes(sandbox, merged_head_sha, merge_commit_sha)
+
+    assert all_outcomes[2] is restack_after_merge.RestackOutcome.ALREADY_RESTACKED
+    assert sandbox.origin_head("level-2") == hand_sha
+    assert pull_by_number(sandbox, 2)["base"] == "main"
+    assert sandbox.read_stub_state()["comments"] == {}
+    assert all_outcomes[3] is restack_after_merge.RestackOutcome.RESTACKED
+    assert sandbox.subjects_above(hand_sha, "level-3") == ["level 3 work"]
+
+
+def test_should_restore_the_base_it_set_when_the_push_is_refused(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.all_pulls[0]["base"] = "level-1"
+    sandbox.write_stub_state()
+    install_refusing_hook(sandbox, "exit 1")
+
+    sandbox.run_restack(merged_head_sha, merge_commit_sha)
+
+    assert pull_by_number(sandbox, 2)["base"] == "level-1"
+    assert NEEDS_REBASE_LABEL in pull_by_number(sandbox, 2)["labels"]
+    assert len(sandbox.read_stub_state()["comments"]["2"]) == 1
+
+
+def test_should_keep_a_base_changed_by_someone_else_when_the_push_is_refused(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.all_pulls[0]["base"] = "level-1"
+    sandbox.write_stub_state()
+    move_base_source = (
+        "import json, os; p = os.environ['STUB_GH_STATE']; s = json.load(open(p)); "
+        "s['pulls'][0]['base'] = 'integration'; json.dump(s, open(p, 'w'))"
+    )
+    install_refusing_hook(
+        sandbox, f"{shlex.quote(sys.executable)} -c {shlex.quote(move_base_source)}\nexit 1"
+    )
+
+    sandbox.run_restack(merged_head_sha, merge_commit_sha)
+
+    assert pull_by_number(sandbox, 2)["base"] == "integration"
+    assert len(sandbox.read_stub_state()["comments"]["2"]) == 1
+
+
+def test_should_reach_the_grandchildren_when_run_again_after_a_partial_failure(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+    refusing_hook_path = install_refusing_hook(
+        sandbox,
+        'while read old new ref; do [ "$ref" = refs/heads/level-3 ] && exit 1; done\nexit 0',
+    )
+    sandbox.run_restack(merged_head_sha, merge_commit_sha)
+    level_3_head_after_first_run = sandbox.origin_head("level-3")
+    refusing_hook_path.unlink()
+
+    assert sandbox.run_restack(merged_head_sha, merge_commit_sha) == 0
+
+    assert sandbox.origin_head("level-3") != level_3_head_after_first_run
+    assert sandbox.subjects_above(sandbox.origin_head("level-2"), "level-3") == ["level 3 work"]
+    assert NEEDS_REBASE_LABEL not in pull_by_number(sandbox, 3).get("labels", [])
+
+
+def test_should_retarget_and_unlabel_a_level_restacked_by_hand(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    hand_sha = hand_restack_level_2(sandbox, merged_head_sha, merge_commit_sha)
+    run_git(sandbox.developer_path, "push", "-q", "--force", "origin", f"{hand_sha}:refs/heads/level-2")
+    sandbox.all_pulls[0]["base"] = "level-1"
+    sandbox.all_pulls[0]["labels"] = [NEEDS_REBASE_LABEL]
+    sandbox.write_stub_state()
+
+    all_outcomes = run_restack_for_outcomes(sandbox, merged_head_sha, merge_commit_sha)
+
+    assert all_outcomes[2] is restack_after_merge.RestackOutcome.ALREADY_RESTACKED
+    assert sandbox.origin_head("level-2") == hand_sha
+    assert pull_by_number(sandbox, 2)["base"] == "main"
+    assert pull_by_number(sandbox, 2)["labels"] == []
+
+
+def test_should_put_the_base_retarget_in_the_manual_commands(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+    install_refusing_hook(sandbox, "exit 1")
+
+    sandbox.run_restack(merged_head_sha, merge_commit_sha)
+
+    assert ["gh", "pr", "edit", "2", "--repo", REPOSITORY, "--base", "main"] in manual_command_lines(
+        sandbox.read_stub_state()["comments"]["2"][0]
+    )
+
+
+def test_should_leave_the_instructions_when_the_label_cannot_be_added(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    sandbox.branch("unrelated", "main")
+    commit_file(sandbox.developer_path, "other.txt", "other\n", "unrelated work")
+    sandbox.push_branch("unrelated")
+    sandbox.open_pull(8, "unrelated", "level-1")
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+    stub_state = sandbox.read_stub_state()
+    stub_state["failingEdits"] = ["8"]
+    sandbox.state_path.write_text(json.dumps(stub_state), encoding="utf-8")
+
+    assert sandbox.run_restack(merged_head_sha, merge_commit_sha) == 1
+
+    all_level_8_comments = sandbox.read_stub_state()["comments"].get("8", [])
+    assert len(all_level_8_comments) == 1
+    assert all_level_8_comments[0].startswith(
+        RESTACK_COMMENT_MARKER_TEMPLATE % MERGED_PULL_REQUEST_NUMBER
+    )
+
+
+def test_should_count_a_rebase_that_fails_without_a_conflict_as_a_step_failure(
+    sandbox: StackSandbox, capsys: pytest.CaptureFixture[str]
+) -> None:
+    build_three_level_stack(sandbox)
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+    level_2_head_before = sandbox.origin_head("level-2")
+    run_git(sandbox.root_path, "clone", "-q", str(sandbox.origin_path), str(sandbox.runner_path))
+    (sandbox.runner_path / "shared.txt").write_text("uncommitted edit\n", encoding="utf-8")
+
+    exit_code = sandbox.run_restack(merged_head_sha, merge_commit_sha)
+
+    assert exit_code == 1
+    assert sandbox.origin_head("level-2") == level_2_head_before
+    assert sandbox.read_stub_state()["comments"] == {}
+    assert "#2" in capsys.readouterr().err
+
+
+def test_should_name_each_cause_of_a_refused_push_in_the_comment(
+    sandbox: StackSandbox,
+) -> None:
+    build_three_level_stack(sandbox)
+    merged_head_sha, merge_commit_sha = sandbox.squash_merge(
+        MERGED_PULL_REQUEST_NUMBER, "level-1"
+    )
+    sandbox.write_stub_state()
+    install_refusing_hook(sandbox, "exit 1")
+
+    sandbox.run_restack(merged_head_sha, merge_commit_sha)
+
+    comment_body = sandbox.read_stub_state()["comments"]["2"][0]
+    for each_cause in ("lease", "branch rule", "workflow file", "workflows permission"):
+        assert each_cause in comment_body
