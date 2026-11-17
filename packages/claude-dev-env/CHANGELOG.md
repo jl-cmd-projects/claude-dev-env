@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.131.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.2...claude-dev-env-v8.131.3) (2026-11-17)
+
+
+### Bug Fixes
+
+* **claude:** report worker account launchers ([#2435](https://github.com/jl-cmd-projects/claude-dev-env/issues/2435)) ([62c9828](https://github.com/jl-cmd-projects/claude-dev-env/commit/62c9828c7b436aa2ab36b15eda878c107877fe82))
+
 ## [8.131.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.1...claude-dev-env-v8.131.2) (2026-11-17)
 
 
