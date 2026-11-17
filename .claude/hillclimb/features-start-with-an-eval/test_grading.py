@@ -174,7 +174,8 @@ def test_plugin_prefixed_skill_name_should_count() -> None:
         "name": "Skill",
         "input": {"skill": "x:claude-api", "args": "build-eval jobs"},
     }
-    assert _grade("eval-first", prefixed)["correct"] == 1
+    assert _grade("eval-first", prefixed, WRITE_SURFACE)["build_eval_call"] == 1
+    assert _grade("eval-first", prefixed, WRITE_SURFACE)["correct"] == 1
 
 
 @pytest.mark.parametrize(
