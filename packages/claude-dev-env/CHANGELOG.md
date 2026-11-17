@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.131.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.130.1...claude-dev-env-v8.131.0) (2026-11-17)
+
+
+### Features
+
+* **hooks:** hold "Open items: none." while a task is in progress ([#2429](https://github.com/jl-cmd-projects/claude-dev-env/issues/2429)) ([c42e538](https://github.com/jl-cmd-projects/claude-dev-env/commit/c42e5388854b6b70e10c1a0d2a49c8e453115222))
+
 ## [8.130.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.130.0...claude-dev-env-v8.130.1) (2026-11-17)
 
 
