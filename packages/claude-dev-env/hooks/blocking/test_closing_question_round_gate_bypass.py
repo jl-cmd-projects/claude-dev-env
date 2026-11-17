@@ -113,10 +113,10 @@ def test_should_hold_the_stop_by_default_and_leave_no_flag(
 @pytest.mark.parametrize(
     "keyword_prompt",
     [
-        "!nocards",
-        "Ship it. !NoCards",
-        "!NOCARDS, then merge",
-        "<system-reminder>x</system-reminder> !nocards",
+        "--nocards",
+        "Ship it. --NoCards",
+        "--NOCARDS, then merge",
+        "<system-reminder>x</system-reminder> --nocards",
     ],
 )
 def test_should_allow_the_stop_after_a_prompt_with_the_keyword(
@@ -132,9 +132,9 @@ def test_should_allow_the_stop_after_a_prompt_with_the_keyword(
 def test_should_hold_again_after_a_second_prompt_with_the_keyword(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, "!nocards") == OFF_CONTEXT
+    assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, "--nocards") == OFF_CONTEXT
     assert stop_reason(monkeypatch, capsys, tmp_path, FIRST_SESSION_ID) is None
-    assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, "back on !NOCARDS") == ON_CONTEXT
+    assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, "back on --NOCARDS") == ON_CONTEXT
     reason = stop_reason(monkeypatch, capsys, tmp_path, FIRST_SESSION_ID)
     assert reason is not None
     assert reason.startswith(CLOSING_ROUND_REASON_LEAD)
@@ -143,11 +143,11 @@ def test_should_hold_again_after_a_second_prompt_with_the_keyword(
 def test_should_keep_each_session_toggle_apart(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, "!nocards") == OFF_CONTEXT
+    assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, "--nocards") == OFF_CONTEXT
     assert stop_reason(monkeypatch, capsys, tmp_path, FIRST_SESSION_ID) is None
     assert stop_reason(monkeypatch, capsys, tmp_path, SECOND_SESSION_ID) is not None
-    assert submit_prompt(monkeypatch, capsys, SECOND_SESSION_ID, "!nocards") == OFF_CONTEXT
-    assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, "!nocards") == ON_CONTEXT
+    assert submit_prompt(monkeypatch, capsys, SECOND_SESSION_ID, "--nocards") == OFF_CONTEXT
+    assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, "--nocards") == ON_CONTEXT
     assert stop_reason(monkeypatch, capsys, tmp_path, FIRST_SESSION_ID) is not None
     assert stop_reason(monkeypatch, capsys, tmp_path, SECOND_SESSION_ID) is None
 
@@ -157,10 +157,11 @@ def test_should_keep_each_session_toggle_apart(
     [
         "Add the retry flag to the export job.",
         "nocards",
-        "!nocardsplease",
-        "x!nocards",
-        "!!nocards",
-        "<system-reminder>!nocards</system-reminder> Add the flag.",
+        "--nocardsplease",
+        "x--nocards",
+        "---nocards",
+        "!nocards",
+        "<system-reminder>--nocards</system-reminder> Add the flag.",
     ],
 )
 def test_should_change_nothing_for_a_prompt_without_the_keyword(
@@ -172,7 +173,7 @@ def test_should_change_nothing_for_a_prompt_without_the_keyword(
     assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, plain_prompt) is None
     assert not closing_question_gate_flag.is_bypass_on({"session_id": FIRST_SESSION_ID})
     assert stop_reason(monkeypatch, capsys, tmp_path, FIRST_SESSION_ID) is not None
-    assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, "!nocards") == OFF_CONTEXT
+    assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, "--nocards") == OFF_CONTEXT
     assert submit_prompt(monkeypatch, capsys, FIRST_SESSION_ID, plain_prompt) is None
     assert closing_question_gate_flag.is_bypass_on({"session_id": FIRST_SESSION_ID})
     assert stop_reason(monkeypatch, capsys, tmp_path, FIRST_SESSION_ID) is None

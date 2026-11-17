@@ -168,8 +168,10 @@ WORK_INSTRUCTION = (
 REASON_PART_SEPARATOR = "\n"
 
 SESSION_ID_KEY = "session_id"
-BYPASS_KEYWORD = "!nocards"
-BYPASS_KEYWORD_PATTERN = re.compile(rf"(?<![\w!]){re.escape(BYPASS_KEYWORD)}(?!\w)", re.IGNORECASE)
+BYPASS_KEYWORD = "--nocards"
+BYPASS_KEYWORD_PATTERN = re.compile(
+    rf"(?<![\w-]){re.escape(BYPASS_KEYWORD)}(?![\w-])", re.IGNORECASE
+)
 BYPASS_FLAG_FILE_PREFIX = "claude-closing-question-gate-off."
 BYPASS_FLAG_FILE_SUFFIX = ".flag"
 BYPASS_FLAG_CREATE_MODE = "x"

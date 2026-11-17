@@ -148,7 +148,7 @@
       "stdin": {
         "hook_event_name": "UserPromptSubmit",
         "session_id": "context-budget-measure",
-        "prompt": "!nocards"
+        "prompt": "--nocards"
       },
       "char_limit": 200
     },

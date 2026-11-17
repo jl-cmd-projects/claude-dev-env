@@ -3,10 +3,11 @@
 
 A prompt that holds the keyword flips the session's flag::
 
-    session s1, "ship it !nocards", gate on     -> flag written, context "...now OFF"
-    session s1, later "!NoCards", gate off      -> flag removed, context "...now ON"
-    session s1, "ship it"                       -> nothing
-    session s2, "!nocards"                      -> s2's flag only; s1 keeps its state
+    session s1, "ship it --nocards", gate on     -> flag written, context "...now OFF"
+    session s1, later "--NoCards", gate off      -> flag removed, context "...now ON"
+    session s1, "ship it"                        -> nothing
+    session s1, "!nocards"                       -> nothing
+    session s2, "--nocards"                      -> s2's flag only; s1 keeps its state
 
 The keyword is ``BYPASS_KEYWORD``, matched as a whole word in any case after
 the prompt's ``<system-reminder>`` blocks are removed. ``closing_question_gate_flag``
