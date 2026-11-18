@@ -24,7 +24,7 @@ Apply the bar to each pull request, including each stack level. The bar only say
 - Over 1,000 lines, put that reason under a `## Why one pull request` heading.
 - Over 2,000 lines, split. No reason covers that size.
 
-The pull request lifecycle gate refuses a create over 1,000 changed lines against its base, with generated files and lockfiles left out. Create each stacked level with `--base` set to the branch below it, so each counts only its own lines. A body with a `## Why one pull request` heading and the reason under it passes up to 2,000 lines. Over 2,000 lines the gate refuses the create whatever the body says.
+The pull request lifecycle gate refuses a create over 1,000 changed lines against its base, with generated files and lockfiles left out. Create each stacked level with `--base` set to the branch below it, so each counts only its own lines. A body with a `## Why one pull request` heading and the reason under it passes up to 2,000 lines. Over 2,000 lines the gate refuses the create whatever the body says. A create with no `--base` is counted against the branch `branch.<name>.gh-merge-base` names, when git config holds one.
 
 Sources: [Google small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html) and [SmartBear code review practices](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/).
 

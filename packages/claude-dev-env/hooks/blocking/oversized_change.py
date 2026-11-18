@@ -7,6 +7,7 @@
     branch changes 2,500 lines, with or without the section      -> OVER_REASON_CEILING_PULL_REQUEST_REASON
     stacked level, --base parent, 200 lines of its own           -> None
     compare API at its file cap, listed files over the bar       -> OVERSIZED_PULL_REQUEST_REASON
+    same capped count, body has the section                      -> PARTIAL_COUNT_PULL_REQUEST_REASON
     compare API at its file cap, listed files under the bar      -> None
     size unreadable or no base                                   -> None
 
@@ -20,6 +21,7 @@ import json
 import sys
 from collections.abc import Iterator, Mapping
 from pathlib import Path
+from typing import NamedTuple
 
 hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
@@ -44,12 +46,14 @@ from hooks_constants.oversized_change_constants import (
     MEASURED_LINE_BAR,
     CHECK_ATTR_FIELD_COUNT,
     COMPARE_LINE_COUNT_QUERY,
+    GH_MERGE_BASE_CONFIG_KEY,
     LINGUIST_GENERATED_ATTRIBUTE,
     NUMSTAT_FIELD_COUNT,
     NUMSTAT_FIELD_SEPARATOR,
     ONE_PULL_REQUEST_HEADING_PATTERN,
     OVER_REASON_CEILING_PULL_REQUEST_REASON,
     OVERSIZED_PULL_REQUEST_REASON,
+    PARTIAL_COUNT_PULL_REQUEST_REASON,
     REASON_LINE_CEILING,
     RENAME_DETECTION_LIMIT_OPTION,
 )
@@ -65,6 +69,8 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
         create, 2,500 changed lines, with or without the section      -> OVER_REASON_CEILING_PULL_REQUEST_REASON
         create, 900 changed lines                                      -> None
         named base neither origin/<base> nor the compare API can read  -> measured against main, bar only
+        no --base, gh-merge-base set for the branch                    -> measured against that branch
+        compare API at its file cap, 1,500 lines listed, a reason      -> PARTIAL_COUNT_PULL_REQUEST_REASON
         create whose size git and the compare API cannot read          -> None
         a body edit, a merge, any other tool                           -> None
 
@@ -80,49 +86,48 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
     for each_call in _create_calls(all_payload_fields):
         if each_call.body is None:
             continue
-        measured_line_count = _measured_line_count_for_create(each_call, working_directory)
-        if measured_line_count is None or measured_line_count <= MEASURED_LINE_BAR:
+        measurement = _measurement_for_create(each_call, working_directory)
+        if measurement is None or measurement.line_count <= MEASURED_LINE_BAR:
             continue
-        own_base_line_count = _own_base_line_count(each_call, working_directory, measured_line_count)
-        if own_base_line_count is not None and own_base_line_count > REASON_LINE_CEILING:
+        if measurement.is_against_own_base and measurement.line_count > REASON_LINE_CEILING:
             return OVER_REASON_CEILING_PULL_REQUEST_REASON.format(
-                measured_line_count=own_base_line_count, reason_line_ceiling=REASON_LINE_CEILING
+                measured_line_count=measurement.line_count, reason_line_ceiling=REASON_LINE_CEILING
             )
         if not any(_all_section_texts(each_call.body, ONE_PULL_REQUEST_HEADING_PATTERN)):
             return OVERSIZED_PULL_REQUEST_REASON.format(
-                measured_line_count=measured_line_count, measured_line_bar=MEASURED_LINE_BAR
+                measured_line_count=measurement.line_count, measured_line_bar=MEASURED_LINE_BAR
+            )
+        if measurement.is_against_own_base and not measurement.is_complete:
+            return PARTIAL_COUNT_PULL_REQUEST_REASON.format(
+                measured_line_count=measurement.line_count,
+                compare_file_list_limit=COMPARE_FILE_LIST_LIMIT,
+                reason_line_ceiling=REASON_LINE_CEILING,
             )
     return None
 
 
-def _own_base_line_count(
-    create_call: CreateCall, working_directory: str, measured_line_count: int
-) -> int | None:
-    repository, base_branch, head_branch = (
-        create_call.repository,
-        create_call.base,
-        create_call.head,
-    )
-    if not base_branch:
-        return measured_line_count
-    return answer_once(
-        ("changed line count against the named base", working_directory, repository, base_branch, head_branch),
-        lambda: read_named_base_first(
-            working_directory,
-            repository,
-            head_branch,
-            base_branch,
-            lambda each_base_branch: (
-                local_measured_line_count(working_directory, each_base_branch, head_branch)
-                if each_base_branch
-                else None
-            ),
-            lambda: remote_measured_line_count(repository, base_branch, head_branch),
-        ),
-    )
+class SizeMeasurement(NamedTuple):
+    """One count of a create's changed lines, with what the count can vouch for.
+
+    ::
+
+        clone read against origin/parent for --base parent  -> own base, complete
+        clone read against main after origin/parent failed  -> another base, complete
+        compare API listing fewer files than its cap        -> own base, complete
+        compare API at its file cap                         -> own base, a lower bound
+
+    The reason ceiling holds only for a count against the create's own base.
+    A lower bound can show a create is over a limit. It cannot show one is under.
+    """
+
+    line_count: int
+    is_against_own_base: bool
+    is_complete: bool
 
 
-def _measured_line_count_for_create(create_call: CreateCall, working_directory: str) -> int | None:
+def _measurement_for_create(
+    create_call: CreateCall, working_directory: str
+) -> SizeMeasurement | None:
     repository, base_branch, head_branch = (
         create_call.repository,
         create_call.base,
@@ -130,21 +135,58 @@ def _measured_line_count_for_create(create_call: CreateCall, working_directory: 
     )
     return answer_once(
         ("changed line count", working_directory, repository, base_branch, head_branch),
-        lambda: _read_measured_line_count(working_directory, repository, base_branch, head_branch),
+        lambda: _read_measurement(working_directory, repository, base_branch, head_branch),
     )
 
 
-def _read_measured_line_count(
+def _read_measurement(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
-) -> int | None:
+) -> SizeMeasurement | None:
+    own_base_branch = base_branch or _configured_merge_base(working_directory, head_branch)
     return read_named_base_first(
         working_directory,
         repository,
         head_branch,
-        base_branch,
-        lambda each_base_branch: local_measured_line_count(working_directory, each_base_branch, head_branch),
-        lambda: remote_measured_line_count(repository, base_branch, head_branch),
+        own_base_branch,
+        lambda each_base_branch: _local_measurement(
+            working_directory,
+            each_base_branch,
+            head_branch,
+            is_against_own_base=bool(each_base_branch) or not own_base_branch,
+        ),
+        lambda: remote_size_measurement(repository, own_base_branch, head_branch),
     )
+
+
+def _configured_merge_base(working_directory: str, head_branch: str | None) -> str | None:
+    if not working_directory:
+        return None
+    branch_name = head_branch
+    if not branch_name:
+        all_branch_lines = _git_lines(working_directory, "branch", "--show-current")
+        branch_name = all_branch_lines[0] if all_branch_lines else None
+    if not branch_name:
+        return None
+    all_configured_lines = _git_lines(
+        working_directory,
+        "config",
+        "--get",
+        GH_MERGE_BASE_CONFIG_KEY.format(branch_name=branch_name),
+    )
+    return all_configured_lines[0] if all_configured_lines and all_configured_lines[0] else None
+
+
+def _local_measurement(
+    working_directory: str,
+    base_branch: str | None,
+    head_branch: str | None,
+    *,
+    is_against_own_base: bool,
+) -> SizeMeasurement | None:
+    line_count = local_measured_line_count(working_directory, base_branch, head_branch)
+    if line_count is None:
+        return None
+    return SizeMeasurement(line_count, is_against_own_base, is_complete=True)
 
 
 def local_measured_line_count(
@@ -315,6 +357,28 @@ def remote_measured_line_count(
         base_branch: The base branch the create call names, or None.
         head_branch: The head branch the create call names, or None.
     """
+    measurement = remote_size_measurement(repository, base_branch, head_branch)
+    return measurement.line_count if measurement is not None else None
+
+
+def remote_size_measurement(
+    repository: str | None, base_branch: str | None, head_branch: str | None
+) -> SizeMeasurement | None:
+    """Return the compare API's count with whether it lists every file, or None when it cannot tell.
+
+    ::
+
+        compare lists 2 files, 1200 lines     -> 1200 lines, complete
+        compare lists 300 files, 1500 lines   -> 1500 lines, a lower bound
+        compare lists 300 files, 500 lines    -> None
+
+    The count is against the named base, else the repository's default branch.
+
+    Args:
+        repository: The owner/name the create call names, or None.
+        base_branch: The base branch the create call names, or None.
+        head_branch: The head branch the create call names, or None.
+    """
     all_lines = _compare_lines(repository, base_branch, head_branch, COMPARE_LINE_COUNT_QUERY)
     if not all_lines or not all_lines[0].isdigit():
         return None
@@ -328,6 +392,7 @@ def remote_measured_line_count(
             return None
         if not _is_lockfile(str(path)):
             measured_line_count += added_count + deleted_count
-    if int(all_lines[0]) >= COMPARE_FILE_LIST_LIMIT and measured_line_count <= MEASURED_LINE_BAR:
+    is_complete = int(all_lines[0]) < COMPARE_FILE_LIST_LIMIT
+    if not is_complete and measured_line_count <= MEASURED_LINE_BAR:
         return None
-    return measured_line_count
+    return SizeMeasurement(measured_line_count, is_against_own_base=True, is_complete=is_complete)

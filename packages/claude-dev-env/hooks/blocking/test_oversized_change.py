@@ -302,7 +302,7 @@ def test_should_read_worktree_attributes_when_git_cannot_read_them_from_the_head
 def test_should_measure_remotely_when_the_create_names_another_repository(
     large_branch: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(size, "remote_measured_line_count", lambda *all_arguments: None)
+    monkeypatch.setattr(size, "_compare_lines", lambda *all_arguments: None)
     payload = _create(large_branch, PLAIN_BODY, "--repo other-owner/other-repository --head feature")
     assert size.oversized_pull_request_reason(payload) is None
 
@@ -363,7 +363,51 @@ def test_should_count_the_whole_branch_when_git_diffs_relative_to_the_session_fo
 def test_should_not_measure_the_clone_for_a_create_aimed_at_another_repository(
     large_branch: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(size, "remote_measured_line_count", lambda *all_arguments: None)
+    monkeypatch.setattr(size, "_compare_lines", lambda *all_arguments: None)
 
-    assert size._read_measured_line_count(str(large_branch), "o/r", "main", "feature") is None
-    assert size._read_measured_line_count(str(large_branch), "o/r", "main", None) == 1500
+    assert size._read_measurement(str(large_branch), "o/r", "main", "feature") is None
+    assert size._read_measurement(str(large_branch), "o/r", "main", None) == size.SizeMeasurement(
+        1500, is_against_own_base=True, is_complete=True
+    )
+
+
+def test_should_measure_against_the_merge_base_gh_is_configured_to_use(tmp_path: Path) -> None:
+    clone_path = _clone_on_branch(tmp_path, "parent")
+    _commit_lines(clone_path, "library.py", 1500)
+    _git(clone_path, "push", "-q", "origin", "parent")
+    _git(clone_path, "checkout", "-q", "-b", "child")
+    _commit_lines(clone_path, "caller.py", 1500)
+    _git(clone_path, "config", "branch.child.gh-merge-base", "parent")
+    assert size.oversized_pull_request_reason(_create(clone_path, ONE_PULL_REQUEST_BODY)) is None
+
+
+def test_should_deny_a_reason_for_a_count_the_compare_api_capped(
+    large_branch: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        size, "_compare_lines", lambda *all_arguments: ["300", json.dumps(["a.py", 1500, 0])]
+    )
+    payload = _create(
+        large_branch, ONE_PULL_REQUEST_BODY, "--repo other-owner/other-repository --head feature"
+    )
+    reason = size.oversized_pull_request_reason(payload)
+    assert reason is not None
+    assert "first 300 files" in reason
+    assert "1500 lines" in reason
+
+
+def test_remote_measurement_should_mark_a_capped_file_list_as_a_lower_bound(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        size, "_compare_lines", lambda *all_arguments: ["300", json.dumps(["a.py", 1500, 0])]
+    )
+    assert size.remote_size_measurement("o/r", "main", "feature") == size.SizeMeasurement(
+        1500, is_against_own_base=True, is_complete=False
+    )
+    monkeypatch.setattr(
+        size, "_compare_lines", lambda *all_arguments: ["2", json.dumps(["a.py", 1500, 0])]
+    )
+    assert size.remote_size_measurement("o/r", "main", "feature") == size.SizeMeasurement(
+        1500, is_against_own_base=True, is_complete=True
+    )

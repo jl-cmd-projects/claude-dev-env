@@ -18,6 +18,13 @@ OVER_REASON_CEILING_PULL_REQUEST_REASON = (
     " Split it into stacked pull requests, each created with --base set to the branch below it,"
     " as " + SPLIT_GUIDE_PATH + " describes."
 )
+PARTIAL_COUNT_PULL_REQUEST_REASON = (
+    "The compare API listed only its first {compare_file_list_limit} files, which change"
+    " {measured_line_count} lines, so the full size is unknown. A 'Why one pull request' reason"
+    " covers at most {reason_line_ceiling} lines. Fetch the base branch so git can count the"
+    " whole change, then retry, or split it as " + SPLIT_GUIDE_PATH + " describes."
+)
+GH_MERGE_BASE_CONFIG_KEY = "branch.{branch_name}.gh-merge-base"
 LINGUIST_GENERATED_ATTRIBUTE ="linguist-generated"
 ALL_GENERATED_ATTRIBUTE_VALUES = frozenset({"set", "true"})
 CHECK_ATTR_FIELD_COUNT = 3
