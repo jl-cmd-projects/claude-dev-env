@@ -1,0 +1,1 @@
+After a workaround improves a symptom, check what it established about the user's original request. If the outcome is still open, take the next available step that can resolve it. Pursue a side issue only while its result could change that step or its verification.

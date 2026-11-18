@@ -1,0 +1,37 @@
+Operator: Give me a PowerShell command I can run to get a verdict on whether there's a CPU or RAM leak.
+
+Support: You could record counters for an hour while build jobs run and finish.
+
+Operator: An hour is too long. I need a fix now. I'm on the workstation. Give me the command.
+
+Support: Take a short sample of free memory, running jobs, CPU, and private and resident process memory.
+
+Operator:
+Available RAM: 1.36 GiB of 46.17 GiB | Active CI workers: 6
+Largest visible resident processes include file-index (1.43 GiB, idle), desktop clients, and the VM host. Build tasks are running.
+
+Support: If nothing needs the idle file indexer, stop that instance and recheck free memory. Leave the build jobs running. A single process sample won't tell us whether there is a leak.
+
+Operator:
+PS> Get-Process file-index | Stop-Process
+PS> Start-Sleep -Seconds 5
+Available RAM: 2.62 GiB
+
+Available RAM: 5.30 GiB of 46.17 GiB | Active CI workers: 8
+Top CPU                          CPU %     Private MiB     Working set MiB
+build-python                       5.6              10                  17
+container-host                     4.6             266                 137
+editor-worker                      2.6             615                 536
+desktop-helper                     1.7             122                  82
+
+Largest visible private allocations       Private MiB     Working set MiB
+editor-worker                                    1642                 850
+editor-worker                                    1519                1234
+vm-host                                          1227                 703
+desktop-client                                   1201                1072
+browser-worker                                   1169                 112
+build-python                                      812                  58
+build-python                                      811                  66
+
+PS> .\ops\Show-MemoryArchive.ps1
+Show-MemoryArchive: export header missing Timestamp, Tag, Bytes.

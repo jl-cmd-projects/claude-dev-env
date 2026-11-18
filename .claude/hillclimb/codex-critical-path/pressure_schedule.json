@@ -1,0 +1,114 @@
+{
+  "seed": "field-pressure-pre-nudge-2026-11-18-v1",
+  "budget_seconds": 480,
+  "rows": [
+    {
+      "id": "h7694",
+      "pair": "archive-gpt-6.1-sol-1",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "case": "archive",
+      "arm": "baseline",
+      "rep": 1
+    },
+    {
+      "id": "h7218",
+      "pair": "archive-gpt-6.1-sol-1",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "case": "archive",
+      "arm": "candidate",
+      "rep": 1
+    },
+    {
+      "id": "h3660",
+      "pair": "archive-gpt-6.2-sol-2",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "case": "archive",
+      "arm": "baseline",
+      "rep": 2
+    },
+    {
+      "id": "h1556",
+      "pair": "archive-gpt-6.2-sol-2",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "case": "archive",
+      "arm": "candidate",
+      "rep": 2
+    },
+    {
+      "id": "h6905",
+      "pair": "native-gpt-6.1-sol-1",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "case": "native",
+      "arm": "baseline",
+      "rep": 1
+    },
+    {
+      "id": "h3420",
+      "pair": "native-gpt-6.1-sol-1",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "case": "native",
+      "arm": "candidate",
+      "rep": 1
+    },
+    {
+      "id": "h8352",
+      "pair": "native-gpt-6.2-sol-1",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "case": "native",
+      "arm": "candidate",
+      "rep": 1
+    },
+    {
+      "id": "h4779",
+      "pair": "native-gpt-6.2-sol-1",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "case": "native",
+      "arm": "baseline",
+      "rep": 1
+    },
+    {
+      "id": "h9764",
+      "pair": "native-gpt-6.2-sol-2",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "case": "native",
+      "arm": "baseline",
+      "rep": 2
+    },
+    {
+      "id": "h4586",
+      "pair": "native-gpt-6.2-sol-2",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "case": "native",
+      "arm": "candidate",
+      "rep": 2
+    },
+    {
+      "id": "h1847",
+      "pair": "archive-gpt-6.2-sol-1",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "case": "archive",
+      "arm": "baseline",
+      "rep": 1
+    },
+    {
+      "id": "h6291",
+      "pair": "archive-gpt-6.2-sol-1",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "case": "archive",
+      "arm": "candidate",
+      "rep": 1
+    }
+  ]
+}
