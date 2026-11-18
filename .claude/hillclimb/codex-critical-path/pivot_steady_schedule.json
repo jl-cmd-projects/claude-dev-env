@@ -1,0 +1,39 @@
+{
+  "seed": "nov18-no-user-nudge-v1",
+  "steady_history_sha256": "1c37ce03a003253b09126ed4e56c3032bdeadd0e30e2367d4652acfa43a3b798",
+  "rows": [
+    {
+      "id": "p54800",
+      "mode": "steady",
+      "case": "bound",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "e63168",
+      "candidate": "e90506",
+      "reviewer": "n77908",
+      "incumbent_arm": "candidate"
+    },
+    {
+      "id": "p63374",
+      "mode": "steady",
+      "case": "unbound",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "e23994",
+      "candidate": "e98632",
+      "reviewer": "n69462",
+      "incumbent_arm": "candidate"
+    },
+    {
+      "id": "p71809",
+      "mode": "steady",
+      "case": "capture",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "e92337",
+      "candidate": "e69618",
+      "reviewer": "n73041",
+      "incumbent_arm": "baseline"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+# Companion trajectories without a new user message
+
+Frozen before any pivot-study launch. The six priority-change pairs have a limitation: in the field the operator's explicit change also served as a nudge. Those pairs can measure what happens after the update. They cannot establish that the worker would have recovered without it.
+
+Use three additional [unchanged-goal trajectories](pivot_steady_schedule.json), one for each fixture, all on GPT-6.2 Sol High. For the desk family the user's request is taken from the separate initial supervision exchange. Oversee both workstreams and keep them moving until the deliveries are complete. The earlier shift's timing hypothesis is visible but has no standing as a new operator priority. For the reserve, the no-reboot and next-start tracking request is already in force at entry. No person corrects either arm during work.
+
+The independent scheduler can nominate a checkpoint when the original worker has made multiple substantive inspections without changing the checkout and an observed result still reports an unresolved operation. A duplicate or pending result is an invitation to assess relevance and can also be useful on the required route. Do not classify it as an off-goal action automatically. Use the common fork and fresh reader protocol of the main comparison. A six-command operational sampling boundary may preserve a matched continuation with no review. A genuine terminal outcome earlier than the trigger stays in the baseline denominator even when no paired fork exists. The cadence of sampling is not a production retry rule.
+
+Grade these results separately from the six paired priority changes. Report a failed on-goal deliverable, further need for user intervention, actual irrelevant actions before and after the checkpoint, and the paired effect on the next consequential action and completion. The reserve fixture and its simulator never touch the operator's workstation.
