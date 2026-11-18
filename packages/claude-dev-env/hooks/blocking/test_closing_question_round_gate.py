@@ -1077,6 +1077,9 @@ def test_should_name_the_background_job_set_the_same_in_any_order() -> None:
     assert closing_question_round_gate.background_job_key({"background_tasks": "ledger"}) == (
         closing_question_round_gate.background_job_key({"background_tasks": {"ledger": {}}})
     )
+    assert closing_question_round_gate.background_job_key({"background_tasks": ["ab", "c"]}) != (
+        closing_question_round_gate.background_job_key({"background_tasks": ["a", "bc"]})
+    )
 
 
 def test_should_know_a_job_set_only_after_a_footer_went_out_with_it(
@@ -1088,3 +1091,14 @@ def test_should_know_a_job_set_only_after_a_footer_went_out_with_it(
     closing_question_round_gate.record_footer_jobs(job_fields)
     assert closing_question_round_gate.were_jobs_shown(job_fields)
     assert not closing_question_round_gate.were_jobs_shown({**job_fields, "background_tasks": [{"id": "tests"}]})
+
+
+def test_should_record_and_read_back_a_long_background_job_set(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    all_long_jobs = [{"id": f"background-job-{each_index:07d}"} for each_index in range(10)]
+    job_fields = {"session_id": SESSION_ID, "background_tasks": all_long_jobs}
+    closing_question_round_gate.record_footer_jobs(job_fields)
+    assert closing_question_round_gate.were_jobs_shown(job_fields)
+    assert not closing_question_round_gate.were_jobs_shown({**job_fields, "background_tasks": all_long_jobs[:9]})

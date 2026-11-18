@@ -98,3 +98,11 @@ def test_should_cut_only_a_status_footer_from_the_list_check_text() -> None:
     assert list_check_text(question_reply) == question_reply
     assert list_check_text("Done.") == "Done."
 
+
+def test_should_keep_a_footer_of_asks_for_the_user_in_the_list_check_text() -> None:
+    ask_reply = "Done.\n\nIn progress:\n- Approve the release.\n- Pick a price.\n- Confirm the date."
+    mixed_reply = "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price."
+    assert list_check_text(ask_reply) == ask_reply
+    assert list_check_text(mixed_reply) == mixed_reply
+    assert list_check_text("Done.\n\nIn progress:\n- I\u2019m shipping 8590.").strip() == "Done."
+

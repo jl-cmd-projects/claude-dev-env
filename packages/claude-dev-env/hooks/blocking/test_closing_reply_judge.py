@@ -81,6 +81,15 @@ def test_should_keep_a_decision_list_under_an_in_progress_heading_in_the_body() 
     assert parsed_verdict(verdict_text, decisions_reply) == JudgeVerdict("", "In progress:")
 
 
+def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
+    ask_reply = "Shipped.\n\nIn progress:\n- Approve the release.\n- Pick a price.\n- Confirm the date."
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert judge_input("Fix the build", ask_reply, False)["list_scope"] == ask_reply
+    assert parsed_verdict(verdict_text, ask_reply) == JudgeVerdict("", "In progress:")
+
+
 def test_should_send_the_command_name_and_args_for_a_slash_command() -> None:
     command_prompt = "<command-message>review</command-message>\n<command-name>/review</command-name>\n<command-args>12 --fast</command-args>"
     all_input_fields = judge_input(command_prompt, "Done.", True)

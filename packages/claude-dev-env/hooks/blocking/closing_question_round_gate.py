@@ -84,6 +84,7 @@ stdout and stderr.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -145,7 +146,9 @@ from hooks_constants.closing_question_round_gate_constants import (
     SESSION_ATTENDED_ENVIRONMENT_VARIABLE,
     STDIN_WATCHDOG_SECONDS,
     ALL_BACKGROUND_JOB_ID_KEYS,
+    FOOTER_JOBS_DIGEST_LENGTH,
     FOOTER_JOBS_KEY_TEMPLATE,
+    LAST_ASSISTANT_MESSAGE_KEY,
     FOOTER_JOBS_MARKER_NAME,
     STOP_DEADLINE_SECONDS,
     SUBAGENT_ID_KEY,
@@ -337,16 +340,20 @@ def _job_identities(all_background_tasks: object) -> list[str]:
 
 
 def background_job_key(all_hook_input_fields: dict[str, object]) -> str:
-    """Return a key that names the set of background jobs the payload lists, the same in any order.
+    """Return a short key that names the set of background jobs the payload lists, the same in any order.
 
     ::
 
-        [{"id": "b"}, {"id": "a", "status": "running"}]   -> 'footer-jobs:["a", "b"]'
-        {"ledger": {...}}                                 -> 'footer-jobs:["ledger"]'
-        "ledger"                                          -> 'footer-jobs:["ledger"]'
+        [{"id": "b"}, {"id": "a", "status": "running"}]   -> "footer-jobs-<digest of ["a", "b"]>"
+        ["ab", "c"] and ["a", "bc"]                        -> two different keys
+        "ledger" and {"ledger": {...}}                     -> the same key
+
+    The key holds the first 32 hex digits of the SHA-256 of the sorted ids as
+    JSON, so it stays one short file name however many jobs run.
     """
     all_identities = _job_identities(all_hook_input_fields.get(BACKGROUND_TASKS_KEY))
-    return FOOTER_JOBS_KEY_TEMPLATE.format(identities=json.dumps(sorted(all_identities)))
+    digest = hashlib.sha256(json.dumps(sorted(all_identities)).encode()).hexdigest()
+    return FOOTER_JOBS_KEY_TEMPLATE.format(digest=digest[:FOOTER_JOBS_DIGEST_LENGTH])
 
 
 def record_footer_jobs(all_hook_input_fields: dict[str, object]) -> None:
@@ -542,6 +549,13 @@ def _scanned_text(reply_text: str) -> str:
     return SCANNED_PARAGRAPH_SEPARATOR.join([split_reply.body, *all_scanned_items])
 
 
+def _is_new_footer_reply(all_hook_input_fields: dict[str, object], closing_reply: str) -> bool:
+    payload_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
+    if not isinstance(payload_reply, str) or payload_reply.strip() != closing_reply.strip():
+        return False
+    return split_footer(closing_reply).footer_items is not None
+
+
 def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -> str | None:
     covered_session = _covered_session(all_hook_input_fields, deadline_at)
     if covered_session is None:
@@ -551,7 +565,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         return None
     all_closing_texts = _closing_reply_texts(all_stretch_records, all_payload_texts)
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
-    if has_background_work(all_hook_input_fields) and split_footer(closing_reply).footer_items is not None:
+    if has_background_work(all_hook_input_fields) and _is_new_footer_reply(all_hook_input_fields, closing_reply):
         record_footer_jobs(all_hook_input_fields)
     all_texts = [
         _scanned_text(each_text)

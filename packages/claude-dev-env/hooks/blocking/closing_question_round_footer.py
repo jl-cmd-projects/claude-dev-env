@@ -43,6 +43,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_KEY_WORDS_INSTRUCTION,
     FOOTER_STATUS_MARKER_PATTERN,
     FOOTER_STATUS_STAND_IN,
+    FIRST_PERSON_ITEM_PATTERN,
     FOOTER_TASK_LINE_TEMPLATE,
     FOOTER_TASKS_LABEL,
     FOOTER_WORD_PATTERN,
@@ -110,13 +111,16 @@ def list_check_text(closing_reply: str) -> str:
 
         "Done.\n\nIn progress:\n- I am shipping 8590."           -> "Done.\n"
         "Done.\n\nIn progress:\n- Should I merge 8590?"          -> the whole reply
+        "Done.\n\nIn progress:\n- Approve the release."          -> the whole reply
         "Done."                                                  -> "Done."
 
     A footer that only says where work stands is required status, so the
-    check reads the body above it. A footer whose items hold an open-item
-    line, such as a question or an ask of the user, stays in, as it does for
-    the closing round scan, which reads "pending", "blocked", "not done", and
-    "not run" in a footer as status.
+    check reads the body above it. The rule writes each footer item in first
+    person, so a footer counts as status only when every item starts with
+    "I" and none holds an open-item line, such as a question or an ask of
+    the user. The scan reads "pending", "blocked", "not done", and "not run"
+    in a footer as status, as the closing round scan does. Any other footer
+    stays in.
 
     Args:
         closing_reply: The reply the turn ends with.
@@ -130,7 +134,8 @@ def list_check_text(closing_reply: str) -> str:
     all_status_items = [
         FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, each_item) for each_item in split_reply.footer_items
     ]
-    if marked_open_lines(all_status_items, math.inf):
+    is_first_person = all(FIRST_PERSON_ITEM_PATTERN.match(each_item) for each_item in split_reply.footer_items)
+    if not is_first_person or marked_open_lines(all_status_items, math.inf):
         return closing_reply
     return split_reply.body
 
