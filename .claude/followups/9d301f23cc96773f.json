@@ -1,0 +1,8 @@
+{
+  "rule_id": "package-inventory",
+  "file_path": ".claude/hillclimb/environment-blocker/replay.py",
+  "message": "production file is absent from package inventory",
+  "check_id": "package-inventory",
+  "severity": "smell",
+  "origin_commit": "2b1045b5a472fa1c93dd3390cfed480435ed0e4a"
+}

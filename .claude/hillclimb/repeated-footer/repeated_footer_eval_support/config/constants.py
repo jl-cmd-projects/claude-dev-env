@@ -23,6 +23,7 @@ FOOTER_HEADING_PATTERN = re.compile(
 TOP_LINE_COUNT = 5
 
 RECORD_TYPE_KEY = "type"
+IS_SIDECHAIN_KEY = "isSidechain"
 MESSAGE_KEY = "message"
 CONTENT_KEY = "content"
 ROLE_KEY = "role"

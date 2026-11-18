@@ -41,6 +41,7 @@ def test_should_read_each_assistant_text_block_of_a_transcript(tmp_path: Path) -
         {"type": "user", "message": {"role": "user", "content": "Ship it."}},
         {"type": "assistant", "message": {"content": [{"type": "tool_use", "name": "Bash", "input": {}}]}},
         {"type": "assistant", "message": {"content": [{"type": "text", "text": FOOTER}]}},
+        {"type": "assistant", "isSidechain": True, "message": {"content": [{"type": "text", "text": "A subagent note."}]}},
     ]
     transcript_path = tmp_path / "session.jsonl"
     transcript_path.write_text("\n".join([*map(json.dumps, all_records), "not json"]), encoding="utf-8")

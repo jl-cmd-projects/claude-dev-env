@@ -18,8 +18,9 @@ A verdict counts only when it is the four-key object, bare or in one ``json``
 code fence, and each raised flag names a nonempty span found in the reply.
 The list lead counts only in ``list_scope``, the reply with its In progress
 footer cut off by ``closing_question_round_footer``: a lead in the footer,
-or one that is only the footer heading, drops the list flag and keeps the
-promise.
+or an ``In progress:`` lead that the body holds only inside a sentence, drops
+the list flag and keeps the promise. An ``In progress:`` line in the body
+over a list of decisions keeps it.
 Two code gates then drop the list flag: the turn used the question tool, or
 the prompt asked for a list.
 
@@ -256,6 +257,12 @@ def _raised_span(
     return span if span and span in reply_text else None
 
 
+def _is_heading_inside_prose(list_span: str, reply_body: str) -> bool:
+    if not FOOTER_HEADING_PATTERN.fullmatch(list_span.strip()):
+        return False
+    return not any(FOOTER_HEADING_PATTERN.fullmatch(each_line.strip()) for each_line in reply_body.splitlines())
+
+
 def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
     """Return the verdict in the judge's result text, or None when it is not the verdict shape.
 
@@ -264,7 +271,8 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
         '{"promised_report": true, "promise_span": "I will report back", ...}'  -> JudgeVerdict("I will report back", "")
         the same object inside one json code fence                              -> the same verdict
         a raised flag whose span is empty or not in its scope                    -> None
-        a list span only in the In progress footer, or only its heading           -> JudgeVerdict(<promise>, "")
+        a list span only in the In progress footer                               -> JudgeVerdict(<promise>, "")
+        "In progress:" as the span, where the body holds it only inside prose    -> JudgeVerdict(<promise>, "")
         prose, an extra key, or a string in place of a bool                      -> None
 
     Args:
@@ -286,7 +294,8 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
     list_span = _raised_span(all_verdict_fields, DECISIONS_AS_LIST_KEY, LIST_SPAN_KEY, reply_text)
     if promise_span is None or list_span is None:
         return None
-    if list_span not in split_footer(reply_text).body or FOOTER_HEADING_PATTERN.fullmatch(list_span.strip()):
+    reply_body = split_footer(reply_text).body
+    if list_span not in reply_body or _is_heading_inside_prose(list_span, reply_body):
         return JudgeVerdict(promise_span, "")
     return JudgeVerdict(promise_span, list_span)
 

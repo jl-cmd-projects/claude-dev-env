@@ -66,8 +66,19 @@ def test_should_drop_a_list_span_from_the_footer_and_keep_the_promise() -> None:
         }
     )
     assert parsed_verdict(verdict_text, footer_reply) == JudgeVerdict("I will send a summary later.", "")
-    body_heading_reply = f"See the status below.\nIn progress:\n\n{footer_reply}"
-    assert parsed_verdict(verdict_text, body_heading_reply) == JudgeVerdict("I will send a summary later.", "")
+    prose_heading_reply = f"See In progress: below.\n\n{footer_reply}"
+    assert parsed_verdict(verdict_text, prose_heading_reply) == JudgeVerdict("I will send a summary later.", "")
+
+
+def test_should_keep_a_decision_list_under_an_in_progress_heading_in_the_body() -> None:
+    decisions_reply = (
+        "In progress:\n- Should I delete the backup?\n- Should I merge 8590?\n- Should I close 8693?\n\n"
+        "Pick one when you are back."
+    )
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert parsed_verdict(verdict_text, decisions_reply) == JudgeVerdict("", "In progress:")
 
 
 def test_should_send_the_command_name_and_args_for_a_slash_command() -> None:

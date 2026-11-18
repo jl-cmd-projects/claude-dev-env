@@ -573,3 +573,43 @@ def test_should_hold_later_work_when_a_background_job_started_after_the_footer(
     assert str(
         held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]})
     ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
+def notice_record(summary: str) -> dict[str, object]:
+    notice_text = f"<task-notification><summary>{summary}</summary></task-notification>"
+    return {
+        "type": "user",
+        "turnOrigin": "task-notification",
+        "message": {"role": "user", "content": notice_text},
+    }
+
+
+@pytest.mark.parametrize(
+    "change_record",
+    [
+        notice_record("Ledger job ended"),
+        tool_call_record("Bash", {"command": "pytest", "run_in_background": True}, tool_use_id="id-bg"),
+    ],
+)
+def test_should_hold_later_work_when_one_background_job_replaced_another_after_the_footer(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    change_record: dict[str, object],
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    two_line_footer = f"{FOOTER}\n- I am watching the discount ledger so you see its next update."
+    background_fields = {"background_tasks": [{"id": "ledger"}]}
+    footer_reply = reply_record(f"The retry flag is in place.\n\n{two_line_footer}")
+    all_records = [
+        typed_prompt_record(),
+        *edit_records(),
+        footer_reply,
+        *edit_records(),
+        reply_record("The flag reads well."),
+    ]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, background_fields) is None
+    all_records.insert(all_records.index(footer_reply) + 1, change_record)
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, background_fields)
+    ).startswith(FOOTER_MISSING_REASON_LEAD)

@@ -35,6 +35,7 @@ from repeated_footer_eval_support.config.constants import (
     ASSISTANT_RECORD_TYPE,
     CONTENT_KEY,
     FOOTER_HEADING_PATTERN,
+    IS_SIDECHAIN_KEY,
     LINE_BREAK,
     LINE_REPORT_TEMPLATE,
     LIST_MARKER_PATTERN,
@@ -157,7 +158,8 @@ def repeat_report(all_replies: list[str]) -> RepeatReport:
 def transcript_replies(transcript_path: Path) -> list[str]:
     """Return the text of each assistant text block in a session transcript, in order.
 
-    Lines that are not JSON objects are skipped.
+    Lines that are not JSON objects are skipped, and so are records flagged
+    ``isSidechain``, which a subagent wrote and the user never saw.
 
     Args:
         transcript_path: A session transcript, one JSON record per line.
@@ -174,6 +176,7 @@ def transcript_replies(transcript_path: Path) -> list[str]:
         if (
             not isinstance(each_record, dict)
             or each_record.get(RECORD_TYPE_KEY) != ASSISTANT_RECORD_TYPE
+            or each_record.get(IS_SIDECHAIN_KEY)
         ):
             continue
         message_body = each_record.get(MESSAGE_KEY)

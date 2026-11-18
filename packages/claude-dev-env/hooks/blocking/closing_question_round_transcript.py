@@ -42,6 +42,7 @@ if blocking_directory not in sys.path:
 from hooks_constants.closing_question_round_gate_constants import (
     ALL_QUESTION_TOOL_NAME_SCAN_TEXTS,
     ALL_REASON_LEADS,
+    NOTIFICATION_TURN_ORIGIN,
     ASSISTANT_SCAN_TEXT,
     ATTENDED_SESSION_TEXT,
     HUMAN_TURN_ORIGIN,
@@ -222,21 +223,24 @@ def stretch_start(all_lines: list[str], deadline_at: float) -> int:
 
 
 def _may_matter(transcript_line: str) -> bool:
-    return ASSISTANT_SCAN_TEXT in transcript_line or any(
-        each_lead in transcript_line for each_lead in ALL_REASON_LEADS
+    return (
+        ASSISTANT_SCAN_TEXT in transcript_line
+        or NOTIFICATION_TURN_ORIGIN in transcript_line
+        or any(each_lead in transcript_line for each_lead in ALL_REASON_LEADS)
     )
 
 
 def top_level_records(all_lines: list[str], deadline_at: float) -> list[dict[str, object]]:
-    """Return the assistant records and this gate's hold records among the lines, in order.
+    """Return the assistant records, task notices, and this gate's hold records among the lines, in order.
 
     ::
 
         reply, tool result, Bash call, hold feedback  -> reply, Bash call, hold feedback
+        a task notice                                 -> kept
         a record flagged isSidechain                  -> left out
 
-    A line is parsed only when it holds ``"assistant"`` or the first sentence
-    of one of this gate's reasons. The records are not checked further here.
+    A line is parsed only when it holds ``"assistant"``, ``task-notification``,
+    or the first sentence of one of this gate's reasons. The records are not checked further here.
 
     Args:
         all_lines: The lines to read, one JSON record per line.

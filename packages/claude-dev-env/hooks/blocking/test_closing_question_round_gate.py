@@ -1064,3 +1064,17 @@ def test_should_hold_a_declaration_beside_an_in_progress_task_in_the_store(
     reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records))
     assert reason.startswith(IN_PROGRESS_TASKS_REASON_LEAD)
     assert "- Ship the export [ship export]" in reason
+
+
+def test_should_name_a_background_start_or_notice_as_a_background_change() -> None:
+    notice = {
+        "type": "user",
+        "turnOrigin": "task-notification",
+        "message": {"role": "user", "content": "<task-notification><summary>Done</summary></task-notification>"},
+    }
+    background_shell = tool_call_record("Bash", {"command": "pytest", "run_in_background": True})
+    assert closing_question_round_gate.is_background_change(notice)
+    assert closing_question_round_gate.is_background_change(background_shell)
+    assert closing_question_round_gate.is_background_change(tool_call_record("Agent", {"prompt": "Look."}))
+    assert not closing_question_round_gate.is_background_change(tool_call_record("Edit", {"file_path": "a.py"}))
+    assert not closing_question_round_gate.is_background_change(typed_prompt_record())
