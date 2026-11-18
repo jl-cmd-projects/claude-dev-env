@@ -1112,6 +1112,22 @@ def test_should_know_only_the_newest_footer_snapshot(monkeypatch: pytest.MonkeyP
     assert not closing_question_round_gate.were_jobs_shown(ledger_fields, None, NO_TASKS)
 
 
+def test_should_leave_a_symlink_target_untouched_when_it_keeps_the_snapshot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    footer = ("I am watching the ledger.",)
+    job_fields = {"session_id": SESSION_ID, "background_tasks": [{"id": "ledger"}]}
+    target_path = tmp_path / "users-own-file.txt"
+    target_path.write_text("keep me")
+    snapshot_path = closing_question_round_gate._snapshot_path(job_fields)
+    assert snapshot_path is not None
+    snapshot_path.symlink_to(target_path)
+    closing_question_round_gate.record_footer_jobs(job_fields, footer, NO_TASKS)
+    assert target_path.read_text() == "keep me"
+    assert not closing_question_round_gate.were_jobs_shown(job_fields, footer, NO_TASKS)
+
+
 def test_should_record_and_read_back_a_long_background_job_set(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:

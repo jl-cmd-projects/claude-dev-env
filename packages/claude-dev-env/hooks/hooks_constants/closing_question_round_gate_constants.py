@@ -10,6 +10,7 @@ and flag file that turn the gate off for one session.
 
 from __future__ import annotations
 
+import os
 import re
 
 from hooks_constants.open_tasks_stop_gate_constants import (
@@ -25,6 +26,10 @@ TURN_ORIGIN_KEY = "turnOrigin"
 FOOTER_JOBS_MARKER_NAME = "closing-question-round-footer-jobs"
 FOOTER_JOBS_KEY_TEMPLATE = "footer-jobs-{digest}"
 FOOTER_JOBS_FILE_TEMPLATE = "claude-{marker}-{session}.txt"
+FOOTER_JOBS_FILE_MODE = 0o600
+NO_FOLLOW_FLAG = getattr(os, "O_NOFOLLOW", 0)
+FOOTER_JOBS_READ_LIMIT = 256
+FOOTER_JOBS_TEXT_ENCODING = "ascii"
 FOOTER_JOBS_DIGEST_LENGTH = 32
 FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’]m\b)")
 ASK_OF_USER_PATTERN = re.compile(

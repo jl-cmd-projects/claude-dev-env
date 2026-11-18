@@ -148,7 +148,11 @@ from hooks_constants.closing_question_round_gate_constants import (
     STDIN_WATCHDOG_SECONDS,
     ALL_BACKGROUND_JOB_ID_KEYS,
     FOOTER_JOBS_DIGEST_LENGTH,
+    FOOTER_JOBS_FILE_MODE,
     FOOTER_JOBS_FILE_TEMPLATE,
+    FOOTER_JOBS_READ_LIMIT,
+    FOOTER_JOBS_TEXT_ENCODING,
+    NO_FOLLOW_FLAG,
     FOOTER_JOBS_KEY_TEMPLATE,
     LAST_ASSISTANT_MESSAGE_KEY,
     FOOTER_JOBS_MARKER_NAME,
@@ -391,14 +395,22 @@ def record_footer_jobs(
 
         footer F with job a, then F with jobs a and b   -> the snapshot is F with a and b
         payload with no session id                      -> nothing kept
+        the snapshot name is a symlink                  -> nothing kept, the link target untouched
+
+    The file opens with no symlink following and mode 0600, since it sits in
+    the shared temp folder.
     """
     snapshot_path = _snapshot_path(all_hook_input_fields)
     if snapshot_path is None:
         return
+    snapshot_key = background_job_key(all_hook_input_fields, all_footer_lines, all_tasks)
+    write_flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | NO_FOLLOW_FLAG
     try:
-        snapshot_path.write_text(background_job_key(all_hook_input_fields, all_footer_lines, all_tasks))
+        file_descriptor = os.open(snapshot_path, write_flags, FOOTER_JOBS_FILE_MODE)
     except OSError:
         return
+    with os.fdopen(file_descriptor, "w", encoding=FOOTER_JOBS_TEXT_ENCODING) as snapshot_file:
+        snapshot_file.write(snapshot_key)
 
 
 def were_jobs_shown(
@@ -426,9 +438,11 @@ def were_jobs_shown(
     if all_footer_lines is None or snapshot_path is None:
         return False
     try:
-        kept_key = snapshot_path.read_text()
+        file_descriptor = os.open(snapshot_path, os.O_RDONLY | NO_FOLLOW_FLAG)
     except OSError:
         return False
+    with os.fdopen(file_descriptor, "rb") as snapshot_file:
+        kept_key = snapshot_file.read(FOOTER_JOBS_READ_LIMIT).decode(FOOTER_JOBS_TEXT_ENCODING, errors="replace")
     return kept_key == background_job_key(all_hook_input_fields, all_footer_lines, all_tasks)
 
 
