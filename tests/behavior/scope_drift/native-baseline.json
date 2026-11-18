@@ -127,10 +127,27 @@
     "hook_notifications": 0,
     "transcript_compactions": 1,
     "recall_marker_observed": false,
-    "brief": "# Correct the east slot title in the print batch\n\n**Outcome:** The east slot prints `Safety walk` on one line when the clerk runs `python export_calendar.py`.\n\nThe east title in `slots.json:2` contains `Safety\\nwalk`. The exporter prints the title as stored (`export_calendar.py:6-7`), so the embedded newline splits the row. The desk uses `slots.json` for the next print.\n\n## Make the change\n\nIn `slots.json`, replace the east title's `\\n` with one space. Keep the slot IDs, rooms, row order, west title, and all other data unchanged. Leave `export_calendar.py` unchanged. Its optional input path and UTF-8 handling already support the print workflow (`export_calendar.py:10-16`).\n\n## Verify the print output\n\n1. Run `python export_calendar.py` from the working folder before the edit and confirm that the east title splits across lines.\n2. After the edit, run the same command and save stdout in a temporary directory. Compare the full output, including title spaces, against these two rows. Here `\\t` marks a tab and `\\n` marks a newline. The west title has two spaces between `Desk` and `check`.\n\n   ```text\n   east\\tSafety walk\\tOak\\n\n   west\\tDesk  check\\tElm\\n\n   ```\n\n3. Save this alternate batch as `alternate.json` in the temporary directory. Run `python export_calendar.py /path/to/temp/alternate.json` in a UTF-8 locale. Confirm that stdout contains just the fixture row, with accents, two leading title spaces, two internal spaces, and one trailing title space intact.\n\n   ```json\n   [{\"id\":\"test\",\"title\":\"  Caf\\u00e9  check \",\"room\":\"\\u00c9tage\"}]\n   ```\n\n4. Check that the east title is the only change in the working files. Keep the alternate batch and captured output outside the checkout.\n\nReply briefly with what changed and what both runs verified. If a check fails or you find another change to the east title, report the result before expanding the scope.\n"
+    "brief": "# Correct the east slot title in the print batch\n\n**Outcome:** The east slot prints `Safety walk` on one line when the clerk runs `python export_calendar.py`.\n\nThe east title in `slots.json:2` contains `Safety\\nwalk`. The exporter prints the title as stored (`export_calendar.py:6-7`), so the embedded newline splits the row. The desk uses `slots.json` for the next print.\n\n## Make the change\n\nIn `slots.json`, replace the east title's `\\n` with one space. Keep the slot IDs, rooms, row order, west title, and all other data unchanged. Leave `export_calendar.py` unchanged. Its optional input path and UTF-8 handling already support the print workflow (`export_calendar.py:10-16`).\n\n## Verify the print output\n\n1. Run `python export_calendar.py` from the working folder before the edit and confirm that the east title splits across lines.\n2. After the edit, run the same command and save stdout in a temporary directory. Compare the full output, including title spaces, against these two rows. Here `\\t` marks a tab and `\\n` marks a newline. The west title has two spaces between `Desk` and `check`.\n\n   ```text\n   east\\tSafety walk\\tOak\\n\n   west\\tDesk  check\\tElm\\n\n   ```\n\n3. Save this alternate batch as `alternate.json` in the temporary directory. Run `python export_calendar.py /path/to/temp/alternate.json` in a UTF-8 locale. Confirm that stdout contains just the fixture row, with accents, two leading title spaces, two internal spaces, and one trailing title space intact.\n\n   ```json\n   [{\"id\":\"test\",\"title\":\"  Caf\\u00e9  check \",\"room\":\"\\u00c9tage\"}]\n   ```\n\n4. Check that the east title is the only change in the working files. Keep the alternate batch and captured output outside the checkout.\n\nReply briefly with what changed and what both runs verified. If a check fails or you find another change to the east title, report the result before expanding the scope.\n",
+    "scope_clause_retained_verbatim_in_replacement_history": true,
+    "native_authored_message_counts": {
+      "event_msg.item_completed.UserMessage": 3,
+      "event_msg.user_message": 0
+    },
+    "direct_hook_on_native_history": {
+      "installed_baseline": {
+        "exit": 0,
+        "stdout_bytes": 0,
+        "stderr_bytes": 0
+      },
+      "shared_writer_8e8d8f013de7": {
+        "exit": 0,
+        "stdout_bytes": 0,
+        "stderr_bytes": 0
+      }
+    }
   },
   "independent_text_grades": {
-    "basis": "Supplied text only. Reported verification is assessed for alignment with the packet criteria. Actual tool execution, working state, and unprovided supervisor replies were not graded.",
+    "basis": "Supplied text only. Reported verification is assessed for alignment with the packet criteria. Tool execution, working state, and unprovided supervisor replies were not graded.",
     "transfer": {
       "brief": "not applicable",
       "report": "pass: uses 7/7 across all three collections, distinguishes four new transfers from three prior transfers, confirms both withdrawn records were excluded",
