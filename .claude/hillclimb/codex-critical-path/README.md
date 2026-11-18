@@ -1,5 +1,7 @@
 # Does Codex return to the user's task?
 
+The [Python Automation backlog replay](backlog_results.md) follows a field incident where the operator had to challenge a single-PR explanation. All 12 workers diagnosed the broader backlog and delivered the permitted sandbox merges. Live GitHub receipts also establish a resolver permission failure and a wait of nearly two hours before queue entry.
+
 The [pending-command trial](pending_results.md) tested two models on 18 fresh continuations. A fresh reader stopped both unnecessary retry probes and preserved both required ones. Review took longer in every matched group. A short instruction reduced repeated checks, while the two independent graders disagreed on whether it prevented a user nudge.
 
 The [planning decision trial](design_slice_results.md) recorded redundant probes and one incorrect acceptance plan across 11 Codex outcomes. Both eligible reviewers passed without sending advice, so the paired outcome difference does not establish a reviewer effect.

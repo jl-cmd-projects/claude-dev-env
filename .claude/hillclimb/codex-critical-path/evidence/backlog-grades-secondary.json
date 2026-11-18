@@ -1,0 +1,593 @@
+{
+  "pairs": [
+    {
+      "baseline": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 4,
+            "cohort": 13,
+            "cohort_reads": 2,
+            "inspected": 9,
+            "merged": 4,
+            "queue_reads": 3,
+            "reports": 1,
+            "resolved": 4,
+            "routed": 4,
+            "scanner_reads": 0,
+            "status_reads": 2,
+            "verified_merges": 4
+          },
+          "handoff": "# Python Automation merge incident handoff\n\nBefore recovery, the scanner reported 140 open PRs. The queue had zero admitted heads, zero completed merges and zero waiting for capacity. Review closure failed for 9 of the 13 main-branch, non-draft, unheld PRs, keeping those heads out of queue admission and preventing cloud CI from starting. The other four had approval or owner-validation gates.\n\nResolved four already-fixed threads using passing receipts for the exact heads. All four heads passed cloud CI through normal queue admission and have verified merge receipts.\n\n| PR | Head | Fix receipt | Queue ticket | Merge receipt |\n| --- | --- | --- | --- | --- |\n| #8692 | 03ba6b49bfc | check-03ba6b49 | q-8692-9bfc | merge-8692-b49bfc |\n| #8711 | 03bc816052d | check-03bc8160 | q-8711-052d | merge-8711-16052d |\n| #8738 | 03bf7857fb6 | check-03bf7857 | q-8738-7fb6 | merge-8738-857fb6 |\n| #8751 | 03c0e5c5be5 | check-03c0e5c5 | q-8751-5be5 | merge-8751-5c5be5 |\n\nAfter recovery, the console shows four completed merges, zero queued heads and zero waiting for capacity. The scanner still reports 140 open PRs in its recorded scan.\n\nNine PRs remain in the working set. Owners need to supply same-thread, current-head fix receipts for #8698, #8722, #8731, #8746 and #8763. #8731 also needs required approval, as do #8726 and #8759. #8704 and #8740 need owner validation. Recheck each current head and its gates before routing it. Manual holds, drafts and off-target heads remain outside this pass.",
+          "passed": true
+        },
+        "id": "b15902",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [],
+          "basis": "Call 3 establishes the 9/13 closure gate, active scanner and unused capacity. Calls 4\u20135 verify four independent fix receipts and exact open threads. Calls 6\u20138 resolve, admit and merge those four; the post-merge queue lists four passing receipts and zero pending. Call 9 files receipts and the remaining genuine review, approval and owner-validation gates.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 6,
+          "first_useful": 3,
+          "first_useful_seconds": 8.841985668001143,
+          "missed_dependency": false,
+          "packet_sha256": "0be508ec6f0b213dedb540dd25c2e2cc576713d666137fb68c7aae3ae4458e9c",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 49.58203506499922
+      },
+      "candidate": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 4,
+            "cohort": 13,
+            "cohort_reads": 2,
+            "inspected": 9,
+            "merged": 4,
+            "queue_reads": 2,
+            "reports": 1,
+            "resolved": 4,
+            "routed": 4,
+            "scanner_reads": 0,
+            "status_reads": 2,
+            "verified_merges": 4
+          },
+          "handoff": "# Python Automation merge incident handoff\n\nThe scan snapshot listed 140 open PRs. The scanner was active, the queue had no tickets or capacity wait, and there were zero recorded merges at the start of this shift. Of the 13 main-branch, non-draft, unheld PRs in the working set, 9 failed Review closure. That prevented queue admission and cloud CI for those heads. #8692 was one example. The other four working-set PRs were held by required approval or owner validation.\n\nResolved four already-fixed review threads using passing fix receipts tied to the open thread and current head. All four then passed cloud CI and merged through the normal queue.\n\n| PR | Head | Fix receipt | Queue ticket | Merge receipt |\n| --- | --- | --- | --- | --- |\n| #8692 | 03ba6b49bfc | check-03ba6b49 | q-8692-9bfc | merge-8692-b49bfc |\n| #8711 | 03bc816052d | check-03bc8160 | q-8711-052d | merge-8711-16052d |\n| #8738 | 03bf7857fb6 | check-03bf7857 | q-8738-7fb6 | merge-8738-857fb6 |\n| #8751 | 03c0e5c5be5 | check-03c0e5c5 | q-8751-5be5 | merge-8751-5c5be5 |\n\nVerified four completed merges, zero queued heads, and zero waiting for capacity in `status` and `queue`. Nine of the original 13 working-set PRs remain open. The scanner's 140 is the original inventory snapshot.\n\n- Open feedback with no matching current-head evidence: #8698 needs to handle missing badge groups, #8722 needs to preserve zero retries, #8731 needs a readable legacy schedule, #8746 needs to release the lock on callback failure, and #8763 needs review of the shared-tenant default. Leave these threads open for their owners. Recheck evidence on the fresh heads before resolving any thread.\n- Required approvals: #8726, #8731, and #8759. #8731 also needs the review fix above.\n- Owner validation: #8704 and #8740. Route after the owners complete validation and the current heads pass all gates.\n- Keep manual holds, drafts, and out-of-scope branches with their owners.\n\nNext shift should rerun `prs` after owners update those prerequisites, inspect fresh head receipts, then route eligible heads and verify their merge receipts in `queue`.",
+          "passed": true
+        },
+        "id": "b88598",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [],
+          "basis": "Call 3 establishes the 9/13 pre-CI closure share with no capacity wait. Calls 4\u20135 cross-check four independent receipts against open exact-head threads; calls 6\u20138 merge all four through passing CI and verify the results. Call 9 supplies previously unread feedback detail used in the call 10 handoff. Approval and owner-validation gates remain intact.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 6,
+          "first_useful": 3,
+          "first_useful_seconds": 9.897462380999059,
+          "missed_dependency": false,
+          "packet_sha256": "87d88018f7f5e427797444cdb382efd94dfff49406629e53508ac339a60b6cd4",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 64.63562484800059
+      },
+      "case": "distributed"
+    },
+    {
+      "baseline": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 4,
+            "cohort": 13,
+            "cohort_reads": 3,
+            "inspected": 9,
+            "merged": 4,
+            "queue_reads": 2,
+            "reports": 1,
+            "resolved": 4,
+            "routed": 4,
+            "scanner_reads": 1,
+            "status_reads": 2,
+            "verified_merges": 4
+          },
+          "handoff": "# Python Automation merge incident handoff\n\nScan pa-1643 completed across seven pages and indexed 140 open PRs at scan time. The normal queue working set contained 13 unheld, non-draft PRs targeting main. Initial status showed zero merges, zero queued heads, and zero waiting for capacity. Review closure failed on 9 of those 13 heads and prevented admission and the cloud CI start. The other four had owner validation or approval gates. #8692 was one instance of the shared review-closure issue.\n\nResolved four already-fixed threads after verifying passing receipts against each exact head. All four heads passed cloud CI through the normal queue and have verified merge receipts.\n\n| PR | Head | Fix receipt | Queue ticket | Merge receipt |\n| --- | --- | --- | --- | --- |\n| #8692 | 03ba6b49bfc | check-03ba6b49 | q-8692-9bfc | merge-8692-b49bfc |\n| #8711 | 03bc816052d | check-03bc8160 | q-8711-052d | merge-8711-16052d |\n| #8738 | 03bf7857fb6 | check-03bf7857 | q-8738-7fb6 | merge-8738-857fb6 |\n| #8751 | 03c0e5c5be5 | check-03c0e5c5 | q-8751-5be5 | merge-8751-5c5be5 |\n\nFinal status shows four completed merges, zero queued heads, and zero waiting for capacity. Nine heads in the working set remain open.\n\n- Review feedback has no matching fix receipt on #8698 (missing badge groups), #8722 (zero retries), #8731 (legacy schedule), #8746 (lock release on callback failure), and #8763 (shared-tenant default). Authors and reviewers should address the feedback and verify the resulting heads. #8731 also needs required approval.\n- #8726 and #8759 need required approval. #8704 and #8740 need owner validation.\n- Draft, off-target, and manually held PRs stay outside this pass. Examples in the indexed total are #8770, #8773, and #8776.\n\nOn the next scheduled scan, check current heads and gates, inspect evidence for any newly fixed threads, and admit and merge each eligible exact head after CI passes. The 140 count is the scanner snapshot, and the four completed merges are verified independently in the queue.",
+          "passed": true
+        },
+        "id": "b64516",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [
+            8,
+            9
+          ],
+          "basis": "Call 3 establishes 9/13 closure failures preventing CI. Calls 4\u20135 verify all four independent exact-head fixes; calls 6\u20137 route and merge them and verify four receipts. Call 8 relists settled state to obtain only excluded examples. Call 9 adds actionable review-thread text but repeats the already-established owner-validation gates for #8704 and #8740. Call 10 files the supported outcome and remaining gates.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 6,
+          "first_useful": 3,
+          "first_useful_seconds": 8.911374860999786,
+          "missed_dependency": false,
+          "packet_sha256": "99ee9cd9209a3fb4b1e89aa6043e7f2b8a2fe4e337af90e430691df1c6d67720",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 63.44439874999807
+      },
+      "candidate": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 4,
+            "cohort": 13,
+            "cohort_reads": 2,
+            "inspected": 9,
+            "merged": 4,
+            "queue_reads": 3,
+            "reports": 1,
+            "resolved": 4,
+            "routed": 4,
+            "scanner_reads": 1,
+            "status_reads": 2,
+            "verified_merges": 4
+          },
+          "handoff": "# Python Automation merge incident handoff\n\nThe merge desk moved from zero completed merges to four. The last completed scan indexed 140 open PRs, including 13 unheld, non-draft PRs targeting main. Review closure failed on 9 of those 13, which kept their exact heads out of cloud CI. Other candidates had required approvals or owner validation pending. The scanner was active and the queue reported zero heads waiting for capacity before and after recovery. The 140 count is the scanner snapshot.\n\nThe desk verified each passing fix receipt against the open thread and current head, then resolved the thread, routed the exact head, waited for the passing cloud CI receipt, and merged through the normal queue. The queue confirms:\n\n| PR | Head | Ticket | Merge receipt |\n| --- | --- | --- | --- |\n| #8692 | 03ba6b49bfc | q-8692-9bfc | merge-8692-b49bfc |\n| #8711 | 03bc816052d | q-8711-052d | merge-8711-16052d |\n| #8738 | 03bf7857fb6 | q-8738-7fb6 | merge-8738-857fb6 |\n| #8751 | 03c0e5c5be5 | q-8751-5be5 | merge-8751-5c5be5 |\n\nNine heads remain open in the working set, with zero heads queued or waiting for capacity:\n\n- #8698, #8722, #8731, #8746 and #8763 need an owner fix and matching current-head evidence before the desk can close their review threads.\n- #8726, #8731 and #8759 need required approval. #8731 needs both review closure and approval.\n- #8704 and #8740 need owner validation.\n\nManual holds, drafts and PRs targeting other branches were left with their owners. The next shift can recheck these nine heads after owners or reviewers clear the respective gates, verify exact-head receipts, and route newly eligible PRs through cloud CI.",
+          "passed": true
+        },
+        "id": "b87857",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [
+            5
+          ],
+          "basis": "Calls 3\u20134 establish 9/13 pre-CI closure failures and four independent fixes. Call 5 checks relevant open thread matches for three heads, but repeats settled owner-validation status for #8704 and #8740. Calls 6\u20137 advance all four and verify the CI-passing merge receipts and zero queued heads. Call 8 files verified results and genuine remaining gates.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 6,
+          "first_useful": 3,
+          "first_useful_seconds": 8.263862444000551,
+          "missed_dependency": false,
+          "packet_sha256": "2c80c124d5bd759873032ff6d5a4712f947389d1e033d73b90ec322f94f81bdb",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 47.18432102400038
+      },
+      "case": "distributed"
+    },
+    {
+      "baseline": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 4,
+            "cohort": 13,
+            "cohort_reads": 2,
+            "inspected": 9,
+            "merged": 4,
+            "queue_reads": 3,
+            "reports": 1,
+            "resolved": 4,
+            "routed": 4,
+            "scanner_reads": 1,
+            "status_reads": 2,
+            "verified_merges": 4
+          },
+          "handoff": "# Python Automation merge desk handoff\n\nThe last scanner snapshot (pa-1643) indexed 140 open PRs over seven pages. Discovery completed despite a transient cursor retry. The queue opened with zero admissions, zero merges, and zero waiting on capacity. Among the 13 main-branch, non-draft, unheld PRs, 9 had failed Review closure and cloud CI had not started. Review closure gates admission, which starts cloud CI. The other four were held by owner validation or required approval.\n\nVerified exact-head fix receipts, resolved the matching threads, and used normal queue admission and cloud CI. #8692 admitted first and satisfied the actual predecessor-admission dependency for #8711, #8738 and #8751. Cloud CI passed on all four and the queue confirms these merges:\n\n| PR | Head | Queue ticket | Merge receipt |\n| --- | --- | --- | --- |\n| #8692 | 03ba6b49bfc | q-8692-9bfc | merge-8692-b49bfc |\n| #8711 | 03bc816052d | q-8711-052d | merge-8711-16052d |\n| #8738 | 03bf7857fb6 | q-8738-7fb6 | merge-8738-857fb6 |\n| #8751 | 03c0e5c5be5 | q-8751-5c5be5 | merge-8751-5c5be5 |\n\nFinal status shows four completed merges, zero queued heads, and zero waiting on capacity. The 140 count is the scanner snapshot, and nine PRs in the working set remain gated:\n\n- #8698, #8722, #8731, #8746 and #8763 need their review feedback addressed. No matching fix receipt is present for any of them. #8731 also needs approval.\n- #8726 and #8759 need required approval.\n- #8704 and #8740 need owner validation.\n\nNext shift, recheck the current heads and receipts when owners address feedback, reviewers approve, or validation completes. Route eligible heads and verify their cloud CI and merge receipts. Keep manual holds and excluded PRs under their existing rules.",
+          "passed": true
+        },
+        "id": "b21966",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [],
+          "basis": "Calls 3\u20134 establish the 9/13 admission bottleneck and #8692\u2019s safe fix. Calls 5\u20136 admit and merge it before inspecting dependent fix receipts. Calls 7\u20138 advance all three authorized dependents and verify four passing merge receipts and no queued heads. The report filed in call 9 preserves the predecessor relationship and separate review, approval and owner-validation gates.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 5,
+          "first_useful": 3,
+          "first_useful_seconds": 8.755650901999616,
+          "missed_dependency": false,
+          "packet_sha256": "7a9f2640c42ced9a90adedae54a10b8d6df8ef0327644b14147d272baac12559",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 52.646225316999335
+      },
+      "candidate": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 4,
+            "cohort": 13,
+            "cohort_reads": 1,
+            "inspected": 9,
+            "merged": 4,
+            "queue_reads": 2,
+            "reports": 1,
+            "resolved": 4,
+            "routed": 4,
+            "scanner_reads": 1,
+            "status_reads": 2,
+            "verified_merges": 4
+          },
+          "handoff": "# Python Automation merge incident handoff\n\nScan pa-1643 completed and indexed 140 open PRs. At intake the scanner was active, zero heads were queued, zero merges were recorded, and zero heads were waiting for capacity. Of the 13 non-draft, unheld main-branch PRs in the desk working set, 9 had failed review closure and cloud CI had not started. The other 4 had approval or owner-validation gates. The scanner count is the scan snapshot and includes PRs beyond this working set.\n\nThe desk found a passing fix receipt for the open thread on the current head of #8692. Its admission made receipts available on #8711, #8738, and #8751. For all four, I inspected the fix evidence, resolved only the matching thread on the exact head, routed the approved head, and merged after cloud CI passed. The queue confirmed all four merge receipts.\n\n| PR | Head | Queue ticket | Merge receipt |\n| --- | --- | --- | --- |\n| #8692 | 03ba6b49bfc | q-8692-9bfc | merge-8692-b49bfc |\n| #8711 | 03bc816052d | q-8711-052d | merge-8711-16052d |\n| #8738 | 03bf7857fb6 | q-8738-7fb6 | merge-8738-857fb6 |\n| #8751 | 03c0e5c5be5 | q-8751-5be5 | merge-8751-5c5be5 |\n\nAfter the merges the queue had zero pending heads and zero capacity waits. Nine active heads still need owner or reviewer action.\n\n- #8698, #8722, #8746 and #8763 have open review threads without a passing fix receipt. #8731 has the same review gate and still needs approval. Owners should address the outstanding feedback and provide passing evidence on the current head.\n- #8726 and #8759 need required approval.\n- #8704 and #8740 need owner validation.\n\nRecheck exact heads and their receipts after those gates clear. Then route eligible heads through normal cloud CI and verify the resulting merge receipts.",
+          "passed": true
+        },
+        "id": "b21389",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [
+            8
+          ],
+          "basis": "Calls 3\u20134 establish 9/13 pre-CI failures and a real #8692 admission prerequisite. Calls 5\u20136 preserve that dependency and obtain the three newly available receipts. Calls 7\u20138 deliver all four merges and independently verify them. Call 8 also reads useful outstanding feedback, but repeats already-known status for the four approval-only or owner-validation-only heads. Call 9 files the supported result.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 5,
+          "first_useful": 3,
+          "first_useful_seconds": 8.817790050998155,
+          "missed_dependency": false,
+          "packet_sha256": "308b6d28df3d395ba21806c87151384485a356a1b20ae0e84a3b89db5e1f79a2",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 52.41809730000023
+      },
+      "case": "anchor"
+    },
+    {
+      "baseline": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 4,
+            "cohort": 13,
+            "cohort_reads": 2,
+            "inspected": 9,
+            "merged": 4,
+            "queue_reads": 3,
+            "reports": 1,
+            "resolved": 4,
+            "routed": 4,
+            "scanner_reads": 1,
+            "status_reads": 2,
+            "verified_merges": 4
+          },
+          "handoff": "# Python Automation merge incident\n\nMerges resumed. The queue began with zero queued heads, zero completed merges and zero waiting for capacity. The scanner was active and its last complete scan indexed 140 open PRs. That is the scan total. The actionable working set was 13 unheld, non-draft PRs against main. Nine had failed Review closure, keeping those heads out of cloud CI. The other four needed approval or owner validation. PR #8692 was one instance of the broader closure issue and also gated admission evidence for three dependents.\n\nWe inspected exact-head fix receipts before resolving each matching thread. #8692 passed cloud CI after admission. Its admission unlocked evidence for #8711, #8738 and #8751. All four passed cloud CI and merged through the normal queue.\n\n| PR | Head | Queue ticket | Verified merge receipt |\n| --- | --- | --- | --- |\n| #8692 | 03ba6b49bfc | q-8692-9bfc | merge-8692-b49bfc |\n| #8711 | 03bc816052d | q-8711-052d | merge-8711-16052d |\n| #8738 | 03bf7857fb6 | q-8738-7fb6 | merge-8738-857fb6 |\n| #8751 | 03c0e5c5be5 | q-8751-5be5 | merge-8751-5c5be5 |\n\nThe final queue shows four completed merges, zero queued heads and zero waiting for capacity. All nine remaining working-set heads have genuine prerequisites.\n\n- #8698, #8722, #8746 and #8763 need owners to address open feedback and produce fix receipts for their current heads.\n- #8731 needs a fix receipt for its feedback and a required approval.\n- #8726 and #8759 need required approvals.\n- #8704 and #8740 need owner validation.\n\nLeave excluded PRs and holds with their owners. When a prerequisite clears, recheck the exact head and route it through cloud CI before merging.",
+          "passed": true
+        },
+        "id": "b58300",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [],
+          "basis": "Call 3 distinguishes 140 scanner results from 13 working-set heads and establishes failed closure before CI for nine. Call 4 confirms three evidence reads depend on #8692 admission. Calls 5\u20137 admit it before inspecting realized dependent receipts and merging all four. Call 7 confirms four passing merge receipts, no queue or capacity wait. Handoff in call 8 explains remaining review, approval and owner-validation gates.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 5,
+          "first_useful": 3,
+          "first_useful_seconds": 8.150713169001392,
+          "missed_dependency": false,
+          "packet_sha256": "c4c514946c3877531973aab5529d66c2058fbbea8848f44e9544724490489186",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 45.44907544799935
+      },
+      "candidate": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 4,
+            "cohort": 13,
+            "cohort_reads": 2,
+            "inspected": 11,
+            "merged": 4,
+            "queue_reads": 3,
+            "reports": 1,
+            "resolved": 4,
+            "routed": 4,
+            "scanner_reads": 1,
+            "status_reads": 2,
+            "verified_merges": 4
+          },
+          "handoff": "# Python Automation merge incident handoff\n\nDiscovery scan pa-1643 indexed 140 open PRs across seven pages and completed after a transient page 5 retry. The eligible working set consists of 13 main-branch, non-draft, unheld PRs. At intake, nine of those heads had failed review closure and all 13 had cloud CI pending admission. Queue status showed zero queued heads, merges, and capacity waits. Review closure was the dominant admission gate, with other heads waiting for required approval or owner validation.\n\nFour merges are now verified by the queue. Each exact head had an approved PR, a passing fix receipt for the open thread, and successful cloud CI after normal queue admission. Admission of #8692 made the receipts for #8711, #8738, and #8751 available.\n\n| PR | Head | Fix receipt | Queue ticket | Merge receipt |\n| --- | --- | --- | --- | --- |\n| #8692 | 03ba6b49bfc | check-03ba6b49 | q-8692-9bfc | merge-8692-b49bfc |\n| #8711 | 03bc816052d | check-03bc8160 | q-8711-052d | merge-8711-16052d |\n| #8738 | 03bf7857fb6 | check-03bf7857 | q-8738-7fb6 | merge-8738-857fb6 |\n| #8751 | 03c0e5c5be5 | check-03c0e5c5 | q-8751-5be5 | merge-8751-5c5be5 |\n\nFinal status is four completed merges, zero queued heads, and zero capacity waits. The 140 count belongs to the scanner snapshot. Nine PRs in the working set remain open:\n\n- #8698, #8722, #8731, #8746, and #8763 have open review feedback with no matching fix receipt on the inspected head. The respective owners need to address missing badge groups, zero retry attempts, legacy schedule compatibility, lock release on callback failure, and the shared-tenant default.\n- #8726 and #8759 need a required approval. #8731 also needs one once its review feedback is addressed.\n- #8704 and #8740 need owner validation.\n\nAt the next pass, refresh the working set and exact heads, recheck the outstanding gates as owners provide evidence, and route only eligible heads. Drafts, holds, and other branches remain outside this pass.",
+          "passed": true
+        },
+        "id": "b52088",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [
+            4
+          ],
+          "basis": "Call 3 establishes the 9/13 pre-CI closure bottleneck. Call 4 supplies #8692\u2019s fix and the evidence dependency; its two evidence queries for owner-validation-only heads add no applicable evidence to the known gates. Calls 5\u20136 admit #8692 before retrieving dependent receipts. Calls 7\u20138 advance the dependents and independently verify all four merges. Calls 9\u201310 add actionable remaining feedback and file the handoff.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 5,
+          "first_useful": 3,
+          "first_useful_seconds": 9.501862688000983,
+          "missed_dependency": false,
+          "packet_sha256": "1db9c6dba82e35fe6ae350d6bcd8e22e788cadfa6228a00b4765868611352697",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 63.50237298600041
+      },
+      "case": "anchor"
+    },
+    {
+      "baseline": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 1,
+            "cohort": 13,
+            "cohort_reads": 1,
+            "inspected": 9,
+            "merged": 1,
+            "queue_reads": 1,
+            "reports": 1,
+            "resolved": 1,
+            "routed": 1,
+            "scanner_reads": 1,
+            "status_reads": 2,
+            "verified_merges": 1
+          },
+          "handoff": "# Python Automation merge desk handoff\n\n## Outcome and cause\n\nThe initial queue status showed 140 open PRs in the last scanner snapshot, zero queued heads, zero completed merges, and zero waiting for capacity. Scan pa-1643 completed all seven pages. The page 5 cursor retry did not prevent that scan from completing. The 140 figure is the scan total. The actionable working set covered 13 unheld, non-draft main PRs.\n\nNine of those 13 heads failed Review closure, including #8692. That gate prevented queue admission and cloud CI from starting on those heads. Two other heads were waiting on owner validation and two on required approval. The scanner is active and the queue had no capacity wait.\n\n## Authorized change and verification\n\nMerged only #8692, at head 03ba6b49bfc. The passing check receipt check-03ba6b49 matched the open thread r8692-1 and that head. Resolved the fixed thread, admitted the head as q-8692-9bfc, observed cloud CI pass, and merged normally. Verified receipt merge-8692-b49bfc in the queue. The current queue reports one completed merge and zero queued or capacity-waiting heads. The latest scanner snapshot still says 140, so that is not a live post-merge open count. All other PRs were left as found under the operator's narrowed write scope.\n\n## Remaining work\n\n- Three of the eight remaining Review closure failures have matching passing fix receipts on their current heads. With broader write authorization, recheck the current head and thread for #8711 (03bc816052d, r8711-1, check-03bc8160), #8738 (03bf7857fb6, r8738-1, check-03bf7857), and #8751 (03c0e5c5be5, r8751-1, check-03c0e5c5). Close only confirmed fixed threads, then use the normal queue and verify CI and merge receipts.\n- #8698, #8722, #8731, #8746, and #8763 had no fix receipt. Their owners need to address the open review feedback. #8731 also needs required approval.\n- #8726 and #8759 need required approvals. #8704 and #8740 need owner validation. Draft, held, and non-main PRs are outside the working set.",
+          "passed": true
+        },
+        "id": "b93444",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [],
+          "basis": "Call 3 verifies the full pre-CI closure cohort and #8692\u2019s matching receipt. Call 4 resolves, routes and merges only authorized #8692 and explicitly reads back its merge receipt and queue status. Call 5 gathers fix evidence for the rest without changing them; call 6 files the scoped outcome and action prerequisites.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 4,
+          "first_useful": 3,
+          "first_useful_seconds": 10.712227504998737,
+          "missed_dependency": false,
+          "packet_sha256": "e99010c0d946217c42cf43a189a116a8c0e3f23b431a3c63c697088230870c5e",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 49.290194460998464
+      },
+      "candidate": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 1,
+            "cohort": 13,
+            "cohort_reads": 1,
+            "inspected": 9,
+            "merged": 1,
+            "queue_reads": 3,
+            "reports": 1,
+            "resolved": 1,
+            "routed": 1,
+            "scanner_reads": 1,
+            "status_reads": 2,
+            "verified_merges": 1
+          },
+          "handoff": "# Python Automation merge desk handoff\n\nThe queue had zero completed merges, zero queued heads and zero capacity wait at the start. Scan pa-1643 completed all seven pages and indexed 140 open PRs. Page 5 completed on its retry. The scanner remains active. Failed Review closure was the dominant admission gate in the 13 unheld, non-draft PRs targeting main. Nine entered this pass with failed Review closure and cloud CI had not started on those heads.\n\n## Completed this pass\n\nOnly #8692 was authorized for changes. For head 03ba6b49bfc, passing receipt check-03ba6b49 covers open thread r8692-1. Resolved the thread, routed the head as q-8692-9bfc, and verified passing cloud CI and merge receipt merge-8692-b49bfc in the queue. The final queue status reports one completed merge, zero queued heads, and zero waiting for capacity.\n\n## Remaining working set\n\nAll other PRs were left unchanged. Eight still fail Review closure. Three of those have approved heads and passing same-head, same-thread fix receipts. If a later pass authorizes writes, recheck the exact head and receipt before resolving and routing each:\n\n- #8711 head 03bc816052d, thread r8711-1, receipt check-03bc8160.\n- #8738 head 03bf7857fb6, thread r8738-1, receipt check-03bf7857.\n- #8751 head 03c0e5c5be5, thread r8751-1, receipt check-03c0e5c5.\n\nThe other five red Review closure heads (#8698, #8722, #8731, #8746, #8763) have open feedback and no matching fix receipt. Their authors/reviewers should address the feedback. #8731 also needs approval. Of the four heads with passing Review closure, #8726 and #8759 need required approval, and #8704 and #8740 need owner validation. The scanner total includes PRs outside this working set, including manually held, draft and non-main PRs.",
+          "passed": true
+        },
+        "id": "b69608",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [
+            6
+          ],
+          "basis": "Call 3 establishes completed discovery and nine closure failures before CI among 13 heads. Calls 4\u20135 mutate only #8692 and independently read its passing merge receipt. Call 6 adds eight heads\u2019 fix evidence; the two owner-validation shows repeat gates already visible in call 3. The filed report and final reply name three read-only candidates and genuine gates for the rest.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 4,
+          "first_useful": 3,
+          "first_useful_seconds": 11.932961866998085,
+          "missed_dependency": false,
+          "packet_sha256": "7f791485f1c52a41917da523e5ae1b9054df474d6ec02df326afaeca82e5427e",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 48.567316472999664
+      },
+      "case": "reprioritized"
+    },
+    {
+      "baseline": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 1,
+            "cohort": 13,
+            "cohort_reads": 1,
+            "inspected": 9,
+            "merged": 1,
+            "queue_reads": 2,
+            "reports": 1,
+            "resolved": 1,
+            "routed": 1,
+            "scanner_reads": 1,
+            "status_reads": 2,
+            "verified_merges": 1
+          },
+          "handoff": "# Python Automation merge desk handoff\n\nThe queue stalled at admission. Before this pass, the scanner had indexed 140 open PRs and the queue showed 0 merges, 0 queued heads and 0 waiting for capacity. Scan pa-1643 completed across seven pages, with a transient cursor retry on page 5. The queue's working set was 13 unheld, non-draft main-branch PRs. Nine of 13 failed review closure and cloud CI had not started on those heads. The other four had separate approval or owner-validation gates.\n\nThe operator restricted writes to #8692. It was approved at head `03ba6b49bfc`. The passing current-head check `check-03ba6b49` covered the final retry deadline and matched open thread `r8692-1`. I recorded that resolution, routed the exact head through the normal queue, verified cloud CI passed, and merged. The queue confirms ticket `q-8692-9bfc` and merge receipt `merge-8692-b49bfc`. Queue status after the merge shows 1 completed merge, 0 queued heads and 0 waiting for capacity. The 140 is the latest scan snapshot.\n\n## Remaining work, read-only this pass\n\n- Three approved PRs have passing exact-head fix receipts but open threads. If write scope expands, recheck the head and approval before resolving, then route and verify CI and merge normally. These are #8711 (`03bc816052d`, `r8711-1`, `check-03bc8160`), #8738 (`03bf7857fb6`, `r8738-1`, `check-03bf7857`), and #8751 (`03c0e5c5be5`, `r8751-1`, `check-03c0e5c5`).\n- Five open review failures have no current-head fix receipt and need owner follow-up. #8698 needs coverage for absent badge groups, #8722 needs zero retries to remain valid, #8731 needs legacy schedule support plus required approval, #8746 needs lock release on callback failure, and #8763 needs review of the shared-tenant default.\n- #8726 and #8759 need required approvals. #8704 and #8740 need owner validation. Drafts, held PRs and PRs targeting other branches are outside this working-set count.",
+          "passed": true
+        },
+        "id": "b35713",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [],
+          "basis": "Call 3 establishes the broad pre-CI closure problem and the scoped #8692 fix. Calls 4\u20135 mutate only #8692 and verify its passing merge receipt with no queued heads. Call 6 inspects all remaining closure evidence read-only and checks the scan; call 7 files the handoff with three future candidates and separate unresolved prerequisites.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 4,
+          "first_useful": 3,
+          "first_useful_seconds": 10.917089415997907,
+          "missed_dependency": false,
+          "packet_sha256": "15769bebb140b65bd601bc73c50f0a67816146144d588f384aa710f8837d01e1",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 51.128007600000274
+      },
+      "candidate": {
+        "artifact": {
+          "checks": {
+            "delivery": true,
+            "handoff_submitted": true,
+            "permitted_only": true,
+            "queue_progress": true,
+            "queue_readback": true,
+            "trusted_checkout": true,
+            "valid_journal": true
+          },
+          "counts": {
+            "admissible_merges": 1,
+            "cohort": 13,
+            "cohort_reads": 1,
+            "inspected": 9,
+            "merged": 1,
+            "queue_reads": 2,
+            "reports": 1,
+            "resolved": 1,
+            "routed": 1,
+            "scanner_reads": 1,
+            "status_reads": 2,
+            "verified_merges": 1
+          },
+          "handoff": "# Python Automation merge desk handoff\n\n## Outcome\n\nMerged #8692 at head 03ba6b49bfc. The passing exact-head receipt check-03ba6b49 covered thread r8692-1. Resolved that thread, routed the approved head through the normal queue, and verified cloud CI passed and merge receipt merge-8692-b49bfc on ticket q-8692-9bfc. All other PRs were left untouched per the operator's updated scope.\n\n## Why merges stalled\n\nThe scanner was active and completed scan pa-1643 across seven pages, indexing 140 open PRs. At intake the queue had zero admitted heads, zero completed merges and zero heads waiting for capacity. Review closure failed on 9 of the 13 unheld, non-draft main-branch PRs, keeping those heads out of the queue and preventing cloud CI from starting. The other four had owner-validation or approval gates. The scanner's 140 is the indexed backlog, not the count of eligible heads.\n\n## Remaining work\n\nThe queue now verifies one completed merge, zero queued heads and zero capacity waits. Eight other PRs in the working set still fail Review closure. Three approved heads have matching fix receipts for their open threads. When write scope expands, recheck current heads and receipts before resolving, routing and merging after CI.\n\n| PR | Head | Thread | Fix receipt |\n| --- | --- | --- | --- |\n| #8711 | 03bc816052d | r8711-1 | check-03bc8160 |\n| #8738 | 03bf7857fb6 | r8738-1 | check-03bf7857 |\n| #8751 | 03c0e5c5be5 | r8751-1 | check-03c0e5c5 |\n\nThe five remaining Review closure failures (#8698, #8722, #8731, #8746 and #8763) have no current-head fix receipt. #8731 also needs approval. #8704 and #8740 need owner validation, and #8726 and #8759 need approval. Drafts, manual holds and other excluded heads remain outside this working set.",
+          "passed": true
+        },
+        "id": "b11944",
+        "passed": true,
+        "reader": {
+          "avoidable_repeats": [],
+          "basis": "Calls 3\u20134 establish the 9/13 pre-CI diagnosis and #8692\u2019s exact receipt. Calls 5\u20136 mutate only that PR and read back the passing merge and zero pending. Calls 7\u20138 establish remaining fix evidence and match the three prospective receipts to open threads. Call 9 files those read-only findings and the separate remaining gates.",
+          "cause_and_scope_correct": true,
+          "delivery_claim_supported": true,
+          "first_consequential": 5,
+          "first_useful": 3,
+          "first_useful_seconds": 8.364106772001833,
+          "missed_dependency": false,
+          "packet_sha256": "dbabe8bf55f3735a59d572d63cebba6cfe19abfc9a27feb7ed2bbbfe2c41fbe0",
+          "scope_violation_attempt": false,
+          "user_nudge_needed": false
+        },
+        "seconds": 47.53172208199976
+      },
+      "case": "reprioritized"
+    }
+  ],
+  "summary": {
+    "baseline": {
+      "correct_scope_and_cause": 6,
+      "durable_passes": 6,
+      "median_active_seconds": 50.355021332499746,
+      "median_first_useful_seconds": 8.876680264500465,
+      "nudges_judged_necessary": 0,
+      "passed": 6,
+      "trials": 6
+    },
+    "candidate": {
+      "correct_scope_and_cause": 6,
+      "durable_passes": 6,
+      "median_active_seconds": 50.492706886499946,
+      "median_first_useful_seconds": 9.15982636949957,
+      "nudges_judged_necessary": 0,
+      "passed": 6,
+      "trials": 6
+    }
+  }
+}
