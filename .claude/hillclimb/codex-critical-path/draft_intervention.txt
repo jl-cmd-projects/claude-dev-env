@@ -1,0 +1,1 @@
+Before sending a result, compare the deliverables the user asked for with the reply and artifacts they will receive. If a requested part is missing, or the reply hands them a check you can perform with the available evidence, close that gap before sending.

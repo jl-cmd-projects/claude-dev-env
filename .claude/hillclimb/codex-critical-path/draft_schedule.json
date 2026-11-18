@@ -1,0 +1,153 @@
+{
+  "seed": "codex-pre-nudge-handoff-20261118",
+  "source_commit": "aea1ab91bb0737e24817e3b927940a85a8f0d811",
+  "source_archive_sha256": "74919ce82313ea4973010af5098194a931e1507e81067979d298534ff83cb4af",
+  "source_digests": {
+    "h3660": {
+      "run.json": "dc946d5d50be22c5f03b48e5cd0a3b6052660c8fe45db0ed2a2f1c5b53dfc5e6",
+      "end.json": "3110be0bfc89e4186182b1a0db7782aca35eae3f348a8fba41cc72b04a0cb2c1",
+      "events.jsonl": "8b672abff5a23f23f09fd95bc16e3f5ca9ccaf5c6fbeeb07e829330a6b90fc44",
+      "reply.txt": "c5c75ed48724ed791217236c595403fc76393d27aa9072f77467ce59a7fd44ad",
+      "instructions.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "task.txt": "43aa5cb89d2c46618fdff6c791c6bf8dac917794473c22c0fdf999298fd4fd02",
+      "receipts.jsonl": "a3e7f6cf2a2e9a133042e1e9829f5d36cc9d1f287509b69e1a4719675e0cfc58"
+    },
+    "h7218": {
+      "run.json": "2d860b2f9c6d7f7d4506a0483a981ccd6f209f636e95e10ddf90d05803bd9880",
+      "end.json": "93f2e350ce53f9faedb9d952167fc2f9d4e39cddde071827b542a148fb5ded23",
+      "events.jsonl": "4d2f3fcf491088618f691033a31d2e3bf4f5b2430f80574705f0747845503e4e",
+      "reply.txt": "6ca3301e823b76e3f2a38b3e1938b1819d0da8e84d0a5086279412370beef0f3",
+      "instructions.md": "a20877889d326e4b3a9b0dc05ca83147fba8d2ff80d4ac1d51c125f050d7a01a",
+      "task.txt": "43aa5cb89d2c46618fdff6c791c6bf8dac917794473c22c0fdf999298fd4fd02",
+      "receipts.jsonl": "b804a9e95d437dbd255a6d3786daa3570467f27ff8322c054b9b480c41dd8e39"
+    },
+    "h9764": {
+      "run.json": "e8015c4a6d1ecf035f87f70f89344b6c1efc2d4ca5828c08f68b488fa3345d1b",
+      "end.json": "961cb9557eb129356b00d44d713a6545fc5b585cd27d24ffbea09f361825e4ad",
+      "events.jsonl": "40037f71b429eab8e47d41574ac44de7d677611e5247fb2db12d4979066fcbad",
+      "reply.txt": "5af845f318fb652ab635b4c9f279ea3be14c50050e5b397f332a44e2d6de0a2c",
+      "instructions.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "task.txt": "43aa5cb89d2c46618fdff6c791c6bf8dac917794473c22c0fdf999298fd4fd02",
+      "receipts.jsonl": "2b48559edd6bcd09c80b6b7141bd664d74f038088844a349c286f626875b3093"
+    },
+    "h7694": {
+      "run.json": "dc946d5d50be22c5f03b48e5cd0a3b6052660c8fe45db0ed2a2f1c5b53dfc5e6",
+      "end.json": "5ca2830b1c0849e44a41dbee8d716b250ee7ef65472ff9d1304e8bb2077d3a19",
+      "events.jsonl": "92ad94b34b31bd1037b104da90f03a8632362f91141ad8448163d9a525ea6d9d",
+      "reply.txt": "b6b34b06189501c67c71ccccea7a98c1bc73478330e5a4ab895da62945beb283",
+      "instructions.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "task.txt": "43aa5cb89d2c46618fdff6c791c6bf8dac917794473c22c0fdf999298fd4fd02",
+      "receipts.jsonl": "0d2f2ba963ca56c5f1cff27a0e44cf1108fe8f42213201e7fd5a170983b6cfcb"
+    }
+  },
+  "rows": [
+    {
+      "source": "h3660",
+      "model": "gpt-6.2-sol",
+      "rep": 2,
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "h3660-2",
+      "id": "v16011"
+    },
+    {
+      "source": "h7218",
+      "model": "gpt-6.1-sol",
+      "rep": 2,
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "h7218-2",
+      "id": "v37569"
+    },
+    {
+      "source": "h7218",
+      "model": "gpt-6.1-sol",
+      "rep": 1,
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "h7218-1",
+      "id": "v39799"
+    },
+    {
+      "source": "h7694",
+      "model": "gpt-6.1-sol",
+      "rep": 1,
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "h7694-1",
+      "id": "v71861"
+    },
+    {
+      "source": "h3660",
+      "model": "gpt-6.2-sol",
+      "rep": 1,
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "h3660-1",
+      "id": "v74872"
+    },
+    {
+      "source": "h7218",
+      "model": "gpt-6.1-sol",
+      "rep": 2,
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "h7218-2",
+      "id": "v38690"
+    },
+    {
+      "source": "h9764",
+      "model": "gpt-6.2-sol",
+      "rep": 1,
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "h9764-1",
+      "id": "v10721"
+    },
+    {
+      "source": "h7694",
+      "model": "gpt-6.1-sol",
+      "rep": 1,
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "h7694-1",
+      "id": "v40744"
+    },
+    {
+      "source": "h7218",
+      "model": "gpt-6.1-sol",
+      "rep": 1,
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "h7218-1",
+      "id": "v98951"
+    },
+    {
+      "source": "h3660",
+      "model": "gpt-6.2-sol",
+      "rep": 1,
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "h3660-1",
+      "id": "v74309"
+    },
+    {
+      "source": "h9764",
+      "model": "gpt-6.2-sol",
+      "rep": 1,
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "h9764-1",
+      "id": "v73392"
+    },
+    {
+      "source": "h3660",
+      "model": "gpt-6.2-sol",
+      "rep": 2,
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "h3660-2",
+      "id": "v39824"
+    }
+  ]
+}
