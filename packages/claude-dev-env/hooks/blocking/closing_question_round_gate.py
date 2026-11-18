@@ -92,7 +92,6 @@ import sys
 import tempfile
 import threading
 import time
-from collections.abc import Sequence
 from pathlib import Path
 from typing import NamedTuple
 
@@ -149,6 +148,8 @@ from hooks_constants.closing_question_round_gate_constants import (
     ALL_BACKGROUND_JOB_ID_KEYS,
     FOOTER_JOBS_DIGEST_LENGTH,
     FOOTER_JOBS_FILE_MODE,
+    FOOTER_SNAPSHOT_PART_COUNT,
+    FOOTER_SNAPSHOT_SEPARATOR,
     FOOTER_JOBS_FILE_TEMPLATE,
     FOOTER_JOBS_READ_LIMIT,
     FOOTER_JOBS_TEXT_ENCODING,
@@ -276,6 +277,20 @@ def closing_round_reason(all_open_item_lines: list[str]) -> str:
     )
 
 
+class FooterSeen(NamedTuple):
+    """One footer the user saw, and where it sits in the session.
+
+    Attributes:
+        lines: The footer's items.
+        prompt_position: The transcript line of the last typed prompt before it.
+        occurrence: How many footer replies since that prompt end with it, this one included.
+    """
+
+    lines: tuple[str, ...]
+    prompt_position: int
+    occurrence: int
+
+
 class CoveredSession(NamedTuple):
     """The parts of a session the gate reads.
 
@@ -283,42 +298,26 @@ class CoveredSession(NamedTuple):
         all_payload_texts: The closing reply texts the payload adds.
         all_stretch_records: The top-level records after the last question call that reached the user.
         all_counted_records: The stretch records after the last typed prompt, where holds count.
-        all_last_footer_lines: The items of the newest footer among the counted records, or None.
+        newest_footer: The newest footer among the counted records, or None.
+        prompt_position: The transcript line of the last typed prompt.
     """
 
     all_payload_texts: list[str]
     all_stretch_records: list[dict[str, object]]
     all_counted_records: list[dict[str, object]]
-    all_last_footer_lines: tuple[str, ...] | None
+    newest_footer: FooterSeen | None
+    prompt_position: int
 
 
-def _newest_footer_position(all_records: list[dict[str, object]]) -> int | None:
-    for each_position in range(len(all_records) - 1, -1, -1):
-        each_record = all_records[each_position]
+def _footer_positions(all_records: list[dict[str, object]]) -> list[int]:
+    all_positions = []
+    for each_position, each_record in enumerate(all_records):
         if not is_assistant_record(each_record) or _has_tool_call(each_record):
             continue
         all_record_texts = block_texts(each_record)
         if all_record_texts and split_footer(all_record_texts[-1]).footer_items is not None:
-            return each_position
-    return None
-
-
-def newest_footer_items(all_records: list[dict[str, object]]) -> tuple[str, ...] | None:
-    """Return the items of the newest footer a reply among the records ended with, or None.
-
-    ::
-
-        "Done.\n\nIn progress:\n- I am shipping 8590." then "Nothing new."  -> ("I am shipping 8590.",)
-        a footer and any tool call, a question call too, in one record     -> None, not a closing reply
-        "Nothing new." only                                                -> None
-
-    A record counts only when it holds no tool call at all and its last text
-    block ends with the footer.
-    """
-    footer_position = _newest_footer_position(all_records)
-    if footer_position is None:
-        return None
-    return split_footer(block_texts(all_records[footer_position])[-1]).footer_items
+            all_positions.append(each_position)
+    return all_positions
 
 
 def _has_tool_call(all_record_fields: dict[str, object]) -> bool:
@@ -347,35 +346,60 @@ def _job_identities(all_background_tasks: object) -> list[str]:
     return []
 
 
-def background_job_key(
-    all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str], all_tasks: SessionTasks
-) -> str:
-    """Return a short key that names one footer, the tasks in progress, and the background jobs.
+class FooterSnapshot(NamedTuple):
+    """What the gate keeps about the newest footer that went out while background work ran.
+
+    Attributes:
+        footer_key: Names the footer's lines and where it sits in the session.
+        state_key: Names the tasks in progress and the background jobs at that moment.
+        job_count: How many background jobs ran then.
+    """
+
+    footer_key: str
+    state_key: str
+    job_count: int
+
+
+def _short_digest(all_parts: list[object]) -> str:
+    digest = hashlib.sha256(json.dumps(all_parts).encode()).hexdigest()
+    return FOOTER_JOBS_KEY_TEMPLATE.format(digest=digest[:FOOTER_JOBS_DIGEST_LENGTH])
+
+
+def footer_key(footer: FooterSeen) -> str:
+    """Return a short key that names one footer occurrence.
 
     ::
 
-        footer F, tasks #28, jobs [{"id": "b"}, {"id": "a"}]  -> "footer-jobs-<digest>"
-        footer F, jobs ["ab", "c"] and ["a", "bc"]             -> two different keys
-        footer F and footer G, the same tasks and jobs         -> two different keys
-        tasks #28 and #29, then #28 alone                      -> two different keys
-        footer F, jobs "ledger" and {"ledger": {}}             -> the same key
+        footer F, prompt line 4, first footer since it    -> "footer-jobs-<digest>"
+        the same words as the second footer since it      -> another key
+        the same words after another typed prompt         -> another key
+    """
+    return _short_digest([list(footer.lines), footer.prompt_position, footer.occurrence])
 
-    The key holds the first 32 hex digits of the SHA-256 of the footer lines,
-    the sorted task ids, and the sorted job ids as JSON.
+
+def footer_snapshot(
+    all_hook_input_fields: dict[str, object], footer: FooterSeen, all_tasks: SessionTasks
+) -> FooterSnapshot:
+    """Return the snapshot of one footer with the tasks in progress and the payload's background jobs.
+
+    ::
+
+        footer F, tasks #28, jobs [{"id": "b"}, {"id": "a"}]  -> (key of F, key of #28 and a, b, 2)
+        jobs ["ab", "c"] and ["a", "bc"]                       -> two different state keys
+        tasks #28 and #29, then #28 alone                      -> two different state keys
+        jobs "ledger" and {"ledger": {}}                       -> the same state key
 
     Args:
         all_hook_input_fields: The Stop hook payload.
-        all_footer_lines: The items of the footer the jobs went out with.
+        footer: The footer the jobs went out with.
         all_tasks: The session's tasks.
 
     Returns:
-        The key for that footer, task set, and job set.
+        The snapshot for that footer, task set, and job set.
     """
-    all_identities = _job_identities(all_hook_input_fields.get(BACKGROUND_TASKS_KEY))
+    all_identities = sorted(_job_identities(all_hook_input_fields.get(BACKGROUND_TASKS_KEY)))
     all_task_ids = sorted(each_task.item_id for each_task in all_tasks.in_progress)
-    snapshot = json.dumps([list(all_footer_lines), all_task_ids, sorted(all_identities)])
-    digest = hashlib.sha256(snapshot.encode()).hexdigest()
-    return FOOTER_JOBS_KEY_TEMPLATE.format(digest=digest[:FOOTER_JOBS_DIGEST_LENGTH])
+    return FooterSnapshot(footer_key(footer), _short_digest([all_task_ids, all_identities]), len(all_identities))
 
 
 def _snapshot_path(all_hook_input_fields: dict[str, object]) -> Path | None:
@@ -387,7 +411,7 @@ def _snapshot_path(all_hook_input_fields: dict[str, object]) -> Path | None:
 
 
 def record_footer_jobs(
-    all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str], all_tasks: SessionTasks
+    all_hook_input_fields: dict[str, object], footer: FooterSeen, all_tasks: SessionTasks
 ) -> None:
     """Keep this footer, its tasks, and its jobs as the session's one snapshot, in place of the last one.
 
@@ -403,47 +427,80 @@ def record_footer_jobs(
     snapshot_path = _snapshot_path(all_hook_input_fields)
     if snapshot_path is None:
         return
-    snapshot_key = background_job_key(all_hook_input_fields, all_footer_lines, all_tasks)
+    snapshot = footer_snapshot(all_hook_input_fields, footer, all_tasks)
+    snapshot_text = FOOTER_SNAPSHOT_SEPARATOR.join([snapshot.footer_key, snapshot.state_key, str(snapshot.job_count)])
     write_flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | NO_FOLLOW_FLAG
     try:
         file_descriptor = os.open(snapshot_path, write_flags, FOOTER_JOBS_FILE_MODE)
     except OSError:
         return
     with os.fdopen(file_descriptor, "w", encoding=FOOTER_JOBS_TEXT_ENCODING) as snapshot_file:
-        snapshot_file.write(snapshot_key)
+        snapshot_file.write(snapshot_text)
+
+
+def kept_footer_snapshot(all_hook_input_fields: dict[str, object]) -> FooterSnapshot | None:
+    """Return the session's kept footer snapshot, or None when none can be read.
+
+    ::
+
+        a snapshot written by ``record_footer_jobs``     -> that snapshot
+        no snapshot, a symlink, or a damaged file       -> None
+    """
+    snapshot_path = _snapshot_path(all_hook_input_fields)
+    if snapshot_path is None:
+        return None
+    try:
+        file_descriptor = os.open(snapshot_path, os.O_RDONLY | NO_FOLLOW_FLAG)
+    except OSError:
+        return None
+    with os.fdopen(file_descriptor, "rb") as snapshot_file:
+        kept_text = snapshot_file.read(FOOTER_JOBS_READ_LIMIT).decode(FOOTER_JOBS_TEXT_ENCODING, errors="replace")
+    all_parts = kept_text.split(FOOTER_SNAPSHOT_SEPARATOR)
+    if len(all_parts) != FOOTER_SNAPSHOT_PART_COUNT or not all_parts[2].isdigit():
+        return None
+    return FooterSnapshot(all_parts[0], all_parts[1], int(all_parts[2]))
 
 
 def were_jobs_shown(
-    all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str] | None, all_tasks: SessionTasks
+    all_hook_input_fields: dict[str, object], footer: FooterSeen | None, all_tasks: SessionTasks
 ) -> bool:
-    """Return True when the newest footer snapshot is this footer with exactly these tasks and jobs.
+    """Return True when the kept snapshot is this footer with exactly these tasks and jobs.
 
     ::
 
         footer F sent while job a ran, F newest, job a runs now        -> True
         footer F sent while job a ran, job b took its place            -> False
-        F with job a, then F with jobs a and b, then job a alone       -> False
+        F with job a, then F again with jobs a and b, then job a alone -> False
         F with tasks #28 and #29 and job a, #29 finished               -> False
         no footer, or no snapshot kept for this session                -> False
 
     Args:
         all_hook_input_fields: The Stop hook payload.
-        all_footer_lines: The items of the newest footer the user saw, or None.
+        footer: The newest footer the user saw, or None.
         all_tasks: The session's tasks.
 
     Returns:
         Whether the snapshot names that footer with exactly these tasks and jobs.
     """
-    snapshot_path = _snapshot_path(all_hook_input_fields)
-    if all_footer_lines is None or snapshot_path is None:
+    kept_snapshot = kept_footer_snapshot(all_hook_input_fields)
+    if footer is None or kept_snapshot is None:
         return False
-    try:
-        file_descriptor = os.open(snapshot_path, os.O_RDONLY | NO_FOLLOW_FLAG)
-    except OSError:
+    return kept_snapshot == footer_snapshot(all_hook_input_fields, footer, all_tasks)
+
+
+def did_footer_show_jobs(all_hook_input_fields: dict[str, object], footer: FooterSeen | None) -> bool:
+    """Return True when this footer went out while background jobs ran.
+
+    ::
+
+        footer F sent while job a ran, F newest             -> True
+        footer F sent with no background work               -> False
+        no footer, or no snapshot kept for this session     -> False
+    """
+    kept_snapshot = kept_footer_snapshot(all_hook_input_fields)
+    if footer is None or kept_snapshot is None:
         return False
-    with os.fdopen(file_descriptor, "rb") as snapshot_file:
-        kept_key = snapshot_file.read(FOOTER_JOBS_READ_LIMIT).decode(FOOTER_JOBS_TEXT_ENCODING, errors="replace")
-    return kept_key == background_job_key(all_hook_input_fields, all_footer_lines, all_tasks)
+    return kept_snapshot.footer_key == footer_key(footer) and kept_snapshot.job_count > 0
 
 
 def _covered_session(
@@ -461,11 +518,20 @@ def _covered_session(
         *all_counted_records,
     ]
     all_payload_texts = closing_reply_texts(all_hook_input_fields, all_lines, deadline_at)
+    all_positions = _footer_positions(all_counted_records)
+    newest_footer = None
+    if all_positions:
+        newest_footer = FooterSeen(
+            split_footer(block_texts(all_counted_records[all_positions[-1]])[-1]).footer_items or (),
+            prompt_position,
+            len(all_positions),
+        )
     return CoveredSession(
         all_payload_texts,
         all_stretch_records,
         all_counted_records,
-        newest_footer_items(all_counted_records),
+        newest_footer,
+        prompt_position,
     )
 
 
@@ -509,6 +575,7 @@ def is_footer_still_current(
     all_tasks: SessionTasks,
     background_count: int,
     were_jobs_in_footer: bool = False,
+    did_show_jobs: bool = False,
 ) -> bool:
     """Return True when the newest footer the user saw still shows the work in progress.
 
@@ -520,6 +587,7 @@ def is_footer_still_current(
         footer names #28 and the jobs it went out with, still running -> True
         footer names #28, a job started in the background since    -> False, the jobs changed
         one job took another's place since                         -> False, the jobs changed
+        the footer went out with a job that has ended since        -> False, the job ended
         no footer since the typed prompt or answered card         -> False
 
     The footer has one line per piece of work. With no background work, a
@@ -534,6 +602,7 @@ def is_footer_still_current(
         all_tasks: The session's tasks.
         background_count: How many background jobs the payload names.
         were_jobs_in_footer: Whether this footer went out while exactly these jobs ran.
+        did_show_jobs: Whether this footer went out while background jobs ran.
 
     Returns:
         Whether the footer can stand for the reply.
@@ -544,7 +613,7 @@ def is_footer_still_current(
         return False
     if background_count:
         return were_jobs_in_footer
-    return len(all_last_footer_lines) <= len(all_tasks.in_progress)
+    return len(all_last_footer_lines) <= len(all_tasks.in_progress) and not did_show_jobs
 
 
 def footer_hold_reason(
@@ -552,7 +621,8 @@ def footer_hold_reason(
     closing_reply: str,
     did_work: bool,
     deadline_at: float,
-    all_last_footer_lines: tuple[str, ...] | None = None,
+    newest_footer: FooterSeen | None = None,
+    all_known_tasks: SessionTasks | None = None,
 ) -> str | None:
     """Return the footer hold reason for the closing reply, or None when the reply may end.
 
@@ -574,9 +644,11 @@ def footer_hold_reason(
         did_work: Whether the stretch holds work after the last reply that
             ended with the footer.
         deadline_at: The monotonic time the declaration scan stops at.
-        all_last_footer_lines: The items of the newest footer sent since the later
-            of the last typed prompt and the last question call that reached
-            the user, or None when no reply since then ended with one.
+        newest_footer: The newest footer sent since the later of the last
+            typed prompt and the last question call that reached the user, or
+            None when no reply since then ended with one.
+        all_known_tasks: The session's tasks when the caller already read
+            them, or None to read them here.
 
     Returns:
         The reason, or None.
@@ -585,15 +657,16 @@ def footer_hold_reason(
     is_declared = footer_items is None and declares_no_open_items(closing_reply, deadline_at)
     if footer_items is None and not is_declared and not did_work:
         return None
-    all_tasks = session_tasks(all_hook_input_fields)
+    all_tasks = all_known_tasks if all_known_tasks is not None else session_tasks(all_hook_input_fields)
     if not all_tasks.in_progress and not has_background_work(all_hook_input_fields):
         return None
     if footer_items is None:
         if not is_declared and is_footer_still_current(
-            all_last_footer_lines,
+            None if newest_footer is None else newest_footer.lines,
             all_tasks,
             background_job_count(all_hook_input_fields),
-            were_jobs_shown(all_hook_input_fields, all_last_footer_lines, all_tasks),
+            were_jobs_shown(all_hook_input_fields, newest_footer, all_tasks),
+            did_footer_show_jobs(all_hook_input_fields, newest_footer),
         ):
             return None
         reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work)
@@ -619,26 +692,36 @@ def _scanned_text(reply_text: str) -> str:
     return SCANNED_PARAGRAPH_SEPARATOR.join([split_reply.body, *all_scanned_items])
 
 
-def _new_footer_items(all_hook_input_fields: dict[str, object], closing_reply: str) -> tuple[str, ...] | None:
+def _new_footer(
+    all_hook_input_fields: dict[str, object], closing_reply: str, covered_session: CoveredSession
+) -> FooterSeen | None:
     payload_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(payload_reply, str) or payload_reply.strip() != closing_reply.strip():
         return None
     all_footer_items = split_footer(closing_reply).footer_items
-    return None if all_footer_items is None else tuple(all_footer_items)
+    if all_footer_items is None:
+        return None
+    footer_count = len(_footer_positions(covered_session.all_counted_records))
+    is_unwritten = any(
+        each_text.strip() == closing_reply.strip() for each_text in covered_session.all_payload_texts
+    )
+    return FooterSeen(tuple(all_footer_items), covered_session.prompt_position, footer_count + int(is_unwritten))
 
 
 def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -> str | None:
     covered_session = _covered_session(all_hook_input_fields, deadline_at)
     if covered_session is None:
         return None
-    all_payload_texts, all_stretch_records, all_counted_records, all_last_footer_lines = covered_session
+    all_payload_texts, all_stretch_records, all_counted_records, newest_footer, _ = covered_session
     if prior_hold_count(all_counted_records) >= MAXIMUM_HOLD_COUNT:
         return None
     all_closing_texts = _closing_reply_texts(all_stretch_records, all_payload_texts)
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
-    all_new_footer_items = _new_footer_items(all_hook_input_fields, closing_reply)
-    if has_background_work(all_hook_input_fields) and all_new_footer_items is not None:
-        record_footer_jobs(all_hook_input_fields, all_new_footer_items, session_tasks(all_hook_input_fields))
+    new_footer = _new_footer(all_hook_input_fields, closing_reply, covered_session)
+    all_known_tasks = None
+    if has_background_work(all_hook_input_fields) and new_footer is not None:
+        all_known_tasks = session_tasks(all_hook_input_fields)
+        record_footer_jobs(all_hook_input_fields, new_footer, all_known_tasks)
     all_texts = [
         _scanned_text(each_text)
         for each_text in [*assistant_texts(all_stretch_records), *all_payload_texts]
@@ -652,7 +735,8 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         closing_reply,
         _has_work_since_footer(all_stretch_records),
         deadline_at,
-        all_last_footer_lines,
+        newest_footer,
+        all_known_tasks,
     )
 
 

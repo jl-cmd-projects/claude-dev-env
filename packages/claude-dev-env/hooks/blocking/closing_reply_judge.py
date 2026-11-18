@@ -47,9 +47,10 @@ import tempfile
 from pathlib import Path
 from typing import NamedTuple
 
-from closing_question_round_footer import list_check_text
+from closing_question_round_footer import list_check_text, split_footer
 from closing_reply_shapes import prompt_asks_for_list
 from hooks_constants.closing_question_round_gate_constants import FOOTER_HEADING_PATTERN
+from hooks_constants.open_tasks_stop_gate_constants import OPEN_ITEM_LIST_MINIMUM
 from hooks_constants.closing_reply_judge_constants import (
     ALL_JUDGE_COMMAND_FLAGS,
     ALL_JUDGE_ENVIRONMENT_SETTINGS,
@@ -265,6 +266,13 @@ def _is_heading_inside_prose(list_span: str, list_scope: str) -> bool:
     return not any(FOOTER_HEADING_PATTERN.fullmatch(each_line.strip()) for each_line in list_scope.splitlines())
 
 
+def _is_short_footer_list(list_span: str, list_scope: str) -> bool:
+    if not FOOTER_HEADING_PATTERN.fullmatch(list_span.strip()):
+        return False
+    all_footer_items = split_footer(list_scope).footer_items
+    return all_footer_items is not None and len(all_footer_items) < OPEN_ITEM_LIST_MINIMUM
+
+
 def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
     """Return the verdict in the judge's result text, or None when it is not the verdict shape.
 
@@ -275,6 +283,7 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
         a raised flag whose span is empty or not in its scope                    -> None
         a list span only in the In progress footer                               -> JudgeVerdict(<promise>, "")
         "In progress:" as the span, where the body holds it only inside prose    -> JudgeVerdict(<promise>, "")
+        "In progress:" as the span, with fewer than three asks under it in scope -> JudgeVerdict(<promise>, "")
         prose, an extra key, or a string in place of a bool                      -> None
 
     Args:
@@ -297,7 +306,11 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
     if promise_span is None or list_span is None:
         return None
     list_scope = list_check_text(reply_text)
-    if list_span not in list_scope or _is_heading_inside_prose(list_span, list_scope):
+    if (
+        list_span not in list_scope
+        or _is_heading_inside_prose(list_span, list_scope)
+        or _is_short_footer_list(list_span, list_scope)
+    ):
         return JudgeVerdict(promise_span, "")
     return JudgeVerdict(promise_span, list_span)
 

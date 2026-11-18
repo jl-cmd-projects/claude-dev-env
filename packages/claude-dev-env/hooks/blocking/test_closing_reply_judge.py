@@ -92,7 +92,17 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
     )
     assert judge_input("Fix the build", ask_reply, False)["list_scope"] == ask_reply
     assert parsed_verdict(verdict_text, ask_reply) == JudgeVerdict("", "In progress:")
-    assert parsed_verdict(verdict_text, asking_reply) == JudgeVerdict("", "In progress:")
+    assert parsed_verdict(verdict_text, asking_reply) == JudgeVerdict("", "")
+    holding_reply = (
+        "Shipped.\n\nIn progress:\n- I am holding the release for your approval.\n"
+        "- I am holding the price change for your approval.\n- I am holding the date for your approval."
+    )
+    assert parsed_verdict(verdict_text, holding_reply) == JudgeVerdict("", "In progress:")
+    one_ask_reply = (
+        "Shipped.\n\nIn progress:\n- I am shipping 8590.\n- I am merging 8790 once it has your approval.\n"
+        "- I am watching the ledger."
+    )
+    assert parsed_verdict(verdict_text, one_ask_reply) == JudgeVerdict("", "")
 
 
 def test_should_send_the_command_name_and_args_for_a_slash_command() -> None:

@@ -2,6 +2,7 @@ import pytest
 
 from closing_question_round_footer import (
     footer_reason,
+    is_footer_ask,
     left_out_tasks,
     list_check_text,
     split_footer,
@@ -103,7 +104,7 @@ def test_should_keep_a_footer_of_asks_for_the_user_in_the_list_check_text() -> N
     ask_reply = "Done.\n\nIn progress:\n- Approve the release.\n- Pick a price.\n- Confirm the date."
     mixed_reply = "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price."
     assert list_check_text(ask_reply) == ask_reply
-    assert list_check_text(mixed_reply) == mixed_reply
+    assert list_check_text(mixed_reply) == "Done.\n\n\nIn progress:\n- Pick a price."
     assert list_check_text("Done.\n\nIn progress:\n- I\u2019m shipping 8590.").strip() == "Done."
 
 
@@ -114,9 +115,23 @@ def test_should_keep_a_first_person_footer_that_waits_on_the_user_in_the_list_ch
     )
     status_reply = "Done.\n\nIn progress:\n- I am watching the discount ledger so you see its next update."
     asking_reply = "Done.\n\nIn progress:\n- I am shipping 8590.\n- I am asking you to approve the release."
-    waiting_reply = "Done.\n\nIn progress:\n- I am merging 8790 once it has your approval."
-    assert list_check_text(approval_reply) == approval_reply
-    assert list_check_text(asking_reply) == asking_reply
-    assert list_check_text(waiting_reply).strip() == "Done."
+    holding_reply = (
+        "Done.\n\nIn progress:\n- I am holding the release for your approval.\n"
+        "- I am holding the price change for your approval.\n- I am holding the date for your approval."
+    )
+    assert list_check_text(approval_reply) == (
+        "Done.\n\n\nIn progress:\n- I can proceed once you approve the release."
+    )
+    assert list_check_text(asking_reply) == "Done.\n\n\nIn progress:\n- I am asking you to approve the release."
+    assert list_check_text(holding_reply) == holding_reply
     assert list_check_text(status_reply).strip() == "Done."
+
+
+def test_should_tell_a_footer_ask_from_a_status_line() -> None:
+    assert not is_footer_ask("I am shipping 8590.")
+    assert not is_footer_ask("I am watching the discount ledger so you see its next update.")
+    assert not is_footer_ask("I am shipping 8590. Its tests are pending.")
+    assert is_footer_ask("I am merging 8790 once it has your approval.")
+    assert is_footer_ask("Approve the release.")
+    assert is_footer_ask("Should I merge 8590?")
 

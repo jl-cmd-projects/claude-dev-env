@@ -3,6 +3,8 @@ from pathlib import Path
 
 import pytest
 
+import closing_question_round_gate
+
 from hooks_constants.closing_question_round_gate_constants import (
     CLOSING_ROUND_REASON_LEAD,
     FOOTER_GAP_REASON_LEAD,
@@ -692,6 +694,62 @@ def test_should_hold_later_work_when_a_footer_task_finished_while_a_job_runs(
     assert str(
         held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "tests"}]})
     ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
+def test_should_hold_later_work_when_the_job_a_one_line_footer_named_has_ended(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    footer_reply = f"The retry flag is in place.\n\n{FOOTER}"
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(footer_reply)]
+    all_records = [*all_footer_records, *edit_records(), reply_record("The flag reads well.")]
+    footer_fields = {"background_tasks": [{"id": "ledger"}], "last_assistant_message": footer_reply}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_fields) is None
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
+def test_should_hold_later_work_when_the_same_footer_went_out_again_with_no_reply_text(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_first_records, _ = _footer_then_work()
+    all_second_records = [*all_first_records, *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_records = [*all_second_records, *edit_records(), reply_record("The flag reads well.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_first_records, footer_stop_fields([{"id": "ledger"}])) is None
+    both_jobs = {"background_tasks": [{"id": "ledger"}, {"id": "tests"}]}
+    held_reason(monkeypatch, capsys, tmp_path, all_second_records, both_jobs)
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
+def test_should_allow_later_work_when_the_footer_stop_ran_before_the_reply_was_written(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_footer_records, all_records = _footer_then_work()
+    all_unwritten_records = all_footer_records[:-1]
+    assert held_reason(
+        monkeypatch, capsys, tmp_path, all_unwritten_records, footer_stop_fields([{"id": "ledger"}])
+    ) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]}) is None
+
+
+def test_should_read_the_task_list_once_when_a_footer_stop_keeps_its_snapshot(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_task_reads: list[object] = []
+    original_session_tasks = closing_question_round_gate.session_tasks
+
+    def counted_session_tasks(all_hook_input_fields: dict[str, object]) -> object:
+        all_task_reads.append(all_hook_input_fields)
+        return original_session_tasks(all_hook_input_fields)
+
+    monkeypatch.setattr(closing_question_round_gate, "session_tasks", counted_session_tasks)
+    all_footer_records, _ = _footer_then_work()
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([{"id": "ledger"}])) is None
+    assert len(all_task_reads) == 1
 
 
 def test_should_allow_later_work_after_a_footer_that_sums_up_two_jobs_in_one_line(

@@ -46,6 +46,8 @@ from hooks_constants.closing_question_round_gate_constants import (
     ASK_OF_USER_PATTERN,
     FIRST_PERSON_ITEM_PATTERN,
     FOOTER_TASK_LINE_TEMPLATE,
+    LIST_SCOPE_FOOTER_TEMPLATE,
+    LIST_SCOPE_ITEM_TEMPLATE,
     FOOTER_TASKS_LABEL,
     FOOTER_WORD_PATTERN,
     MATCH_PREFIX_LENGTH,
@@ -105,42 +107,61 @@ def split_footer(closing_reply: str) -> SplitReply:
     return SplitReply(closing_reply, None)
 
 
+def is_footer_ask(footer_item: str) -> bool:
+    """Return True when a footer item asks something of the user, so it is no plain status line.
+
+    ::
+
+        "I am shipping 8590."                          -> False
+        "I am watching the ledger so you see it."      -> False
+        "I am merging 8590 once it has your approval." -> True, it waits on the user
+        "I can go on once you approve."                -> True
+        "Approve the release."                         -> True, not first person
+        "Should I merge 8590?"                         -> True, a question
+
+    The rule writes each footer item in first person. An item that is not,
+    that waits for the user to act, or that holds an open-item line other
+    than the status markers "pending", "blocked", "not done", and "not run"
+    asks the user something.
+    """
+    status_item = FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, footer_item)
+    return (
+        FIRST_PERSON_ITEM_PATTERN.match(footer_item) is None
+        or ASK_OF_USER_PATTERN.search(footer_item) is not None
+        or bool(marked_open_lines([status_item], math.inf))
+    )
+
+
 def list_check_text(closing_reply: str) -> str:
     """Return the part of the reply an open-item list check reads.
 
     ::
 
-        "Done.\n\nIn progress:\n- I am shipping 8590."           -> "Done.\n"
-        "Done.\n\nIn progress:\n- Should I merge 8590?"          -> the whole reply
-        "Done.\n\nIn progress:\n- Approve the release."          -> the whole reply
-        "Done.\n\nIn progress:\n- I can go on once you approve."  -> the whole reply
-        "Done."                                                  -> "Done."
+        "Done.\n\nIn progress:\n- I am shipping 8590."                -> "Done.\n"
+        "Done.\n\nIn progress:\n- Pick a price.\n- Confirm the date."  -> the whole reply
+        "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price." -> "Done.\n\n\nIn progress:\n- Pick a price."
+        "Done."                                                       -> "Done."
 
-    A footer that only says where work stands is required status, so the
-    check reads the body above it. The rule writes each footer item in first
-    person, so a footer counts as status only when every item starts with
-    "I", no item waits for the user to act, as "once you approve" or
-    "waiting on you" do, and none holds an open-item line, such as a question. The scan reads "pending", "blocked", "not done", and "not run"
-    in a footer as status, as the closing round scan does. Any other footer
-    stays in.
+    A footer line that only says where work stands is required status, so
+    the check leaves it out and reads the body with the footer lines that ask
+    the user something, as ``is_footer_ask`` finds them.
 
     Args:
         closing_reply: The reply the turn ends with.
 
     Returns:
-        The body above a status-only footer, or the whole reply.
+        The body with the footer's asks, or the whole reply when every item asks.
     """
     split_reply = split_footer(closing_reply)
     if split_reply.footer_items is None:
         return closing_reply
-    all_status_items = [
-        FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, each_item) for each_item in split_reply.footer_items
-    ]
-    is_first_person = all(FIRST_PERSON_ITEM_PATTERN.match(each_item) for each_item in split_reply.footer_items)
-    is_ask_of_user = any(ASK_OF_USER_PATTERN.search(each_item) for each_item in split_reply.footer_items)
-    if not is_first_person or is_ask_of_user or marked_open_lines(all_status_items, math.inf):
+    all_asks = [each_item for each_item in split_reply.footer_items if is_footer_ask(each_item)]
+    if len(all_asks) == len(split_reply.footer_items):
         return closing_reply
-    return split_reply.body
+    if not all_asks:
+        return split_reply.body
+    all_ask_lines = [LIST_SCOPE_ITEM_TEMPLATE.format(item=each_item) for each_item in all_asks]
+    return LIST_SCOPE_FOOTER_TEMPLATE.format(body=split_reply.body, items=LINE_BREAK.join(all_ask_lines))
 
 
 def _stem(word: str) -> str:
