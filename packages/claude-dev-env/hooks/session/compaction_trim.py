@@ -177,13 +177,25 @@ def _messages_with_content(all_messages: list[TypedMessage]) -> list[TypedMessag
     ]
 
 
-def _trimmed_line(message: TypedMessage, later_position: int | None) -> str:
+def _trimmed_line(message: TypedMessage, text: str, later_position: int | None) -> str:
     line = TRIMMED_LINE_TEMPLATE.format(
-        position=message.position, text=_capped_text(caveman_text(message.text))
+        position=message.position, text=_capped_text(text)
     )
     if later_position is None:
         return line
     return line + OVERRULED_SUFFIX_TEMPLATE.format(later_position=later_position)
+
+
+def _render_lines(all_messages: list[TypedMessage]) -> tuple[list[str], bool]:
+    all_kept_messages = _messages_with_content(all_messages)
+    later_position_by_earlier = _overruled_by(all_kept_messages)
+    all_lines: list[str] = []
+    has_shortened_turn = False
+    for each_message in all_kept_messages:
+        text = caveman_text(each_message.text)
+        has_shortened_turn |= len(text) > MAXIMUM_MESSAGE_CHARACTERS
+        all_lines.append(_trimmed_line(each_message, text, later_position_by_earlier.get(each_message.position)))
+    return all_lines, has_shortened_turn
 
 
 def trimmed_lines(all_messages: list[TypedMessage]) -> list[str]:
@@ -200,12 +212,8 @@ def trimmed_lines(all_messages: list[TypedMessage]) -> list[str]:
     Returns:
         Lines that start with the message number; a reversed line ends with its marker.
     """
-    all_kept_messages = _messages_with_content(all_messages)
-    later_position_by_earlier = _overruled_by(all_kept_messages)
-    return [
-        _trimmed_line(each_message, later_position_by_earlier.get(each_message.position))
-        for each_message in all_kept_messages
-    ]
+    all_lines, _ = _render_lines(all_messages)
+    return all_lines
 
 
 def _newest_lines_within(all_later_lines: list[str], character_budget: int) -> list[str]:
@@ -238,9 +246,22 @@ def recall_text(all_messages: list[TypedMessage]) -> str | None:
         The lines joined by newlines, at most ``MAXIMUM_RECALL_CHARACTERS`` long
         apart from the left-out note, or None.
     """
-    all_lines = trimmed_lines(all_messages)
+    text, _ = recall_with_clipping(all_messages)
+    return text
+
+
+def recall_with_clipping(all_messages: list[TypedMessage]) -> tuple[str | None, bool]:
+    """Return the recall text and whether either character budget removed content.
+
+    Args:
+        all_messages: Typed user messages from the current session.
+
+    Returns:
+        Rendered recall and its budget-clipping flag.
+    """
+    all_lines, has_shortened_turn = _render_lines(all_messages)
     if not all_lines:
-        return None
+        return None, False
     first_line, *all_later_lines = all_lines
     all_kept_later_lines = _newest_lines_within(
         all_later_lines, MAXIMUM_RECALL_CHARACTERS - len(first_line)
@@ -249,4 +270,5 @@ def recall_text(all_messages: list[TypedMessage]) -> str | None:
     all_left_out_notes = (
         [LEFT_OUT_LINES_TEMPLATE.format(left_out_count=left_out_count)] if left_out_count else []
     )
-    return LINE_SEPARATOR.join([first_line, *all_left_out_notes, *all_kept_later_lines])
+    text = LINE_SEPARATOR.join([first_line, *all_left_out_notes, *all_kept_later_lines])
+    return text, has_shortened_turn or bool(left_out_count)

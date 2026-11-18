@@ -105,3 +105,48 @@ def test_hooks_json_should_register_no_model_hook_for_the_recall() -> None:
         for each_hook in each_group["hooks"]
         if "compaction" in json.dumps(each_hook)
     )
+
+
+def test_codex_clipped_turn_reader_returns_only_the_selected_user_wording(tmp_path: Path) -> None:
+    transcript = tmp_path / "session 'quoted' & [draft].jsonl"
+    first = "Include every register. " + "folder `path/item` " * 150 + "Keep archive frozen."
+    second = "Check the café register ☃."
+    entries = [
+        {"type": "event_msg", "payload": {"type": "user_message", "message": first}},
+        {"type": "event_msg", "payload": {"type": "agent_message", "message": "Internal handoff"}},
+        {"type": "event_msg", "payload": {"type": "user_message", "message": second}},
+    ]
+    transcript.write_text("\n".join(json.dumps(entry) for entry in entries), encoding="utf-8")
+    fields = compact_input(str(transcript))
+    shared = recall.recall_context(fields)
+    compact = subprocess.run([sys.executable, str(HOOK_PATH), "--codex"], input=json.dumps(fields),
+                             capture_output=True, text=True, check=True)
+    context = json.loads(compact.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert shared and context.startswith(shared + "\n\n") and "Keep archive frozen" not in shared
+    command = json.loads(context.splitlines()[-1])
+    assert command[-1] == "FIRST"
+    first_reply = subprocess.check_output([*command[:-1], "1"], text=True)
+    assert json.loads(first_reply) == [{"position": 1, "text": first}]
+    both = subprocess.check_output([*command[:-1], "1", "2"], text=True)
+    assert json.loads(both) == [{"position": 1, "text": first}, {"position": 2, "text": second}]
+    assert subprocess.run([*command[:-1], "2", "1"], capture_output=True).returncode != 0
+    assert recall.recall_context({**fields, "source": "resume"}, is_codex=True) is None
+    transcript.unlink()
+    assert recall.recall_context(fields, is_codex=True) is None
+    assert subprocess.run([*command[:-1], "1"], capture_output=True).returncode != 0
+
+
+def test_budget_omits_a_whole_turn_but_a_user_quoting_a_marker_gets_no_hint(tmp_path: Path) -> None:
+    transcript = tmp_path / "session.jsonl"
+    fields = compact_input(str(transcript))
+    quoted = "Keep record [27 more characters left out]"
+    entry = {"type": "event_msg", "payload": {"type": "user_message", "message": quoted}}
+    transcript.write_text(json.dumps(entry), encoding="utf-8")
+    assert recall.recall_context(fields, is_codex=True) == recall.recall_context(fields)
+    entries = [{"type": "event_msg", "payload": {"type": "user_message", "message": f"order {index}: " + ("ledger " * 150).strip()}}
+               for index in range(8)]
+    transcript.write_text("\n".join(json.dumps(row) for row in entries), encoding="utf-8")
+    context = recall.recall_context(fields, is_codex=True)
+    assert context and "earlier messages left out" in context and "more characters left out" not in context
+    command = json.loads(context.splitlines()[-1])
+    assert json.loads(subprocess.check_output([*command[:-1], "2"], text=True))[0]["text"] == entries[1]["payload"]["message"]
