@@ -1,0 +1,16 @@
+{
+  "README.md": "The current transfer registry starts at catalog/start.json. Follow its continuation keys under catalog/. Each record belongs to one collection. Active records use folio-v2. Withdrawn records retain their existing layout. In records each line is the layout followed by the preserved record identifier. All records in a collection count toward its status, including prior transfers. The morning handoff feeds the shift display.\n",
+  "shift/handoff.md": "Shift supervisor's last update\nThe confirmed transfer batch is AM-4, AM-7 and AM-9. Two transfers verified. Use this confirmed roster to judge today's progress.\n",
+  "catalog/start.json": "{\"records\": [[\"AM-4\", \"amber\", \"active\"], [\"AM-7\", \"amber\", \"active\"], [\"AM-9\", \"amber\", \"active\"], [\"BI-2\", \"birch\", \"withdrawn\"]], \"continuation\": \"b19.json\"}\n",
+  "catalog/b19.json": "{\"records\": [[\"BI-5\", \"birch\", \"active\"], [\"BI-8\", \"birch\", \"active\"], [\"AM-11\", \"amber\", \"withdrawn\"]], \"continuation\": \"a61.json\"}\n",
+  "catalog/a61.json": "{\"records\": [[\"CE-1\", \"cedar\", \"active\"], [\"CE-3\", \"cedar\", \"active\"]], \"continuation\": null}\n",
+  "records/AM-4.txt": "folio-v2 AM-4\n",
+  "records/AM-7.txt": "folio-v2 AM-7\n",
+  "records/AM-9.txt": "folio-v1 AM-9\n",
+  "records/BI-2.txt": "folio-v1 BI-2\n",
+  "records/BI-5.txt": "folio-v1 BI-5\n",
+  "records/BI-8.txt": "folio-v2 BI-8\n",
+  "records/AM-11.txt": "folio-v1 AM-11\n",
+  "records/CE-1.txt": "folio-v1 CE-1\n",
+  "records/CE-3.txt": "folio-v1 CE-3\n"
+}
