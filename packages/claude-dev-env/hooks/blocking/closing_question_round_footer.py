@@ -146,7 +146,7 @@ def task_key_words(task_item: TaskItem, all_open_items: Sequence[TaskItem]) -> l
 
 
 def left_out_tasks(
-    footer_items: Sequence[str],
+    all_footer_items: Sequence[str],
     all_in_progress_items: Sequence[TaskItem],
     all_open_items: Sequence[TaskItem],
 ) -> list[TaskItem]:
@@ -163,7 +163,7 @@ def left_out_tasks(
     by the first five letters. A task with no key words counts as named.
 
     Args:
-        footer_items: The footer's list item texts.
+        all_footer_items: The footer's list item texts.
         all_in_progress_items: The session's tasks with status ``in_progress``.
         all_open_items: Every task not yet completed, which sets the words a task shares.
 
@@ -172,7 +172,7 @@ def left_out_tasks(
     """
     all_footer_stems = {
         _stem(each_word)
-        for each_item in footer_items
+        for each_item in all_footer_items
         for each_word in FOOTER_WORD_PATTERN.findall(each_item.lower())
     }
     return [

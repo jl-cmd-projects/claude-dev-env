@@ -449,3 +449,17 @@ def test_should_keep_a_marker_line_written_before_a_footer(
     assert '"The retry path is untested."' in str(
         held_reason(monkeypatch, capsys, tmp_path, all_records)
     )
+
+
+def test_should_read_no_marker_inside_a_footer_of_an_earlier_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    blocked_footer = "In progress:\n- The list reader fix is blocked on the last tests."
+    all_records = [
+        typed_prompt_record(),
+        *edit_records(),
+        reply_record(f"The retry flag is in place.\n\n{blocked_footer}"),
+        typed_prompt_record(),
+        reply_record("You are welcome."),
+    ]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None

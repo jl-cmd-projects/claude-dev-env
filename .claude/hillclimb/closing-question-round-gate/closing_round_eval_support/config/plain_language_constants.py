@@ -10,9 +10,7 @@ from pathlib import Path
 
 from closing_round_eval_support.config.constants import FLOW_ROOT, REPOSITORY_ROOT
 
-BLOCKING_DIRECTORY = (
-    REPOSITORY_ROOT / "packages" / "claude-dev-env" / "hooks" / "blocking"
-)
+BLOCKING_DIRECTORY = REPOSITORY_ROOT / "packages" / "claude-dev-env" / "hooks" / "blocking"
 BROKER_SCRIPT = Path.home() / ".claude" / "scripts" / "account_broker.py"
 DEFAULT_OUT_DIRECTORY = FLOW_ROOT / "plain-language-runs"
 DEFAULT_SAMPLE_COUNT = 3
@@ -31,8 +29,12 @@ SAMPLE_FILE_TEMPLATE = "{hook_label}-{scenario}-{sample}.json"
 JSON_OBJECT_PATTERN = re.compile(r"\{.*\}", re.DOTALL)
 PARAGRAPH_SPLIT_PATTERN = re.compile(r"\n\s*\n")
 UTF8_ENCODING = "utf-8"
+FOOTER_LINE_SEPARATOR = "\n"
+LOGGED_TEXT_LIMIT = 200
+JUDGE_ERROR_TEXT_LIMIT = 400
+SAMPLE_JSON_INDENT = 2
 
-TASK_ENTRIES = [
+ALL_TASK_ENTRIES = [
     {"id": "27", "subject": "Merge stale theme PR", "status": "completed"},
     {"id": "28", "subject": "Fix list reader lint finding", "status": "in_progress"},
     {
@@ -42,7 +44,7 @@ TASK_ENTRIES = [
     },
     {"id": "30", "subject": "Open ledger PR", "status": "pending"},
 ]
-BACKGROUND_ENTRIES = [
+ALL_BACKGROUND_ENTRIES = [
     {"id": f"a{each_number}", "type": "subagent", "status": "running"}
     for each_number in range(12, 21)
 ] + [
@@ -52,7 +54,7 @@ BACKGROUND_ENTRIES = [
     {"id": "mo1", "type": "monitor", "status": "running"},
     {"id": "mo2", "type": "monitor", "status": "running"},
 ]
-SCENARIO_BACKGROUND = {"with-background": BACKGROUND_ENTRIES, "tasks-only": []}
+ALL_SCENARIO_BACKGROUNDS = {"with-background": ALL_BACKGROUND_ENTRIES, "tasks-only": []}
 
 TYPED_PROMPT = "Land the list reader fix and the discount ledger change."
 FIRST_REPLY = (
@@ -80,15 +82,15 @@ BACKGROUND_LINE = (
     " 4f3c2e1..HEAD, babysit PR 8801 CI, ledger_reconcile.py dry run against Neon branch"
     " br-ledger-77, efficient-review on PR 8801, update followup_ledger.json, watch board topic"
     " orch-board), 3 shells (gh run watch 19283746, pytest -x tests/ledger -k discount, tail -f"
-    " logs/ledger_run_77123.log), 2 monitors (github watch_pr 8801, ntfy listen orch-board).\n"
+    " logs/discount_77123.log), 2 monitors (github watch_pr 8801, ntfy listen orch-board).\n"
 )
 NO_BACKGROUND_LINE = "- Background tasks: none.\n"
-HOLD_PROMPT_TEMPLATE = (
-    "Then the Stop hook held your stop with this message:\n\n{reason}\n\n"
+HOLD_PROMPT_TEMPLATE = "Then the Stop hook held your stop with this message:\n\n{reason}\n\n"
+WRITE_AGAIN_PROMPT = (
+    "Write your full closing reply again now, as the user will see it. Output only the reply text."
 )
-WRITE_AGAIN_PROMPT = "Write your full closing reply again now, as the user will see it. Output only the reply text."
 
-SCAN_RULES = (
+ALL_SCAN_RULES = (
     ("commit hash", re.compile(r"\b(?=[0-9a-f]*\d)(?=[0-9a-f]*[a-f])[0-9a-f]{7,40}\b")),
     ("task number", re.compile(r"(?<![\w&])#\d+\b")),
     (
@@ -107,9 +109,7 @@ SCAN_RULES = (
     ),
     (
         "file path",
-        re.compile(
-            r"(?:\b[\w.-]+/)+[\w.-]+|\b[\w-]+\.(?:py|js|ts|json|md|ya?ml|sh|toml|log)\b"
-        ),
+        re.compile(r"(?:\b[\w.-]+/)+[\w.-]+|\b[\w-]+\.(?:py|js|ts|json|md|ya?ml|sh|toml|log)\b"),
     ),
     ("code name", re.compile(r"`[^`]+`|\b[a-z]+(?:_[a-z0-9]+)+\b|\b[a-z]+[A-Z]\w+\b")),
     (
@@ -135,9 +135,7 @@ SCAN_RULES = (
     ),
     (
         "process count",
-        re.compile(
-            r"\b\d+\s+(?:background\s+)?(?:tasks?|jobs?|processes)\b", re.IGNORECASE
-        ),
+        re.compile(r"\b\d+\s+(?:background\s+)?(?:tasks?|jobs?|processes)\b", re.IGNORECASE),
     ),
 )
 

@@ -14,9 +14,9 @@ The gate holds the stop for these shapes, and only in a session it covers::
 
 The stretch is every top-level record after the last question call that
 reached the user, then the payload's closing reply. The closing reply is the
-newest text after the last work call. Its In progress footer, as
+newest text after the last work call. Each reply's In progress footer, as
 ``closing_question_round_footer.split_footer`` reads it, is cut off first, so
-a marker word inside the footer counts for nothing. A marker line is a prose
+a marker word inside a footer counts for nothing. A marker line is a prose
 line ``closing_question_round_open_items`` finds in the rest: a marker word or
 a line that ends with a question mark. Work is any tool call that is no
 question call and that sits in the stretch after the last record whose final
@@ -96,7 +96,7 @@ from closing_question_gate_flag import is_bypass_on
 from closing_question_round_footer import footer_reason, left_out_tasks, split_footer
 from closing_question_round_lines import transcript_lines
 from closing_question_round_open_items import declares_no_open_items, marked_open_lines
-from closing_question_round_tasks import session_tasks
+from closing_question_round_tasks import SessionTasks, session_tasks
 from closing_question_round_transcript import (
     assistant_texts,
     block_texts,
@@ -277,8 +277,10 @@ def _closing_reply_texts(
     return [*assistant_texts(all_stretch_records[first_closing_position:]), *all_payload_texts]
 
 
-def _missing_footer_lead(is_declared_over_tasks: bool, did_work: bool) -> str | None:
-    if is_declared_over_tasks:
+def _missing_footer_lead(
+    all_tasks: SessionTasks, is_declared: bool, did_work: bool
+) -> str | None:
+    if is_declared and all_tasks.in_progress:
         return IN_PROGRESS_TASKS_REASON_LEAD
     if did_work:
         return FOOTER_MISSING_REASON_LEAD
@@ -313,16 +315,15 @@ def footer_hold_reason(
     Returns:
         The reason, or None.
     """
-    is_background_running = has_background_work(all_hook_input_fields)
-    all_tasks = session_tasks(all_hook_input_fields)
-    if not all_tasks.in_progress and not is_background_running:
-        return None
     footer_items = split_footer(closing_reply).footer_items
+    is_declared = footer_items is None and declares_no_open_items(closing_reply, deadline_at)
+    if footer_items is None and not is_declared and not did_work:
+        return None
+    all_tasks = session_tasks(all_hook_input_fields)
+    if not all_tasks.in_progress and not has_background_work(all_hook_input_fields):
+        return None
     if footer_items is None:
-        reason_lead = _missing_footer_lead(
-            bool(all_tasks.in_progress) and declares_no_open_items(closing_reply, deadline_at),
-            did_work,
-        )
+        reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work)
         if reason_lead is None:
             return None
         return footer_reason(reason_lead, all_tasks.in_progress, (), all_tasks.still_open)
@@ -343,9 +344,10 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         return None
     all_closing_texts = _closing_reply_texts(all_stretch_records, all_payload_texts)
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
-    all_texts = [*assistant_texts(all_stretch_records), *all_payload_texts]
-    if all_closing_texts:
-        all_texts[-1] = split_footer(closing_reply).body
+    all_texts = [
+        split_footer(each_text).body
+        for each_text in [*assistant_texts(all_stretch_records), *all_payload_texts]
+    ]
     if not has_background_work(all_hook_input_fields):
         all_open_item_lines = marked_open_lines(all_texts, deadline_at)
         if all_open_item_lines:
