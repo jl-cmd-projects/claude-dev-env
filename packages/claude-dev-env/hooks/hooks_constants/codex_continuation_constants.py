@@ -6,6 +6,7 @@ CHILD_FLAG = "--codex-child-stop"
 CHILD_STOP_EVENT = "SubagentStop"
 AGENT_TRANSCRIPT_KEY = "agent_transcript_path"
 MAX_REASON_SENTENCES = 2
+LINE_SEPARATOR = "\n"
 ALL_CLOSING_PHRASES = (
     "unverified", "pending", "not yet verified", "still open", "remain open", "remains open",
     "still blocked", "remains unconfirmed", "one activation step remains", "awaiting checks",

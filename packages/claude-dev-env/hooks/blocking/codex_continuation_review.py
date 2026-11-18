@@ -1,6 +1,10 @@
 """Check visible closing prose for a reason to revisit the user's assignment once."""
 
+from itertools import takewhile
+from re import Match
+
 from final_reply_gate import prose_paragraphs
+from hooks_constants.open_tasks_stop_gate_constants import WORD_SEPARATOR
 from hooks_constants.codex_continuation_constants import (
     ADDITIONAL_REQUEST,
     APPROVAL_SUBJECT,
@@ -8,6 +12,7 @@ from hooks_constants.codex_continuation_constants import (
     CLAUSE_BREAK,
     CLOSING_PHRASE,
     CONTINUATION_REVIEW,
+    LINE_SEPARATOR,
     MAX_REASON_SENTENCES,
     NEGATED_STATUS,
     ONLY_STATUS_REQUEST,
@@ -18,6 +23,21 @@ from hooks_constants.codex_continuation_constants import (
     STANDALONE_STOP,
     WAIT_SUBJECT,
 )
+
+
+def _unquoted(text: str) -> list[str]:
+    return [WORD_SEPARATOR.join(QUOTED_EXAMPLE.sub(WORD_SEPARATOR, part).split()) for part in prose_paragraphs(text)]
+
+
+def _warrants_review(match: Match[str], clause: str, explanation: str, has_question: bool) -> bool:
+    if NEGATED_STATUS.search(clause[:match.start()]) or RESOLVED_STATUS.search(clause[match.end():]):
+        return False
+    protected = PROTECTED_DECISION.search(explanation)
+    if APPROVAL_SUBJECT.search(clause) and (has_question or protected):
+        return False
+    is_wait = any(each_wait.start() <= match.start() and each_wait.end() >= match.end()
+                  for each_wait in WAIT_SUBJECT.finditer(clause))
+    return not (is_wait and (REGISTERED_WAKE.search(explanation) or protected))
 
 
 def continuation_review(reply: object, user_request: str, has_question: bool) -> str | None:
@@ -33,26 +53,15 @@ def continuation_review(reply: object, user_request: str, has_question: bool) ->
     """
     if not isinstance(reply, str):
         return None
-    request = " ".join(QUOTED_EXAMPLE.sub(" ", part) for part in prose_paragraphs(user_request)).strip()
+    request = WORD_SEPARATOR.join(_unquoted(user_request)).strip()
     if STANDALONE_STOP.fullmatch(request) or ONLY_STATUS_REQUEST.fullmatch(request):
         return None
     if CANCELLED_REQUEST.search(request) and not ADDITIONAL_REQUEST.search(request):
         return None
-    prose = "\n".join(" ".join(QUOTED_EXAMPLE.sub(" ", part).split()) for part in prose_paragraphs(reply))
-    all_clauses = [clause.strip() for clause in CLAUSE_BREAK.split(prose) if clause.strip()]
+    all_clauses = [part.strip() for part in CLAUSE_BREAK.split(LINE_SEPARATOR.join(_unquoted(reply))) if part.strip()]
     for each_index, each_clause in enumerate(all_clauses):
-        for each_match in CLOSING_PHRASE.finditer(each_clause):
-            if NEGATED_STATUS.search(each_clause[:each_match.start()]) or RESOLVED_STATUS.search(each_clause[each_match.end():]):
-                continue
-            context = [each_clause]
-            for next_clause in all_clauses[each_index + 1:each_index + 1 + MAX_REASON_SENTENCES]:
-                if CLOSING_PHRASE.search(next_clause):
-                    break
-                context.append(next_clause)
-            explanation = " ".join(context)
-            if APPROVAL_SUBJECT.search(each_clause) and (has_question or PROTECTED_DECISION.search(explanation)):
-                continue
-            if any(wait.start() <= each_match.start() and wait.end() >= each_match.end() for wait in WAIT_SUBJECT.finditer(each_clause)) and (REGISTERED_WAKE.search(explanation) or PROTECTED_DECISION.search(explanation)):
-                continue
+        nearby = all_clauses[each_index + 1:each_index + 1 + MAX_REASON_SENTENCES]
+        explanation = WORD_SEPARATOR.join([each_clause, *takewhile(lambda part: not CLOSING_PHRASE.search(part), nearby)])
+        if any(_warrants_review(match, each_clause, explanation, has_question) for match in CLOSING_PHRASE.finditer(each_clause)):
             return CONTINUATION_REVIEW
     return None
