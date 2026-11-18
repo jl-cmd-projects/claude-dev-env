@@ -179,10 +179,12 @@ def test_should_read_completed_codex_items_in_mixed_history() -> None:
         codex_line(completed),
         codex_line({"type": "item_completed", "item": {"type": "AgentMessage", "id": "a1"}}),
         codex_line({"type": "item_completed", "item": {**completed["item"], "id": "u2"}}),
+        codex_line({"type": "item_completed", "item": {**completed["item"], "id": "u3"}}),
+        codex_line({"type": "item_completed", "item": {**completed["item"], "id": "u3"}}),
         json.dumps({"type": "response_item", "payload": {"type": "message", "role": "user",
                     "content": [{"type": "input_text", "text": "Injected scope"}]}}),
         codex_line({"type": "item_completed", "item": {"type": "HookPrompt", "content": content}}),
-        codex_line({"type": "item_completed", "item": {"type": "UserMessage", "id": "u3", "content": [
+        codex_line({"type": "item_completed", "item": {"type": "UserMessage", "id": "u4", "content": [
             {"type": "text", "text": "<system-reminder>hidden</system-reminder>"},
             {"type": "local_image", "path": "private-preview.png"},
             {"type": "image", "image_url": "data:image/png;base64,synthetic"},
@@ -190,10 +192,10 @@ def test_should_read_completed_codex_items_in_mixed_history() -> None:
         ]}}),
         codex_line({"type": "item_completed", "item": {"type": "UserMessage", "content": "bad shape"}}),
     ]
-    assert texts_of(all_lines) == ["Keep this limit.", "Keep this limit.", "[image]"]
+    assert texts_of(all_lines) == ["Keep this limit.", "Keep this limit.", "Keep this limit.", "[image]"]
     literal = extractor.typed_user_messages(all_lines, should_preserve_codex_text=True)
     assert [(turn.position, turn.text) for turn in literal] == [
-        (1, "  Keep this limit.  "), (2, "  Keep this limit.  "), (3, "[image]"),
+        (1, "  Keep this limit.  "), (2, "  Keep this limit.  "), (3, "  Keep this limit.  "), (4, "[image]"),
     ]
 
 
