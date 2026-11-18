@@ -1,4 +1,4 @@
-"""Pin the discovery diagnostic separately from the recorded-decision study."""
+"""Pinned settings for the queue handoff diagnostic."""
 
 from pathlib import Path
 

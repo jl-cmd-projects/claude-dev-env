@@ -15,5 +15,6 @@ The [six captures](evidence.json) include the verbatim launch and final messages
 From the repository root:
 
 ```sh
-PYTHONPATH=.claude/hillclimb/recorded-decision python -m discovery.replay
+cd .claude/hillclimb/recorded-decision
+python -m discovery.replay
 ```
