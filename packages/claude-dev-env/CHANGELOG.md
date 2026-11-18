@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.131.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.5...claude-dev-env-v8.131.6) (2026-11-18)
+
+
+### Bug Fixes
+
+* **codex:** read user turns from paginated rollout items ([#2452](https://github.com/jl-cmd-projects/claude-dev-env/issues/2452)) ([e3d8c9c](https://github.com/jl-cmd-projects/claude-dev-env/commit/e3d8c9c6b59b6db23241980c928f057128402860))
+
 ## [8.131.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.4...claude-dev-env-v8.131.5) (2026-11-18)
 
 
