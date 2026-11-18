@@ -1,0 +1,80 @@
+{
+  "seed": "oct5-coverage-v1",
+  "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+  "budget_seconds": 360,
+  "rows": [
+    {
+      "id": "d40842",
+      "mode": "steady",
+      "case": "ledger_gap",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "x46761",
+      "candidate": "x56704",
+      "reviewer": "j11337",
+      "incumbent_arm": "baseline"
+    },
+    {
+      "id": "d60958",
+      "mode": "steady",
+      "case": "ledger_ready",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "baseline": "x36954",
+      "candidate": "x17707",
+      "reviewer": "j83523",
+      "incumbent_arm": "baseline"
+    },
+    {
+      "id": "d84906",
+      "mode": "steady",
+      "case": "ledger_ready",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "x57450",
+      "candidate": "x88742",
+      "reviewer": "j41024",
+      "incumbent_arm": "candidate"
+    },
+    {
+      "id": "d59316",
+      "mode": "steady",
+      "case": "ledger_gap",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "baseline": "x95076",
+      "candidate": "x49662",
+      "reviewer": "j75483",
+      "incumbent_arm": "candidate"
+    },
+    {
+      "id": "d66415",
+      "mode": "steady",
+      "case": "preview",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "x86217",
+      "candidate": "x99781",
+      "reviewer": "j55282",
+      "incumbent_arm": "baseline"
+    },
+    {
+      "id": "d76842",
+      "mode": "steady",
+      "case": "preview",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "baseline": "x15160",
+      "candidate": "x15617",
+      "reviewer": "j24960",
+      "incumbent_arm": "candidate"
+    }
+  ],
+  "case_sha256": {
+    "design_slice_case.py": "495f262a914af903ef64f2dff0d5672dcc52fdaaf77cd22b9e1d3e42b1125025",
+    "design_slice_reserve.py": "2d7c8305b8068d0d57d0ff98bab33cf42665cfd7e17a775726a00185eda5d9a3",
+    "design_slice_run.py": "bfb5895cecb50ce042023e086d357601a777704be0a5bf7bbe39b5b7bfa9bbd9",
+    "pivot_run.py": "57f9e1bfa7725d76ad42e7bf20144e4544505cdb124e02064eb2fc248b12192b",
+    "pivot_reviewer.txt": "7a83fb8de999e1633a27e2db8c090fdd79791c887fe4c5c4ba4e7b384035a920"
+  }
+}
