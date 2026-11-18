@@ -83,7 +83,7 @@ def schedule_for(root):
     runner = historical_runner()
     require(schedule["pin"] == runner.PIN and schedule["budget_seconds"] == runner.BUDGET_SECONDS,
             "The runner differs from the frozen baseline or budget.")
-    return {**schedule, "rows": rows, "historical_review_trigger": runner.review_trigger}
+    return {**schedule, "rows": rows, "historical_runner": runner}
 
 
 def optional_json(path):
@@ -115,7 +115,7 @@ def utc_seconds(before, after):
     return elapsed
 
 
-def check_trace(directory, entry, manifest, started):
+def check_trace(directory, entry, manifest, started, runner=pivot_run):
     events = parse_trace(read_text(directory / "events.jsonl"))
     require(started is not None or not events, "Actions were captured before the console opened.")
     reviewer = started["reviewer_seconds"] if started else 0
@@ -129,7 +129,7 @@ def check_trace(directory, entry, manifest, started):
         ended, began = step - snapshot, step - snapshot - runtime
         require(event["action"] == index and event["phase"] == phase and last - 1e-6 <= began <= ended <= step
                 and event["before_sha256"] == json_digest(tree)
-                and event["artifact_changes"] == sorted(set(event["changes"]) & set(pivot_run.artifact_paths(manifest["case"]))),
+                and event["artifact_changes"] == sorted(set(event["changes"]) & set(runner.artifact_paths(manifest["case"]))),
                 "A recorded action disagrees with its phase, state, or timing.")
         utc_seconds(started["utc"], event["started_utc"])
         utc_seconds(event["started_utc"], event["finished_utc"])
@@ -152,17 +152,18 @@ def check_trace(directory, entry, manifest, started):
 
 def opening_inputs(directory, manifest, row, schedule, baseline):
     case, mode = row["case"], row["mode"]
+    runner = schedule.get("historical_runner", pivot_run)
     require(manifest == {"case": case, "phase": "prefix", "mode": mode, "pin": schedule["pin"],
                         "budget_seconds": schedule["budget_seconds"],
-                        "input_sha256": pivot_run.hash_files(directory, pivot_run.INPUT_FILES)},
+                        "input_sha256": runner.hash_files(directory, runner.INPUT_FILES)},
             "The prefix manifest differs from the frozen inputs.")
-    module = pivot_run.module(case)
+    module = runner.module(case)
     if mode == "steady":
         from pivot_steady import history
 
         original, update = history(case), ""
     else:
-        original, update = module.history(case).split(pivot_run.UPDATE)
+        original, update = module.history(case).split(runner.UPDATE)
     require(read_text(directory / "instructions.md") == baseline
             and read_text(directory / "task.txt") == original.rstrip() + "\n"
             and read_text(directory / "operator-update.txt") == update,
@@ -214,11 +215,12 @@ def terminal_receipt(directory, manifest, trace, last, started):
 
 def prefix_record(directory, row, schedule, baseline):
     manifest = read_json(directory / "run.json")
+    runner = schedule.get("historical_runner", pivot_run)
     initial = opening_inputs(directory, manifest, row, schedule, baseline)
     started = optional_json(directory / "started.json")
     require(started is None or (started["reviewer_seconds"] == 0 and finite_seconds(started["monotonic"])),
             "A prefix has review time or an invalid start time.")
-    events, actions, tree, last = check_trace(directory, initial, manifest, started)
+    events, actions, tree, last = check_trace(directory, initial, manifest, started, runner)
     checkpoint = optional_json(directory / "checkpoint.json")
     pending = None
     if checkpoint:
@@ -226,8 +228,7 @@ def prefix_record(directory, row, schedule, baseline):
         step = checked_clock(clock, 0, 0, manifest["budget_seconds"], "prefix")
         path = directory / "review-input.json"
         pending = read_json(path)["pending_reply"]
-        review_trigger = schedule.get("historical_review_trigger", pivot_run.review_trigger)
-        trigger = review_trigger(directory, manifest, events, tree)
+        trigger = runner.review_trigger(directory, manifest, events, tree)
         fixed = schedule["prefix_work_actions"]
         reason_rules = {
             "attempted-finish": row["mode"] == "operator-update" and pending is not None and len(events) < fixed,
@@ -241,19 +242,20 @@ def prefix_record(directory, row, schedule, baseline):
                 and checkpoint["trace_sha256"] == digest((directory / "events.jsonl").read_bytes())
                 and checkpoint["review_input_sha256"] == digest(path.read_bytes())
                 and read_json(directory / "checkpoint-workspace.json") == tree
-                and read_json(path) == pivot_run.review_input(directory, events, tree, pending),
+                and read_json(path) == runner.review_input(directory, events, tree, pending),
                 "The prefix checkpoint, review trigger, or reviewer source inputs do not reproduce.")
     end = terminal_receipt(directory, manifest, tree, last, started)
     require(not checkpoint or end["end"] is None, "A prefix has both an update boundary and a terminal reply.")
     return {"manifest": manifest, "checkpoint": checkpoint, "pending": pending, "actions": actions, "tree": tree,
-            "started": started, "directory": directory, **end}
+            "started": started, "directory": directory, "runner": runner, **end}
 
 
 def branch_record(directory, prefix, review=None):
     source, checkpoint = prefix["directory"], prefix["checkpoint"]
+    runner = prefix["runner"]
     manifest = read_json(directory / "run.json")
     prefix_amount = checkpoint["clock"]["prefix_elapsed_seconds"]
-    exact_files = (*pivot_run.INPUT_FILES, "checkpoint-workspace.json", "review-input.json")
+    exact_files = (*runner.INPUT_FILES, "checkpoint-workspace.json", "review-input.json")
     copied = {name: name for name in exact_files}
     copied.update({f"prefix-{name}": name for name in ("run.json", "checkpoint.json", "started.json", "events.jsonl")})
     for name, source_name in copied.items():
@@ -276,7 +278,7 @@ def branch_record(directory, prefix, review=None):
                 and started["receipt_sha256"] == optional_hash(directory / "review.json")
                 and started["advice_sha256"] == optional_hash(advice_file),
                 "The consumed review files disagree with the branch start receipt.")
-    events, actions, tree, last = check_trace(directory, prefix["tree"], manifest, started)
+    events, actions, tree, last = check_trace(directory, prefix["tree"], manifest, started, runner)
     terminal = terminal_receipt(directory, manifest, tree, last, started)
     return {**terminal, "actions": actions, "started": started, "tree": tree,
             "reviewer_seconds": captured_review_seconds, "advice_delivered": bool(started and advice.strip()),
@@ -371,7 +373,7 @@ def branch_publication(row, arm, prefix, result, launch, review_launch, review, 
     directory = result["directory"]
     workspace = directory / "work" if directory is not None else None
     available = result["started"] is not None
-    oracle = pivot_run.artifact_grade(directory, row["case"]) if available else {}
+    oracle = prefix["runner"].artifact_grade(directory, row["case"]) if available else {}
     route, total_wall = None, None
     if checkpoint and available:
         offset = prefix_seconds + reviewer_seconds

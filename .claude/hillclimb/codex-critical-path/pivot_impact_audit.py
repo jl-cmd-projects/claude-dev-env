@@ -3,11 +3,11 @@ import argparse
 import hashlib
 import json
 import subprocess
-import types
 from pathlib import Path
 from unittest.mock import patch
 
 import pivot_run
+from pivot_proof import historical_runner
 from proof import json_digest
 from trial import HERE
 
@@ -26,15 +26,6 @@ def data(path):
 
 def pinned(name):
     return subprocess.check_output(["git", "show", f"{PIN}:{BASE}{name}"], cwd=HERE)
-
-
-def historical_runner():
-    module = types.ModuleType("historical_pivot_run")
-    source = pinned("pivot_run.py")
-    if sha(source) != "ed7fb254ab0e8d18b70daff1a33cb6777bffe055c1dd6a9394b77e50b2829441":
-        raise ValueError("Unexpected historical runner.")
-    exec(compile(source, "historical_pivot_run.py", "exec"), module.__dict__)
-    return module
 
 
 def audit_nominations(prefix, old):
