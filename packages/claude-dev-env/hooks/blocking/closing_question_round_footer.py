@@ -38,6 +38,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_HEADING_PATTERN,
     FOOTER_INSTRUCTION,
     FOOTER_ITEM_LINE_PATTERN,
+    FOOTER_KEY_WORDS_INSTRUCTION,
     FOOTER_TASK_LINE_TEMPLATE,
     FOOTER_TASKS_LABEL,
     FOOTER_WORD_PATTERN,
@@ -198,6 +199,8 @@ def footer_reason(
 ) -> str:
     """Return a footer hold reason: its lead, the tasks with their key words, and the plain-words guidance.
 
+    The sentence that asks to keep the bracketed key words appears only when the reason lists tasks.
+
     ::
 
         This session's In progress footer leaves out work that is still in progress.
@@ -206,6 +209,7 @@ def footer_reason(
         Work in progress, with the words that name each task in brackets:
         - Fix list reader lint finding [list reader]
         - Watch discount ledger scheduled wake [discount]
+        Keep the words in brackets above, so the footer names each task.
         End the reply with the In progress footer: ...
 
     Args:
@@ -226,5 +230,6 @@ def footer_reason(
         all_parts.extend(
             _task_line(each_task, all_open_items) for each_task in all_in_progress_items
         )
+        all_parts.append(FOOTER_KEY_WORDS_INSTRUCTION)
     all_parts.append(FOOTER_INSTRUCTION)
     return REASON_PART_SEPARATOR.join(all_parts)

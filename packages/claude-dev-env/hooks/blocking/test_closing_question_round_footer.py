@@ -10,6 +10,7 @@ from closing_question_round_footer import (
 from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_GAP_REASON_LEAD,
     FOOTER_INSTRUCTION,
+    FOOTER_KEY_WORDS_INSTRUCTION,
     FOOTER_MISSING_REASON_LEAD,
 )
 from open_tasks_transcript import TaskItem
@@ -79,7 +80,9 @@ def test_footer_reason_should_lead_list_the_tasks_and_end_with_the_guidance() ->
         "Work in progress, with the words that name each task in brackets:",
         f"- {LIST_READER.subject} [list reader]",
         f"- {LEDGER.subject} [discount]",
+        FOOTER_KEY_WORDS_INSTRUCTION,
         FOOTER_INSTRUCTION,
     ]
     background_reason = footer_reason(FOOTER_MISSING_REASON_LEAD, [], [], [])
     assert background_reason.split("\n") == [FOOTER_MISSING_REASON_LEAD, FOOTER_INSTRUCTION]
+    assert "brackets" not in background_reason

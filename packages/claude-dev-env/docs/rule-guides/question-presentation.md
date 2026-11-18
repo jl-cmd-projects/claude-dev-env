@@ -30,8 +30,8 @@ A session the user started ends with a round of question cards on what it leaves
 
 ```
 In progress:
-- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish.
-- I am watching the discount ledger run. At 9:00 I will open its pull request if the run passes.
+- I am fixing the list reader in pull request 8801, so your lists load in full. The last automated tests are still going.
+- I am updating the discount ledger so your prices stay current. At 9:00 I will open its pull request if the automated tests pass.
 ```
 
 Write one list item per piece of running work, in first person and plain words, in about 25 words at most. Give background work one short clause that says what it does for the user. Leave out task numbers, commit ids, agent or session names, file paths, and tool or process words such as agent, subagent, shell, monitor, lint, cron, wake, push, or branch. Spell out each short form, so PR becomes pull request. A pull request number and the names of the user's own tools and projects may stay. When nothing is in progress and no background work runs, the reply ends with no closing line. On Claude, the `closing_question_round_gate.py` Stop hook holds the stop until the cards or the footer follow.
@@ -45,7 +45,7 @@ The gate reads the stretch: the session's records after the last question tool c
 3. The stretch holds work, work is in progress, and the closing reply ends with no footer. Work is any tool call of the main thread other than a question call: an edit, a shell command, a read, or a subagent. Work counts from the last reply in the stretch that ended with the footer.
 4. The footer leaves out a task in progress. The gate matches each task by the words of its subject that name the thing worked on. It drops verbs such as fix and watch, and words only an agent uses, such as lint and wake. When another open task shares a word, it uses only the words unique to the task. A footer word matches on its first five letters. The reason names each task it misses, with its key words in brackets.
 
-The footer and declaration reasons list each task in progress with its key words and say how to write the footer in plain words. They carry no example sentence to copy. A stretch with no work passes with no footer, so a chat-only answer needs none, though a footer it writes is still checked. Nothing in progress passes with no closing line. A reply that ends with the footer closes the work before it, so a later turn of chat only needs no footer. An open-item line written before that reply still holds.
+The footer and declaration reasons list each task in progress with its key words and say how to write the footer in plain words. The example footer above lives only in this guide, so the reasons carry no sentence to copy. A reason asks to keep the words in brackets only when it lists tasks. A stretch with no work passes with no footer, so a chat-only answer needs none, though a footer it writes is still checked. Nothing in progress passes with no closing line. A reply that ends with the footer closes the work before it, so a later turn of chat only needs no footer. An open-item line written before that reply still holds.
 
 Fences, HTML blocks, quoted paragraphs, code spans, and indented code blocks are left out. An indented code block is a run of lines indented by four spaces or a tab after a blank line, outside a list item. Tool inputs, tool results, and thinking are never read.
 
