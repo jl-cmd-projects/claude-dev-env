@@ -30,7 +30,7 @@ The installer also renders the shared package guidance and rules into a managed 
 
 Run `python tests/codex_outcomes/replay_hosted.py` to reconstruct the [28 receiving journals](evidence/hosted.jsonl) and apply the blinded ratings. Run `python -m pytest -q tests/codex_outcomes` for the fault controls.
 
-For fresh sessions, check out baseline `3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a` in two clean directories. Apply `initial-candidate.patch` in the trial checkout and commit it locally. Run the following commands from the checkout containing the eval. Each install writes to a new disposable home and verifies the selected model's developer input against the pinned source.
+For fresh sessions, check out baseline `3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a` in two clean directories. Apply `initial-candidate.patch` in the trial checkout and commit it locally. Use a case-sensitive work directory because the frozen packing fixture has distinct `ORDER.md` and `order.md` files. Run the commands below from the checkout containing the eval. Each install writes to a new disposable home and verifies the selected model's developer input against the pinned source.
 
 ```sh
 python tests/codex_outcomes/install.py BASE_CHECKOUT NEW_BASE_INSTALL
@@ -50,7 +50,7 @@ python tests/codex_outcomes/assemble.py RECORDS WRITER_RECORDS --replies PRIVATE
 python tests/codex_outcomes/replay_hosted.py NEW_JOURNAL
 ```
 
-Give the independent reviewer only the shuffled packet. For each opaque ID, record four booleans and a short factual paraphrase in an `evidence` field. The assembly command checks the judged packet against the recorded replies and events before publishing their hashes and classifications. Inspect the review evidence against the source before using the comparison.
+Give the independent reviewer only the shuffled packet. For each opaque ID, record four booleans and a short factual paraphrase in an `evidence` field. The assembly command checks the judged packet against the staged contracts, recorded replies and events before publishing their hashes and classifications. Use the same `--repeats` value for the controller and replay. A single-battery replay takes `--battery primary` or `--battery writer`. Inspect the review evidence against the source before using the comparison.
 
 | Rating field | Mark it when |
 | --- | --- |

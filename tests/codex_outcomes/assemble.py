@@ -6,12 +6,10 @@ import json
 import secrets
 from pathlib import Path
 
-from replay_hosted import DIMENSIONS, HERE, rating_input
+from replay_hosted import DIMENSIONS, contract_hash, rating_input
 
 
 def collect(directories, replies):
-    cases = {case["id"]: case for path in ("cases.json", "writer_case.json")
-             for case in json.loads((HERE / path).read_text())}
     packets = {}
     records = {}
     for directory in directories:
@@ -28,9 +26,13 @@ def collect(directories, replies):
                 "receipts", "protected_changes", "violations", "desk_events",
             )}
             closing = replies.get(key, "") if row["status"] == "timeout" else replies[key]
+            contract = meta["contract"]
+            if contract["id"] != row["case"]:
+                raise ValueError("The staged contract names a different case")
+            records[identity]["contract_sha256"] = contract_hash(contract)
             records[identity]["final_sha256"] = hashlib.sha256(closing.encode()).hexdigest()
             packets[identity] = {
-                "id": identity, "contract": cases[row["case"]], "final": closing,
+                "id": identity, "contract": contract, "final": closing,
                 "events": row["desk_events"], "changes": row["protected_changes"],
             }
     return packets, records

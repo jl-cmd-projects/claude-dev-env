@@ -35,8 +35,11 @@ def serve(baseline, candidate, work, records, repeats, case_file):
                     (root / "AGENTS.md").write_bytes(prompt)
                     (root / "order.md").write_text(case["prompt"] + "\n")
                     receiver = desks.enter_context(Receiver(root, case))
+                    if (root / "order.md").read_text() != case["prompt"] + "\n":
+                        raise ValueError("Use a case-sensitive work directory for these frozen filenames")
                     orders[root.name] = (receiver, {
                         "arm": arm, "case": case["id"], "split": case["split"], "repeat": repeat,
+                        "contract": case,
                         "blind_id": secrets.token_hex(8), "work_id": root.name, **checkpoint,
                     })
         manifest = [meta for _, meta in orders.values()]
