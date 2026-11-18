@@ -5,10 +5,8 @@ import unittest
 from http import HTTPStatus
 from pathlib import Path
 
-from config.recorded_decision_replay_constants import EVAL_DIR, REPO_DIR
 from discovery.adapter import DiscoveryFixture
 from discovery.config.discovery_constants import EVIDENCE_PATH, EXECUTED_ADAPTER_PATH, EXECUTED_ADAPTER_SHA256
-from discovery.config.route_replay_constants import ALL_ROUTE_FIXTURE_SHA256_BY_NAME, ROUTE_ADAPTER_SHA256, ROUTE_FIXTURE_REVISION
 from discovery.replay import replay
 from fixture import Fixture, _cases, _digest, _read_events
 from replay import ReplayRunFatal, receipt_sha256, sha256
@@ -104,32 +102,23 @@ class DiscoveryReplayTest(unittest.TestCase):
             self.assertNotEqual(receipt["response_sha256"], receipt["records_sha256"])
 
     def route_evidence(self) -> dict:
-        evidence = self.evidence()
-        run = next(entry for entry in evidence["runs"] if entry["case"] == "rd-2e71")
-        case = _cases()[run["case"]]
-        with tempfile.TemporaryDirectory() as folder:
-            subject = DiscoveryFixture(case, Path(folder) / "discovery")
-            subject.request("GET", "/v1/catalog")
-            _, work = subject.request("GET", "/v1/work-items/pr-217")
-            subject.request("GET", "/v1/records/pr-217/activity")
-            subject.request("GET", "/v1/proposals/pr-217/head-2fab")
-            subject.request("POST", "/v1/applications/pr-217", {"choice": "retain-24h", "revision": work["revision"],
-                                                                 "version": work["version"]})
-            subject.request("GET", "/v1/work-items/pr-217")
-            run["events"] = _read_events(subject.journal)
-            run["state"] = json.loads((subject.run_dir / "state.json").read_text(encoding="utf-8"))
-        run["worker"] = run["final"]["sender"] = "/root/path_bound_test"
-        run["service_sha256"] = receipt_sha256(dict(events=run["events"], state=run["state"]))
-        return {**evidence, "runs": [run], "fixture_revision": ROUTE_FIXTURE_REVISION, "adapter_sha256": ROUTE_ADAPTER_SHA256,
-                "fixture_sha256_by_path": {(EVAL_DIR / name).relative_to(REPO_DIR).as_posix(): digest
-                                           for name, digest in ALL_ROUTE_FIXTURE_SHA256_BY_NAME.items()}}
+        return json.loads(EVIDENCE_PATH.with_name("route-evidence.json").read_text(encoding="utf-8"))
 
-    def test_path_bound_subset_replays_and_rejects_records_only_digest(self) -> None:
+    def test_path_bound_matrix_requires_both_arms_for_every_case(self) -> None:
         evidence = self.route_evidence()
-        report, = self.replay_document(evidence, is_route_bound=True)
-        self.assertEqual(report["status"], "pass")
-        self.assertEqual(report["metrics"]["activity_route_read_seq"], report["metrics"]["decision_records_read_seq"])
-        run, = evidence["runs"]
+        evidence["runs"].pop()
+        with self.assertRaisesRegex(ReplayRunFatal, "Expected all six discovery assignments"):
+            self.replay_document(evidence, is_route_bound=True)
+
+    def test_path_bound_matrix_rejects_records_only_digest(self) -> None:
+        evidence = self.route_evidence()
+        all_scores = self.replay_document(evidence, is_route_bound=True)
+        self.assertEqual(len(all_scores), 6)
+        for each_score in all_scores:
+            metrics = each_score["metrics"]
+            self.assertEqual(each_score["status"], "pass")
+            self.assertEqual(metrics["activity_route_read_seq"], metrics["decision_records_read_seq"])
+        run = evidence["runs"][0]
         receipt = next(event for event in run["events"] if event["operation"] == "read_decisions")
         receipt["response_sha256"] = receipt["records_sha256"]
         run["service_sha256"] = receipt_sha256(dict(events=run["events"], state=run["state"]))

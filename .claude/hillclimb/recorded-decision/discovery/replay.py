@@ -118,8 +118,7 @@ def _final_score(case: JsonRow, report: JsonRow, all_flags: dict[str, bool]) -> 
 
 def _verify_runs(all_runs: list[JsonRow], all_cases: dict[str, JsonRow], is_route_bound: bool) -> list[JsonRow]:
     remaining = {(case, arm) for case in ALL_SLOTS for arm in ALL_ARM_SHA256}
-    _require(isinstance(all_runs, list) and 0 < len(all_runs) <= len(remaining), "Invalid discovery assignment count")
-    _require(is_route_bound or len(all_runs) == len(remaining), "Expected all six historical discovery assignments")
+    _require(isinstance(all_runs, list) and len(all_runs) == len(remaining), "Expected all six discovery assignments")
     all_prior = _read_json(EVIDENCE_PATH)["runs"] if is_route_bound else []
     all_workers = {run["worker"] for run in all_prior}
     all_captures = {run["service_sha256"] for run in all_prior}
