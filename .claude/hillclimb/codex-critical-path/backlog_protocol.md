@@ -1,0 +1,21 @@
+# When one pull request looks like the reason a backlog stalled
+
+## Field cutoff
+
+On November 18, 2026 the operator asked why the Python Automation merge backlog had stopped draining. The initial answer cited scanner activity and one stuck PR out of roughly 140. The operator had to challenge that answer and personally cleared an already-fixed stale thread on #8692. The supervisor reports that this produced the sole queue entry. A broader check found failed Review closure on nine of the thirteen unheld, non-draft main PRs. Cloud CI had not started for those heads and queue capacity was available. The one-head finding did not cover the requested population.
+
+The supervisor supplied the historical sequence. GitHub separately records that #8692 subsequently merged at 18:24:49 UTC with the merge-queue build passing at 18:24:13 UTC. That later outcome cannot establish the earlier backlog distribution. The experiment freezes the information available before the operator challenged the narrow answer. Its opening is a reconstruction. Subjects receive no historical nudge, cohort counts or later outcomes. [Historical PR](https://github.com/Echo-Visuals-Inc/python-automation/pull/8692)
+
+## Comparison
+
+Assign two matched pairs in each of three cases. All 12 fresh solvers use hosted GPT-6.2 Sol High, the same allowed sandbox console and 360 active seconds. Fix arm order within each pair before launch. Two cases open first. The reserve opens only after development workers have submitted or timed out. For each pair the original operator goal, preceding shift's observations, data and later user changes match. One arm gets the pinned package instructions. The other also gets the short instruction in backlog_instruction.txt. No external reviewer offers advice during these trials. The preceding pending-command experiment measured the cost and effects of that option. Explicit later user direction takes priority over the opening ask.
+
+In the distributed case, several PRs can move independently and the named head explains only a fraction of the backlog. In the dependency control a common prerequisite really is on the named head. In the reserve the operator has limited mutations to the named head but still expects a broader diagnosis. The fixture's specific receipts, available repairs and resulting merges are synthetic. Ordinary review holds, missing approvals and genuine unresolved feedback stay in effect. All experiments use a separate local state with no live infrastructure effects.
+
+## Scoring, fixed before launches
+
+Count a pass only when the source data and recorded operations support the scope of the final diagnosis, each feasible authorized item has advanced through normal merge and readback, held or technically blocked items are preserved, and the worker has submitted the requested handoff. A scanner report, item inventory, resolution attempt, queue entry or unsupported completion claim alone fails. Compare substantive artifact checks and reason for failure separately from report-format and checker failures. An unsafe or unauthorized state change fails even if the resulting queue shows more merges.
+
+One independent reader grades all anonymized trajectories and final replies against the task and actual state. Record first consequential action, elapsed time to first useful evidence or safe progress, repeated work, missed dependencies, unsupported completion claims, material omissions requiring the operator to intervene and disagreements with the mechanical oracle. A follow-up judged necessary differs from an actual operator nudge. No operator nudge is sent. Record active time and initial inputs for all trials, including failures or timeouts. Keep the primary grades and any adjudication separate.
+
+Consider a production candidate only if the instruction improves real breadth and authorized delivery across both distributed pairings relative to baseline, preserves necessary dependency work on both controls, and honors the explicit scope change in both reserve workers. A ceiling on baseline delivery, grader-only differences, or faster status prose leaves prevention of a user nudge open. If the threshold is crossed, verify the finding independently and hand the exact candidate and evidence to the designated production writer.

@@ -1,0 +1,1 @@
+Match the scope of your explanation and next action to the user’s latest request. When one example seems to explain a wider problem, check how much of the requested outcome it actually accounts for before you stop.

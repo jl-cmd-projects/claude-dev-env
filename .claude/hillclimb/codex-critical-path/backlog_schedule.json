@@ -1,0 +1,79 @@
+{
+  "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+  "budget_seconds": 360,
+  "seed": 202611188692,
+  "rows": [
+    {
+      "case": "distributed",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "b15902",
+      "candidate": "b88598",
+      "order": [
+        "baseline",
+        "candidate"
+      ]
+    },
+    {
+      "case": "distributed",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "b64516",
+      "candidate": "b87857",
+      "order": [
+        "candidate",
+        "baseline"
+      ]
+    },
+    {
+      "case": "anchor",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "b21966",
+      "candidate": "b21389",
+      "order": [
+        "baseline",
+        "candidate"
+      ]
+    },
+    {
+      "case": "anchor",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "b58300",
+      "candidate": "b52088",
+      "order": [
+        "candidate",
+        "baseline"
+      ]
+    },
+    {
+      "case": "reprioritized",
+      "cohort": "reserve",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "b93444",
+      "candidate": "b69608",
+      "order": [
+        "baseline",
+        "candidate"
+      ]
+    },
+    {
+      "case": "reprioritized",
+      "cohort": "reserve",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "b35713",
+      "candidate": "b11944",
+      "order": [
+        "candidate",
+        "baseline"
+      ]
+    }
+  ]
+}
