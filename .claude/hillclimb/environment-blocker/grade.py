@@ -385,8 +385,8 @@ def grade(
         expected = case["expected"]
         all_failures, all_pending = [], []
         write, readback = _operation_findings(case, all_events, state, expected, all_failures)
-        all_operators = _of(all_events, "operator_unblock")
-        unblock = _first(_of(all_operators, "operator_unblock", HTTPStatus.OK))
+        all_operators = [event for event in all_events if event["operation"] == "operator_unblock"]
+        unblock = _first(event for event in all_operators if event["status"] == HTTPStatus.OK)
         all_attempts, all_notifications, updates, possible = _inspect_messages(all_events, case, expected, readback, unblock, review)
         blocker = _blocker(all_events, case, expected)
         action_sequences = {row["seq"] for row in all_notifications if all(row[field] is True for field in ALL_NOTIFICATION_CRITERIA)}
