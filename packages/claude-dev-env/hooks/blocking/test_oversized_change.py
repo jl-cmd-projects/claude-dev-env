@@ -108,6 +108,18 @@ def test_should_refuse_a_first_create_against_another_base(large_branch: Path) -
     assert size.oversized_pull_request_reason(named_base_payload) is None
 
 
+def test_should_refuse_a_first_create_after_the_configured_base_changes(
+    large_branch: Path,
+) -> None:
+    payload = _create(large_branch, PLAIN_BODY)
+    assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
+    assert size.oversized_pull_request_reason(payload) is None
+    _git(large_branch, "push", "--quiet", "origin", "main:parent")
+    _git(large_branch, "config", "branch.feature.gh-merge-base", "parent")
+    assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
+    assert size.oversized_pull_request_reason(payload) is None
+
+
 def test_should_keep_the_attempts_of_one_session_apart_from_another(large_branch: Path) -> None:
     payload = _create(large_branch, PLAIN_BODY)
     assert size.oversized_pull_request_reason({**payload, "session_id": "one"}) is not None
