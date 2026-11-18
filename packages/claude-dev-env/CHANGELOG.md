@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.133.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.132.2...claude-dev-env-v8.133.0) (2026-11-18)
+
+
+### Features
+
+* **agents:** pre-approve helper branches in project-thread cloud sessions ([#2461](https://github.com/jl-cmd-projects/claude-dev-env/issues/2461)) ([6d0b503](https://github.com/jl-cmd-projects/claude-dev-env/commit/6d0b503f72d3620f842b8e502ae3435539865348))
+
 ## [8.132.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.132.1...claude-dev-env-v8.132.2) (2026-11-18)
 
 
