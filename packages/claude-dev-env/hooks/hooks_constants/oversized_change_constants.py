@@ -25,6 +25,7 @@ PARTIAL_COUNT_PULL_REQUEST_REASON = (
     " whole change, then retry, or split it as " + SPLIT_GUIDE_PATH + " describes."
 )
 GH_MERGE_BASE_CONFIG_KEY = "branch.{branch_name}.gh-merge-base"
+HEAD_OWNER_SEPARATOR = ":"
 LINGUIST_GENERATED_ATTRIBUTE ="linguist-generated"
 ALL_GENERATED_ATTRIBUTE_VALUES = frozenset({"set", "true"})
 CHECK_ATTR_FIELD_COUNT = 3

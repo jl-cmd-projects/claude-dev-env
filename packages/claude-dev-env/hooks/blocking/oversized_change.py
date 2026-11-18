@@ -47,6 +47,7 @@ from hooks_constants.oversized_change_constants import (
     CHECK_ATTR_FIELD_COUNT,
     COMPARE_LINE_COUNT_QUERY,
     GH_MERGE_BASE_CONFIG_KEY,
+    HEAD_OWNER_SEPARATOR,
     LINGUIST_GENERATED_ATTRIBUTE,
     NUMSTAT_FIELD_COUNT,
     NUMSTAT_FIELD_SEPARATOR,
@@ -113,6 +114,7 @@ class SizeMeasurement(NamedTuple):
 
         clone read against origin/parent for --base parent  -> own base, complete
         clone read against main after origin/parent failed  -> another base, complete
+        clone read for --repo other/repo with no --head     -> another base, complete
         compare API listing fewer files than its cap        -> own base, complete
         compare API at its file cap                         -> own base, a lower bound
 
@@ -152,7 +154,8 @@ def _read_measurement(
             working_directory,
             each_base_branch,
             head_branch,
-            is_against_own_base=bool(each_base_branch) or not own_base_branch,
+            is_against_own_base=(bool(each_base_branch) or not own_base_branch)
+            and (repository is None or bool(head_branch)),
         ),
         lambda: remote_size_measurement(repository, own_base_branch, head_branch),
     )
@@ -161,7 +164,7 @@ def _read_measurement(
 def _configured_merge_base(working_directory: str, head_branch: str | None) -> str | None:
     if not working_directory:
         return None
-    branch_name = head_branch
+    branch_name = head_branch.rsplit(HEAD_OWNER_SEPARATOR, 1)[-1] if head_branch else None
     if not branch_name:
         all_branch_lines = _git_lines(working_directory, "branch", "--show-current")
         branch_name = all_branch_lines[0] if all_branch_lines else None
@@ -335,32 +338,6 @@ def _is_lockfile(path: str) -> bool:
     return path.rsplit("/", 1)[-1] in ALL_LOCKFILE_NAMES
 
 
-def remote_measured_line_count(
-    repository: str | None, base_branch: str | None, head_branch: str | None
-) -> int | None:
-    """Return the lines the GitHub compare API reports between base and head, or None when it cannot tell.
-
-    ::
-
-        compare lists tool.py +1200 -0                 -> 1200
-        compare lists only uv.lock +3000 -0            -> 0
-        compare returns 300 files listing 5000 lines   -> 5000
-        compare returns 300 files listing 500 lines    -> None
-        repository or head missing                     -> None
-
-    The base is the named base branch, else the repository's default branch.
-    The compare API does not read ``.gitattributes``, so only lockfiles are left out.
-    At its file cap the listed files are a lower bound, so the count stands only over the bar.
-
-    Args:
-        repository: The owner/name the create call names, or None.
-        base_branch: The base branch the create call names, or None.
-        head_branch: The head branch the create call names, or None.
-    """
-    measurement = remote_size_measurement(repository, base_branch, head_branch)
-    return measurement.line_count if measurement is not None else None
-
-
 def remote_size_measurement(
     repository: str | None, base_branch: str | None, head_branch: str | None
 ) -> SizeMeasurement | None:
@@ -369,10 +346,13 @@ def remote_size_measurement(
     ::
 
         compare lists 2 files, 1200 lines     -> 1200 lines, complete
+        compare lists only uv.lock +3000 -0   -> 0 lines, complete
         compare lists 300 files, 1500 lines   -> 1500 lines, a lower bound
         compare lists 300 files, 500 lines    -> None
 
     The count is against the named base, else the repository's default branch.
+    The compare API does not read ``.gitattributes``, so only lockfiles are left out.
+    At its file cap the listed files are a lower bound, so the count stands only over the bar.
 
     Args:
         repository: The owner/name the create call names, or None.

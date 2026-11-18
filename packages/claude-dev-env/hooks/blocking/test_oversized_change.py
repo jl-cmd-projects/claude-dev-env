@@ -209,7 +209,9 @@ def test_remote_count_should_sum_files_and_leave_out_lockfiles(
         json.dumps(["web/package-lock.json", 900, 0]),
     ]
     monkeypatch.setattr(size, "_compare_lines", lambda *all_arguments: all_compare_lines)
-    assert size.remote_measured_line_count("o/r", "main", "feature") == 1200
+    assert size.remote_size_measurement("o/r", "main", "feature") == size.SizeMeasurement(
+        1200, is_against_own_base=True, is_complete=True
+    )
 
 
 def test_remote_count_should_be_unknown_at_the_compare_file_cap_under_the_bar(
@@ -218,7 +220,7 @@ def test_remote_count_should_be_unknown_at_the_compare_file_cap_under_the_bar(
     monkeypatch.setattr(
         size, "_compare_lines", lambda *all_arguments: ["300", json.dumps(["a.py", 500, 0])]
     )
-    assert size.remote_measured_line_count("o/r", "main", "feature") is None
+    assert size.remote_size_measurement("o/r", "main", "feature") is None
 
 
 def test_remote_count_should_return_the_listed_lines_at_the_file_cap_when_they_pass_the_bar(
@@ -227,7 +229,9 @@ def test_remote_count_should_return_the_listed_lines_at_the_file_cap_when_they_p
     monkeypatch.setattr(
         size, "_compare_lines", lambda *all_arguments: ["300", json.dumps(["a.py", 5000, 0])]
     )
-    assert size.remote_measured_line_count("o/r", "main", "feature") == 5000
+    assert size.remote_size_measurement("o/r", "main", "feature") == size.SizeMeasurement(
+        5000, is_against_own_base=True, is_complete=False
+    )
 
 
 def _generated_schema_branch(tmp_path: Path) -> Path:
@@ -367,7 +371,7 @@ def test_should_not_measure_the_clone_for_a_create_aimed_at_another_repository(
 
     assert size._read_measurement(str(large_branch), "o/r", "main", "feature") is None
     assert size._read_measurement(str(large_branch), "o/r", "main", None) == size.SizeMeasurement(
-        1500, is_against_own_base=True, is_complete=True
+        1500, is_against_own_base=False, is_complete=True
     )
 
 
@@ -411,3 +415,25 @@ def test_remote_measurement_should_mark_a_capped_file_list_as_a_lower_bound(
     assert size.remote_size_measurement("o/r", "main", "feature") == size.SizeMeasurement(
         1500, is_against_own_base=True, is_complete=True
     )
+
+
+def test_should_read_the_configured_merge_base_of_a_head_named_with_its_owner(
+    tmp_path: Path,
+) -> None:
+    clone_path = _clone_on_branch(tmp_path, "parent")
+    _commit_lines(clone_path, "library.py", 1500)
+    _git(clone_path, "push", "-q", "origin", "parent")
+    _git(clone_path, "checkout", "-q", "-b", "child")
+    _commit_lines(clone_path, "caller.py", 1500)
+    _git(clone_path, "config", "branch.child.gh-merge-base", "parent")
+    assert size._configured_merge_base(str(clone_path), "owner:child") == "parent"
+
+
+def test_should_keep_the_ceiling_off_a_clone_count_for_another_repository_with_no_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(size, "_compare_lines", lambda *all_arguments: None)
+    clone_path = _clone_on_branch(tmp_path, "feature")
+    _commit_lines(clone_path, "tool.py", 2500)
+    payload = _create(clone_path, ONE_PULL_REQUEST_BODY, "--repo upstream-owner/upstream")
+    assert size.oversized_pull_request_reason(payload) is None
