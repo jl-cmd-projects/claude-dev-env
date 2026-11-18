@@ -14,7 +14,10 @@ if str(HOOKS_DIRECTORY) not in sys.path:
 from blocking import gate_run_reads
 from blocking import oversized_change as size
 from blocking import pull_request_proof as proof
-from hooks_constants.oversized_change_constants import OVERSIZED_PULL_REQUEST_REASON
+from hooks_constants.oversized_change_constants import (
+    OVER_REASON_CEILING_PULL_REQUEST_REASON,
+    OVERSIZED_PULL_REQUEST_REASON,
+)
 
 GIT_IDENTITY = ["-c", "user.name=Test", "-c", "user.email=test@example.com"]
 PLAIN_BODY = "## What this does\nAdds a tool.\n"
@@ -75,6 +78,23 @@ def test_should_pass_a_create_over_the_bar_whose_body_says_why_it_stays_one(
     large_branch: Path,
 ) -> None:
     assert size.oversized_pull_request_reason(_create(large_branch, ONE_PULL_REQUEST_BODY)) is None
+
+
+def test_should_deny_a_create_over_the_reason_ceiling_even_when_the_body_says_why(
+    tmp_path: Path,
+) -> None:
+    clone_path = _clone_on_branch(tmp_path, "feature")
+    _commit_lines(clone_path, "tool.py", 2500)
+    reason = size.oversized_pull_request_reason(_create(clone_path, ONE_PULL_REQUEST_BODY))
+    assert reason == OVER_REASON_CEILING_PULL_REQUEST_REASON.format(
+        measured_line_count=2500, reason_line_ceiling=2000
+    )
+
+
+def test_should_pass_a_create_at_the_reason_ceiling_whose_body_says_why(tmp_path: Path) -> None:
+    clone_path = _clone_on_branch(tmp_path, "feature")
+    _commit_lines(clone_path, "tool.py", 2000)
+    assert size.oversized_pull_request_reason(_create(clone_path, ONE_PULL_REQUEST_BODY)) is None
 
 
 def test_should_deny_when_the_reason_section_is_empty(large_branch: Path) -> None:

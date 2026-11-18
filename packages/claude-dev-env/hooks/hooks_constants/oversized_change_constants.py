@@ -1,6 +1,7 @@
 """Constants for the size check on a new pull request."""
 
 MEASURED_LINE_BAR = 1000
+REASON_LINE_CEILING = 2000
 ONE_PULL_REQUEST_HEADING_PATTERN = r"^(#{1,6})[ \t]+why one pull request[?:.]?[ \t]*#*[ \t]*$"
 SPLIT_GUIDE_PATH = "~/.claude/skills/pr-lifecycle/reference/split-a-pull-request.md"
 OVERSIZED_PULL_REQUEST_REASON = (
@@ -11,7 +12,13 @@ OVERSIZED_PULL_REQUEST_REASON = (
     " as " + SPLIT_GUIDE_PATH + " describes. When the change must stay one pull request,"
     " add a 'Why one pull request' heading to the body and state the reason under it."
 )
-LINGUIST_GENERATED_ATTRIBUTE = "linguist-generated"
+OVER_REASON_CEILING_PULL_REQUEST_REASON = (
+    "This pull request changes {measured_line_count} lines against its base, over the"
+    " {reason_line_ceiling}-line ceiling that a 'Why one pull request' reason can cover."
+    " Split it into stacked pull requests, each created with --base set to the branch below it,"
+    " as " + SPLIT_GUIDE_PATH + " describes."
+)
+LINGUIST_GENERATED_ATTRIBUTE ="linguist-generated"
 ALL_GENERATED_ATTRIBUTE_VALUES = frozenset({"set", "true"})
 CHECK_ATTR_FIELD_COUNT = 3
 ALL_LOCKFILE_NAMES = frozenset(

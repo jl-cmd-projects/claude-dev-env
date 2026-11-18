@@ -4,6 +4,7 @@
 
     branch changes 1,500 lines against main, plain body          -> OVERSIZED_PULL_REQUEST_REASON
     same branch, body has a 'Why one pull request' section       -> None
+    branch changes 2,500 lines, body has the section             -> OVER_REASON_CEILING_PULL_REQUEST_REASON
     stacked level, --base parent, 200 lines of its own           -> None
     compare API at its file cap, listed files over the bar       -> OVERSIZED_PULL_REQUEST_REASON
     compare API at its file cap, listed files under the bar      -> None
@@ -47,7 +48,9 @@ from hooks_constants.oversized_change_constants import (
     NUMSTAT_FIELD_COUNT,
     NUMSTAT_FIELD_SEPARATOR,
     ONE_PULL_REQUEST_HEADING_PATTERN,
+    OVER_REASON_CEILING_PULL_REQUEST_REASON,
     OVERSIZED_PULL_REQUEST_REASON,
+    REASON_LINE_CEILING,
     RENAME_DETECTION_LIMIT_OPTION,
 )
 
@@ -59,12 +62,13 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
 
         create, 1,500 changed lines, no 'Why one pull request' section -> OVERSIZED_PULL_REQUEST_REASON
         create, 1,500 changed lines, the section states a reason      -> None
+        create, 2,500 changed lines, the section states a reason      -> OVER_REASON_CEILING_PULL_REQUEST_REASON
         create, 900 changed lines                                      -> None
         named base neither origin/<base> nor the compare API can read  -> measured against main
         create whose size git and the compare API cannot read          -> None
         a body edit, a merge, any other tool                           -> None
 
-    A body that holds the section passes with no read. Each create is measured
+    The section covers a create up to the reason ceiling. Each create is measured
     against its own base, so a stacked level counts only its own lines.
 
     Args:
@@ -72,14 +76,18 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
     """
     working_directory = str(all_payload_fields.get("cwd") or "")
     for each_call in _create_calls(all_payload_fields):
-        if each_call.body is None or any(
-            _all_section_texts(each_call.body, ONE_PULL_REQUEST_HEADING_PATTERN)
-        ):
+        if each_call.body is None:
             continue
         measured_line_count = _measured_line_count_for_create(each_call, working_directory)
-        if measured_line_count is not None and measured_line_count > MEASURED_LINE_BAR:
+        if measured_line_count is None or measured_line_count <= MEASURED_LINE_BAR:
+            continue
+        if not any(_all_section_texts(each_call.body, ONE_PULL_REQUEST_HEADING_PATTERN)):
             return OVERSIZED_PULL_REQUEST_REASON.format(
                 measured_line_count=measured_line_count, measured_line_bar=MEASURED_LINE_BAR
+            )
+        if measured_line_count > REASON_LINE_CEILING:
+            return OVER_REASON_CEILING_PULL_REQUEST_REASON.format(
+                measured_line_count=measured_line_count, reason_line_ceiling=REASON_LINE_CEILING
             )
     return None
 
