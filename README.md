@@ -52,6 +52,10 @@ with `--target DIR`, `--profile ID`, or the `CLAUDE_CONFIG_DIR` environment vari
 
 Start a new Claude Code session. You should see hook activity on your first prompt (code-rules-reminder, hook-structure-context). Run `/sr-loop` to confirm commands loaded.
 
+In native Codex, start a session after installing the core package. In `/hooks` (desktop Settings → Hooks), inspect `open_tasks_stop_gate.py` under both `Stop` and `SubagentStop`. Review each definition the client marks for trust. For work already in progress, save the session, then resume it in a freshly started client to load the installed registrations.
+
+When closing prose reports unfinished work, the hook asks once for a check against the user's assignment. A worker can take an authorized next action, report the specific decision it needs, or close a completed task. The [phrase list](packages/claude-dev-env/hooks/hooks_constants/codex_continuation_constants.py) and [completion receipts](tests/behavior/codex_stop_continuation/README.md) cover both events. To roll back, install the previous package version with `npx claude-dev-env@<previous-version> --only core` and resume in a fresh client. [Codex hook events and trust](https://learn.chatgpt.com/docs/hooks)
+
 For ChatGPT Work Cloud, use the [cloud pstack startup verification](docs/references/cloud-pstack-startup.md).
 The local installer does not register skills with the cloud catalog or enable
 plugin shell hooks in cloud orchestration.
