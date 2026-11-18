@@ -128,7 +128,7 @@ from once_per_session import claim_turn_showing, is_turn_claimed
 from open_task_asks import claude_home, is_ask
 from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
 from user_step_wording import file_waiting_phrase, waiting_phrase
-from codex_continuation_review import continuation_review
+from codex_continuation_review import continuation_review, user_requested_stop
 from hooks_constants.codex_continuation_constants import AGENT_TRANSCRIPT_KEY, CHILD_FLAG, CHILD_STOP_EVENT
 from closing_reply_shapes import item_count_under, open_item_list, promised_report_phrase
 from closing_reply_judge import JudgeVerdict, is_judge_available, judged_verdict, log_no_verdict
@@ -514,6 +514,8 @@ def _stop_block_reason(all_hook_input_fields: dict[str, object]) -> str | None:
     if is_held_stop(all_hook_input_fields) and not is_claude_held_stop:
         return None
     replay = replayed_transcript(all_hook_input_fields.get(TRANSCRIPT_PATH_KEY))
+    if replay.is_codex_turn and user_requested_stop(replay.turn_prompt_text):
+        return None
     if is_claude_held_stop:
         if all_hook_input_fields.get(CODEX_TURN_ID_KEY) or replay.is_codex_turn:
             return None

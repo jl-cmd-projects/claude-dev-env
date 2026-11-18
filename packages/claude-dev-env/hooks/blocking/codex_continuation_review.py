@@ -45,6 +45,14 @@ def _warrants_review(match: Match[str], clause: str, all_nearby: list[str], has_
     return not (is_wait and (has_wake or protected))
 
 
+def user_requested_stop(user_request: str) -> bool:
+    """Recognize an explicit request to stop, cancel, or only report status."""
+    request = WORD_SEPARATOR.join(_unquoted(user_request)).strip()
+    if STANDALONE_STOP.fullmatch(request) or ONLY_STATUS_REQUEST.fullmatch(request):
+        return True
+    return bool(CANCELLED_REQUEST.search(request) and not ADDITIONAL_REQUEST.search(request))
+
+
 def continuation_review(reply: object, user_request: str, has_question: bool) -> str | None:
     """Return one review instruction for a possible unfinished outcome.
 
@@ -58,10 +66,7 @@ def continuation_review(reply: object, user_request: str, has_question: bool) ->
     """
     if not isinstance(reply, str):
         return None
-    request = WORD_SEPARATOR.join(_unquoted(user_request)).strip()
-    if STANDALONE_STOP.fullmatch(request) or ONLY_STATUS_REQUEST.fullmatch(request):
-        return None
-    if CANCELLED_REQUEST.search(request) and not ADDITIONAL_REQUEST.search(request):
+    if user_requested_stop(user_request):
         return None
     all_clauses = [part.strip() for part in CLAUSE_BREAK.split(LINE_SEPARATOR.join(_unquoted(reply))) if part.strip()]
     for each_index, each_clause in enumerate(all_clauses):

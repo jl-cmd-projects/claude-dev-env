@@ -2,6 +2,9 @@
 
 import re
 
+COMPLETED_ITEM_TYPE = "item_completed"
+USER_ITEM_TYPE = "UserMessage"
+ITEM_KEY = "item"
 CHILD_FLAG = "--codex-child-stop"
 CHILD_STOP_EVENT = "SubagentStop"
 AGENT_TRANSCRIPT_KEY = "agent_transcript_path"

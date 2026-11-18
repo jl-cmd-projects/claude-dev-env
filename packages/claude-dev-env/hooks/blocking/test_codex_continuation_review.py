@@ -78,3 +78,31 @@ def test_protocol_continues_once_and_accepts_a_subsequent_stop(is_child: bool, t
     second = subprocess.run(command, input=json.dumps({**payload, "stop_hook_active": True}),
                             capture_output=True, text=True, check=False)
     assert second.returncode == 0 and not second.stdout
+
+
+@pytest.mark.parametrize("is_child", [False, True])
+@pytest.mark.parametrize(("instruction", "close", "expected"), [
+    ("Stop.", "The transfer is pending.", 0),
+    ("Cancel the transfer.", "The transfer is pending.", 0),
+    ("Report only.", "The transfer is pending.", 0),
+    ("Finish the transfer.", "The transfer is pending.", 2),
+    ("Verify the transfer.", "The receiving ledger confirms the transfer.", 0),
+])
+def test_completed_native_user_message_governs_each_stop(
+    is_child: bool, instruction: str, close: str, expected: int, tmp_path: Path,
+) -> None:
+    record = {"type": "event_msg", "payload": {"type": "item_completed", "turn_id": "latest",
+        "item": {"type": "UserMessage", "id": "request",
+                 "content": [{"type": "text", "text": instruction, "text_elements": []}]}}}
+    transcript = tmp_path / "turn.jsonl"
+    transcript.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    parent = tmp_path / "parent.jsonl"
+    parent.write_text("", encoding="utf-8")
+    event = {"hook_event_name": "SubagentStop" if is_child else "Stop", "turn_id": "latest",
+             "transcript_path": str(parent if is_child else transcript), "agent_transcript_path": str(transcript),
+             "cwd": str(tmp_path), "last_assistant_message": close, "stop_hook_active": False}
+    argv = [sys.executable, str(HOOK), *(["--codex-child-stop"] if is_child else [])]
+    first = subprocess.run(argv, input=json.dumps(event), text=True, capture_output=True)
+    assert first.returncode == expected
+    repeated = subprocess.run(argv, input=json.dumps({**event, "stop_hook_active": True}), text=True, capture_output=True)
+    assert repeated.returncode == 0 and not repeated.stdout
