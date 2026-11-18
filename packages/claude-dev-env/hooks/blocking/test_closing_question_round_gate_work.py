@@ -465,10 +465,19 @@ def test_should_read_no_marker_inside_a_footer_of_an_earlier_turn(
     assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None
 
 
+@pytest.mark.parametrize(
+    "question_item",
+    [
+        "- I am fixing the list reader. Should I also raise the timeout?",
+        "- I am fixing the list reader. I need your input on the timeout.",
+    ],
+)
 def test_should_hold_a_question_inside_the_footer(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    question_item: str,
 ) -> None:
-    question_item = "- I am fixing the list reader. Should I also raise the timeout?"
     all_records = [
         typed_prompt_record(),
         *edit_records(),
@@ -476,4 +485,4 @@ def test_should_hold_a_question_inside_the_footer(
     ]
     reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records))
     assert reason.startswith(CLOSING_ROUND_REASON_LEAD)
-    assert "Should I also raise the timeout?" in reason
+    assert question_item.removeprefix("- ") in reason

@@ -213,6 +213,12 @@ FOOTER_INSTRUCTION = (
 )
 REASON_PART_SEPARATOR = "\n"
 SCANNED_PARAGRAPH_SEPARATOR = "\n\n"
+FOOTER_USER_ASK_PATTERN = re.compile(
+    r"\b(?:your call|up to you|you may want to|your judge?ment|for you to decide"
+    r"|needs? your (?:decision|judge?ment|approval|input)|I need you to"
+    r"|wait(?:s|ing)? on you|left (?:it|this|that|them|these) for you)\b",
+    re.IGNORECASE,
+)
 
 SESSION_ID_KEY = "session_id"
 BYPASS_KEYWORD = "--nocards"

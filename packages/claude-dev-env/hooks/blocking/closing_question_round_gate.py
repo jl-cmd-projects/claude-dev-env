@@ -16,8 +16,9 @@ The stretch is every top-level record after the last question call that
 reached the user, then the payload's closing reply. The closing reply is the
 newest text after the last work call. Each reply's In progress footer, as
 ``closing_question_round_footer.split_footer`` reads it, is cut off first, so
-a marker word inside a footer counts for nothing; a footer item that ends with
-a question mark stays in the scan. A marker line is a prose
+a status marker such as "waiting" or "blocked" inside a footer counts for
+nothing; a footer item that ends with a question mark or asks the user, such as
+"need your input" or "up to you", stays in the scan. A marker line is a prose
 line ``closing_question_round_open_items`` finds in the rest: a marker word or
 a line that ends with a question mark. Work is any tool call that is no
 question call and that sits in the stretch after the last record whose final
@@ -131,6 +132,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     QUOTED_LINE_TEMPLATE,
     REASON_PART_SEPARATOR,
     SCANNED_PARAGRAPH_SEPARATOR,
+    FOOTER_USER_ASK_PATTERN,
     REMAINING_LINES_TEMPLATE,
     SESSION_ATTENDED_ENVIRONMENT_VARIABLE,
     STDIN_WATCHDOG_SECONDS,
@@ -342,12 +344,13 @@ def _scanned_text(reply_text: str) -> str:
     split_reply = split_footer(reply_text)
     if split_reply.footer_items is None:
         return reply_text
-    all_question_items = [
+    all_asking_items = [
         each_item
         for each_item in split_reply.footer_items
         if each_item.rstrip(TRAILING_MARKUP_CHARACTERS).endswith(QUESTION_MARK)
+        or FOOTER_USER_ASK_PATTERN.search(each_item)
     ]
-    return SCANNED_PARAGRAPH_SEPARATOR.join([split_reply.body, *all_question_items])
+    return SCANNED_PARAGRAPH_SEPARATOR.join([split_reply.body, *all_asking_items])
 
 
 def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -> str | None:

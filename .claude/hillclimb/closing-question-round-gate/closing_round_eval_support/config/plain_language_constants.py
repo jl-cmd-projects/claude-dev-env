@@ -6,13 +6,14 @@ calibrated judge prompt, and the report text.
 """
 
 import re
+import tempfile
 from pathlib import Path
 
-from closing_round_eval_support.config.constants import FLOW_ROOT, REPOSITORY_ROOT
+from closing_round_eval_support.config.constants import REPOSITORY_ROOT
 
 BLOCKING_DIRECTORY = REPOSITORY_ROOT / "packages" / "claude-dev-env" / "hooks" / "blocking"
 BROKER_SCRIPT = Path.home() / ".claude" / "scripts" / "account_broker.py"
-DEFAULT_OUT_DIRECTORY = FLOW_ROOT / "plain-language-runs"
+DEFAULT_OUT_DIRECTORY = Path(tempfile.gettempdir()) / "closing-round-plain-language-runs"
 DEFAULT_SAMPLE_COUNT = 3
 DEFAULT_WORKER_COUNT = 6
 MAXIMUM_HOLD_ROUNDS = 2
@@ -22,7 +23,6 @@ WRITER_EFFORT = "medium"
 JUDGE_MODEL = "claude-sonnet-5-5"
 JUDGE_EFFORT = "high"
 SETTING_SOURCES = "project"
-PYTHON_EXECUTABLE_NAME = "python3"
 BROKER_PRODUCT = "claude"
 BROKER_REPORT_SUFFIX = ".broker.json"
 SAMPLE_FILE_TEMPLATE = "{hook_label}-{scenario}-{sample}.json"

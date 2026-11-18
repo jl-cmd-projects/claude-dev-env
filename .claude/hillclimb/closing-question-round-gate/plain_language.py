@@ -69,7 +69,6 @@ from closing_round_eval_support.config.plain_language_constants import (
     NO_BACKGROUND_LINE,
     PARAGRAPH_SPLIT_PATTERN,
     PASSED_ROW_LABEL,
-    PYTHON_EXECUTABLE_NAME,
     RAW_STATE_PROMPT,
     ROW_TEMPLATE,
     SAMPLE_FILE_TEMPLATE,
@@ -267,7 +266,7 @@ def headless_text(prompt_text: str, model: str, effort: str, report_path: Path) 
         try:
             completed_run = subprocess.run(
                 [
-                    PYTHON_EXECUTABLE_NAME,
+                    sys.executable,
                     str(BROKER_SCRIPT),
                     "run",
                     "--product",
