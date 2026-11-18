@@ -55,6 +55,7 @@ import {
     ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
+    CODEX_TASK_STOP_SCRIPT,
     ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
 } from './install-constants.mjs';
 import {
@@ -2397,6 +2398,12 @@ function selectCodexNativeHooksConfig(hooksConfig) {
                 hooksConfig.hooks?.Stop,
                 ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
             ),
+            SubagentStop: selectCodexNativeGroupsByScriptName(
+                hooksConfig.hooks?.Stop, new Set([CODEX_TASK_STOP_SCRIPT]),
+            ).map(group => ({
+                ...group,
+                hooks: group.hooks.map(hook => ({ ...hook, command: `${hook.command} --codex-child-stop` })),
+            })),
             SessionStart: selectCodexNativeGroupsByScriptName(
                 hooksConfig.hooks?.SessionStart,
                 ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,

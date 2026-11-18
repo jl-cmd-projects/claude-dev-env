@@ -128,6 +128,8 @@ from once_per_session import claim_turn_showing, is_turn_claimed
 from open_task_asks import claude_home, is_ask
 from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
 from user_step_wording import file_waiting_phrase, waiting_phrase
+from codex_continuation_review import continuation_review
+from hooks_constants.codex_continuation_constants import AGENT_TRANSCRIPT_KEY, CHILD_FLAG, CHILD_STOP_EVENT
 from closing_reply_shapes import item_count_under, open_item_list, promised_report_phrase
 from closing_reply_judge import JudgeVerdict, is_judge_available, judged_verdict, log_no_verdict
 from turn_review_transcript import _last_assistant_message_text, _ReversedTranscript
@@ -445,6 +447,10 @@ def turn_block_reason(all_hook_input_fields: dict[str, object], replay: Transcri
         *all_step_reasons,
         *(each_finding.reason for each_finding in all_reply_findings),
     ]
+    if (all_hook_input_fields.get(CODEX_TURN_ID_KEY) or replay.is_codex_turn) and not all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
+        review = continuation_review(all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY), replay.turn_prompt_text, replay.has_turn_question_tool)
+        if review:
+            return WORD_SEPARATOR.join([*all_reasons, review])
     if not all_reasons:
         return None
     return WORD_SEPARATOR.join([*all_reasons, *_closing_lines(bool(all_step_reasons), all_reply_findings)])
@@ -520,10 +526,17 @@ def main() -> int:
     hook_input = read_hook_input_dictionary_from_stdin()
     if hook_input is None:
         return ALLOW_EXIT_CODE
-    block_reason = _stop_block_reason(hook_input)
+    is_child_stop = sys.argv[1:] == [CHILD_FLAG]
+    if is_child_stop:
+        if hook_input.get("hook_event_name") != CHILD_STOP_EVENT or is_held_stop(hook_input):
+            return ALLOW_EXIT_CODE
+        child_turn = replayed_transcript(hook_input.get(AGENT_TRANSCRIPT_KEY))
+        block_reason = continuation_review(hook_input.get(LAST_ASSISTANT_MESSAGE_KEY), child_turn.turn_prompt_text, child_turn.has_turn_question_tool)
+    else:
+        block_reason = _stop_block_reason(hook_input)
     if block_reason is None:
         return ALLOW_EXIT_CODE
-    log_hook_block(Path(__file__).name, HOOK_EVENT_NAME, block_reason)
+    log_hook_block(Path(__file__).name, CHILD_STOP_EVENT if is_child_stop else HOOK_EVENT_NAME, block_reason)
     return hold_stop(hook_input, block_reason)
 
 

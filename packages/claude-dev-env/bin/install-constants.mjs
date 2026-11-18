@@ -175,9 +175,8 @@ export const WINDOWS_PYTHON_LAUNCHER_COMMAND = 'py -3';
 export const PYTHON_PROBE_TIMEOUT_MILLISECONDS = 10_000;
 export const ADDITIONAL_SETTINGS_BLOB_PREFIX = 'settings-';
 export const CODEX_NATIVE_ROUTING_MATCHER = 'multi_agent_v1__spawn_agent';
-export const ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES = new Set([
-    'open_tasks_stop_gate.py',
-]);
+export const CODEX_TASK_STOP_SCRIPT = 'open_tasks_stop_gate.py';
+export const ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES = new Set([CODEX_TASK_STOP_SCRIPT]);
 export const ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES = new Set([
     'turn_review_gate.py',
 ]);

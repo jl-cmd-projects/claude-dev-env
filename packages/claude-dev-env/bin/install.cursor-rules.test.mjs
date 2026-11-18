@@ -164,7 +164,7 @@ test('seeds one editable policy and one native Codex routing hook', () => {
             firstCodexHooks.hooks.PreToolUse.map(group => group.matcher),
             ['multi_agent_v1__spawn_agent'],
         );
-        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'PostToolUse', 'Stop', 'SessionStart']);
+        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'PostToolUse', 'Stop', 'SubagentStop', 'SessionStart']);
         const allCodexPostToolUseCommands = firstCodexHooks.hooks.PostToolUse.flatMap(
             group => group.hooks.map(hook => hook.command),
         );
@@ -173,6 +173,9 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         const allCodexStopCommands = firstCodexHooks.hooks.Stop.flatMap(group => group.hooks.map(hook => hook.command));
         assert.equal(allCodexStopCommands.length, 1, 'Codex gets the open tasks Stop gate and no other Stop hook');
         assert.match(allCodexStopCommands[0], /open_tasks_stop_gate\.py/);
+        const subagentCommands = firstCodexHooks.hooks.SubagentStop.flatMap(group => group.hooks.map(hook => hook.command));
+        assert.equal(subagentCommands.length, 1);
+        assert.match(subagentCommands[0], /open_tasks_stop_gate\.py["']? --codex-child-stop$/);
         const allCodexSessionStartGroups = firstCodexHooks.hooks.SessionStart;
         assert.deepEqual(allCodexSessionStartGroups.map(group => group.matcher), ['compact']);
         const allCodexSessionStartCommands = allCodexSessionStartGroups.flatMap(group => group.hooks.map(hook => hook.command));
