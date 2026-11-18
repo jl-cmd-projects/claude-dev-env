@@ -27,7 +27,7 @@ LONG_STATUS_SUBJECT = (
 ALL_SHORT_SUBJECTS = [
     "Me: open the automation scripts pull request (last check running)",
     "You: one live try on your PC, then claude-dev-env pull request 2345 can merge",
-    "Handed off: three end-of-reply checks left to build (card is ready)",
+    "Worker: three end-of-reply checks left to build (card is ready)",
 ]
 
 
@@ -68,7 +68,7 @@ def test_should_deny_a_task_create_subject_that_carries_status_detail() -> None:
 
     assert f"{len(LONG_STATUS_SUBJECT)} characters" in reason
     assert str(SUBJECT_LIMIT) in reason
-    for each_actor in ("Me", "You", "Handed off"):
+    for each_actor in ("Me", "You", "Worker"):
         assert each_actor in reason
     assert "description" in reason
 
@@ -115,7 +115,7 @@ def test_should_deny_a_todo_write_with_one_long_item_and_name_it() -> None:
     assert ALL_SHORT_SUBJECTS[0] not in reason
     assert f"{len(LONG_STATUS_SUBJECT)} characters" in reason
     assert "item 2 " in reason
-    for each_actor in ("Me", "You", "Handed off"):
+    for each_actor in ("Me", "You", "Worker"):
         assert each_actor in reason
     assert "description" in reason
 
