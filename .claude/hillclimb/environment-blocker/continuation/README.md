@@ -6,7 +6,7 @@ The notification test is motivated by a user's report that a worker launch faile
 
 ## Observed outcomes
 
-| Instruction text | Second turn | Protected write | Saved and verified audit |
+| Instruction text | Second turn | Publication result | Audit readback |
 | --- | --- | --- | --- |
 | Installed | Approval is active | One write, read back `window-c` at version 7 | 4 active, 2 held at version 3 |
 | Revised | Approval is active | One write, read back `window-c` at version 7 | 4 active, 2 held at version 3 |
@@ -28,8 +28,9 @@ Each capture contains the launch settings, separate platform completion receipts
 From the repository root:
 
 ```sh
-PYTHONPATH=.claude/hillclimb/environment-blocker python -m unittest discover -s .claude/hillclimb/environment-blocker/continuation -v
-PYTHONPATH=.claude/hillclimb/environment-blocker python -m continuation.replay
+cd .claude/hillclimb/environment-blocker
+PYTHONPATH=. python -m unittest discover -s continuation -v
+python -m continuation.replay
 ```
 
 For a fresh session, start the service and stage the work order in separate shells. Run these commands from the parent evaluation directory, using fresh directories for the operator and worker.
