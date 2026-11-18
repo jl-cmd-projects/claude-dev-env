@@ -1,0 +1,86 @@
+{
+  "seed": "6f7968ada0c525fde74dd3b3",
+  "active_budget_seconds": 720,
+  "cells": [
+    {
+      "case": "hold-a",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "prefix": "p565",
+      "incumbent": "r450",
+      "fork": "r407",
+      "reviewer": "a318",
+      "review_incumbent": false
+    },
+    {
+      "case": "dev-a",
+      "model": "gpt-6.2-sol",
+      "effort": "high",
+      "prefix": "p125",
+      "incumbent": "r804",
+      "fork": "r260",
+      "reviewer": "a390",
+      "review_incumbent": false
+    },
+    {
+      "case": "hold-b",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "prefix": "p172",
+      "incumbent": "r969",
+      "fork": "r384",
+      "reviewer": "a203",
+      "review_incumbent": true
+    },
+    {
+      "case": "dev-b",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "prefix": "p855",
+      "incumbent": "r913",
+      "fork": "r621",
+      "reviewer": "a315",
+      "review_incumbent": true
+    },
+    {
+      "case": "hold-a",
+      "model": "gpt-6.2-sol",
+      "effort": "high",
+      "prefix": "p949",
+      "incumbent": "r197",
+      "fork": "r745",
+      "reviewer": "a959",
+      "review_incumbent": true
+    },
+    {
+      "case": "dev-b",
+      "model": "gpt-6.2-sol",
+      "effort": "high",
+      "prefix": "p950",
+      "incumbent": "r563",
+      "fork": "r142",
+      "reviewer": "a498",
+      "review_incumbent": true
+    },
+    {
+      "case": "dev-a",
+      "model": "gpt-6.1-sol",
+      "effort": "high",
+      "prefix": "p869",
+      "incumbent": "r653",
+      "fork": "r552",
+      "reviewer": "a699",
+      "review_incumbent": false
+    },
+    {
+      "case": "hold-b",
+      "model": "gpt-6.2-sol",
+      "effort": "high",
+      "prefix": "p545",
+      "incumbent": "r896",
+      "fork": "r481",
+      "reviewer": "a972",
+      "review_incumbent": false
+    }
+  ]
+}
