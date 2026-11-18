@@ -11,11 +11,19 @@ Six sandbox-local orders exercise the distinction between a suggestion, a blocke
 | Occupied station, held out | The station acknowledges the corrected label. Its active writer's file stays intact. |
 | Finished parcels, held out | Dispatch receives the shift name supported by finished parcel counts. |
 
+## Which Codex layer the comparison changes
+
+The package installer copies `system-prompts/codex-sol.md` and points the top-level `model_instructions_file` in the Codex config at it. A user-owned setting takes precedence over that installer setting. The scratch install's `codex debug prompt-input` places the package prompt in a developer message. It places the installed `AGENTS.md` guidance in a user message before the task.
+
+The installer also renders the shared package guidance and rules into a managed block in the Codex home. The Codex Stop registration selects `open_tasks_stop_gate.py`. That gate uses task state and closing-reply shape checks for Codex. Its model-based closing judge runs on Claude Code. The two queue controls here measure whether a stronger completion rule would disturb a legitimate stop. The candidate prompt can be removed by reverting its hunk.
+
 ## Run
 
 Use a disposable Linux Codex account environment with no production connectors. The account broker and Codex must be able to use their configured state directories. Use the same configured account, CLI binary, model, reasoning effort, sandbox and tool permissions for the whole comparison. Keep the result directory outside the source tree. It contains private CLI output.
 
 Run these commands in the checkout that contains the eval. The baseline checkout must point at the revision under test. For the first battery use `3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a`. The candidate checkout contains only the proposed prompt change, with its own commit. Run the development cases before selecting candidate text.
+
+The unpromoted `initial-candidate.patch` is a hypothesis for comparison. Apply it in a separate checkout of that baseline with `git apply /path/to/initial-candidate.patch` and commit locally before installing. Its packaged prompt SHA-256 is `c674e5e6ba3638f8a7e2a4c8d0fa0f3c5707b23dc7a1830857dd91db4f7c7cb5`. The baseline digest is `891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f`.
 
 ```sh
 python tests/codex_outcomes/install.py /path/to/baseline /tmp/packing-base
@@ -26,7 +34,7 @@ python tests/codex_outcomes/run.py --baseline /tmp/packing-base --candidate /tmp
 
 The installer runs the package's `bin/install.mjs` against a new home with optional marketplace installs off. It checks the installed file against the pinned package and asks `codex debug prompt-input` for the developer input under the installed config. Each live invocation selects that installed file with a process-local config override. The broker-selected account keeps its existing guidance, hooks and auth across both arms. Each workspace uses an unrelated random directory name. The runner checks the developer input again, then invokes an ephemeral `codex exec` with the case text on standard input. This comparison isolates the packaged model prompt. A hook candidate needs an adapter that loads the hook through its host.
 
-By default each arm gets two fresh attempts per case, each with a 180-second limit. Arm order alternates by case and repetition. Timeouts count against completion. A launcher failure stops further spending and leaves its capture in the result directory. It supplies no behavioral score.
+By default each arm uses GPT-6.1 Sol High and gets two fresh attempts per case, each with a 180-second limit. Use `--model` to select another available model for both arms. The input check uses the same model, effort and sandbox flags as the worker. The report compares fingerprints of the other rendered messages, exposed tools and hook registrations. Arm order alternates by case and repetition. Timeouts count against completion. A launcher failure stops further spending and leaves its capture in the result directory. It supplies no behavioral score.
 
 ## Grade
 

@@ -71,15 +71,17 @@ def run_one(case, settings, arm, home, number, environment, version):
     installed_prompt = home / ".codex/codex-sol.md"
     if digest(installed_prompt.read_bytes()) != metadata["prompt_sha256"]:
         raise ValueError("Installed prompt changed since rendering")
-    overrides = ["-c", "model_instructions_file=" + json.dumps(str(installed_prompt))]
-    command = [
-        "codex", *overrides, "exec", "--model", settings.model, "-c",
-        'model_reasoning_effort="high"', "--sandbox", "workspace-write", "-c",
-        'approval_policy="never"', "--ephemeral", "--skip-git-repo-check", "--json", "-",
+    overrides = [
+        "-c", "model_instructions_file=" + json.dumps(str(installed_prompt)),
+        "--model", settings.model, "-c", 'model_reasoning_effort="high"',
+        "--sandbox", "workspace-write", "-c", 'approval_policy="never"',
     ]
+    command = ["codex", *overrides, "exec", "--ephemeral", "--skip-git-repo-check", "--json", "-"]
     with tempfile.TemporaryDirectory(prefix="receiving-") as scratch:
         root = Path(scratch)
-        verify_input(environment, installed_prompt, root, overrides)
+        context_hash = verify_input(environment, installed_prompt, root, overrides)
+        hook_config = Path(environment["CODEX_HOME"]) / "hooks.json"
+        hooks_hash = digest(hook_config.read_bytes()) if hook_config.is_file() else None
         with Receiver(root, case) as receiver:
             run = capture(command, root, environment, case["prompt"], settings.seconds, private)
         state = receiver.score()
@@ -89,6 +91,7 @@ def run_one(case, settings, arm, home, number, environment, version):
     result = {
         **metadata, "arm": arm, "case": case["id"], "repeat": number, "split": case["split"],
         "codex": version, "model": settings.model, "effort": "high", "budget_seconds": settings.seconds,
+        "context_sha256": context_hash, "hooks_sha256": hooks_hash,
         "dataset": digest((HERE / "cases.json").read_bytes()), "blind_id": secrets.token_hex(8),
         **run, **state,
     }
@@ -102,7 +105,7 @@ def main():
     parser.add_argument("--baseline", type=Path, required=True)
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--results", type=Path, required=True)
-    parser.add_argument("--model", default="gpt-6.2-sol")
+    parser.add_argument("--model", default="gpt-6.1-sol")
     parser.add_argument("--repeats", type=int, choices=range(1, 6), default=2)
     parser.add_argument("--seconds", type=int, choices=range(30, 601), default=180, metavar="30..600")
     parser.add_argument("--split", choices=["development", "held-out", "all"], default="all")

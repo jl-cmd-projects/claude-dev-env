@@ -14,7 +14,7 @@ def digest(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def verify_input(environment: dict, prompt: Path, directory: Path, overrides=()) -> None:
+def verify_input(environment: dict, prompt: Path, directory: Path, overrides=()) -> str:
     result = subprocess.run(
         ["codex", *overrides, "debug", "prompt-input", "Check the receipt."],
         cwd=directory, env=environment, capture_output=True, text=True,
@@ -22,11 +22,18 @@ def verify_input(environment: dict, prompt: Path, directory: Path, overrides=())
     )
     messages = json.loads(result.stdout)
     expected = prompt.read_text(encoding="utf-8").strip()
-    if not any(
-        message.get("role") == "developer" and content.get("text", "").strip() == expected
-        for message in messages for content in message.get("content", [])
-    ):
+    found = False
+    normalized = []
+    for message in messages:
+        for content in message.get("content", []):
+            if message.get("role") == "developer" and content.get("text", "").strip() == expected:
+                found = True
+                content["text"] = "<tested prompt>"
+        normalized.append({k: message[k] for k in ("type", "role", "content", "tools") if k in message})
+    if not found:
         raise ValueError("The installed model prompt is absent from Codex developer input")
+    serialized = json.dumps(normalized, sort_keys=True).replace(str(directory), "<fixture>")
+    return digest(serialized.encode())
 
 
 def install(source: Path, destination: Path) -> dict:

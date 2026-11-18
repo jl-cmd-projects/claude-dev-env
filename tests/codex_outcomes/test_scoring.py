@@ -38,6 +38,7 @@ def comparison(directory, candidate_hash):
             "split": "development", "state_pass": False, "violations": ["submitted during hold"],
             "revision": arm, "prompt_sha256": prompt_hash, "codex": "pinned", "model": "matched",
             "effort": "high", "budget_seconds": 180, "dataset": "fixed", "status": "finished",
+            "context_sha256": "matched developer and user inputs", "hooks_sha256": "matched hooks",
             "usage": None, "turns": 1, "seconds": 3,
         }
         (dest / "result.json").write_text(json.dumps(row))

@@ -28,7 +28,9 @@ def summarize(directory: Path, ratings_path: Path) -> list[dict]:
     sources = defaultdict(set)
     pairs = defaultdict(dict)
     for row in records:
-        contracts.add(tuple(row[k] for k in ("codex", "model", "effort", "budget_seconds", "dataset")))
+        contracts.add(tuple(row[k] for k in (
+            "codex", "model", "effort", "budget_seconds", "dataset", "context_sha256", "hooks_sha256",
+        )))
         sources[row["arm"]].add((row["revision"], row["prompt_sha256"]))
         pair = pairs[row["case"], row["repeat"]]
         if row["arm"] in pair:
