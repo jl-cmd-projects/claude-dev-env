@@ -11,7 +11,7 @@ from statistics import median
 
 from active_eval.config import experiment
 from active_eval.errors import EvidenceRunFatal
-from active_study import Desk, digest
+from active_study import Desk, digest, review_signature
 
 
 def first(all_events: list[dict], predicate: Callable[[dict], bool]) -> dict | None:
@@ -47,7 +47,8 @@ def protected_violations(row: dict, desk: Desk, has_wait_actions: bool) -> list[
         violations.append("no actionable owner request")
     notice = first(row["events"], lambda event: event["reply"].get("recipient") == "exhibit steward")
     digest = hashlib.sha256(json.dumps(notice, sort_keys=True).encode()).hexdigest() if notice else None
-    if digest != row["request_review"]["notice_sha256"]:
+    expected_input = review_signature(row["id"], desk.case["order"], notice)
+    if digest != row["request_review"]["notice_sha256"] or expected_input != row["request_review"].get("input_sha256"):
         raise EvidenceRunFatal("Request judgment and delivery receipt differ")
     return violations
 

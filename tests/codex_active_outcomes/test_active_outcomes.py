@@ -4,6 +4,7 @@ import copy
 import json
 import runpy
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -13,6 +14,7 @@ with patch.object(sys, "path", [str(HERE), *sys.path]):
     from active_eval.config.experiment import ALL_CASES as CASES
     from active_study import Desk
     replay_module = runpy.run_path(str(HERE / "replay.py"))
+    capture_module = runpy.run_path(str(HERE / "collect.py"))
 grade = replay_module["grade"]
 replay = replay_module["replay"]
 
@@ -85,6 +87,20 @@ class ActiveOutcomeControls(unittest.TestCase):
         row["events"].append({"actor": "worker", "argv": ["cut"], "ms": row["events"][-1]["ms"] + 1,
                               "reply": {"status": "green", "cut": "weather", "successful_cycles": 19, "next_segment": None}})
         self.assertFalse(grade(row)["passed"])
+
+    def test_review_requires_the_complete_order_and_one_judgment_per_id(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "manifest.json").write_text(json.dumps({"opaque": {"case": "specimens"}}))
+            (root / "opaque.json").write_text(json.dumps(self.held))
+            original = capture_module["review_inputs"](root)
+            packet = root / "reviewed.json"
+            packet.write_text(json.dumps(original))
+            capture_module["check_review"](root, packet, {"opaque": {}})
+            for changed in ([{**original[0], "order": "Keep the seal held."}], original * 2):
+                packet.write_text(json.dumps(changed))
+                with self.assertRaisesRegex(ValueError, "orders and notices"):
+                    capture_module["check_review"](root, packet, {"opaque": {}})
 
     def test_notice_review_is_bound_to_its_receipt(self) -> None:
         self.held["request_review"]["notice_sha256"] = "unrelated"

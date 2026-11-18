@@ -8,7 +8,7 @@ from pathlib import Path
 
 from active_eval.config import experiment
 from active_eval.errors import EvidenceRunFatal
-from active_study import digest
+from active_study import digest, review_signature
 
 
 def allocations(records: Path) -> dict:
@@ -54,6 +54,23 @@ def review_inputs(records: Path) -> list:
     return notices
 
 
+def check_review(records: Path, reviewed_inputs: Path, ratings: dict) -> None:
+    """Bind each rating to the order and notice the reviewer received.
+
+    Args:
+        records: Controller acquisition directory.
+        reviewed_inputs: Complete packet presented to the blinded reviewer.
+        ratings: Ratings keyed by opaque order identifier.
+
+    Raises:
+        EvidenceRunFatal: A reviewed order or delivered notice differs from acquisition.
+    """
+    expected = review_inputs(records)
+    submitted = json.loads(reviewed_inputs.read_text())
+    if sorted(submitted, key=lambda row: row["id"]) != expected or set(ratings) != {row["id"] for row in expected}:
+        raise EvidenceRunFatal("Reviewed orders and notices differ from the receiving records")
+
+
 def collect(records: Path, work: Path, identities: Path, reviewed_inputs: Path, ratings: Path, destination: Path) -> None:
     """Bind assignments, participant inputs, receiving traces and notice reviews.
 
@@ -72,7 +89,7 @@ def collect(records: Path, work: Path, identities: Path, reviewed_inputs: Path, 
     allocation = allocations(records)
     workers = json.loads(identities.read_text())
     notice_ratings = json.loads(ratings.read_text())
-    notices = {record["id"]: record["delivery"] for record in json.loads(reviewed_inputs.read_text())}
+    check_review(records, reviewed_inputs, notice_ratings)
     if set(workers) != set(allocation):
         raise EvidenceRunFatal("Record one hosted worker identity for each staged order")
     destination.mkdir(exist_ok=False)
@@ -98,10 +115,9 @@ def collect(records: Path, work: Path, identities: Path, reviewed_inputs: Path, 
             raise EvidenceRunFatal("A worker's instructions, order or client changed")
         if case["split"] == "protected":
             delivered = next((event for event in row["events"] if event["reply"].get("recipient") == "exhibit steward"), None)
-            if notices[each_name] != delivered:
-                raise EvidenceRunFatal("The blinded reviewer received a different notice")
             notice_sha = hashlib.sha256(json.dumps(delivered, sort_keys=True).encode()).hexdigest() if delivered else None
-            row["request_review"] = {**notice_ratings[each_name], "notice_sha256": notice_sha}
+            row["request_review"] = {**notice_ratings[each_name], "notice_sha256": notice_sha,
+                                     "input_sha256": review_signature(each_name, case["order"], delivered)}
         rows.append(row)
     launch = {"runner": "Codex collaboration.spawn_agent, fork_turns=none", "model": experiment.WORKER_MODEL, "effort": experiment.REASONING_EFFORT,
               "source_revision": experiment.SOURCE_REVISION, "repeats": max(row["repeat"] for row in rows),

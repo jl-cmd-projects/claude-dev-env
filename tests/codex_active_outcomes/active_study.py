@@ -111,6 +111,10 @@ def digest(payload: bytes) -> str:
     return hashlib.sha256(payload).hexdigest()
 
 
+def review_signature(identity: str, order: str, delivery: dict | None) -> str:
+    return digest(json.dumps({"id": identity, "order": order, "delivery": delivery}, sort_keys=True).encode())
+
+
 def instruction_arms(base: Path) -> dict:
     """Build the pinned study arms from the installed instruction.
 
