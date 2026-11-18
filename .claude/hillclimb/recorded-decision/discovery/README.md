@@ -20,7 +20,7 @@ The [repeat captures](route-evidence.json) preserve the requested paths, respons
 
 ## Native configuration readback
 
-Three fresh local Codex CLI threads used the installed instruction file and separate per-run overrides for the decision and environment-blocker candidates. A local shell operation materialized the thread metadata without contacting the model. In each thread, the base instruction string matched the complete intended file after removal of its final newline. The [native input receipts](native-inputs.json) identify the three threads and their instruction hashes. A remote model turn still requires the CLI account to be reconnected.
+Three fresh local Codex CLI threads used the installed instruction file and separate per-run overrides for the decision and environment-blocker candidates. A local shell operation persisted the thread’s base instruction string in session metadata without contacting the model. The CLI’s prompt-input diagnostic returned the conversation messages separately. In each thread, the base instruction string matched the complete intended file after removal of its final newline. The [native input receipts](native-inputs.json) identify the three threads and their instruction hashes. A remote model turn still requires the CLI account to be reconnected.
 
 From the repository root:
 
