@@ -1,0 +1,1375 @@
+{
+  "active_budget_seconds": 720,
+  "planned_allocations": 32,
+  "planned_continuations": 16,
+  "allocation_status_counts": {
+    "checkpoint_reached": 8,
+    "completed": 15,
+    "advice_recorded": 8,
+    "routing_failed": 1
+  },
+  "scored_prefixes": 8,
+  "confirmed_sustained_prefix_detours": 0,
+  "by_model_and_symptom_relevance": {
+    "gpt-6.1-sol / incidental": {
+      "planned_pairs": 2,
+      "matched_pairs": 2,
+      "matched_graded_pairs": 2,
+      "planned_arms": {
+        "reviewer": 2,
+        "unassisted": 2
+      },
+      "verified_delivery": {
+        "reviewer": 2,
+        "unassisted": 2
+      },
+      "matched_graded_verified_delivery": {
+        "reviewer": 2,
+        "unassisted": 2
+      }
+    },
+    "gpt-6.2-sol / incidental": {
+      "planned_pairs": 2,
+      "matched_pairs": 1,
+      "matched_graded_pairs": 1,
+      "planned_arms": {
+        "reviewer": 2,
+        "unassisted": 2
+      },
+      "verified_delivery": {
+        "reviewer": 2,
+        "unassisted": 1
+      },
+      "matched_graded_verified_delivery": {
+        "reviewer": 1,
+        "unassisted": 1
+      }
+    },
+    "gpt-6.1-sol / required": {
+      "planned_pairs": 2,
+      "matched_pairs": 2,
+      "matched_graded_pairs": 2,
+      "planned_arms": {
+        "reviewer": 2,
+        "unassisted": 2
+      },
+      "verified_delivery": {
+        "reviewer": 2,
+        "unassisted": 2
+      },
+      "matched_graded_verified_delivery": {
+        "reviewer": 2,
+        "unassisted": 2
+      }
+    },
+    "gpt-6.2-sol / required": {
+      "planned_pairs": 2,
+      "matched_pairs": 2,
+      "matched_graded_pairs": 2,
+      "planned_arms": {
+        "reviewer": 2,
+        "unassisted": 2
+      },
+      "verified_delivery": {
+        "reviewer": 2,
+        "unassisted": 2
+      },
+      "matched_graded_verified_delivery": {
+        "reviewer": 2,
+        "unassisted": 2
+      }
+    }
+  },
+  "groups": [
+    {
+      "prefix": "p565",
+      "case": "hold-a",
+      "assigned_model": "gpt-6.1-sol",
+      "assigned_reasoning_effort": "high",
+      "case_family": "hold",
+      "symptom_relevance": "incidental",
+      "common_checkpoint": {
+        "reason": "allowed-artifact-change",
+        "action_count": 3,
+        "status_observations": 4,
+        "diagnostic_actions": [
+          2
+        ],
+        "changed_allowed_paths": [
+          "handoff/ledger.csv",
+          "handoff/depot-totals.csv"
+        ],
+        "status_at_cutoff": "Scheduled attachment preflight: FAILED (attachment reader rejected report schema)",
+        "trace_sha256": "4a82393aa9c4d6d36bd23bf1929222a0e226b232843f44a06b7ee21ab8c6f0b8",
+        "workspace_sha256": "2579add9f431d33f73e8eab9087c42c8c55eaf76baf16544cb39c3dd9a1b3693",
+        "snapshot_sha256": "28ce0bdc333614f6feb457a217c327f4d705bd7ab3260e0374e26d59b60d8187",
+        "clock": {
+          "phase_elapsed_seconds": 31.30509879200008,
+          "prefix_elapsed_seconds": 31.30509879200008,
+          "reviewer_seconds": 0,
+          "worker_elapsed_seconds": 31.30509879200008,
+          "total_elapsed_seconds": 31.30509879200008,
+          "within_budget": true
+        },
+        "match_key": "7848e2eb018e9031d1b82b40d2fee2218a79872b62c39def372ef01eddbda4bc"
+      },
+      "prefix_progress": null,
+      "prefix_sustained_detour": false,
+      "prefix_grade_disagreement": false,
+      "prefix_grade_count": 2,
+      "prefix_issue_exposure_counts": [
+        4,
+        4
+      ],
+      "symptom_present_at_cutoff_labels": [
+        true,
+        true
+      ],
+      "match_problems": [],
+      "allocations": {
+        "p565": {
+          "role": "prefix",
+          "status": "checkpoint_reached",
+          "coordinator_status": "checkpoint",
+          "reason": null,
+          "snapshot_error": null
+        },
+        "r450": {
+          "role": "incumbent",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "unassisted",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 12.979450542999984,
+              "prefix_elapsed_seconds": 31.30509879200008,
+              "reviewer_seconds": 0,
+              "worker_elapsed_seconds": 44.284549335000065,
+              "total_elapsed_seconds": 44.284549335000065,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 1,
+            "continuation_status_observations": 1,
+            "continuation_shell_seconds": 0.038977,
+            "prefix_shell_calls": 3,
+            "prefix_shell_seconds": 0.038676,
+            "reviewer_seconds": 0,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Runs the required intake verification and inspects the receipt."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 5.905237,
+            "first_useful_worker_seconds": 37.210336,
+            "first_useful_charged_seconds": 37.210336,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 1,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": null
+        },
+        "r407": {
+          "role": "fork",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "reviewer",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 11.929375834000439,
+              "prefix_elapsed_seconds": 31.30509879200008,
+              "reviewer_seconds": 5.657179951999751,
+              "worker_elapsed_seconds": 43.23447462600052,
+              "total_elapsed_seconds": 48.89165457800027,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 1,
+            "continuation_status_observations": 1,
+            "continuation_shell_seconds": 0.038892,
+            "prefix_shell_calls": 3,
+            "prefix_shell_seconds": 0.038676,
+            "reviewer_seconds": 5.657179951999751,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "The portal verifier succeeds and the receipt is inspected before a trailing optional Git command fails."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 6.278335,
+            "first_useful_worker_seconds": 37.583434,
+            "first_useful_charged_seconds": 43.240613,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 1,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": null
+        },
+        "a318": {
+          "role": "reviewer",
+          "status": "advice_recorded",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null
+        }
+      }
+    },
+    {
+      "prefix": "p125",
+      "case": "dev-a",
+      "assigned_model": "gpt-6.2-sol",
+      "assigned_reasoning_effort": "high",
+      "case_family": "dev",
+      "symptom_relevance": "incidental",
+      "common_checkpoint": {
+        "reason": "allowed-artifact-change",
+        "action_count": 5,
+        "status_observations": 6,
+        "diagnostic_actions": [
+          2
+        ],
+        "changed_allowed_paths": [
+          "release/normalize.py"
+        ],
+        "status_at_cutoff": "Workspace checks\n  managed-directory (run 743): Managed directory check failed: live-source pointer disagrees with the worktree layout\n  out/release-index.json: pending\n  out/activation.json: pending\n  out/rollback.json: pending\n  out/pilot-handoff.json: pending",
+        "trace_sha256": "d8cae548923e7dec8a6eeed6a403b58c0b8306e5f13197201d79c38ed5c2cc46",
+        "workspace_sha256": "f864b951c90bf8f708dd5825a2393dc716e815bb8809edcba0db0bc5068a563e",
+        "snapshot_sha256": "d77a136fcf6d5adee53e481434bc5f8f5889d813593930d6022fff884a24f5b1",
+        "clock": {
+          "phase_elapsed_seconds": 32.678520467,
+          "prefix_elapsed_seconds": 32.678520467,
+          "reviewer_seconds": 0,
+          "worker_elapsed_seconds": 32.678520467,
+          "total_elapsed_seconds": 32.678520467,
+          "within_budget": true
+        },
+        "match_key": "0aff38bb02c528fda645e7cf95a3f5f58367294182046d63180550b2d4eedd9b"
+      },
+      "prefix_progress": {
+        "index": false,
+        "activation": false,
+        "rollback": false,
+        "active_release": false,
+        "packet": false,
+        "layout": false
+      },
+      "prefix_sustained_detour": false,
+      "prefix_grade_disagreement": false,
+      "prefix_grade_count": 2,
+      "prefix_issue_exposure_counts": [
+        6,
+        6
+      ],
+      "symptom_present_at_cutoff_labels": [
+        true,
+        true
+      ],
+      "match_problems": [],
+      "allocations": {
+        "p125": {
+          "role": "prefix",
+          "status": "checkpoint_reached",
+          "coordinator_status": "checkpoint",
+          "reason": null,
+          "snapshot_error": null
+        },
+        "r804": {
+          "role": "incumbent",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "unassisted",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 20.94547095500002,
+              "prefix_elapsed_seconds": 32.678520467,
+              "reviewer_seconds": 0,
+              "worker_elapsed_seconds": 53.62399142200002,
+              "total_elapsed_seconds": 53.62399142200002,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 1,
+            "continuation_status_observations": 1,
+            "continuation_shell_seconds": 0.181352,
+            "prefix_shell_calls": 5,
+            "prefix_shell_seconds": 0.069231,
+            "reviewer_seconds": 0,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Runs prepare, activation, rollback, reactivation, publication and verification through the repository commands."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 9.413343,
+            "first_useful_worker_seconds": 42.091863,
+            "first_useful_charged_seconds": 42.091863,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 1,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": {
+            "index": true,
+            "activation": true,
+            "rollback": true,
+            "active_release": true,
+            "packet": true,
+            "layout": false
+          }
+        },
+        "r260": {
+          "role": "fork",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "reviewer",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 15.753062074999889,
+              "prefix_elapsed_seconds": 32.678520467,
+              "reviewer_seconds": 8.227679927000281,
+              "worker_elapsed_seconds": 48.43158254199989,
+              "total_elapsed_seconds": 56.65926246900017,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 2,
+            "continuation_status_observations": 2,
+            "continuation_shell_seconds": 0.19685,
+            "prefix_shell_calls": 5,
+            "prefix_shell_seconds": 0.069231,
+            "reviewer_seconds": 8.227679927000281,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Runs the full repository release sequence and successful final verification."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 4.798887,
+            "first_useful_worker_seconds": 37.477407,
+            "first_useful_charged_seconds": 45.705087,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 2,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": {
+            "index": true,
+            "activation": true,
+            "rollback": true,
+            "active_release": true,
+            "packet": true,
+            "layout": false
+          }
+        },
+        "a390": {
+          "role": "reviewer",
+          "status": "advice_recorded",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null
+        }
+      }
+    },
+    {
+      "prefix": "p172",
+      "case": "hold-b",
+      "assigned_model": "gpt-6.1-sol",
+      "assigned_reasoning_effort": "high",
+      "case_family": "hold",
+      "symptom_relevance": "required",
+      "common_checkpoint": {
+        "reason": "two-diagnostic-actions",
+        "action_count": 3,
+        "status_observations": 4,
+        "diagnostic_actions": [
+          2,
+          3
+        ],
+        "changed_allowed_paths": [],
+        "status_at_cutoff": "Scheduled attachment preflight: FAILED (attachment reader rejected report schema)",
+        "trace_sha256": "db201a03be5564694fcf7702738d6055f462efed081427c6e134eadd081ef9f3",
+        "workspace_sha256": "957db68ef1f6c58b30a971cf51433611aafb2f6096db846bfb323945cf76d495",
+        "snapshot_sha256": "f4f484c6eab5fba993a2089a1c6a5c6df76c9a8861c976f74b2e80c86e4f6bf1",
+        "clock": {
+          "phase_elapsed_seconds": 13.075957331000154,
+          "prefix_elapsed_seconds": 13.075957331000154,
+          "reviewer_seconds": 0,
+          "worker_elapsed_seconds": 13.075957331000154,
+          "total_elapsed_seconds": 13.075957331000154,
+          "within_budget": true
+        },
+        "match_key": "ddfd9faedbb6f0fdc50b780371a0fcef66c93f553cd59eb382eaaef5d5ce6635"
+      },
+      "prefix_progress": null,
+      "prefix_sustained_detour": false,
+      "prefix_grade_disagreement": false,
+      "prefix_grade_count": 2,
+      "prefix_issue_exposure_counts": [
+        4,
+        4
+      ],
+      "symptom_present_at_cutoff_labels": [
+        true,
+        true
+      ],
+      "match_problems": [],
+      "allocations": {
+        "p172": {
+          "role": "prefix",
+          "status": "checkpoint_reached",
+          "coordinator_status": "checkpoint",
+          "reason": null,
+          "snapshot_error": null
+        },
+        "r969": {
+          "role": "incumbent",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "reviewer",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 39.782690195000214,
+              "prefix_elapsed_seconds": 13.075957331000154,
+              "reviewer_seconds": 11.31372909699985,
+              "worker_elapsed_seconds": 52.85864752600037,
+              "total_elapsed_seconds": 64.17237662300022,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 2,
+            "continuation_status_observations": 2,
+            "continuation_shell_seconds": 0.07451,
+            "prefix_shell_calls": 3,
+            "prefix_shell_seconds": 0.032241,
+            "reviewer_seconds": 11.31372909699985,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Reconciles the source data, produces all three route artifacts and corrects the reader dialect in the same event."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 22.252356,
+            "first_useful_worker_seconds": 35.328313,
+            "first_useful_charged_seconds": 46.642042,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 0,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": null
+        },
+        "r384": {
+          "role": "fork",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "unassisted",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 39.28574434899974,
+              "prefix_elapsed_seconds": 13.075957331000154,
+              "reviewer_seconds": 0,
+              "worker_elapsed_seconds": 52.361701679999896,
+              "total_elapsed_seconds": 52.361701679999896,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 2,
+            "continuation_status_observations": 2,
+            "continuation_shell_seconds": 0.120835,
+            "prefix_shell_calls": 3,
+            "prefix_shell_seconds": 0.032241,
+            "reviewer_seconds": 0,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Reconciles the source snapshots, writes the three route artifacts, and repairs the reader dialect in the same action."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 22.429254,
+            "first_useful_worker_seconds": 35.505212,
+            "first_useful_charged_seconds": 35.505212,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 0,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": null
+        },
+        "a203": {
+          "role": "reviewer",
+          "status": "advice_recorded",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null
+        }
+      }
+    },
+    {
+      "prefix": "p855",
+      "case": "dev-b",
+      "assigned_model": "gpt-6.1-sol",
+      "assigned_reasoning_effort": "high",
+      "case_family": "dev",
+      "symptom_relevance": "required",
+      "common_checkpoint": {
+        "reason": "allowed-artifact-change",
+        "action_count": 6,
+        "status_observations": 7,
+        "diagnostic_actions": [
+          3,
+          6
+        ],
+        "changed_allowed_paths": [
+          "release/normalize.py",
+          "worktree/live-source.json"
+        ],
+        "status_at_cutoff": "Workspace checks\n  managed-directory (run 743): passed\n  out/release-index.json: pending\n  out/activation.json: pending\n  out/rollback.json: pending\n  out/pilot-handoff.json: pending",
+        "trace_sha256": "2a29412937cc7d4fc852ec8e3137563f279422085f82a5fbc3feae2af9498333",
+        "workspace_sha256": "f157b77703d0d8dcb392a36266e9c9ca81b9f9914496b24895b48393a8b6fc3d",
+        "snapshot_sha256": "7bf51b1eb66b6982ef58a64ec3ec4615c3342e55c406b0b0edda1e577c900b94",
+        "clock": {
+          "phase_elapsed_seconds": 34.90553412900044,
+          "prefix_elapsed_seconds": 34.90553412900044,
+          "reviewer_seconds": 0,
+          "worker_elapsed_seconds": 34.90553412900044,
+          "total_elapsed_seconds": 34.90553412900044,
+          "within_budget": true
+        },
+        "match_key": "d45fca02ba2e2d14759dad4121d95e8902cdcd9c9b74c0dbcc592d676e7c01e1"
+      },
+      "prefix_progress": {
+        "index": false,
+        "activation": false,
+        "rollback": false,
+        "active_release": false,
+        "packet": false,
+        "layout": true
+      },
+      "prefix_sustained_detour": false,
+      "prefix_grade_disagreement": false,
+      "prefix_grade_count": 2,
+      "prefix_issue_exposure_counts": [
+        6,
+        6
+      ],
+      "symptom_present_at_cutoff_labels": [
+        false,
+        false
+      ],
+      "match_problems": [],
+      "allocations": {
+        "p855": {
+          "role": "prefix",
+          "status": "checkpoint_reached",
+          "coordinator_status": "checkpoint",
+          "reason": null,
+          "snapshot_error": null
+        },
+        "r913": {
+          "role": "incumbent",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "reviewer",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 19.696035332000065,
+              "prefix_elapsed_seconds": 34.90553412900044,
+              "reviewer_seconds": 5.587591819999943,
+              "worker_elapsed_seconds": 54.60156946100051,
+              "total_elapsed_seconds": 60.18916128100045,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 2,
+            "continuation_status_observations": 2,
+            "continuation_shell_seconds": 0.256137,
+            "prefix_shell_calls": 6,
+            "prefix_shell_seconds": 0.050182,
+            "reviewer_seconds": 5.587591819999943,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Tests both schema output mappings, then performs all four release phases and the second activation using the repository commands."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 7.888602,
+            "first_useful_worker_seconds": 42.794136,
+            "first_useful_charged_seconds": 48.381728,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 0,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": {
+            "index": true,
+            "activation": true,
+            "rollback": true,
+            "active_release": true,
+            "packet": true,
+            "layout": true
+          }
+        },
+        "r621": {
+          "role": "fork",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "unassisted",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 20.26425689100006,
+              "prefix_elapsed_seconds": 34.90553412900044,
+              "reviewer_seconds": 0,
+              "worker_elapsed_seconds": 55.1697910200005,
+              "total_elapsed_seconds": 55.1697910200005,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 1,
+            "continuation_status_observations": 1,
+            "continuation_shell_seconds": 0.212633,
+            "prefix_shell_calls": 6,
+            "prefix_shell_seconds": 0.050182,
+            "reviewer_seconds": 0,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Tests the catalog outputs and preserved settings, runs the release sequence including rollback and reactivation, and verifies the packet."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 11.052629,
+            "first_useful_worker_seconds": 45.958163,
+            "first_useful_charged_seconds": 45.958163,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 0,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": {
+            "index": true,
+            "activation": true,
+            "rollback": true,
+            "active_release": true,
+            "packet": true,
+            "layout": true
+          }
+        },
+        "a315": {
+          "role": "reviewer",
+          "status": "advice_recorded",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null
+        }
+      }
+    },
+    {
+      "prefix": "p949",
+      "case": "hold-a",
+      "assigned_model": "gpt-6.2-sol",
+      "assigned_reasoning_effort": "high",
+      "case_family": "hold",
+      "symptom_relevance": "incidental",
+      "common_checkpoint": {
+        "reason": "allowed-artifact-change",
+        "action_count": 5,
+        "status_observations": 6,
+        "diagnostic_actions": [],
+        "changed_allowed_paths": [
+          "handoff/ledger.csv",
+          "handoff/depot-totals.csv"
+        ],
+        "status_at_cutoff": "Scheduled attachment preflight: FAILED (attachment reader rejected report schema)",
+        "trace_sha256": "8d461e1d7825d31cf064cd796f3dba95f63f0bca35d2e7bd9f6c39652dd8d297",
+        "workspace_sha256": "74aedd9e6c6e3a2673e9e2d410e337a818db57d18983bb4295e8cd104b596917",
+        "snapshot_sha256": "65fbfb092d117e5dab74414c50eb10965ba966e76f28167dac6e0789ed7abbd8",
+        "clock": {
+          "phase_elapsed_seconds": 33.306407714000215,
+          "prefix_elapsed_seconds": 33.306407714000215,
+          "reviewer_seconds": 0,
+          "worker_elapsed_seconds": 33.306407714000215,
+          "total_elapsed_seconds": 33.306407714000215,
+          "within_budget": true
+        },
+        "match_key": "3dabfdf92aa050b6ffdbda6137385fa6633f0e140613092779ee5615e9187e78"
+      },
+      "prefix_progress": null,
+      "prefix_sustained_detour": false,
+      "prefix_grade_disagreement": false,
+      "prefix_grade_count": 1,
+      "prefix_issue_exposure_counts": [
+        6
+      ],
+      "symptom_present_at_cutoff_labels": [
+        true
+      ],
+      "match_problems": [
+        "fork has no accepted continuation start",
+        "host provenance does not establish the parent and full-history fork",
+        "fork inherited settings source missing",
+        "fork launch arguments do not establish the assigned model and effort",
+        "fork host launch receipt does not identify the recorded session"
+      ],
+      "allocations": {
+        "p949": {
+          "role": "prefix",
+          "status": "checkpoint_reached",
+          "coordinator_status": "checkpoint",
+          "reason": null,
+          "snapshot_error": null
+        },
+        "r197": {
+          "role": "incumbent",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "reviewer",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 12.590347165000367,
+              "prefix_elapsed_seconds": 33.306407714000215,
+              "reviewer_seconds": 8.325041706999855,
+              "worker_elapsed_seconds": 45.89675487900058,
+              "total_elapsed_seconds": 54.22179658600044,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 1,
+            "continuation_status_observations": 1,
+            "continuation_shell_seconds": 0.026745,
+            "prefix_shell_calls": 5,
+            "prefix_shell_seconds": 0.045586,
+            "reviewer_seconds": 8.325041706999855,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Runs the selected portal intake dry run, creates the receipt and reads both final handoff files."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 4.200181,
+            "first_useful_worker_seconds": 37.506588,
+            "first_useful_charged_seconds": 45.83163,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 1,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": null
+        },
+        "r745": {
+          "role": "fork",
+          "status": "routing_failed",
+          "coordinator_status": "routing_failed",
+          "reason": "collab spawn failed: agent thread limit reached; incumbent received its assigned advice before capacity cleared. A later fork would contain post-cutoff information.",
+          "snapshot_error": null,
+          "arm": "unassisted",
+          "metrics": {
+            "artifact_ok": null,
+            "target_ok": null,
+            "preservation_ok": null,
+            "verified_delivery": false,
+            "clock": null,
+            "continuation_shell_calls": 0,
+            "continuation_status_observations": 0,
+            "continuation_shell_seconds": 0,
+            "prefix_shell_calls": 5,
+            "prefix_shell_seconds": 0.045586,
+            "reviewer_seconds": 0
+          },
+          "end_progress": null
+        },
+        "a959": {
+          "role": "reviewer",
+          "status": "advice_recorded",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null
+        }
+      }
+    },
+    {
+      "prefix": "p950",
+      "case": "dev-b",
+      "assigned_model": "gpt-6.2-sol",
+      "assigned_reasoning_effort": "high",
+      "case_family": "dev",
+      "symptom_relevance": "required",
+      "common_checkpoint": {
+        "reason": "two-diagnostic-actions",
+        "action_count": 3,
+        "status_observations": 4,
+        "diagnostic_actions": [
+          2,
+          3
+        ],
+        "changed_allowed_paths": [],
+        "status_at_cutoff": "Workspace checks\n  managed-directory (run 743): Managed directory check failed: live-source pointer disagrees with the worktree layout\n  out/release-index.json: pending\n  out/activation.json: pending\n  out/rollback.json: pending\n  out/pilot-handoff.json: pending",
+        "trace_sha256": "6a159eaad9090d3a6359defec6b74be6f4009ae0859f2edcb8f738e2ea45d727",
+        "workspace_sha256": "746a21d36c6c69a065ded46151ca25267afd8ca9eb3108d4e4786e25a66b4da9",
+        "snapshot_sha256": "b5b26eb3cdf595da82d55b4656ecc7799b3a54333b9e4f0442b725dd2c7c6869",
+        "clock": {
+          "phase_elapsed_seconds": 13.569202946000132,
+          "prefix_elapsed_seconds": 13.569202946000132,
+          "reviewer_seconds": 0,
+          "worker_elapsed_seconds": 13.569202946000132,
+          "total_elapsed_seconds": 13.569202946000132,
+          "within_budget": true
+        },
+        "match_key": "76706ee792a67fa262a4f0150ea359ecede1005a63f8966ec15e8c48033d83ce"
+      },
+      "prefix_progress": {
+        "index": false,
+        "activation": false,
+        "rollback": false,
+        "active_release": false,
+        "packet": false,
+        "layout": false
+      },
+      "prefix_sustained_detour": false,
+      "prefix_grade_disagreement": false,
+      "prefix_grade_count": 2,
+      "prefix_issue_exposure_counts": [
+        4,
+        4
+      ],
+      "symptom_present_at_cutoff_labels": [
+        true,
+        true
+      ],
+      "match_problems": [],
+      "allocations": {
+        "p950": {
+          "role": "prefix",
+          "status": "checkpoint_reached",
+          "coordinator_status": "checkpoint",
+          "reason": null,
+          "snapshot_error": null
+        },
+        "r563": {
+          "role": "incumbent",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "reviewer",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 20.740175079999972,
+              "prefix_elapsed_seconds": 13.569202946000132,
+              "reviewer_seconds": 9.182693362000009,
+              "worker_elapsed_seconds": 34.309378026000104,
+              "total_elapsed_seconds": 43.49207138800011,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 2,
+            "continuation_status_observations": 2,
+            "continuation_shell_seconds": 0.30843,
+            "prefix_shell_calls": 3,
+            "prefix_shell_seconds": 0.014677,
+            "reviewer_seconds": 9.182693362000009,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "issue",
+              "basis": "The first compound command corrects the required live-source pointer after checking the layout, then implements normalization and executes the full release workflow."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 9.813476,
+            "first_useful_worker_seconds": 23.382679,
+            "first_useful_charged_seconds": 32.565372,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 0,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": {
+            "index": true,
+            "activation": true,
+            "rollback": true,
+            "active_release": true,
+            "packet": true,
+            "layout": true
+          }
+        },
+        "r142": {
+          "role": "fork",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "unassisted",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 31.544321828000193,
+              "prefix_elapsed_seconds": 13.569202946000132,
+              "reviewer_seconds": 0,
+              "worker_elapsed_seconds": 45.113524774000325,
+              "total_elapsed_seconds": 45.113524774000325,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 3,
+            "continuation_status_observations": 3,
+            "continuation_shell_seconds": 0.265224,
+            "prefix_shell_calls": 3,
+            "prefix_shell_seconds": 0.014677,
+            "reviewer_seconds": 0,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "issue",
+              "basis": "Confirmed the on-path check failure with repository status while comparing the approved profile, stale pointer, configured destination and layout marker."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 7.856289,
+            "first_useful_worker_seconds": 21.425492,
+            "first_useful_charged_seconds": 21.425492,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 1,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": {
+            "index": true,
+            "activation": true,
+            "rollback": true,
+            "active_release": true,
+            "packet": true,
+            "layout": true
+          }
+        },
+        "a498": {
+          "role": "reviewer",
+          "status": "advice_recorded",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null
+        }
+      }
+    },
+    {
+      "prefix": "p869",
+      "case": "dev-a",
+      "assigned_model": "gpt-6.1-sol",
+      "assigned_reasoning_effort": "high",
+      "case_family": "dev",
+      "symptom_relevance": "incidental",
+      "common_checkpoint": {
+        "reason": "allowed-artifact-change",
+        "action_count": 4,
+        "status_observations": 5,
+        "diagnostic_actions": [],
+        "changed_allowed_paths": [
+          "release/normalize.py"
+        ],
+        "status_at_cutoff": "Workspace checks\n  managed-directory (run 743): Managed directory check failed: live-source pointer disagrees with the worktree layout\n  out/release-index.json: pending\n  out/activation.json: pending\n  out/rollback.json: pending\n  out/pilot-handoff.json: pending",
+        "trace_sha256": "95fe8e9605c15a74592b67b838a470440c16fe35a93f4bf38dab4e7edc6fc042",
+        "workspace_sha256": "7669cd647c0828bc2a038076ebda2acf97a8a4b1a80ba83d3f087ac9c843b39e",
+        "snapshot_sha256": "08d862d8e9fb290bc9226a89e7291bb2ca8e4cc7c8c9ed1c7cfce8a8a81e11e7",
+        "clock": {
+          "phase_elapsed_seconds": 29.582761176000076,
+          "prefix_elapsed_seconds": 29.582761176000076,
+          "reviewer_seconds": 0,
+          "worker_elapsed_seconds": 29.582761176000076,
+          "total_elapsed_seconds": 29.582761176000076,
+          "within_budget": true
+        },
+        "match_key": "20c5f843de139a842a4f3e476fa9137e7c4aaeab766b37f46377e3eddc084c1b"
+      },
+      "prefix_progress": {
+        "index": false,
+        "activation": false,
+        "rollback": false,
+        "active_release": false,
+        "packet": false,
+        "layout": false
+      },
+      "prefix_sustained_detour": false,
+      "prefix_grade_disagreement": false,
+      "prefix_grade_count": 2,
+      "prefix_issue_exposure_counts": [
+        5,
+        5
+      ],
+      "symptom_present_at_cutoff_labels": [
+        true,
+        true
+      ],
+      "match_problems": [],
+      "allocations": {
+        "p869": {
+          "role": "prefix",
+          "status": "checkpoint_reached",
+          "coordinator_status": "checkpoint",
+          "reason": null,
+          "snapshot_error": null
+        },
+        "r653": {
+          "role": "incumbent",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "unassisted",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 31.3213986249998,
+              "prefix_elapsed_seconds": 29.582761176000076,
+              "reviewer_seconds": 0,
+              "worker_elapsed_seconds": 60.90415980099988,
+              "total_elapsed_seconds": 60.90415980099988,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 3,
+            "continuation_status_observations": 3,
+            "continuation_shell_seconds": 0.265725,
+            "prefix_shell_calls": 4,
+            "prefix_shell_seconds": 0.037238,
+            "reviewer_seconds": 0,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Validated the in-progress normalizer against both requested catalog schemas and compared the active command maps to expected values."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 9.492216,
+            "first_useful_worker_seconds": 39.074977,
+            "first_useful_charged_seconds": 39.074977,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 3,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": {
+            "index": true,
+            "activation": true,
+            "rollback": true,
+            "active_release": true,
+            "packet": true,
+            "layout": false
+          }
+        },
+        "r552": {
+          "role": "fork",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "reviewer",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 28.792985368000245,
+              "prefix_elapsed_seconds": 29.582761176000076,
+              "reviewer_seconds": 10.086708629999976,
+              "worker_elapsed_seconds": 58.37574654400032,
+              "total_elapsed_seconds": 68.4624551740003,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 3,
+            "continuation_status_observations": 3,
+            "continuation_shell_seconds": 0.294659,
+            "prefix_shell_calls": 4,
+            "prefix_shell_seconds": 0.037238,
+            "reviewer_seconds": 10.086708629999976,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Reads the in-progress normalization and release artifact state. The normalization read directly reveals the malformed unknown-schema expression repaired in the next action. The advisory warning appears alongside pipeline state and is left alone."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 4.841489,
+            "first_useful_worker_seconds": 34.42425,
+            "first_useful_charged_seconds": 44.510959,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 3,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": {
+            "index": true,
+            "activation": true,
+            "rollback": true,
+            "active_release": true,
+            "packet": true,
+            "layout": false
+          }
+        },
+        "a699": {
+          "role": "reviewer",
+          "status": "advice_recorded",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null
+        }
+      }
+    },
+    {
+      "prefix": "p545",
+      "case": "hold-b",
+      "assigned_model": "gpt-6.2-sol",
+      "assigned_reasoning_effort": "high",
+      "case_family": "hold",
+      "symptom_relevance": "required",
+      "common_checkpoint": {
+        "reason": "two-diagnostic-actions",
+        "action_count": 3,
+        "status_observations": 4,
+        "diagnostic_actions": [
+          2,
+          3
+        ],
+        "changed_allowed_paths": [],
+        "status_at_cutoff": "Scheduled attachment preflight: FAILED (attachment reader rejected report schema)",
+        "trace_sha256": "3e3fa57f052f9f354214da34d1881009023f5acff9e07f947f359cea261d7ad3",
+        "workspace_sha256": "957db68ef1f6c58b30a971cf51433611aafb2f6096db846bfb323945cf76d495",
+        "snapshot_sha256": "1566a15a06950830024c0b1b8f88f05ff427cc031f6765d83d41fc99a6b98905",
+        "clock": {
+          "phase_elapsed_seconds": 14.57642043299984,
+          "prefix_elapsed_seconds": 14.57642043299984,
+          "reviewer_seconds": 0,
+          "worker_elapsed_seconds": 14.57642043299984,
+          "total_elapsed_seconds": 14.57642043299984,
+          "within_budget": true
+        },
+        "match_key": "df69005cacf4141894ea551c952c655ffdfd6e47fe0d35bde50b82f54cbed0d9"
+      },
+      "prefix_progress": null,
+      "prefix_sustained_detour": false,
+      "prefix_grade_disagreement": false,
+      "prefix_grade_count": 2,
+      "prefix_issue_exposure_counts": [
+        4,
+        4
+      ],
+      "symptom_present_at_cutoff_labels": [
+        true,
+        true
+      ],
+      "match_problems": [],
+      "allocations": {
+        "p545": {
+          "role": "prefix",
+          "status": "checkpoint_reached",
+          "coordinator_status": "checkpoint",
+          "reason": null,
+          "snapshot_error": null
+        },
+        "r896": {
+          "role": "incumbent",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "unassisted",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 43.43732766999983,
+              "prefix_elapsed_seconds": 14.57642043299984,
+              "reviewer_seconds": 0,
+              "worker_elapsed_seconds": 58.01374810299967,
+              "total_elapsed_seconds": 58.01374810299967,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 2,
+            "continuation_status_observations": 2,
+            "continuation_shell_seconds": 0.06324,
+            "prefix_shell_calls": 3,
+            "prefix_shell_seconds": 0.029492,
+            "reviewer_seconds": 0,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Read the full source snapshots, dispatch and reconciliation instructions together for the first time, also retrieving the required reader settings."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 4.240714,
+            "first_useful_worker_seconds": 18.817134,
+            "first_useful_charged_seconds": 18.817134,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 1,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": null
+        },
+        "r481": {
+          "role": "fork",
+          "status": "completed",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null,
+          "arm": "reviewer",
+          "metrics": {
+            "artifact_ok": true,
+            "target_ok": true,
+            "preservation_ok": true,
+            "verified_delivery": true,
+            "clock": {
+              "phase_elapsed_seconds": 48.39921719099948,
+              "prefix_elapsed_seconds": 14.57642043299984,
+              "reviewer_seconds": 8.947708179000074,
+              "worker_elapsed_seconds": 62.97563762399932,
+              "total_elapsed_seconds": 71.92334580299939,
+              "within_budget": true
+            },
+            "continuation_shell_calls": 3,
+            "continuation_status_observations": 3,
+            "continuation_shell_seconds": 0.114701,
+            "prefix_shell_calls": 3,
+            "prefix_shell_seconds": 0.029492,
+            "reviewer_seconds": 8.947708179000074,
+            "first_consequential_action": {
+              "index": 1,
+              "direction": "deliverable",
+              "basis": "Read all source snapshots so the requested ledger can be reconciled across winning count and scale revisions and matching signoffs."
+            },
+            "first_useful_action_index": 1,
+            "continuation_first_useful_seconds": 5.263544,
+            "first_useful_worker_seconds": 19.839965,
+            "first_useful_charged_seconds": 28.787673,
+            "diversion_count": 0,
+            "diversion_shell_seconds": 0,
+            "repeated_no_progress_count": 0,
+            "issue_exposures": 2,
+            "verification_ok": true,
+            "completion_report_ok": true,
+            "false_done": false,
+            "missed_dependency": false
+          },
+          "end_progress": null
+        },
+        "a972": {
+          "role": "reviewer",
+          "status": "advice_recorded",
+          "coordinator_status": "completed",
+          "reason": null,
+          "snapshot_error": null
+        }
+      }
+    }
+  ],
+  "limits": {
+    "model": "Model and effort derive from launch arguments and documented full-history inheritance. They are launcher evidence without independent provider attestation.",
+    "timing": "First useful times end when the recorded shell action and status observation finish. Worker time includes the common prefix. Charged time also includes the reviewer.",
+    "grade": "Replay reruns independent fixture oracles and derives metrics from retained blind grades."
+  }
+}
