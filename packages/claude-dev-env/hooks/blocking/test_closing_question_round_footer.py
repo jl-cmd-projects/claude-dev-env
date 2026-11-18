@@ -3,6 +3,7 @@ import pytest
 from closing_question_round_footer import (
     footer_reason,
     left_out_tasks,
+    list_check_text,
     split_footer,
     subject_key_words,
     task_key_words,
@@ -86,3 +87,14 @@ def test_footer_reason_should_lead_list_the_tasks_and_end_with_the_guidance() ->
     background_reason = footer_reason(FOOTER_MISSING_REASON_LEAD, [], [], [])
     assert background_reason.split("\n") == [FOOTER_MISSING_REASON_LEAD, FOOTER_INSTRUCTION]
     assert "brackets" not in background_reason
+
+
+def test_should_cut_only_a_status_footer_from_the_list_check_text() -> None:
+    status_reply = "Done.\n\nIn progress:\n- I am shipping pull request 8590. Its tests are pending."
+    question_reply = (
+        "Done.\n\nIn progress:\n- Should I delete the backup?\n- Should I merge 8590?\n- Should I close 8693?"
+    )
+    assert list_check_text(status_reply).strip() == "Done."
+    assert list_check_text(question_reply) == question_reply
+    assert list_check_text("Done.") == "Done."
+

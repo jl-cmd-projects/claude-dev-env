@@ -278,3 +278,13 @@ def test_should_write_one_log_line_per_missing_verdict(monkeypatch: pytest.Monke
     log_no_verdict("the transcript cannot be read")
     [log_line] = _log_text(tmp_path).splitlines()
     assert log_line.endswith("closing reply judge gave no verdict: the transcript cannot be read")
+
+
+def test_should_keep_a_decision_list_that_ends_the_reply_under_in_progress() -> None:
+    decisions_reply = "Done.\n\nIn progress:\n- Should I delete the backup?\n- Should I merge 8590?\n- Should I close 8693?"
+    assert judge_input("Fix the build", decisions_reply, False)["list_scope"] == decisions_reply
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert parsed_verdict(verdict_text, decisions_reply) == JudgeVerdict("", "In progress:")
+

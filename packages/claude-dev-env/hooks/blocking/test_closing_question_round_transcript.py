@@ -234,14 +234,3 @@ def test_closing_reply_texts_sets_aside_the_question_calls_that_share_the_last_r
             closing_reply_texts({"last_assistant_message": question_line}, all_lines, NO_DEADLINE)
             == all_expected_texts
         )
-
-
-def test_top_level_records_keeps_a_task_notice() -> None:
-    notice = {
-        "type": "user",
-        "turnOrigin": "task-notification",
-        "message": {"role": "user", "content": "<task-notification><summary>Done</summary></task-notification>"},
-    }
-    reply = reply_record("Noted.")
-    all_lines = json_lines([typed_prompt_record(), notice, reply])
-    assert top_level_records(all_lines, NO_DEADLINE) == [notice, reply]

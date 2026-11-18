@@ -1,5 +1,6 @@
 import io
 import json
+import tempfile
 import os
 import subprocess
 import sys
@@ -111,6 +112,7 @@ def run_gate(
     }
     if transcript_path is not None:
         hook_input["transcript_path"] = str(transcript_path)
+        monkeypatch.setattr(tempfile, "tempdir", str(transcript_path.parent))
     monkeypatch.setattr(
         "sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8")))
     )
@@ -1066,15 +1068,23 @@ def test_should_hold_a_declaration_beside_an_in_progress_task_in_the_store(
     assert "- Ship the export [ship export]" in reason
 
 
-def test_should_name_a_background_start_or_notice_as_a_background_change() -> None:
-    notice = {
-        "type": "user",
-        "turnOrigin": "task-notification",
-        "message": {"role": "user", "content": "<task-notification><summary>Done</summary></task-notification>"},
-    }
-    background_shell = tool_call_record("Bash", {"command": "pytest", "run_in_background": True})
-    assert closing_question_round_gate.is_background_change(notice)
-    assert closing_question_round_gate.is_background_change(background_shell)
-    assert closing_question_round_gate.is_background_change(tool_call_record("Agent", {"prompt": "Look."}))
-    assert not closing_question_round_gate.is_background_change(tool_call_record("Edit", {"file_path": "a.py"}))
-    assert not closing_question_round_gate.is_background_change(typed_prompt_record())
+def test_should_name_the_background_job_set_the_same_in_any_order() -> None:
+    first_key = closing_question_round_gate.background_job_key(
+        {"background_tasks": [{"id": "b"}, {"id": "a", "status": "running"}]}
+    )
+    assert first_key == closing_question_round_gate.background_job_key({"background_tasks": [{"id": "a"}, {"id": "b"}]})
+    assert first_key != closing_question_round_gate.background_job_key({"background_tasks": [{"id": "a"}, {"id": "c"}]})
+    assert closing_question_round_gate.background_job_key({"background_tasks": "ledger"}) == (
+        closing_question_round_gate.background_job_key({"background_tasks": {"ledger": {}}})
+    )
+
+
+def test_should_know_a_job_set_only_after_a_footer_went_out_with_it(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    job_fields = {"session_id": SESSION_ID, "background_tasks": [{"id": "ledger"}]}
+    assert not closing_question_round_gate.were_jobs_shown(job_fields)
+    closing_question_round_gate.record_footer_jobs(job_fields)
+    assert closing_question_round_gate.were_jobs_shown(job_fields)
+    assert not closing_question_round_gate.were_jobs_shown({**job_fields, "background_tasks": [{"id": "tests"}]})

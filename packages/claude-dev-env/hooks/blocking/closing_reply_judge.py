@@ -16,8 +16,10 @@ The prompt kind tells the model where the prompt came from::
 
 A verdict counts only when it is the four-key object, bare or in one ``json``
 code fence, and each raised flag names a nonempty span found in the reply.
-The list lead counts only in ``list_scope``, the reply with its In progress
-footer cut off by ``closing_question_round_footer``: a lead in the footer,
+The list lead counts only in ``list_scope``, the reply with a status-only In
+progress footer cut off by ``closing_question_round_footer.list_check_text``.
+A footer that asks the user something stays in the scope. A lead in a
+status-only footer,
 or an ``In progress:`` lead that the body holds only inside a sentence, drops
 the list flag and keeps the promise. An ``In progress:`` line in the body
 over a list of decisions keeps it.
@@ -45,7 +47,7 @@ import tempfile
 from pathlib import Path
 from typing import NamedTuple
 
-from closing_question_round_footer import split_footer
+from closing_question_round_footer import list_check_text
 from closing_reply_shapes import prompt_asks_for_list
 from hooks_constants.closing_question_round_gate_constants import FOOTER_HEADING_PATTERN
 from hooks_constants.closing_reply_judge_constants import (
@@ -166,7 +168,7 @@ def judge_input(prompt_text: str, reply_text: str, has_question_tool_call: bool)
         USER_PROMPT_KEY: user_prompt,
         REPLY_KEY: reply_text,
         QUESTION_TOOL_USED_KEY: bool(has_question_tool_call),
-        LIST_SCOPE_KEY: split_footer(reply_text).body,
+        LIST_SCOPE_KEY: list_check_text(reply_text),
     }
 
 
@@ -257,10 +259,10 @@ def _raised_span(
     return span if span and span in reply_text else None
 
 
-def _is_heading_inside_prose(list_span: str, reply_body: str) -> bool:
+def _is_heading_inside_prose(list_span: str, list_scope: str) -> bool:
     if not FOOTER_HEADING_PATTERN.fullmatch(list_span.strip()):
         return False
-    return not any(FOOTER_HEADING_PATTERN.fullmatch(each_line.strip()) for each_line in reply_body.splitlines())
+    return not any(FOOTER_HEADING_PATTERN.fullmatch(each_line.strip()) for each_line in list_scope.splitlines())
 
 
 def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
@@ -294,8 +296,8 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
     list_span = _raised_span(all_verdict_fields, DECISIONS_AS_LIST_KEY, LIST_SPAN_KEY, reply_text)
     if promise_span is None or list_span is None:
         return None
-    reply_body = split_footer(reply_text).body
-    if list_span not in reply_body or _is_heading_inside_prose(list_span, reply_body):
+    list_scope = list_check_text(reply_text)
+    if list_span not in list_scope or _is_heading_inside_prose(list_span, list_scope):
         return JudgeVerdict(promise_span, "")
     return JudgeVerdict(promise_span, list_span)
 

@@ -101,6 +101,7 @@ if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
 from closing_question_gate_flag import is_bypass_on
+from once_per_session import claim_turn_showing, is_turn_claimed
 from closing_question_round_footer import footer_reason, left_out_tasks, split_footer
 from closing_question_round_lines import transcript_lines
 from closing_question_round_open_items import declares_no_open_items, marked_open_lines
@@ -143,13 +144,11 @@ from hooks_constants.closing_question_round_gate_constants import (
     REMAINING_LINES_TEMPLATE,
     SESSION_ATTENDED_ENVIRONMENT_VARIABLE,
     STDIN_WATCHDOG_SECONDS,
-    ALL_BACKGROUND_TOOL_NAMES,
-    NOTIFICATION_TURN_ORIGIN,
-    RUN_IN_BACKGROUND_KEY,
+    ALL_BACKGROUND_JOB_ID_KEYS,
+    FOOTER_JOBS_KEY_TEMPLATE,
+    FOOTER_JOBS_MARKER_NAME,
     STOP_DEADLINE_SECONDS,
     SUBAGENT_ID_KEY,
-    TASK_NOTIFICATION_PREFIX,
-    TURN_ORIGIN_KEY,
     WATCHDOG_GRACE_SECONDS,
 )
 from hooks_constants.hook_block_logger import log_hook_block
@@ -162,8 +161,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     MESSAGE_KEY,
     RECORD_TYPE_KEY,
     STOP_HOOK_FEEDBACK_PREFIX,
-    TOOL_INPUT_KEY,
-    TOOL_NAME_KEY,
     TOOL_USE_BLOCK_TYPE,
     TRANSCRIPT_PATH_KEY,
     USER_RECORD_TYPE,
@@ -276,20 +273,18 @@ class CoveredSession(NamedTuple):
         all_stretch_records: The top-level records after the last question call that reached the user.
         all_counted_records: The stretch records after the last typed prompt, where holds count.
         all_last_footer_lines: The items of the newest footer among the counted records, or None.
-        has_background_change: Whether a background job started or sent a notice after that footer.
     """
 
     all_payload_texts: list[str]
     all_stretch_records: list[dict[str, object]]
     all_counted_records: list[dict[str, object]]
     all_last_footer_lines: tuple[str, ...] | None
-    has_background_change: bool
 
 
 def _newest_footer_position(all_records: list[dict[str, object]]) -> int | None:
     for each_position in range(len(all_records) - 1, -1, -1):
         each_record = all_records[each_position]
-        if not is_assistant_record(each_record) or has_work_call([each_record]):
+        if not is_assistant_record(each_record) or _has_tool_call(each_record):
             continue
         all_record_texts = block_texts(each_record)
         if all_record_texts and split_footer(all_record_texts[-1]).footer_items is not None:
@@ -303,11 +298,11 @@ def newest_footer_items(all_records: list[dict[str, object]]) -> tuple[str, ...]
     ::
 
         "Done.\n\nIn progress:\n- I am shipping 8590." then "Nothing new."  -> ("I am shipping 8590.",)
-        a footer and a work call in one record                             -> None, not a closing reply
+        a footer and any tool call, a question call too, in one record     -> None, not a closing reply
         "Nothing new." only                                                -> None
 
-    A record counts only when it holds no work call and its last text block
-    ends with the footer, the same rule the work-since-footer scan uses.
+    A record counts only when it holds no tool call at all and its last text
+    block ends with the footer.
     """
     footer_position = _newest_footer_position(all_records)
     if footer_position is None:
@@ -315,36 +310,62 @@ def newest_footer_items(all_records: list[dict[str, object]]) -> tuple[str, ...]
     return split_footer(block_texts(all_records[footer_position])[-1]).footer_items
 
 
-def _starts_background_job(all_block_fields: dict[str, object]) -> bool:
-    if all_block_fields.get(RECORD_TYPE_KEY) != TOOL_USE_BLOCK_TYPE:
-        return False
-    all_tool_inputs = all_block_fields.get(TOOL_INPUT_KEY)
-    is_background_call = isinstance(all_tool_inputs, dict) and all_tool_inputs.get(RUN_IN_BACKGROUND_KEY) is True
-    return is_background_call or all_block_fields.get(TOOL_NAME_KEY) in ALL_BACKGROUND_TOOL_NAMES
+def _has_tool_call(all_record_fields: dict[str, object]) -> bool:
+    return any(
+        each_block.get(RECORD_TYPE_KEY) == TOOL_USE_BLOCK_TYPE for each_block in _content_blocks(all_record_fields)
+    )
 
 
-def is_background_change(all_record_fields: dict[str, object]) -> bool:
-    """Return True when the record starts a background job or carries a notice from one.
+def _job_identity(job_entry: object) -> str:
+    all_named_ids = (
+        [job_entry.get(each_key) for each_key in ALL_BACKGROUND_JOB_ID_KEYS] if isinstance(job_entry, dict) else []
+    )
+    return next(
+        (each_id for each_id in all_named_ids if isinstance(each_id, str)),
+        json.dumps(job_entry, sort_keys=True, default=str),
+    )
+
+
+def _job_identities(all_background_tasks: object) -> list[str]:
+    if isinstance(all_background_tasks, dict):
+        return [str(each_name) for each_name in all_background_tasks]
+    if isinstance(all_background_tasks, list):
+        return [_job_identity(each_entry) for each_entry in all_background_tasks]
+    if isinstance(all_background_tasks, str) and all_background_tasks:
+        return [all_background_tasks]
+    return []
+
+
+def background_job_key(all_hook_input_fields: dict[str, object]) -> str:
+    """Return a key that names the set of background jobs the payload lists, the same in any order.
 
     ::
 
-        a Bash call with run_in_background true, or an Agent call   -> True
-        a user record with turnOrigin "task-notification"            -> True
-        an Edit call, or a typed prompt                               -> False
+        [{"id": "b"}, {"id": "a", "status": "running"}]   -> 'footer-jobs:["a", "b"]'
+        {"ledger": {...}}                                 -> 'footer-jobs:["ledger"]'
+        "ledger"                                          -> 'footer-jobs:["ledger"]'
     """
-    if all_record_fields.get(RECORD_TYPE_KEY) == USER_RECORD_TYPE:
-        is_notice = all_record_fields.get(TURN_ORIGIN_KEY) == NOTIFICATION_TURN_ORIGIN
-        return is_notice or _record_text(all_record_fields).lstrip().startswith(TASK_NOTIFICATION_PREFIX)
-    if not is_assistant_record(all_record_fields):
-        return False
-    return any(_starts_background_job(each_block) for each_block in _content_blocks(all_record_fields))
+    all_identities = _job_identities(all_hook_input_fields.get(BACKGROUND_TASKS_KEY))
+    return FOOTER_JOBS_KEY_TEMPLATE.format(identities=json.dumps(sorted(all_identities)))
 
 
-def _has_background_change_since_footer(all_records: list[dict[str, object]]) -> bool:
-    footer_position = _newest_footer_position(all_records)
-    if footer_position is None:
-        return False
-    return any(is_background_change(each_record) for each_record in all_records[footer_position + 1 :])
+def record_footer_jobs(all_hook_input_fields: dict[str, object]) -> None:
+    """Record that a footer went out while the payload's jobs ran in the background."""
+    claim_turn_showing(FOOTER_JOBS_MARKER_NAME, all_hook_input_fields, background_job_key(all_hook_input_fields))
+
+
+def were_jobs_shown(all_hook_input_fields: dict[str, object]) -> bool:
+    """Return True when a footer went out while exactly the payload's background jobs ran.
+
+    ::
+
+        footer sent while job a ran, job a runs now             -> True
+        footer sent while job a ran, job b replaced it          -> False
+        no record kept for this session                         -> False
+    """
+    return is_turn_claimed(
+        FOOTER_JOBS_MARKER_NAME, all_hook_input_fields, background_job_key(all_hook_input_fields)
+    ) is True
 
 
 def _covered_session(
@@ -367,7 +388,6 @@ def _covered_session(
         all_stretch_records,
         all_counted_records,
         newest_footer_items(all_counted_records),
-        _has_background_change_since_footer(all_counted_records),
     )
 
 
@@ -410,7 +430,7 @@ def is_footer_still_current(
     all_last_footer_lines: tuple[str, ...] | None,
     all_tasks: SessionTasks,
     background_count: int,
-    has_background_change: bool = False,
+    were_jobs_in_footer: bool = False,
 ) -> bool:
     """Return True when the newest footer the user saw still shows the work in progress.
 
@@ -421,20 +441,21 @@ def is_footer_still_current(
         footer names #28, #29 started since                       -> False, #29 left out
         footer names #28 and the one job running in the background -> True
         footer names #28 only, a job started in the background    -> False, the job is left out
-        one job ended and another started since, count unchanged   -> False, the jobs changed
+        one job took another's place since, the count unchanged   -> False, the jobs changed
         no footer since the typed prompt or answered card         -> False
 
     The footer has one line per piece of work. With no background work, a
     footer with more lines than tasks in progress shows work that is done.
     With background work, the footer must hold one line per task in progress
-    and one per background job, and no job may have started or sent a notice
-    since it, so a job that starts or ends makes it owed.
+    and one per background job, and a footer must have gone out while exactly
+    these jobs ran, so a job that starts, ends, or takes another's place
+    makes it owed, while a notice that a job is still going does not.
 
     Args:
         all_last_footer_lines: The lines of the newest footer sent, or None.
         all_tasks: The session's tasks.
         background_count: How many background jobs the payload names.
-        has_background_change: Whether a job started or sent a notice after the footer.
+        were_jobs_in_footer: Whether a footer went out while exactly these jobs ran.
 
     Returns:
         Whether the footer can stand for the reply.
@@ -445,7 +466,7 @@ def is_footer_still_current(
         return False
     if background_count:
         is_count_current = len(all_last_footer_lines) == len(all_tasks.in_progress) + background_count
-        return is_count_current and not has_background_change
+        return is_count_current and were_jobs_in_footer
     return len(all_last_footer_lines) <= len(all_tasks.in_progress)
 
 
@@ -455,7 +476,6 @@ def footer_hold_reason(
     did_work: bool,
     deadline_at: float,
     all_last_footer_lines: tuple[str, ...] | None = None,
-    has_background_change: bool = False,
 ) -> str | None:
     """Return the footer hold reason for the closing reply, or None when the reply may end.
 
@@ -480,8 +500,6 @@ def footer_hold_reason(
         all_last_footer_lines: The items of the newest footer sent since the later
             of the last typed prompt and the last question call that reached
             the user, or None when no reply since then ended with one.
-        has_background_change: Whether a background job started or sent a
-            notice after that footer.
 
     Returns:
         The reason, or None.
@@ -498,7 +516,7 @@ def footer_hold_reason(
             all_last_footer_lines,
             all_tasks,
             background_job_count(all_hook_input_fields),
-            has_background_change,
+            were_jobs_shown(all_hook_input_fields),
         ):
             return None
         reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work)
@@ -528,13 +546,13 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     covered_session = _covered_session(all_hook_input_fields, deadline_at)
     if covered_session is None:
         return None
-    all_payload_texts, all_stretch_records, all_counted_records, all_last_footer_lines, has_background_change = (
-        covered_session
-    )
+    all_payload_texts, all_stretch_records, all_counted_records, all_last_footer_lines = covered_session
     if prior_hold_count(all_counted_records) >= MAXIMUM_HOLD_COUNT:
         return None
     all_closing_texts = _closing_reply_texts(all_stretch_records, all_payload_texts)
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
+    if has_background_work(all_hook_input_fields) and split_footer(closing_reply).footer_items is not None:
+        record_footer_jobs(all_hook_input_fields)
     all_texts = [
         _scanned_text(each_text)
         for each_text in [*assistant_texts(all_stretch_records), *all_payload_texts]
@@ -549,7 +567,6 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         _has_work_since_footer(all_stretch_records),
         deadline_at,
         all_last_footer_lines,
-        has_background_change,
     )
 
 

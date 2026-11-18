@@ -131,7 +131,7 @@ from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, p
 from user_step_wording import file_waiting_phrase, waiting_phrase
 from codex_continuation_review import continuation_review, user_requested_stop
 from hooks_constants.codex_continuation_constants import AGENT_TRANSCRIPT_KEY, CHILD_FLAG, CHILD_STOP_EVENT
-from closing_question_round_footer import split_footer
+from closing_question_round_footer import list_check_text
 from closing_reply_shapes import item_count_under, open_item_list, promised_report_phrase
 from closing_reply_judge import JudgeVerdict, is_judge_available, judged_verdict, log_no_verdict
 from turn_review_transcript import _last_assistant_message_text, _ReversedTranscript
@@ -364,7 +364,7 @@ def _verdict_findings(verdict: JudgeVerdict, reply_text: str) -> list[ClosingRep
     all_findings: list[ClosingReplyFinding] = []
     if verdict.promise_span:
         all_findings.append(_promise_finding(verdict.promise_span))
-    reply_body = split_footer(reply_text).body
+    reply_body = list_check_text(reply_text)
     if verdict.list_span and verdict.list_span in reply_body:
         all_findings.append(_list_finding(verdict.list_span, item_count_under(reply_body, verdict.list_span)))
     return all_findings
@@ -407,10 +407,11 @@ def closing_reply_findings(
     gives no verdict gives no finding. Codex and Cursor stops, and a host with
     no ``claude``, use the phrase checks in ``closing_reply_shapes.py``. A
     session whose transcript cannot be read gives no finding. The open-item
-    list finding reads only the reply above its In progress footer, as
-    ``closing_question_round_footer.split_footer`` cuts it, because the footer
-    is a status list that ``closing_question_round_gate.py`` checks. The
-    promised report finding reads the whole reply, footer included.
+    list finding reads the reply above an In progress footer that only says
+    where work stands, as ``closing_question_round_footer.list_check_text``
+    cuts it, because that footer is a status list that
+    ``closing_question_round_gate.py`` checks. A footer that asks the user
+    something stays in. The promised report finding reads the whole reply.
     """
     if is_judged_payload(all_hook_input_fields, replay):
         return _judged_findings(all_hook_input_fields, replay)
@@ -424,7 +425,7 @@ def closing_reply_findings(
     item_list = (
         None
         if replay.has_turn_question_tool
-        else open_item_list(split_footer(reply_text).body, replay.turn_prompt_text)
+        else open_item_list(list_check_text(reply_text), replay.turn_prompt_text)
     )
     if item_list is not None:
         all_findings.append(_list_finding(item_list.lead, item_list.item_count))

@@ -17,6 +17,7 @@ footer.
 
 from __future__ import annotations
 
+import math
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -29,6 +30,7 @@ blocking_directory = str(Path(__file__).resolve().parent)
 if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
+from closing_question_round_open_items import marked_open_lines
 from open_tasks_transcript import TaskItem
 
 from hooks_constants.closing_question_round_gate_constants import (
@@ -39,6 +41,8 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_INSTRUCTION,
     FOOTER_ITEM_LINE_PATTERN,
     FOOTER_KEY_WORDS_INSTRUCTION,
+    FOOTER_STATUS_MARKER_PATTERN,
+    FOOTER_STATUS_STAND_IN,
     FOOTER_TASK_LINE_TEMPLATE,
     FOOTER_TASKS_LABEL,
     FOOTER_WORD_PATTERN,
@@ -97,6 +101,38 @@ def split_footer(closing_reply: str) -> SplitReply:
             return SplitReply(closing_reply, None)
         return SplitReply(LINE_BREAK.join(all_lines[:each_position]), tuple(all_items))
     return SplitReply(closing_reply, None)
+
+
+def list_check_text(closing_reply: str) -> str:
+    """Return the part of the reply an open-item list check reads.
+
+    ::
+
+        "Done.\n\nIn progress:\n- I am shipping 8590."           -> "Done.\n"
+        "Done.\n\nIn progress:\n- Should I merge 8590?"          -> the whole reply
+        "Done."                                                  -> "Done."
+
+    A footer that only says where work stands is required status, so the
+    check reads the body above it. A footer whose items hold an open-item
+    line, such as a question or an ask of the user, stays in, as it does for
+    the closing round scan, which reads "pending", "blocked", "not done", and
+    "not run" in a footer as status.
+
+    Args:
+        closing_reply: The reply the turn ends with.
+
+    Returns:
+        The body above a status-only footer, or the whole reply.
+    """
+    split_reply = split_footer(closing_reply)
+    if split_reply.footer_items is None:
+        return closing_reply
+    all_status_items = [
+        FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, each_item) for each_item in split_reply.footer_items
+    ]
+    if marked_open_lines(all_status_items, math.inf):
+        return closing_reply
+    return split_reply.body
 
 
 def _stem(word: str) -> str:
