@@ -23,7 +23,6 @@ from completion_eval.errors import EvidenceRunFatal
 from receiver import Receiver
 
 
-
 def contract_digest(case: dict) -> str:
     """Identify a frozen synthetic assignment by its contents."""
     return digest(json.dumps(case, sort_keys=True))
