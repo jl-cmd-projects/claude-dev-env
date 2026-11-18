@@ -5,12 +5,13 @@ from pathlib import Path
 
 import pytest
 
+from tests.behavior.codex_stop_continuation.config.receipts import ALL_DELIVERY_CASES
+from tests.behavior.codex_stop_continuation.config.study import ROOT
 from tests.behavior.codex_stop_continuation.replay_receipts import (
-    DELIVERY_CASES,
     replay,
     replay_state,
 )
-from tests.behavior.codex_stop_continuation.run_study import ROOT, load_cases
+from tests.behavior.codex_stop_continuation.run_study import load_cases
 
 RECEIPTS = ROOT / "hosted_receipts.jsonl"
 
@@ -32,7 +33,7 @@ def test_matched_hosted_receipts() -> None:
     assert results["candidate"]["operator_feedback"] == 5
 
 
-@pytest.mark.parametrize("case_name", DELIVERY_CASES)
+@pytest.mark.parametrize("case_name", ALL_DELIVERY_CASES)
 def test_completion_claim_without_delivery_fails(case_name: str) -> None:
     case, row = observation(case_name)
     row["events"] = []
