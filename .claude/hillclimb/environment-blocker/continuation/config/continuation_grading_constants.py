@@ -4,6 +4,7 @@ ALL_APPROVAL_TEXT_BY_STATUS = {"active": "Approval is active", "pending": "Appro
 ALL_OPERATIONS = {"read", "capability", "write", "message", "unsupported", "operator_status"}
 ALL_PUBLICATION_CHECKS = {"capability", "write"}
 ALL_NOTICE_CRITERIA = ("error_clear", "least_scope_ask", "impact_clear")
+ALL_COMPLETION_REPORT_CRITERIA = ("completion_report", "outcome_accurate")
 ALL_MESSAGE_FIELDS = ("recipient", "body", "seq", "elapsed_ms")
 ALL_REVIEW_ATTRIBUTION_FIELDS = ("reviewer", "reason")
 ALL_LAUNCH_DIGEST_FIELDS = ("order_sha256", "instructions_sha256")
