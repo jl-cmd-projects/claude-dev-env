@@ -1,23 +1,28 @@
 """Check ambiguous Stop language with protected and unprotected turns."""
 
 import argparse
+import sys
 from pathlib import Path
+from typing import TextIO
 
+from tests.behavior.codex_stop_continuation.config import study
 from tests.behavior.codex_stop_continuation.run_study import (
-    DEFAULT_RECEIVER,
-    REPO_ROOT,
-    STOP_HOOK,
     load_cases,
-    response_item,
     serve,
     stop_matrix,
+    turn_record,
     write_json,
 )
 
 
-def edge_cases():
+def edge_cases() -> list[dict]:
+    """Build closing cases with adjacent protection and overlapping wording.
+
+    Returns:
+        Assignments with their expected continuation decision.
+    """
     supply, _, approval, *_ = load_cases()
-    held_decision = response_item("function_call", name="request_user_input", call_id="owner", arguments="{}")
+    held_decision = turn_record("function_call", name="request_user_input", call_id="owner", arguments="{}")
     return [
         {**supply, "id": "quoted-cancellation-in-request", "expected_wake": True,
          "prompt": "If the formatting playbook says 'stop here', continue submitting the correction because its signoff is optional."},
@@ -53,29 +58,36 @@ def edge_cases():
     ]
 
 
-def main():
+def main(status_stream: TextIO) -> None:
+    """Run and report the optional hosted replay for the edge fixtures.
+
+    Args:
+        status_stream: Destination for decisions and controller status.
+    """
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     parser.add_argument("--baseline", type=Path, required=True)
-    parser.add_argument("--candidate", type=Path, default=REPO_ROOT / STOP_HOOK)
+    parser.add_argument("--candidate", type=Path, default=study.REPO_ROOT / study.STOP_HOOK)
     parser.add_argument("--serve", action="store_true")
     args = parser.parse_args()
     cases = edge_cases()
-    matrix = stop_matrix(cases, args.baseline.resolve(), args.candidate.resolve())
+    matrix = stop_matrix(cases, args.baseline.resolve(), args.candidate.resolve(), is_child=False)
     rows = []
-    for case in cases:
-        arms = matrix[case["id"]]
+    for each_case in cases:
+        arms = matrix[each_case["id"]]
         observed = {arm: bool(observation["feedback"]) for arm, observation in arms.items()}
         rows.append({
-            "case": case["id"], "expected_wake": case["expected_wake"], **observed,
-            "candidate_matches": case["expected_wake"] is None or observed["candidate"] == case["expected_wake"],
+            "case": each_case["id"], "expected_wake": each_case["expected_wake"], **observed,
+            "candidate_matches": each_case["expected_wake"] is None
+            or observed[study.CANDIDATE_ARM] == each_case["expected_wake"],
         })
     write_json(args.output, rows)
-    print("\n".join(f"{row['case']}: {row['candidate_matches']}, {row['candidate']}" for row in rows))
+    summary = study.NEWLINE.join(f"{row['case']}: {row['candidate_matches']}, {row['candidate']}" for row in rows)
+    status_stream.write(summary + study.NEWLINE)
     if args.serve:
-        serve(args.output.with_suffix(""), DEFAULT_RECEIVER, cases, matrix, 1,
-              ("same-closing-receiving-held",), ("baseline", "candidate"))
+        serve(args.output.with_suffix(""), study.DEFAULT_RECEIVER, cases, matrix, 1,
+              ("same-closing-receiving-held",), study.ALL_ARMS, status_stream)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.stdout)
