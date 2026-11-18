@@ -106,7 +106,7 @@ def read_user_turns(transcript_path: Path, first: int, last: int | None) -> list
         OSError: The session transcript cannot be read.
     """
     with transcript_path.open(encoding=UTF8_ENCODING, errors=DECODE_ERRORS_POLICY) as transcript:
-        all_turns = typed_user_messages(transcript)
+        all_turns = typed_user_messages(transcript, should_preserve_codex_text=True)
     final_position = first if last is None else last
     if not 1 <= first <= final_position <= len(all_turns):
         raise ValueError(f"Choose an inclusive range within turns 1 through {len(all_turns)}")

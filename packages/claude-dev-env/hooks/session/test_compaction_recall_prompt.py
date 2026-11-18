@@ -110,7 +110,7 @@ def test_hooks_json_should_register_no_model_hook_for_the_recall() -> None:
 def test_codex_clipped_turn_reader_returns_only_the_selected_user_wording(tmp_path: Path) -> None:
     transcript = tmp_path / "session 'quoted' & [draft].jsonl"
     first = "Include every register. " + "folder `path/item` " * 150 + "Keep archive frozen."
-    second = "Check the café register ☃."
+    second = "  Keep the café register ☃ frozen. Quote <command-name>/compact</command-name> literally.  "
     entries = [
         {"type": "event_msg", "payload": {"type": "user_message", "message": first}},
         {"type": "event_msg", "payload": {"type": "agent_message", "message": "Internal handoff"}},
