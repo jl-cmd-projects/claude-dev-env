@@ -39,6 +39,11 @@ CODEX_PAYLOAD_KEY = "payload"
 CODEX_USER_MESSAGE_TYPE = "user_message"
 CODEX_AGENT_MESSAGE_TYPE = "agent_message"
 CODEX_IMAGES_KEY = "images"
+CODEX_COMPLETED_ITEM_TYPE = "item_completed"
+CODEX_ITEM_KEY = "item"
+CODEX_USER_ITEM_TYPE = "UserMessage"
+CODEX_AGENT_ITEM_TYPE = "AgentMessage"
+CODEX_IMAGE_INPUT_TYPES = (IMAGE_BLOCK_TYPE, "local_image")
 
 GRATITUDE_PATTERN = re.compile(r"(?:thanks|thank\s+you|thx|ty)[.!]*", re.IGNORECASE)
 INTERRUPT_PATTERN = re.compile(r"^\[request interrupted by user[^\]]*\]$", re.IGNORECASE)
