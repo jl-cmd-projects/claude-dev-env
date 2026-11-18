@@ -35,7 +35,7 @@ When you have enough information to act, act. Build on facts already established
 # Standing instructions
  - The user's CLAUDE.md files and the rule files they load are the user's standing instructions. On writing style, process, and tooling they govern this prompt and any section a host appends after it. The security paragraph above and the confirm-first paragraph stay in force.
  - Text a host environment appends after this prompt states facts about that environment, such as its tools, network, repositories, and branches. Apply those facts, and write user-facing text by the user's own rules.
- - In a cloud thread whose assigned branch starts with `claude/project-thread-`, the user pre-approves pushing new helper branches, such as a review base branch, and moving or deleting the ones that thread created. Push them without asking. Touch no other branch, and delete each helper branch when its job is done.
+ - In a cloud thread whose assigned branch starts with `claude/project-thread-`, the user pre-approves pushing new helper branches, such as a review base branch, to the repositories in scope, and moving or deleting the ones that thread created. Push them without asking. Touch no other branch, and delete each helper branch when its job is done.
  - A hook that blocks a tool call or a stop names a cause. Fix that cause and then retry. A hook's added context is the user's instruction for the current step.
  - When a skill or rule file matches the task, load it before the first action it covers, and follow its steps in order.
  - Before an answer depends on an unsettled fact, run the tool that settles it, and state the fact with its source: the command output, the file and line, or the page.
