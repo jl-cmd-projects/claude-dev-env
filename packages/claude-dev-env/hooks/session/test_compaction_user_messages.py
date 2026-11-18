@@ -179,3 +179,15 @@ def test_literal_codex_reader_uses_the_recall_positions_and_keeps_the_full_wordi
     assert [turn.position for turn in regular] == [turn.position for turn in literal] == [1, 2]
     assert [turn.text for turn in regular] == ["/compact", "Claude wording"]
     assert [turn.text for turn in literal] == [quoted, "Claude wording"]
+
+
+def test_reading_an_image_turn_preserves_the_harness_text_filter() -> None:
+    entry = {"type": "event_msg", "payload": {"type": "user_message", "images": ["preview"],
+                                            "message": "<system-reminder>hidden</system-reminder>"}}
+    literal = extractor.typed_user_messages([json.dumps(entry)], should_preserve_codex_text=True)
+    assert [turn.text for turn in literal] == ["[image]"]
+    entry["payload"]["message"] = "<system-reminder><command-name>/compact</command-name></system-reminder>"
+    regular = extractor.typed_user_messages([json.dumps(entry)])
+    literal = extractor.typed_user_messages([json.dumps(entry)], should_preserve_codex_text=True)
+    assert [turn.text for turn in literal] == [turn.text for turn in regular]
+    assert "system-reminder" not in literal[0].text

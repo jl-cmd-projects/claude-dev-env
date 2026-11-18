@@ -165,6 +165,8 @@ def _codex_literal_text(all_entry_fields: dict[str, object], formatted: str) -> 
     message = payload.get(MESSAGE_KEY)
     if payload.get(ENTRY_TYPE_KEY) != CODEX_USER_MESSAGE_TYPE or not isinstance(message, str):
         return formatted
+    if not message.strip() or HARNESS_TAG_OPENING_PATTERN.match(message.strip()):
+        return formatted
     if payload.get(CODEX_IMAGES_KEY):
         return BLOCK_SEPARATOR.join(part for part in (message, IMAGE_PLACEHOLDER) if part)
     return message
