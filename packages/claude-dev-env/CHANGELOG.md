@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.131.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.4...claude-dev-env-v8.131.5) (2026-11-18)
+
+
+### Bug Fixes
+
+* **codex:** recover user wording when compact recall clips a turn ([#2448](https://github.com/jl-cmd-projects/claude-dev-env/issues/2448)) ([b30afb2](https://github.com/jl-cmd-projects/claude-dev-env/commit/b30afb2169bad32efffba26954814cf8754535a5))
+
 ## [8.131.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.3...claude-dev-env-v8.131.4) (2026-11-17)
 
 
