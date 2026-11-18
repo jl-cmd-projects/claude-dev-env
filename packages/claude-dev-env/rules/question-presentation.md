@@ -6,6 +6,6 @@ One question per item, no chat list: two or three choices, each a label and sent
 
 Question tools hold question and choices: Claude `AskUserQuestion`, Codex `request_user_input_async` or `request_user_input`. Honor mode rules; if unusable, ask in chat.
 
-End a user-started session with a card per open item; only while jobs run, a plain-words `In progress:` list, one per job. A Claude hook holds the stop.
+End a user-started session with a card per open item; only while tasks or jobs run, a plain-words `In progress:` list, one each. A Claude hook holds the stop.
 
-**Full text:** [`~/.claude/docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md), for handovers, option cards, or Codex visual comparison.
+**Full text:** [`~/.claude/docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md), for handovers, option cards, Codex visual comparison.
