@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 from contextlib import ExitStack
+from importlib import import_module
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -74,16 +75,16 @@ def gate_feedback(command, case, root, active=False, child=False):
                        CLAUDE_CONFIG_DIR=str(home / ".claude"), PYTHONDONTWRITEBYTECODE="1")
     start = time.monotonic()
     arguments = [sys.executable, str(command), *(("--codex-child-stop",) if child else ())]
-    result = subprocess.run(arguments, input=json.dumps(payload), text=True,
+    process = subprocess.run(arguments, input=json.dumps(payload), text=True,
                             capture_output=True, cwd=root, env=environment, timeout=12, check=False)
     milliseconds = round((time.monotonic() - start) * 1000, 2)
-    stdout = json.loads(result.stdout) if result.stdout.strip() else {}
-    block_by_status = result.returncode == 2 and bool(result.stderr.strip())
-    block_by_json = result.returncode == 0 and stdout.get("decision") == "block" and bool(stdout.get("reason"))
-    if not block_by_status and not block_by_json and (result.returncode or stdout.get("decision") == "block"):
-        raise RuntimeError(f"Invalid Stop output: {result.returncode} {result.stdout!r} {result.stderr!r}")
-    feedback = result.stderr.strip() if block_by_status else stdout.get("reason") if block_by_json else None
-    return {"feedback": feedback, "exit": result.returncode, "stdout": stdout, "milliseconds": milliseconds,
+    stdout = json.loads(process.stdout) if process.stdout.strip() else {}
+    block_by_status = process.returncode == 2 and bool(process.stderr.strip())
+    block_by_json = process.returncode == 0 and stdout.get("decision") == "block" and bool(stdout.get("reason"))
+    if not block_by_status and not block_by_json and (process.returncode or stdout.get("decision") == "block"):
+        raise RuntimeError(f"Invalid Stop output: {process.returncode} {process.stdout!r} {process.stderr!r}")
+    feedback = process.stderr.strip() if block_by_status else stdout.get("reason") if block_by_json else None
+    return {"feedback": feedback, "exit": process.returncode, "stdout": stdout, "milliseconds": milliseconds,
             "hook_sha256": digest(command.read_bytes())}
 
 
@@ -141,7 +142,7 @@ def serve(records, receiver_source, cases, gate_rows, repeats, selected, arms):
     workspace = records / "work"
     workspace.mkdir()
     sys.path.insert(0, str(receiver_source))
-    from receiver import Receiver
+    receiver_type = import_module("receiver").Receiver
     with ExitStack() as desks:
         orders = {}
         running = {}
@@ -151,7 +152,7 @@ def serve(records, receiver_source, cases, gate_rows, repeats, selected, arms):
                     continue
                 for arm in (arms if (index + repetition) % 2 else tuple(reversed(arms))):
                     path = Path(tempfile.mkdtemp(prefix="turn-", dir=workspace))
-                    receiver = desks.enter_context(Receiver(path, case))
+                    receiver = desks.enter_context(receiver_type(path, case))
                     feedback = gate_rows[case["id"]][arm]["feedback"]
                     message = assignment(path, case, feedback)
                     orders[path.name] = receiver, case, {

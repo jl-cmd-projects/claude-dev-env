@@ -25,6 +25,9 @@ def test_reported_status_triggers_one_review(wording: str) -> None:
     "The seal approval is pending. Only the owner can release it. The independent caption is still open.",
     "The archive is unverified. A separate check has a registered wake.",
     "North approval is pending, and the separate east receipt is still open.",
+    "North approval is pending, and the east receipt is still open.",
+    "The east receipt is still pending. The north check has a registered wake.",
+    "The north check has a registered wake, and the east receipt is still pending.",
     "The checks are pending and the separate receipt is unverified. A registered wake covers the checks.",
 ])
 def test_marks_an_unfinished_independent_lane(reply: str) -> None:
@@ -36,6 +39,7 @@ def test_marks_an_unfinished_independent_lane(reply: str) -> None:
     "Example: “The release\nis still open.”",
     "The upload is still pending. A registered completion wake will resume the assignment.",
     "The upload remains open. Only the owner can release it.",
+    "The release is still blocked. You declined approval for the destination.",
     'The status vocabulary includes "unverified" and `pending`.',
     "```text\nThe release is pending.\n```\nAll requested fixtures passed.",
     "> The job is unverified.\n\nThe requested check passed.",
@@ -54,6 +58,7 @@ def test_latest_user_stop_and_a_quoted_stop_have_distinct_effects() -> None:
     reply = "The receiving record is still pending."
     assert continuation_review(reply, "Give me a status update only.", False) is None
     assert continuation_review(reply, "Cancel the release.", False) is None
+    assert continuation_review(reply, "Please cancel the warehouse release.", False) is None
     assert continuation_review(reply, "Cancel my earlier request and stop work on it now.", False) is None
     assert continuation_review(reply, "The note says ‘stop here’. Finish sending the record.", False)
     assert continuation_review(reply, "Cancel that draft but finish sending the record.", False)

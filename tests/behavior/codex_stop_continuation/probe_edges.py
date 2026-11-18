@@ -58,7 +58,7 @@ def main():
     rows = []
     for case in cases:
         arms = matrix[case["id"]]
-        observed = {arm: bool(result["feedback"]) for arm, result in arms.items()}
+        observed = {arm: bool(observation["feedback"]) for arm, observation in arms.items()}
         rows.append({
             "case": case["id"], "expected_wake": case["expected_wake"], **observed,
             "candidate_matches": case["expected_wake"] is None or observed["candidate"] == case["expected_wake"],

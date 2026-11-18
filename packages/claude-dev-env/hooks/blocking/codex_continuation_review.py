@@ -23,6 +23,7 @@ from hooks_constants.codex_continuation_constants import (
     SEPARATE_SUBJECT,
     STANDALONE_STOP,
     WAIT_SUBJECT,
+    WAKE_EXPLANATION,
 )
 
 
@@ -30,14 +31,18 @@ def _unquoted(text: str) -> list[str]:
     return [QUOTED_EXAMPLE.sub(WORD_SEPARATOR, WORD_SEPARATOR.join(part.split())) for part in prose_paragraphs(text)]
 
 
-def _warrants_review(match: Match[str], clause: str, explanation: str, has_question: bool) -> bool:
+def _warrants_review(match: Match[str], clause: str, nearby: list[str], has_question: bool) -> bool:
     if NEGATED_STATUS.search(clause[:match.start()]) or RESOLVED_STATUS.search(clause[match.end():]):
         return False
+    explanation = WORD_SEPARATOR.join([clause, *nearby])
     protected = PROTECTED_DECISION.search(explanation)
     if APPROVAL_SUBJECT.search(clause) and (has_question or protected):
         return False
     is_wait = WAIT_SUBJECT.fullmatch(match.group())
-    return not (is_wait and (REGISTERED_WAKE.search(explanation) or protected))
+    has_wake = REGISTERED_WAKE.search(clause) or any(
+        WAKE_EXPLANATION.match(part) and REGISTERED_WAKE.search(part) for part in nearby
+    )
+    return not (is_wait and (has_wake or protected))
 
 
 def continuation_review(reply: object, user_request: str, has_question: bool) -> str | None:
@@ -61,7 +66,7 @@ def continuation_review(reply: object, user_request: str, has_question: bool) ->
     all_clauses = [part.strip() for part in CLAUSE_BREAK.split(LINE_SEPARATOR.join(_unquoted(reply))) if part.strip()]
     for each_index, each_clause in enumerate(all_clauses):
         nearby = all_clauses[each_index + 1:each_index + 1 + MAX_REASON_SENTENCES]
-        explanation = WORD_SEPARATOR.join([each_clause, *takewhile(lambda part: not (CLOSING_PHRASE.search(part) or SEPARATE_SUBJECT.search(part)), nearby)])
-        if any(_warrants_review(match, each_clause, explanation, has_question) for match in CLOSING_PHRASE.finditer(each_clause)):
+        same_status = list(takewhile(lambda part: not (CLOSING_PHRASE.search(part) or SEPARATE_SUBJECT.search(part)), nearby))
+        if any(_warrants_review(match, each_clause, same_status, has_question) for match in CLOSING_PHRASE.finditer(each_clause)):
             return CONTINUATION_REVIEW
     return None
