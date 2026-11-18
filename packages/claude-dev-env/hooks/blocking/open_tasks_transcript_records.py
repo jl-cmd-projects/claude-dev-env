@@ -15,6 +15,8 @@ from pathlib import Path
 
 from hooks_constants.send_user_file_worktree_root_gate_constants import SEND_USER_FILE_TOOL_NAME
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
+from hooks_constants.compaction_user_messages_constants import CODEX_EVENT_ENTRY_TYPE, CODEX_USER_MESSAGE_TYPE
+from hooks_constants.codex_continuation_constants import COMPLETED_ITEM_TYPE, ITEM_KEY, USER_ITEM_TYPE
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_DEFERRED_TOOLS_DELTA_NAME_KEYS,
     ALL_SKIPPED_PROMPT_FLAGS,
@@ -138,8 +140,28 @@ def _codex_payload(all_record_fields: dict[str, object]) -> dict[str, object] | 
     return payload_body
 
 
+def _codex_event_prompt(all_event_fields: object) -> str | None:
+    if not isinstance(all_event_fields, dict):
+        return None
+    if all_event_fields.get(RECORD_TYPE_KEY) == CODEX_USER_MESSAGE_TYPE:
+        message = all_event_fields.get(MESSAGE_KEY)
+        return message if isinstance(message, str) and message.strip() else None
+    item = all_event_fields.get(ITEM_KEY)
+    if (all_event_fields.get(RECORD_TYPE_KEY) != COMPLETED_ITEM_TYPE
+            or not isinstance(item, dict) or item.get(RECORD_TYPE_KEY) != USER_ITEM_TYPE):
+        return None
+    content = item.get(CONTENT_KEY)
+    if not isinstance(content, list):
+        return None
+    text = "".join(block[TEXT_KEY] for block in content if isinstance(block, dict)
+                   and block.get(RECORD_TYPE_KEY) == TEXT_KEY and isinstance(block.get(TEXT_KEY), str))
+    return text if text.strip() else None
+
+
 def codex_prompt_text(all_record_fields: dict[str, object]) -> str | None:
     """Return the text of a Codex user message record, or None for any other record."""
+    if all_record_fields.get(RECORD_TYPE_KEY) == CODEX_EVENT_ENTRY_TYPE:
+        return _codex_event_prompt(all_record_fields.get(CODEX_PAYLOAD_KEY))
     payload_body = _codex_payload(all_record_fields)
     if payload_body is None or payload_body.get(RECORD_TYPE_KEY) != CODEX_MESSAGE_TYPE or payload_body.get(ROLE_KEY) != USER_ROLE:
         return None

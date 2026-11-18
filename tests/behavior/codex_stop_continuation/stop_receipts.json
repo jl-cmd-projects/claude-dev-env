@@ -1,0 +1,220 @@
+{
+  "additional_stop_cases": [
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "quoted-cancellation-in-request",
+      "expected_wake": true
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "separate-status-only-lane",
+      "expected_wake": true
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "card-and-independent-lane",
+      "expected_wake": true
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "pending-decision-card",
+      "expected_wake": false
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "denial-on-another-lane",
+      "expected_wake": true
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "wake-on-another-lane",
+      "expected_wake": true
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "advisory-approval",
+      "expected_wake": true
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "same-closing-receiving-open",
+      "expected_wake": true
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "same-closing-receiving-held",
+      "expected_wake": null
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "negated-pending",
+      "expected_wake": false
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "substring-word-boundary",
+      "expected_wake": false
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "split-phrase",
+      "expected_wake": true
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "quoted-and-plain-phrase",
+      "expected_wake": true
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_matches": true,
+      "candidate_repeated": false,
+      "case": "quoted-only",
+      "expected_wake": false
+    }
+  ],
+  "baseline_hook_sha256": "5d9438d8665976ef5392605e90926ceb7fafdf95bea004fe812060292073c1a9",
+  "baseline_pin": "36fc2586c1d849ac4d4852117f3cbbde03c20361",
+  "candidate_hook_sha256": {
+    "packages/claude-dev-env/hooks/blocking/codex_continuation_review.py": "1be45995809565f6ac3186a2d38a21de18fc4062c58cab8261fa89b4c4e8f777",
+    "packages/claude-dev-env/hooks/blocking/open_tasks_stop_gate.py": "b0280a1d649a5ab7b5d963ee82767106e80a71c7d5f73b5e24d65eb352a30bb1",
+    "packages/claude-dev-env/hooks/hooks_constants/codex_continuation_constants.py": "bf12b0b3a2eca58bc6b46029c936b09b582dcb9312cb7fb8173391c6c9b36202"
+  },
+  "cases_sha256": "fabc16e5bcf61ec778910a1186b6b09d8386715ac9582c976e8f90c72732d3a4",
+  "continuation_reason": "Recheck the full assignment and the latest user instructions against what reached the destination. If an authorized step can advance an unfinished outcome, take it now and follow it through the requested checks, delivery and verification. If one lane is blocked, finish any independent work within scope. Honor cancellations, owner holds, existing writers, permissions and required approvals. If the work is complete, cancelled, or only a protected wait remains, close with the accurate result. Name any specific decision or dependency and preserve an existing wake. Keep accurate status wording.",
+  "continuation_reason_sha256": "102b873483141ee8d7feb2de9812537579b50c0094cabac67c1dc98e592e425e",
+  "stop": [
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_repeated": false,
+      "case": "supply-card"
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_repeated": false,
+      "case": "caption-index"
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_repeated": false,
+      "case": "owner-approval"
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_repeated": false,
+      "case": "completed-sweep"
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_repeated": false,
+      "case": "live-check"
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_repeated": false,
+      "case": "cancelled"
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_repeated": false,
+      "case": "denial"
+    }
+  ],
+  "subagent_stop": [
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_repeated": false,
+      "case": "supply-card"
+    },
+    {
+      "baseline": false,
+      "candidate": true,
+      "candidate_repeated": false,
+      "case": "caption-index"
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_repeated": false,
+      "case": "owner-approval"
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_repeated": false,
+      "case": "completed-sweep"
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_repeated": false,
+      "case": "live-check"
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_repeated": false,
+      "case": "cancelled"
+    },
+    {
+      "baseline": false,
+      "candidate": false,
+      "candidate_repeated": false,
+      "case": "denial"
+    }
+  ],
+  "verified_hook_sha256": {
+    "packages/claude-dev-env/hooks/blocking/codex_continuation_review.py": "05e7c1053e86d7f9350ea911fc93965f8eb4d79d089dc7b232d26fd9303ec707",
+    "packages/claude-dev-env/hooks/blocking/open_tasks_stop_gate.py": "d6484539782daff2ab13ebab3a7a774f8af84504ab1ff1afef808a9ec89158b1",
+    "packages/claude-dev-env/hooks/blocking/open_tasks_transcript_records.py": "6ba3908de875422acfd247d2b013a41b886c63dc071eb392289abfbc3f5b8fa2",
+    "packages/claude-dev-env/hooks/hooks_constants/codex_continuation_constants.py": "dede08f89650850253497612bc5d44e7069a6c0ad358601a3faa5742157916de"
+  }
+}

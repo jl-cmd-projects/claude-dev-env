@@ -164,7 +164,7 @@ test('seeds one editable policy and one native Codex routing hook', () => {
             firstCodexHooks.hooks.PreToolUse.map(group => group.matcher),
             ['multi_agent_v1__spawn_agent'],
         );
-        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'PostToolUse', 'Stop', 'SessionStart']);
+        assert.deepEqual(Object.keys(firstCodexHooks.hooks), ['PreToolUse', 'UserPromptSubmit', 'PostToolUse', 'Stop', 'SubagentStop', 'SessionStart']);
         const allCodexPostToolUseCommands = firstCodexHooks.hooks.PostToolUse.flatMap(
             group => group.hooks.map(hook => hook.command),
         );
@@ -173,6 +173,9 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         const allCodexStopCommands = firstCodexHooks.hooks.Stop.flatMap(group => group.hooks.map(hook => hook.command));
         assert.equal(allCodexStopCommands.length, 1, 'Codex gets the open tasks Stop gate and no other Stop hook');
         assert.match(allCodexStopCommands[0], /open_tasks_stop_gate\.py/);
+        const subagentCommands = firstCodexHooks.hooks.SubagentStop.flatMap(group => group.hooks.map(hook => hook.command));
+        assert.equal(subagentCommands.length, 1);
+        assert.match(subagentCommands[0], /open_tasks_stop_gate\.py["']? --codex-child-stop$/);
         const allCodexSessionStartGroups = firstCodexHooks.hooks.SessionStart;
         assert.deepEqual(allCodexSessionStartGroups.map(group => group.matcher), ['compact']);
         const allCodexSessionStartCommands = allCodexSessionStartGroups.flatMap(group => group.hooks.map(hook => hook.command));
@@ -359,6 +362,7 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
         hooksByEvent.PreToolUse.push({ matcher: 'foreign', hooks: [{ type: 'command', command: foreignCommand }] });
         const suffixCommand = `python "${join(codexHome, 'hooks', 'blocking', 'pre_tool_use_dispatcher.py.backup')}"`;
         hooksByEvent.PreToolUse.push({ matcher: 'suffix', hooks: [{ type: 'command', command: suffixCommand }] });
+        hooksByEvent.SubagentStop = [{ matcher: 'custom-child', hooks: [{ type: 'command', command: 'user-child-hook' }] }];
         hooksByEvent.CustomEvent = { metadata: 'keep-event' };
         hooksByEvent.PostToolUse = [{ matcher: 'Write', hooks: [{ type: 'command', command: 'python user-post-tool-use.py' }] }];
         const expectedUserHooks = JSON.parse(JSON.stringify(hooksByEvent));
@@ -391,6 +395,10 @@ test('Codex reinstall removes omitted package hooks and preserves user configura
             eachGroup.hooks.some(eachHook => eachHook.command.includes('open_tasks_stop_gate.py')));
         assert.equal(allPackageStopGroups.length, 1);
         migratedHooks.hooks.Stop = migratedHooks.hooks.Stop.filter(eachGroup => !allPackageStopGroups.includes(eachGroup));
+        const managedChildGroups = migratedHooks.hooks.SubagentStop.filter(group =>
+            group.hooks.some(hook => hook.command.includes('open_tasks_stop_gate.py')));
+        assert.equal(managedChildGroups.length, 1);
+        migratedHooks.hooks.SubagentStop = migratedHooks.hooks.SubagentStop.filter(group => !managedChildGroups.includes(group));
         const allPackageSessionStartGroups = migratedHooks.hooks.SessionStart.filter(eachGroup =>
             eachGroup.hooks.some(eachHook => eachHook.command.includes('compaction_recall_prompt.py')));
         assert.equal(allPackageSessionStartGroups.length, 1);

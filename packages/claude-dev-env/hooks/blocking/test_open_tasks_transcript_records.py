@@ -220,3 +220,15 @@ def test_should_read_tool_names_only_from_a_tool_listing_record(
     record: dict[str, object], expected_listing: tuple[str, list[str]] | None
 ) -> None:
     assert listed_tool_names(record) == expected_listing
+
+
+def test_completed_codex_prompt_reads_original_text_and_ignores_other_item_types() -> None:
+    item = {"type": "UserMessage", "id": "u", "content": [
+        {"type": "text", "text": "Sto"}, {"type": "image", "text": "ignore"},
+        {"type": "text", "text": "p."},
+    ]}
+    completed = {"type": "item_completed", "item": item}
+    assert codex_prompt_text({"type": "event_msg", "payload": completed}) == "Stop."
+    assert codex_prompt_text({"type": "event_msg", "payload": {**completed, "type": "item_started"}}) is None
+    assert codex_prompt_text({"type": "event_msg", "payload": {**completed, "item": {**item, "type": "AgentMessage"}}}) is None
+    assert codex_prompt_text({"type": "event_msg", "payload": {"type": "user_message", "message": "Cancel."}}) == "Cancel."
