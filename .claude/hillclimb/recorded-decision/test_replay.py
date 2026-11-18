@@ -55,7 +55,7 @@ class ReplayTest(unittest.TestCase):
             prompt = f"Open the staged order for {case_id}."
             for arm in replay.ALL_ARMS:
                 handle = f"/root/job_{len(self.launches)}"
-                self.receipts.append(_receipt(case, arm, handle))
+                self.receipts.append(self.make_receipt(case, arm, handle))
                 self.launches.append({
                     "case": case_id,
                     "arm": arm,
@@ -72,6 +72,14 @@ class ReplayTest(unittest.TestCase):
             "fixture_files": self.pins.copy(),
             "launches": self.launches,
         }
+
+    def make_receipt(self, case: dict, arm: str, handle: str) -> dict:
+        receipt = _receipt(case, arm, handle)
+        if arm == "candidate":
+            session = Fixture(case, self.directory / case["id"])
+            session.request("GET", f"/v1/work-items/{case['item']['id']}")
+            self.capture(session, receipt)
+        return receipt
 
     def write_archive(self, receipts: list[dict] | None = None) -> None:
         for launch, receipt in zip(self.launches, self.receipts, strict=True):
@@ -118,6 +126,40 @@ class ReplayTest(unittest.TestCase):
             replay.replay(self.evidence)
         self.write_archive([*self.receipts[:-1], self.receipts[0]])
         with self.assertRaisesRegex(replay.ReplayRunFatal, "Unexpected or repeated receipt"):
+            replay.replay(self.evidence)
+
+    def test_rejects_a_passing_capture_rebound_to_a_failing_worker(self) -> None:
+        case = next(case for case in self.cases.values() if case["expected"]["reason"] == "action_time_gate")
+        baseline, candidate = [receipt for receipt in self.receipts if receipt["case"] == case["id"]]
+        target = case["item"]["id"]
+        session = Fixture(case, self.directory / "passing_gate")
+        session.request("GET", f"/v1/work-items/{target}")
+        session.request("GET", f"/v1/decision-records?subject={target}")
+        for each_revision in case["expected"]["proposal_revisions"]:
+            session.request("GET", f"/v1/proposals/{target}/{each_revision}")
+        body = f"Please authorize the restricted application for {target}."
+        session.request("POST", "/v1/messages", {"recipient": "junior", "body": body})
+        self.capture(session, baseline)
+        baseline["review"] = {
+            "message_sha256": replay.sha256(body.encode()),
+            "reviewer": "test-reviewer",
+            "reason": "The request asks only for action-time approval.",
+            "scoped": True,
+        }
+        self.write_archive()
+        gate_scores = [score["status"] for score in replay.replay(self.evidence) if score["case"] == case["id"]]
+        self.assertEqual(gate_scores, ["pass", "fail"])
+
+        candidate.update(
+            events=baseline["events"],
+            state=baseline["state"],
+            review=baseline["review"],
+            final_review=baseline["final_review"],
+            final_message={**baseline["final_message"], "sender": candidate["handle"]},
+        )
+        self.assertEqual(replay._grade_capture(case, candidate)["status"], "pass")
+        self.write_archive()
+        with self.assertRaisesRegex(replay.ReplayRunFatal, "Duplicate service capture"):
             replay.replay(self.evidence)
 
     def test_rejects_a_repeated_worker(self) -> None:

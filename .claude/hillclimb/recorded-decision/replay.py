@@ -1,4 +1,8 @@
-"""Verify the hosted worker receipts and score both prompt variants."""
+"""Verify the hosted worker receipts and score both prompt variants.
+
+Replay relies on the operator's record linking each hosted handle to its
+service journal and readback. Platform-signed links are unavailable.
+"""
 
 import argparse
 import gzip
@@ -154,6 +158,7 @@ def _verify_launches(all_launches: list[dict], all_cases: dict[str, dict]) -> No
 def _verified_receipts(path: Path, all_launches: list[dict]) -> dict[str, dict]:
     pending = {launch["handle"]: launch for launch in all_launches}
     receipts = {}
+    handles_by_capture = {}
     for each_line in path.read_text(encoding="utf-8").splitlines():
         receipt = _decode_json(each_line)
         handle = receipt["handle"]
@@ -164,6 +169,11 @@ def _verified_receipts(path: Path, all_launches: list[dict]) -> dict[str, dict]:
             raise ReplayRunFatal(f"Receipt assignment mismatch: {handle}")
         if receipt_sha256(receipt) != launch["receipt_sha256"]:
             raise ReplayRunFatal(f"Receipt hash mismatch: {handle}")
+        capture_sha256 = receipt_sha256({"events": receipt["events"], "state": receipt["state"]})
+        if capture_sha256 in handles_by_capture:
+            previous_handle = handles_by_capture[capture_sha256]
+            raise ReplayRunFatal(f"Duplicate service capture for {previous_handle} and {handle}")
+        handles_by_capture[capture_sha256] = handle
         receipts[handle] = receipt
     if pending:
         raise ReplayRunFatal(f"Missing receipts: {sorted(pending)}")
