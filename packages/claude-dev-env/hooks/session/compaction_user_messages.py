@@ -160,7 +160,19 @@ def _entry_text(all_entry_fields: dict[str, object]) -> str | None:
     return _typed_text(queued_prompt) if isinstance(queued_prompt, str) else None
 
 
-def _typed_texts(all_transcript_lines: Iterable[str]) -> Iterator[tuple[str, str]]:
+def _codex_literal_text(all_entry_fields: dict[str, object], formatted: str) -> str:
+    payload = _codex_payload(all_entry_fields)
+    message = payload.get(MESSAGE_KEY)
+    if payload.get(ENTRY_TYPE_KEY) != CODEX_USER_MESSAGE_TYPE or not isinstance(message, str):
+        return formatted
+    if not message.strip() or HARNESS_TAG_OPENING_PATTERN.match(message.strip()):
+        return formatted
+    if payload.get(CODEX_IMAGES_KEY):
+        return BLOCK_SEPARATOR.join(part for part in (message, IMAGE_PLACEHOLDER) if part)
+    return message
+
+
+def _typed_texts(all_transcript_lines: Iterable[str], should_preserve_codex_text: bool) -> Iterator[tuple[str, str]]:
     previous_text = None
     for each_line in all_transcript_lines:
         all_entry_fields = _parsed_entry(each_line)
@@ -171,10 +183,11 @@ def _typed_texts(all_transcript_lines: Iterable[str]) -> Iterator[tuple[str, str
         if entry_text is None or entry_text == previous_text:
             continue
         previous_text = entry_text
-        yield str(all_entry_fields.get(TIMESTAMP_KEY, "")), entry_text
+        selected_text = _codex_literal_text(all_entry_fields, entry_text) if should_preserve_codex_text else entry_text
+        yield str(all_entry_fields.get(TIMESTAMP_KEY, "")), selected_text
 
 
-def typed_user_messages(all_transcript_lines: Iterable[str]) -> list[TypedMessage]:
+def typed_user_messages(all_transcript_lines: Iterable[str], *, should_preserve_codex_text: bool = False) -> list[TypedMessage]:
     """Return the messages a person typed, in order, numbered from 1.
 
     ::
@@ -194,6 +207,7 @@ def typed_user_messages(all_transcript_lines: Iterable[str]) -> list[TypedMessag
 
     Args:
         all_transcript_lines: The session transcript, one JSON entry per line.
+        should_preserve_codex_text: Return literal Codex wording for the selected positions.
 
     Returns:
         The typed messages, oldest first.
@@ -201,6 +215,6 @@ def typed_user_messages(all_transcript_lines: Iterable[str]) -> list[TypedMessag
     return [
         TypedMessage(position=each_position, timestamp=each_timestamp, text=each_text)
         for each_position, (each_timestamp, each_text) in enumerate(
-            _typed_texts(all_transcript_lines), start=1
+            _typed_texts(all_transcript_lines, should_preserve_codex_text), start=1
         )
     ]

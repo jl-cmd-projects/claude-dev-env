@@ -177,7 +177,7 @@ test('seeds one editable policy and one native Codex routing hook', () => {
         assert.deepEqual(allCodexSessionStartGroups.map(group => group.matcher), ['compact']);
         const allCodexSessionStartCommands = allCodexSessionStartGroups.flatMap(group => group.hooks.map(hook => hook.command));
         assert.equal(allCodexSessionStartCommands.length, 1, 'Codex gets the compaction recall and no other SessionStart hook');
-        assert.match(allCodexSessionStartCommands[0], /compaction_recall_prompt\.py/);
+        assert.match(allCodexSessionStartCommands[0], /compaction_recall_prompt\.py["']? --codex$/);
         assert.equal(
             (firstCodexHooks.hooks.UserPromptSubmit ?? []).some(group =>
                 group.hooks.some(hook => String(hook.command).includes('deepen_first_prompt.py')),
