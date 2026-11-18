@@ -16,10 +16,11 @@ JUDGE_PROMPT_TEMPLATE = (
     "only its summary line; those are not the user's words and they ask for nothing.\n"
     '- "user_prompt" is described above.\n'
     '- "reply" is the agent\'s closing reply. Fault 1 reads all of it.\n'
-    '- "list_scope" is the part of the reply that Fault 2 reads: the reply without its In progress '
-    'footer. That footer is a line that holds only "In progress:" at the end of the reply, with one '
-    "list line under it for each piece of the agent's own work still running. It is required status, "
-    "never a list of decisions, so Fault 2 never reads it.\n"
+    '- "list_scope" is the part of the reply that Fault 2 reads: the reply with the status lines of '
+    'its In progress footer left out. That footer is a line that holds only "In progress:" at the end '
+    "of the reply, with one list line under it for each piece of the agent's own work still running. "
+    'A footer line that asks the user to decide or act stays in list_scope under "In progress:". '
+    "Judge every list in list_scope, those footer lines included.\n"
     '- "question_tool_used" is true when the agent asked the user a question through its question '
     "tool during this turn.\n"
     "\n"

@@ -39,7 +39,10 @@ FOOTER_JOBS_TEXT_ENCODING = "ascii"
 FOOTER_JOBS_DIGEST_LENGTH = 32
 FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’]m\b)")
 USER_MENTION_PATTERN = re.compile(r"\byou(?:r|rs|rself)?\b", re.IGNORECASE)
-PURPOSE_CLAUSE_PATTERN = re.compile(r"\bso(?:\s+that)?\s+you\b", re.IGNORECASE)
+PURPOSE_CLAUSE_PATTERN = re.compile(
+    r"\bso(?:\s+that)?\s+you(?:\s+can)?\s+(?:see|know|get|read|follow|have|hear|learn|find|watch|track)\b",
+    re.IGNORECASE,
+)
 PURPOSE_CLAUSE_STAND_IN = "so"
 ALL_BACKGROUND_JOB_ID_KEYS = ("id", "task_id", "taskId")
 HUMAN_TURN_ORIGIN = "human"

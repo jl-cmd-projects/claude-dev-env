@@ -87,6 +87,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import subprocess
 import sys
 import tempfile
@@ -467,15 +468,24 @@ def kept_footer_snapshot(all_hook_input_fields: dict[str, object]) -> FooterSnap
 
         a snapshot written by ``record_footer_jobs``     -> that snapshot
         no snapshot, a symlink, or a damaged file       -> None
+
+    The read checks that the name holds a regular file, not a link, and that
+    the file it opened is that same file, so a link is refused on Windows
+    too, where no open flag refuses one.
     """
     snapshot_path = _snapshot_path(all_hook_input_fields)
     if snapshot_path is None:
         return None
     try:
+        name_status = os.lstat(snapshot_path)
+        if not stat.S_ISREG(name_status.st_mode):
+            return None
         file_descriptor = os.open(snapshot_path, os.O_RDONLY | NO_FOLLOW_FLAG)
     except OSError:
         return None
     with os.fdopen(file_descriptor, "rb") as snapshot_file:
+        if not os.path.samestat(name_status, os.fstat(snapshot_file.fileno())):
+            return None
         kept_text = snapshot_file.read(FOOTER_JOBS_READ_LIMIT).decode(FOOTER_JOBS_TEXT_ENCODING, errors="replace")
     all_parts = kept_text.split(FOOTER_SNAPSHOT_SEPARATOR)
     if len(all_parts) != FOOTER_SNAPSHOT_PART_COUNT or not all_parts[2].isdigit():
@@ -733,6 +743,11 @@ def _new_footer(
     return FooterSeen(tuple(all_footer_items), covered_session.prompt_position, footer_count + int(is_unwritten))
 
 
+def _is_unrecorded(all_hook_input_fields: dict[str, object], new_footer: FooterSeen) -> bool:
+    kept_snapshot = kept_footer_snapshot(all_hook_input_fields)
+    return kept_snapshot is None or kept_snapshot.footer_key != footer_key(new_footer)
+
+
 def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -> str | None:
     covered_session = _covered_session(all_hook_input_fields, deadline_at)
     if covered_session is None:
@@ -744,7 +759,9 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
     new_footer = _new_footer(all_hook_input_fields, closing_reply, covered_session)
     all_known_tasks = None
-    if has_background_work(all_hook_input_fields) and new_footer is not None:
+    if new_footer is not None and has_background_work(all_hook_input_fields) and _is_unrecorded(
+        all_hook_input_fields, new_footer
+    ):
         all_known_tasks = session_tasks(all_hook_input_fields)
         record_footer_jobs(all_hook_input_fields, new_footer, all_known_tasks)
     all_texts = [

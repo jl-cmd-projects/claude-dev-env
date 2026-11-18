@@ -1149,15 +1149,38 @@ def test_should_leave_a_symlink_target_untouched_when_it_keeps_the_snapshot(
     target_path.write_text("keep me")
     snapshot_path = closing_question_round_gate._snapshot_path(job_fields)
     assert snapshot_path is not None
-    snapshot_path.symlink_to(target_path)
+    try:
+        snapshot_path.symlink_to(target_path)
+    except OSError:
+        pytest.skip("this runner cannot make a symlink")
     closing_question_round_gate.record_footer_jobs(job_fields, LEDGER_SEEN, NO_TASKS)
     assert target_path.read_text() == "keep me"
     assert not snapshot_path.is_symlink()
-    assert oct(snapshot_path.stat().st_mode & 0o777) == oct(0o600)
+    if os.name != "nt":
+        assert oct(snapshot_path.stat().st_mode & 0o777) == oct(0o600)
     assert shown(job_fields, LEDGER_SEEN, NO_TASKS)
     assert sorted(each_path.name for each_path in tmp_path.iterdir()) == sorted(
         [target_path.name, snapshot_path.name]
     )
+
+
+@pytest.mark.parametrize("no_follow_flag", [0, getattr(os, "O_NOFOLLOW", 0)])
+def test_should_refuse_a_snapshot_name_that_links_to_another_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, no_follow_flag: int
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(closing_question_round_gate, "NO_FOLLOW_FLAG", no_follow_flag)
+    job_fields = {"session_id": SESSION_ID, "background_tasks": [{"id": "ledger"}]}
+    closing_question_round_gate.record_footer_jobs(job_fields, LEDGER_SEEN, NO_TASKS)
+    snapshot_path = closing_question_round_gate._snapshot_path(job_fields)
+    assert snapshot_path is not None
+    planted_path = tmp_path / "planted.txt"
+    snapshot_path.rename(planted_path)
+    try:
+        snapshot_path.symlink_to(planted_path)
+    except OSError:
+        pytest.skip("this runner cannot make a symlink")
+    assert closing_question_round_gate.kept_footer_snapshot(job_fields) is None
 
 
 def test_should_record_and_read_back_a_long_background_job_set(

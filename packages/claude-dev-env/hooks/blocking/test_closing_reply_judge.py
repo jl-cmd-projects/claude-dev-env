@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from hooks_constants.closing_reply_judge_constants import JUDGE_PROMPT_TEMPLATE
+
 if TYPE_CHECKING:
     from conftest import JudgeStub
 from closing_reply_judge import (
@@ -108,6 +110,12 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
         "Pick one when you are back.\n\nIn progress:\n- I am shipping 8590.\n- I am merging 8790 once it has your approval."
     )
     assert parsed_verdict(verdict_text, body_list_reply) == JudgeVerdict("", "In progress:")
+
+
+def test_should_tell_the_judge_to_read_the_asks_kept_under_in_progress() -> None:
+    assert "Judge every list in list_scope, those footer lines included." in " ".join(
+        JUDGE_PROMPT_TEMPLATE.split()
+    )
 
 
 def test_should_send_the_command_name_and_args_for_a_slash_command() -> None:

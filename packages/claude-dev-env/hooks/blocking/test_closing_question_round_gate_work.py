@@ -762,6 +762,18 @@ def test_should_count_a_footer_only_when_no_record_of_its_message_called_a_tool(
         assert reason is None
 
 
+def test_should_keep_the_first_snapshot_when_a_later_stop_carries_the_same_footer_reply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_footer_records, all_records = _footer_then_work()
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([{"id": "tests"}])) is None
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "tests"}]})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
 def test_should_read_the_task_list_once_when_a_footer_stop_keeps_its_snapshot(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

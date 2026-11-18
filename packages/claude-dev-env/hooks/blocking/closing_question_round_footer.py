@@ -122,7 +122,10 @@ def is_footer_ask(footer_item: str) -> bool:
         "Should I merge 8590?"                         -> True, a question
 
     The rule writes each footer item in first person and says what the work
-    gets the user, as "so you see its next update" does. An item that is not
+    gets the user, as "so you see its next update" does. Only such a benefit
+    clause, "so you" or "so that you" with see, know, get, read, follow,
+    have, hear, learn, find, watch, or track, leaves the user unnamed, so
+    "so you can approve it first" still names the user. An item that is not
     first person, that names the user in any other way, or that holds an
     open-item line other than the status markers "pending", "blocked", "not
     done", and "not run" may ask the user something, so it counts as an ask.
