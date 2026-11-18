@@ -1,0 +1,3373 @@
+{
+  "arms": {
+    "baseline": {
+      "advice_delivered": 0,
+      "allotted_budget_exceeded": 0,
+      "artifact_oracle_pass": 0,
+      "finished": 6,
+      "first_consequential_seconds": {
+        "median": 8.800995,
+        "observed": 5
+      },
+      "first_on_goal_seconds": {
+        "median": 8.800995,
+        "observed": 5
+      },
+      "first_on_goal_worker_seconds": {
+        "median": 8.800995,
+        "observed": 5
+      },
+      "follow_up_nudges_observed": 0,
+      "incomplete": 0,
+      "judgments": {
+        "dependency_missed": 1,
+        "false_done": 1,
+        "false_redirection": 0,
+        "nudge_needed": 1,
+        "premature_stop": 1,
+        "sustained_detour": 0,
+        "verification_sufficient": 5
+      },
+      "planned": 6,
+      "requested_outputs_present": 0,
+      "review_eligible": 2,
+      "reviewer_attempts": 0,
+      "reviewers_replied": 0,
+      "seconds_after_update": {
+        "median": 80.73428547799995,
+        "observed": 5
+      },
+      "seconds_charged_including_prefix": {
+        "median": 95.60856364699976,
+        "observed": 6
+      },
+      "status_counts": {
+        "finished": 6
+      },
+      "strict_oracle_failures_after_outputs_present": 0,
+      "total_actions": 20,
+      "total_continuation_subprobes": 9,
+      "total_irrelevant_actions": 3,
+      "total_irrelevant_prefix_actions": 1,
+      "total_irrelevant_prefix_shell_seconds": 0.025726,
+      "total_irrelevant_shell_seconds": 0.036733,
+      "total_prefix_subprobes": 1,
+      "total_repeated_no_progress_actions": 3,
+      "total_repeated_shell_seconds": 0.036733,
+      "total_reviewer_seconds": 0,
+      "total_subprobes": 10,
+      "update_observed": 0,
+      "verified_delivery": 0,
+      "wall_seconds_after_boundary": {
+        "median": 171.55386,
+        "observed": 5
+      }
+    },
+    "candidate": {
+      "advice_delivered": 0,
+      "allotted_budget_exceeded": 0,
+      "artifact_oracle_pass": 0,
+      "finished": 5,
+      "first_consequential_seconds": {
+        "median": 9.206126,
+        "observed": 5
+      },
+      "first_on_goal_seconds": {
+        "median": 9.206126,
+        "observed": 5
+      },
+      "first_on_goal_worker_seconds": {
+        "median": 7.822839,
+        "observed": 5
+      },
+      "follow_up_nudges_observed": 0,
+      "incomplete": 0,
+      "judgments": {
+        "dependency_missed": 0,
+        "false_done": 0,
+        "false_redirection": 0,
+        "nudge_needed": 0,
+        "premature_stop": 0,
+        "sustained_detour": 0,
+        "verification_sufficient": 5
+      },
+      "planned": 5,
+      "requested_outputs_present": 0,
+      "review_eligible": 2,
+      "reviewer_attempts": 2,
+      "reviewers_replied": 2,
+      "seconds_after_update": {
+        "median": 93.26838829900225,
+        "observed": 5
+      },
+      "seconds_charged_including_prefix": {
+        "median": 102.80499604600118,
+        "observed": 5
+      },
+      "status_counts": {
+        "finished": 5
+      },
+      "strict_oracle_failures_after_outputs_present": 0,
+      "total_actions": 19,
+      "total_continuation_subprobes": 6,
+      "total_irrelevant_actions": 1,
+      "total_irrelevant_prefix_actions": 1,
+      "total_irrelevant_prefix_shell_seconds": 0.025726,
+      "total_irrelevant_shell_seconds": 0.024435,
+      "total_prefix_subprobes": 1,
+      "total_repeated_no_progress_actions": 1,
+      "total_repeated_shell_seconds": 0.024435,
+      "total_reviewer_seconds": 17.351741,
+      "total_subprobes": 7,
+      "update_observed": 0,
+      "verified_delivery": 0,
+      "wall_seconds_after_boundary": {
+        "median": 159.088602,
+        "observed": 5
+      }
+    }
+  },
+  "budget_seconds": 360,
+  "by_case": {
+    "ledger_gap": {
+      "baseline": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 0,
+        "finished": 2,
+        "first_consequential_seconds": {
+          "median": 3.4981965,
+          "observed": 2
+        },
+        "first_on_goal_seconds": {
+          "median": 3.4981965,
+          "observed": 2
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 3.4981965,
+          "observed": 2
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 1,
+          "false_done": 1,
+          "false_redirection": 0,
+          "nudge_needed": 1,
+          "premature_stop": 1,
+          "sustained_detour": 0,
+          "verification_sufficient": 1
+        },
+        "planned": 2,
+        "requested_outputs_present": 0,
+        "review_eligible": 1,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 79.41137808950043,
+          "observed": 2
+        },
+        "seconds_charged_including_prefix": {
+          "median": 102.32122178849932,
+          "observed": 2
+        },
+        "status_counts": {
+          "finished": 2
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 9,
+        "total_continuation_subprobes": 3,
+        "total_irrelevant_actions": 1,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0.006452,
+        "total_prefix_subprobes": 0,
+        "total_repeated_no_progress_actions": 1,
+        "total_repeated_shell_seconds": 0.006452,
+        "total_reviewer_seconds": 0,
+        "total_subprobes": 3,
+        "update_observed": 0,
+        "verified_delivery": 0,
+        "wall_seconds_after_boundary": {
+          "median": 195.41834749999998,
+          "observed": 2
+        }
+      },
+      "candidate": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 0,
+        "finished": 2,
+        "first_consequential_seconds": {
+          "median": 8.9061475,
+          "observed": 2
+        },
+        "first_on_goal_seconds": {
+          "median": 8.9061475,
+          "observed": 2
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 4.209848,
+          "observed": 2
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 2
+        },
+        "planned": 2,
+        "requested_outputs_present": 0,
+        "review_eligible": 1,
+        "reviewer_attempts": 1,
+        "reviewers_replied": 1,
+        "seconds_after_update": {
+          "median": 93.73185784799898,
+          "observed": 2
+        },
+        "seconds_charged_including_prefix": {
+          "median": 116.64170154699787,
+          "observed": 2
+        },
+        "status_counts": {
+          "finished": 2
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 7,
+        "total_continuation_subprobes": 1,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_prefix_subprobes": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 9.392599,
+        "total_subprobes": 1,
+        "update_observed": 0,
+        "verified_delivery": 0,
+        "wall_seconds_after_boundary": {
+          "median": 205.10632099999998,
+          "observed": 2
+        }
+      }
+    },
+    "ledger_ready": {
+      "baseline": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 0,
+        "finished": 2,
+        "first_consequential_seconds": {
+          "median": 37.647611999999995,
+          "observed": 2
+        },
+        "first_on_goal_seconds": {
+          "median": 37.647611999999995,
+          "observed": 2
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 37.647611999999995,
+          "observed": 2
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 2
+        },
+        "planned": 2,
+        "requested_outputs_present": 0,
+        "review_eligible": 1,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 83.35356007249902,
+          "observed": 2
+        },
+        "seconds_charged_including_prefix": {
+          "median": 105.47458824849855,
+          "observed": 2
+        },
+        "status_counts": {
+          "finished": 2
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 9,
+        "total_continuation_subprobes": 4,
+        "total_irrelevant_actions": 2,
+        "total_irrelevant_prefix_actions": 1,
+        "total_irrelevant_prefix_shell_seconds": 0.025726,
+        "total_irrelevant_shell_seconds": 0.030281,
+        "total_prefix_subprobes": 1,
+        "total_repeated_no_progress_actions": 2,
+        "total_repeated_shell_seconds": 0.030281,
+        "total_reviewer_seconds": 0,
+        "total_subprobes": 5,
+        "update_observed": 0,
+        "verified_delivery": 0,
+        "wall_seconds_after_boundary": {
+          "median": 174.5504335,
+          "observed": 2
+        }
+      },
+      "candidate": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 0,
+        "finished": 2,
+        "first_consequential_seconds": {
+          "median": 17.055551,
+          "observed": 2
+        },
+        "first_on_goal_seconds": {
+          "median": 17.055551,
+          "observed": 2
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 13.075979499999999,
+          "observed": 2
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 2
+        },
+        "planned": 2,
+        "requested_outputs_present": 0,
+        "review_eligible": 1,
+        "reviewer_attempts": 1,
+        "reviewers_replied": 1,
+        "seconds_after_update": {
+          "median": 97.07100011000148,
+          "observed": 2
+        },
+        "seconds_charged_including_prefix": {
+          "median": 119.192028286001,
+          "observed": 2
+        },
+        "status_counts": {
+          "finished": 2
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 11,
+        "total_continuation_subprobes": 4,
+        "total_irrelevant_actions": 1,
+        "total_irrelevant_prefix_actions": 1,
+        "total_irrelevant_prefix_shell_seconds": 0.025726,
+        "total_irrelevant_shell_seconds": 0.024435,
+        "total_prefix_subprobes": 1,
+        "total_repeated_no_progress_actions": 1,
+        "total_repeated_shell_seconds": 0.024435,
+        "total_reviewer_seconds": 7.959143,
+        "total_subprobes": 5,
+        "update_observed": 0,
+        "verified_delivery": 0,
+        "wall_seconds_after_boundary": {
+          "median": 184.1078695,
+          "observed": 2
+        }
+      }
+    },
+    "preview": {
+      "baseline": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 0,
+        "finished": 2,
+        "first_consequential_seconds": {
+          "median": 8.800995,
+          "observed": 1
+        },
+        "first_on_goal_seconds": {
+          "median": 8.800995,
+          "observed": 1
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 8.800995,
+          "observed": 1
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 2
+        },
+        "planned": 2,
+        "requested_outputs_present": 0,
+        "review_eligible": 0,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 21.90688999199847,
+          "observed": 1
+        },
+        "seconds_charged_including_prefix": {
+          "median": 57.79619364899918,
+          "observed": 2
+        },
+        "status_counts": {
+          "finished": 2
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 2,
+        "total_continuation_subprobes": 2,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_prefix_subprobes": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 0,
+        "total_subprobes": 2,
+        "update_observed": 0,
+        "verified_delivery": 0,
+        "wall_seconds_after_boundary": {
+          "median": 55.049317,
+          "observed": 1
+        }
+      },
+      "candidate": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 0,
+        "finished": 1,
+        "first_consequential_seconds": {
+          "median": 7.822839,
+          "observed": 1
+        },
+        "first_on_goal_seconds": {
+          "median": 7.822839,
+          "observed": 1
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 7.822839,
+          "observed": 1
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 1
+        },
+        "planned": 1,
+        "requested_outputs_present": 0,
+        "review_eligible": 0,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 14.671581717000663,
+          "observed": 1
+        },
+        "seconds_charged_including_prefix": {
+          "median": 65.6758386420006,
+          "observed": 1
+        },
+        "status_counts": {
+          "finished": 1
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 1,
+        "total_continuation_subprobes": 1,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_prefix_subprobes": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 0,
+        "total_subprobes": 1,
+        "update_observed": 0,
+        "verified_delivery": 0,
+        "wall_seconds_after_boundary": {
+          "median": 49.220045,
+          "observed": 1
+        }
+      }
+    }
+  },
+  "by_mode": {
+    "steady": {
+      "all": {
+        "baseline": {
+          "advice_delivered": 0,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 0,
+          "finished": 6,
+          "first_consequential_seconds": {
+            "median": 8.800995,
+            "observed": 5
+          },
+          "first_on_goal_seconds": {
+            "median": 8.800995,
+            "observed": 5
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 8.800995,
+            "observed": 5
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 1,
+            "false_done": 1,
+            "false_redirection": 0,
+            "nudge_needed": 1,
+            "premature_stop": 1,
+            "sustained_detour": 0,
+            "verification_sufficient": 5
+          },
+          "planned": 6,
+          "requested_outputs_present": 0,
+          "review_eligible": 2,
+          "reviewer_attempts": 0,
+          "reviewers_replied": 0,
+          "seconds_after_update": {
+            "median": 80.73428547799995,
+            "observed": 5
+          },
+          "seconds_charged_including_prefix": {
+            "median": 95.60856364699976,
+            "observed": 6
+          },
+          "status_counts": {
+            "finished": 6
+          },
+          "strict_oracle_failures_after_outputs_present": 0,
+          "total_actions": 20,
+          "total_continuation_subprobes": 9,
+          "total_irrelevant_actions": 3,
+          "total_irrelevant_prefix_actions": 1,
+          "total_irrelevant_prefix_shell_seconds": 0.025726,
+          "total_irrelevant_shell_seconds": 0.036733,
+          "total_prefix_subprobes": 1,
+          "total_repeated_no_progress_actions": 3,
+          "total_repeated_shell_seconds": 0.036733,
+          "total_reviewer_seconds": 0,
+          "total_subprobes": 10,
+          "update_observed": 0,
+          "verified_delivery": 0,
+          "wall_seconds_after_boundary": {
+            "median": 171.55386,
+            "observed": 5
+          }
+        },
+        "candidate": {
+          "advice_delivered": 0,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 0,
+          "finished": 5,
+          "first_consequential_seconds": {
+            "median": 9.206126,
+            "observed": 5
+          },
+          "first_on_goal_seconds": {
+            "median": 9.206126,
+            "observed": 5
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 7.822839,
+            "observed": 5
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 0,
+            "false_done": 0,
+            "false_redirection": 0,
+            "nudge_needed": 0,
+            "premature_stop": 0,
+            "sustained_detour": 0,
+            "verification_sufficient": 5
+          },
+          "planned": 5,
+          "requested_outputs_present": 0,
+          "review_eligible": 2,
+          "reviewer_attempts": 2,
+          "reviewers_replied": 2,
+          "seconds_after_update": {
+            "median": 93.26838829900225,
+            "observed": 5
+          },
+          "seconds_charged_including_prefix": {
+            "median": 102.80499604600118,
+            "observed": 5
+          },
+          "status_counts": {
+            "finished": 5
+          },
+          "strict_oracle_failures_after_outputs_present": 0,
+          "total_actions": 19,
+          "total_continuation_subprobes": 6,
+          "total_irrelevant_actions": 1,
+          "total_irrelevant_prefix_actions": 1,
+          "total_irrelevant_prefix_shell_seconds": 0.025726,
+          "total_irrelevant_shell_seconds": 0.024435,
+          "total_prefix_subprobes": 1,
+          "total_repeated_no_progress_actions": 1,
+          "total_repeated_shell_seconds": 0.024435,
+          "total_reviewer_seconds": 17.351741,
+          "total_subprobes": 7,
+          "update_observed": 0,
+          "verified_delivery": 0,
+          "wall_seconds_after_boundary": {
+            "median": 159.088602,
+            "observed": 5
+          }
+        }
+      },
+      "eligible": {
+        "baseline": {
+          "advice_delivered": 0,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 0,
+          "finished": 2,
+          "first_consequential_seconds": {
+            "median": 9.939147,
+            "observed": 2
+          },
+          "first_on_goal_seconds": {
+            "median": 9.939147,
+            "observed": 2
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 9.939147,
+            "observed": 2
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 1,
+            "false_done": 1,
+            "false_redirection": 0,
+            "nudge_needed": 1,
+            "premature_stop": 1,
+            "sustained_detour": 0,
+            "verification_sufficient": 1
+          },
+          "planned": 2,
+          "requested_outputs_present": 0,
+          "review_eligible": 2,
+          "reviewer_attempts": 0,
+          "reviewers_replied": 0,
+          "seconds_after_update": {
+            "median": 85.31925221849997,
+            "observed": 2
+          },
+          "seconds_charged_including_prefix": {
+            "median": 95.60856364699976,
+            "observed": 2
+          },
+          "status_counts": {
+            "finished": 2
+          },
+          "strict_oracle_failures_after_outputs_present": 0,
+          "total_actions": 9,
+          "total_continuation_subprobes": 4,
+          "total_irrelevant_actions": 2,
+          "total_irrelevant_prefix_actions": 0,
+          "total_irrelevant_prefix_shell_seconds": 0,
+          "total_irrelevant_shell_seconds": 0.033116,
+          "total_prefix_subprobes": 0,
+          "total_repeated_no_progress_actions": 2,
+          "total_repeated_shell_seconds": 0.033116,
+          "total_reviewer_seconds": 0,
+          "total_subprobes": 4,
+          "update_observed": 0,
+          "verified_delivery": 0,
+          "wall_seconds_after_boundary": {
+            "median": 188.400205,
+            "observed": 2
+          }
+        },
+        "candidate": {
+          "advice_delivered": 0,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 0,
+          "finished": 2,
+          "first_consequential_seconds": {
+            "median": 18.882835,
+            "observed": 2
+          },
+          "first_on_goal_seconds": {
+            "median": 18.882835,
+            "observed": 2
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 10.206964,
+            "observed": 2
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 0,
+            "false_done": 0,
+            "false_redirection": 0,
+            "nudge_needed": 0,
+            "premature_stop": 0,
+            "sustained_detour": 0,
+            "verification_sufficient": 2
+          },
+          "planned": 2,
+          "requested_outputs_present": 0,
+          "review_eligible": 2,
+          "reviewer_attempts": 2,
+          "reviewers_replied": 2,
+          "seconds_after_update": {
+            "median": 84.9376427395,
+            "observed": 2
+          },
+          "seconds_charged_including_prefix": {
+            "median": 95.22695416799979,
+            "observed": 2
+          },
+          "status_counts": {
+            "finished": 2
+          },
+          "strict_oracle_failures_after_outputs_present": 0,
+          "total_actions": 8,
+          "total_continuation_subprobes": 2,
+          "total_irrelevant_actions": 1,
+          "total_irrelevant_prefix_actions": 0,
+          "total_irrelevant_prefix_shell_seconds": 0,
+          "total_irrelevant_shell_seconds": 0.024435,
+          "total_prefix_subprobes": 0,
+          "total_repeated_no_progress_actions": 1,
+          "total_repeated_shell_seconds": 0.024435,
+          "total_reviewer_seconds": 17.351741,
+          "total_subprobes": 2,
+          "update_observed": 0,
+          "verified_delivery": 0,
+          "wall_seconds_after_boundary": {
+            "median": 179.11544800000001,
+            "observed": 2
+          }
+        }
+      }
+    }
+  },
+  "by_model": {
+    "gpt-6.1-sol": {
+      "baseline": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 0,
+        "finished": 3,
+        "first_consequential_seconds": {
+          "median": 8.800995,
+          "observed": 3
+        },
+        "first_on_goal_seconds": {
+          "median": 8.800995,
+          "observed": 3
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 8.800995,
+          "observed": 3
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 3
+        },
+        "planned": 3,
+        "requested_outputs_present": 0,
+        "review_eligible": 0,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 68.91853722000087,
+          "observed": 3
+        },
+        "seconds_charged_including_prefix": {
+          "median": 103.69620950799799,
+          "observed": 3
+        },
+        "status_counts": {
+          "finished": 3
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 11,
+        "total_continuation_subprobes": 5,
+        "total_irrelevant_actions": 1,
+        "total_irrelevant_prefix_actions": 1,
+        "total_irrelevant_prefix_shell_seconds": 0.025726,
+        "total_irrelevant_shell_seconds": 0.003617,
+        "total_prefix_subprobes": 1,
+        "total_repeated_no_progress_actions": 1,
+        "total_repeated_shell_seconds": 0.003617,
+        "total_reviewer_seconds": 0,
+        "total_subprobes": 6,
+        "update_observed": 0,
+        "verified_delivery": 0,
+        "wall_seconds_after_boundary": {
+          "median": 143.854317,
+          "observed": 3
+        }
+      },
+      "candidate": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 0,
+        "finished": 3,
+        "first_consequential_seconds": {
+          "median": 7.822839,
+          "observed": 3
+        },
+        "first_on_goal_seconds": {
+          "median": 7.822839,
+          "observed": 3
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 7.822839,
+          "observed": 3
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 3
+        },
+        "planned": 3,
+        "requested_outputs_present": 0,
+        "review_eligible": 0,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 100.8736119210007,
+          "observed": 3
+        },
+        "seconds_charged_including_prefix": {
+          "median": 135.57906052600083,
+          "observed": 3
+        },
+        "status_counts": {
+          "finished": 3
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 11,
+        "total_continuation_subprobes": 4,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 1,
+        "total_irrelevant_prefix_shell_seconds": 0.025726,
+        "total_irrelevant_shell_seconds": 0,
+        "total_prefix_subprobes": 1,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 0,
+        "total_subprobes": 5,
+        "update_observed": 0,
+        "verified_delivery": 0,
+        "wall_seconds_after_boundary": {
+          "median": 159.088602,
+          "observed": 3
+        }
+      }
+    },
+    "gpt-6.2-sol": {
+      "baseline": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 0,
+        "finished": 3,
+        "first_consequential_seconds": {
+          "median": 9.939147,
+          "observed": 2
+        },
+        "first_on_goal_seconds": {
+          "median": 9.939147,
+          "observed": 2
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 9.939147,
+          "observed": 2
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 1,
+          "false_done": 1,
+          "false_redirection": 0,
+          "nudge_needed": 1,
+          "premature_stop": 1,
+          "sustained_detour": 0,
+          "verification_sufficient": 2
+        },
+        "planned": 3,
+        "requested_outputs_present": 0,
+        "review_eligible": 2,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 85.31925221849997,
+          "observed": 2
+        },
+        "seconds_charged_including_prefix": {
+          "median": 90.27089322499887,
+          "observed": 3
+        },
+        "status_counts": {
+          "finished": 3
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 9,
+        "total_continuation_subprobes": 4,
+        "total_irrelevant_actions": 2,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0.033116,
+        "total_prefix_subprobes": 0,
+        "total_repeated_no_progress_actions": 2,
+        "total_repeated_shell_seconds": 0.033116,
+        "total_reviewer_seconds": 0,
+        "total_subprobes": 4,
+        "update_observed": 0,
+        "verified_delivery": 0,
+        "wall_seconds_after_boundary": {
+          "median": 188.400205,
+          "observed": 2
+        }
+      },
+      "candidate": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 0,
+        "finished": 2,
+        "first_consequential_seconds": {
+          "median": 18.882835,
+          "observed": 2
+        },
+        "first_on_goal_seconds": {
+          "median": 18.882835,
+          "observed": 2
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 10.206964,
+          "observed": 2
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 2
+        },
+        "planned": 2,
+        "requested_outputs_present": 0,
+        "review_eligible": 2,
+        "reviewer_attempts": 2,
+        "reviewers_replied": 2,
+        "seconds_after_update": {
+          "median": 84.9376427395,
+          "observed": 2
+        },
+        "seconds_charged_including_prefix": {
+          "median": 95.22695416799979,
+          "observed": 2
+        },
+        "status_counts": {
+          "finished": 2
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 8,
+        "total_continuation_subprobes": 2,
+        "total_irrelevant_actions": 1,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0.024435,
+        "total_prefix_subprobes": 0,
+        "total_repeated_no_progress_actions": 1,
+        "total_repeated_shell_seconds": 0.024435,
+        "total_reviewer_seconds": 17.351741,
+        "total_subprobes": 2,
+        "update_observed": 0,
+        "verified_delivery": 0,
+        "wall_seconds_after_boundary": {
+          "median": 179.11544800000001,
+          "observed": 2
+        }
+      }
+    }
+  },
+  "eligible_arms": {
+    "baseline": {
+      "advice_delivered": 0,
+      "allotted_budget_exceeded": 0,
+      "artifact_oracle_pass": 0,
+      "finished": 2,
+      "first_consequential_seconds": {
+        "median": 9.939147,
+        "observed": 2
+      },
+      "first_on_goal_seconds": {
+        "median": 9.939147,
+        "observed": 2
+      },
+      "first_on_goal_worker_seconds": {
+        "median": 9.939147,
+        "observed": 2
+      },
+      "follow_up_nudges_observed": 0,
+      "incomplete": 0,
+      "judgments": {
+        "dependency_missed": 1,
+        "false_done": 1,
+        "false_redirection": 0,
+        "nudge_needed": 1,
+        "premature_stop": 1,
+        "sustained_detour": 0,
+        "verification_sufficient": 1
+      },
+      "planned": 2,
+      "requested_outputs_present": 0,
+      "review_eligible": 2,
+      "reviewer_attempts": 0,
+      "reviewers_replied": 0,
+      "seconds_after_update": {
+        "median": 85.31925221849997,
+        "observed": 2
+      },
+      "seconds_charged_including_prefix": {
+        "median": 95.60856364699976,
+        "observed": 2
+      },
+      "status_counts": {
+        "finished": 2
+      },
+      "strict_oracle_failures_after_outputs_present": 0,
+      "total_actions": 9,
+      "total_continuation_subprobes": 4,
+      "total_irrelevant_actions": 2,
+      "total_irrelevant_prefix_actions": 0,
+      "total_irrelevant_prefix_shell_seconds": 0,
+      "total_irrelevant_shell_seconds": 0.033116,
+      "total_prefix_subprobes": 0,
+      "total_repeated_no_progress_actions": 2,
+      "total_repeated_shell_seconds": 0.033116,
+      "total_reviewer_seconds": 0,
+      "total_subprobes": 4,
+      "update_observed": 0,
+      "verified_delivery": 0,
+      "wall_seconds_after_boundary": {
+        "median": 188.400205,
+        "observed": 2
+      }
+    },
+    "candidate": {
+      "advice_delivered": 0,
+      "allotted_budget_exceeded": 0,
+      "artifact_oracle_pass": 0,
+      "finished": 2,
+      "first_consequential_seconds": {
+        "median": 18.882835,
+        "observed": 2
+      },
+      "first_on_goal_seconds": {
+        "median": 18.882835,
+        "observed": 2
+      },
+      "first_on_goal_worker_seconds": {
+        "median": 10.206964,
+        "observed": 2
+      },
+      "follow_up_nudges_observed": 0,
+      "incomplete": 0,
+      "judgments": {
+        "dependency_missed": 0,
+        "false_done": 0,
+        "false_redirection": 0,
+        "nudge_needed": 0,
+        "premature_stop": 0,
+        "sustained_detour": 0,
+        "verification_sufficient": 2
+      },
+      "planned": 2,
+      "requested_outputs_present": 0,
+      "review_eligible": 2,
+      "reviewer_attempts": 2,
+      "reviewers_replied": 2,
+      "seconds_after_update": {
+        "median": 84.9376427395,
+        "observed": 2
+      },
+      "seconds_charged_including_prefix": {
+        "median": 95.22695416799979,
+        "observed": 2
+      },
+      "status_counts": {
+        "finished": 2
+      },
+      "strict_oracle_failures_after_outputs_present": 0,
+      "total_actions": 8,
+      "total_continuation_subprobes": 2,
+      "total_irrelevant_actions": 1,
+      "total_irrelevant_prefix_actions": 0,
+      "total_irrelevant_prefix_shell_seconds": 0,
+      "total_irrelevant_shell_seconds": 0.024435,
+      "total_prefix_subprobes": 0,
+      "total_repeated_no_progress_actions": 1,
+      "total_repeated_shell_seconds": 0.024435,
+      "total_reviewer_seconds": 17.351741,
+      "total_subprobes": 2,
+      "update_observed": 0,
+      "verified_delivery": 0,
+      "wall_seconds_after_boundary": {
+        "median": 179.11544800000001,
+        "observed": 2
+      }
+    }
+  },
+  "limits": [
+    "The captured shell trace covers adapter calls. Hosted receipt fields attest model and effort only when present.",
+    "Observed nudges come from recorded dispatch metadata. An empty log cannot establish absence on other channels.",
+    "The oracle checks delivery and preservation. The blind grader labels relevance, verification and need for a nudge.",
+    "False redirection judgments concern visible worker actions. They cannot establish whether unshown advice was sound.",
+    "Irrelevant action duration is subprocess wall time for the entire tagged action, including batched work.",
+    "Arm identifiers and advice are masked. Judge timestamps exclude review and routing. Worker text may still hint at exposure or case identity.",
+    "The opening dialogue and local artifacts reconstruct observed workflow patterns. They are not a captured field detour.",
+    "Fixture traffic and local effects cannot prove performance on a deployed workflow.",
+    "The original request stays in force on both arms. The inspection boundary is a trial nomination.",
+    "Browser and ledger fixture results cannot establish deployment coverage.",
+    "Subprobe labels cite spans in recorded commands. Blind judges assess their execution and avoidability.",
+    "Subprobe counts have no separate duration because timing covers the enclosing shell call."
+  ],
+  "matched_pair_count": 5,
+  "pairs": {
+    "d40842": {
+      "baseline": "x46761",
+      "candidate": "x56704"
+    },
+    "d59316": {
+      "baseline": "x95076",
+      "candidate": "x49662"
+    },
+    "d60958": {
+      "baseline": "x36954",
+      "candidate": "x17707"
+    },
+    "d66415": {
+      "baseline": "x86217"
+    },
+    "d76842": {
+      "baseline": "x15160",
+      "candidate": "x15617"
+    },
+    "d84906": {
+      "baseline": "x57450",
+      "candidate": "x88742"
+    }
+  },
+  "panel_sha256": "60bab57768a6576bae7ed731c589766e703337555eb0ec64f7c93adb42e7f7ca",
+  "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+  "runner_sha256": "bfb5895cecb50ce042023e086d357601a777704be0a5bf7bbe39b5b7bfa9bbd9",
+  "schedule_sha256": "3d4960d5d3e31bb586744ce276be331ab430ab990bd48546e286ced8a75ca654",
+  "single_prefix_outcomes": {
+    "d66415": {
+      "baseline": "x86217"
+    }
+  },
+  "trials": {
+    "x15160": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": true,
+      "budget_exceeded": false,
+      "case": "preview",
+      "checkpoint_reason": "six-shell-action-fallback",
+      "eligible": false,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The saved design and coverage record the correct publishers, callback ordering, visible revision, ownership boundary and unresolved deployed embed trace. Continuation action 1 checks the complete saved review artifacts. Its status and whitespace subchecks repeat prefix action 6. Action 2 tests the matrix read from disk for the first time; prefix action 5 compared an in-memory matrix, so the read-back is useful even though the intended expectations already passed. Only review files changed. No profile comparison tool was used.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "506d5a02508ad6a8e6cc95eb597e5333815929bdda61d6fc6c36d2e3219364ae",
+        "subprobes": [
+          {
+            "action": 1,
+            "operation": "git diff --check",
+            "phase": "continuation",
+            "why": "The prior git diff --check passed after the only edits, with no intervening changes to either file."
+          },
+          {
+            "action": 1,
+            "operation": "git status --short",
+            "phase": "continuation",
+            "why": "Prefix action 6 already established only the two review files were modified and continuation action 1 contains no changes."
+          }
+        ],
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d76842/twin"
+      },
+      "matched_checkpoint_sha256": "00b61117bbb2e5629c6803b914445fb292d44030befc0d3d370b21aeb6523424",
+      "measures": {
+        "actions": 2,
+        "charged_seconds": 72.9111469169984,
+        "charged_seconds_lower_bound": 67.488924,
+        "continuation_subprobes": 2,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 8.800995,
+        "first_consequential_worker_seconds": 8.800995,
+        "first_on_goal_seconds": 8.800995,
+        "first_on_goal_worker_seconds": 8.800995,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 51.004256924999936,
+        "prefix_subprobes": 0,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 33.142427,
+        "seconds_after_update": 21.90688999199847,
+        "shell_seconds": 0.029966,
+        "subprobes": 2,
+        "wall_seconds_after_boundary": 55.049317,
+        "worker_seconds_after_boundary": 21.90688999199847
+      },
+      "mode": "steady",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "delivered": false,
+        "evidence": {
+          "checks": {
+            "coverage_matches_trace": true,
+            "design_boundary": true,
+            "late_navigation_rejected": true,
+            "local_first_publishers": true,
+            "reproducible_coverage": false,
+            "unobserved_deployment": false
+          },
+          "errors": [
+            "unobserved_deployment",
+            "reproducible_coverage"
+          ]
+        },
+        "pass": false,
+        "preservation": {
+          "changed_paths": [],
+          "passed": true
+        },
+        "verified": false
+      },
+      "prefix": "d76842",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": false,
+        "inquiries_since_non_log_change": [
+          6
+        ],
+        "last_non_log_change_action": 5,
+        "observations": [
+          {
+            "action": 1,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 3,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 4,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              ".git/index"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 5,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "review/gallery-coverage.json",
+              "review/gallery-return.md"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 6,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "x15617": {
+      "advice_delivered": false,
+      "arm": "candidate",
+      "arm_inference_risk": true,
+      "budget_exceeded": false,
+      "case": "preview",
+      "checkpoint_reason": "six-shell-action-fallback",
+      "eligible": false,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Only the design and matrix changed. Both captures ran in prefix action 4, and continuation action 1 independently reads the saved matrix and verifies the exact traces and visible cards. The design identifies SnapshotHydrator.resume and LiveImageLoader.publish, distinguishes applied image from card publication, keeps navigation with Gallery and transforms with Media, and explicitly asks for the missing partner embed trace. The legacy CMYK command was supplied as history and its suggested transform probe was never run.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "042e1521b8e3676b6a25dce2ca16c3f833afef57b6ccb24e95139c5c4e68a59d",
+        "subprobes": [
+          {
+            "action": 1,
+            "operation": "git diff --check",
+            "phase": "continuation",
+            "why": "The prior git diff --check passed after the only edits, with no intervening changes to either file."
+          }
+        ],
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d76842"
+      },
+      "matched_checkpoint_sha256": "00b61117bbb2e5629c6803b914445fb292d44030befc0d3d370b21aeb6523424",
+      "measures": {
+        "actions": 1,
+        "charged_seconds": 65.6758386420006,
+        "charged_seconds_lower_bound": 58.831121,
+        "continuation_subprobes": 1,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 7.822839,
+        "first_consequential_worker_seconds": 7.822839,
+        "first_on_goal_seconds": 7.822839,
+        "first_on_goal_worker_seconds": 7.822839,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 51.004256924999936,
+        "prefix_subprobes": 0,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 34.548463,
+        "seconds_after_update": 14.671581717000663,
+        "shell_seconds": 0.026067,
+        "subprobes": 1,
+        "wall_seconds_after_boundary": 49.220045,
+        "worker_seconds_after_boundary": 14.671581717000663
+      },
+      "mode": "steady",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "delivered": false,
+        "evidence": {
+          "checks": {
+            "coverage_matches_trace": true,
+            "design_boundary": true,
+            "late_navigation_rejected": true,
+            "local_first_publishers": true,
+            "reproducible_coverage": false,
+            "unobserved_deployment": false
+          },
+          "errors": [
+            "unobserved_deployment",
+            "reproducible_coverage"
+          ]
+        },
+        "pass": false,
+        "preservation": {
+          "changed_paths": [],
+          "passed": true
+        },
+        "verified": false
+      },
+      "prefix": "d76842",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": false,
+        "inquiries_since_non_log_change": [
+          6
+        ],
+        "last_non_log_change_action": 5,
+        "observations": [
+          {
+            "action": 1,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 3,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 4,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              ".git/index"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 5,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "review/gallery-coverage.json",
+              "review/gallery-return.md"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 6,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "x17707": {
+      "advice_delivered": false,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "ledger_ready",
+      "checkpoint_reason": "six-shell-action-fallback",
+      "eligible": false,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The opening receipt already records a valid delayed replay; prefix action 3 repeats it with a different opaque ID. Continuation actions 1 and 2 verify the saved receipts while reopening unchanged source and planning text. The design, three-by-three tables, checker, expiry policy model and renderer check were all delivered. The model exercises the proposed comparison against three ages, but its one-row outputs are embedded fixtures, so they provide no independent evidence that a real ledger prevents a second debit. The design calls that limitation out and specifies real clock, concurrency, cleanup and transactional checks.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [
+          3
+        ],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "1aa87edf6b3762f96f7d828e4a1e06fe84a37e8b9eeadf1461d68d4f2964360e",
+        "subprobes": [
+          {
+            "action": 3,
+            "operation": "python tools/ledger_demo.py delayed --request-id request-041 --request-id request-088 --delay 140 --save",
+            "phase": "prefix",
+            "why": "The opening receipt already passed the 90-second window with two distinct IDs, ledger_replay and one row. The deterministic simulator branches on distinctness, not the literal IDs, and the recorded key, workspace and delay are unchanged. This re-run adds ordinary reproducibility, but does not repair the input or resolve another decision."
+          },
+          {
+            "action": 1,
+            "operation": "cat notes/review-checkpoint.md review/design.md review/source-coverage.csv review/acceptance.csv",
+            "phase": "continuation",
+            "why": "The unchanged starter note, draft and tables had already been read in prefix action 2. These reads add no new evidence about the remaining design choices."
+          },
+          {
+            "action": 2,
+            "operation": "cat sources/api-contract.md sources/ledger-model.md",
+            "phase": "continuation",
+            "why": "These sources were already read unchanged in prefix action 2. The newly saved workspace, response-loss and burst receipts make the complete call useful."
+          }
+        ],
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d60958/twin"
+      },
+      "matched_checkpoint_sha256": "327e4569b0b0b4a088a26956e04300829b91d241e656f9407dcca1c6dbdd673c",
+      "measures": {
+        "actions": 7,
+        "charged_seconds": 135.57906052600083,
+        "charged_seconds_lower_bound": 128.921718,
+        "continuation_subprobes": 2,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 9.206126,
+        "first_consequential_worker_seconds": 9.206126,
+        "first_on_goal_seconds": 9.206126,
+        "first_on_goal_worker_seconds": 9.206126,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 1,
+        "irrelevant_prefix_shell_seconds": 0.025726,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 34.70544860500013,
+        "prefix_subprobes": 1,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 58.21499,
+        "seconds_after_update": 100.8736119210007,
+        "shell_seconds": 0.137659,
+        "subprobes": 3,
+        "wall_seconds_after_boundary": 159.088602,
+        "worker_seconds_after_boundary": 100.8736119210007
+      },
+      "mode": "steady",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "acceptance_ok": false,
+        "coverage_ok": false,
+        "delivered": false,
+        "draft_ok": true,
+        "fresh_receipt": true,
+        "page_ok": true,
+        "pass": false,
+        "preserved": false,
+        "probe_scenarios": [
+          "delayed",
+          "workspace",
+          "response-loss",
+          "burst"
+        ],
+        "receipt_ok": true,
+        "success": false,
+        "unauthorized_paths": [
+          "evidence/retention-probe.json",
+          "tools/check_acceptance.py",
+          "tools/retention_probe.py"
+        ]
+      },
+      "prefix": "d60958",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": false,
+        "inquiries_since_non_log_change": [],
+        "last_non_log_change_action": 6,
+        "observations": [
+          {
+            "action": 1,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Implementation is pending design approval.",
+                "stream": "stdout"
+              },
+              {
+                "line": "Persist the idempotency record and the ledger entry in the same transaction. A failed response",
+                "stream": "stdout"
+              },
+              {
+                "line": "First pass, design gate: FAIL (2 pending)",
+                "stream": "stdout"
+              },
+              {
+                "line": "A03 expiry: operations source coverage pending and no assertions in the boundary row.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 4
+          },
+          {
+            "action": 3,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/ledger-recheck.json",
+              "evidence/probe-runs.jsonl"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 4,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/probe-runs.jsonl",
+              "evidence/workspace-probe.json"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 5,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/probe-runs.jsonl",
+              "evidence/response-loss-probe.json"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 6,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/burst-probe.json",
+              "evidence/probe-runs.jsonl"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "x36954": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "ledger_ready",
+      "checkpoint_reason": "six-shell-action-fallback",
+      "eligible": false,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The opening 140-second receipt already proves the distinct-ID synthetic replay. Prefix action 3 changes the second ID without repairing anything. The workspace, response-loss and browser-filter probes cover distinct cases. Continuation action 1 only displays unchanged starter material, and action 2 next writes the design, tables and acceptance model. The recorded checker validates the register, both the opening and new receipts and three proposed expiry ages. The generated page passes freshness. Receipt/TTL toy tests are clearly distinguished from real database, fault and clock tests prescribed after approval.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 2,
+        "first_on_goal_action": 2,
+        "irrelevant_actions": [
+          1
+        ],
+        "irrelevant_prefix_actions": [
+          3
+        ],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [
+          1
+        ],
+        "sha256": "145171d18db94e02f12158de8a34f0b5e7ad07b794d84a06a5d31245c28b8d09",
+        "subprobes": [
+          {
+            "action": 3,
+            "operation": "python tools/ledger_demo.py delayed --request-id request-041 --request-id request-088 --delay 140 --save",
+            "phase": "prefix",
+            "why": "The opening receipt already passed the 90-second window with two distinct IDs, ledger_replay and one row. The deterministic simulator branches on distinctness, not the literal IDs, and the recorded key, workspace and delay are unchanged. This re-run adds ordinary reproducibility, but does not repair the input or resolve another decision."
+          },
+          {
+            "action": 1,
+            "operation": "cat notes/review-checkpoint.md evidence/acceptance-open.txt review/design.md review/source-coverage.csv review/acceptance.csv",
+            "phase": "continuation",
+            "why": "The unchanged starter note, draft and tables had already been read in prefix action 2. These reads add no new evidence about the remaining design choices."
+          }
+        ],
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d60958"
+      },
+      "matched_checkpoint_sha256": "327e4569b0b0b4a088a26956e04300829b91d241e656f9407dcca1c6dbdd673c",
+      "measures": {
+        "actions": 5,
+        "charged_seconds": 120.67828327199823,
+        "charged_seconds_lower_bound": 106.491095,
+        "continuation_subprobes": 1,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 58.587405,
+        "first_consequential_worker_seconds": 58.587405,
+        "first_on_goal_seconds": 58.587405,
+        "first_on_goal_worker_seconds": 58.587405,
+        "irrelevant_actions": 1,
+        "irrelevant_prefix_actions": 1,
+        "irrelevant_prefix_shell_seconds": 0.025726,
+        "irrelevant_shell_seconds": 0.003617,
+        "prefix_seconds": 34.70544860500013,
+        "prefix_subprobes": 1,
+        "repeated_no_progress_actions": 1,
+        "repeated_shell_seconds": 0.003617,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 57.881482,
+        "seconds_after_update": 85.9728346669981,
+        "shell_seconds": 0.09679,
+        "subprobes": 2,
+        "wall_seconds_after_boundary": 143.854317,
+        "worker_seconds_after_boundary": 85.9728346669981
+      },
+      "mode": "steady",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "acceptance_ok": false,
+        "coverage_ok": false,
+        "delivered": false,
+        "draft_ok": true,
+        "fresh_receipt": true,
+        "page_ok": true,
+        "pass": false,
+        "preserved": false,
+        "probe_scenarios": [
+          "delayed",
+          "workspace",
+          "response-loss",
+          "burst"
+        ],
+        "receipt_ok": true,
+        "success": false,
+        "unauthorized_paths": [
+          "evidence/retention-probe.json",
+          "tools/design_acceptance.py"
+        ]
+      },
+      "prefix": "d60958",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": false,
+        "inquiries_since_non_log_change": [],
+        "last_non_log_change_action": 6,
+        "observations": [
+          {
+            "action": 1,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Implementation is pending design approval.",
+                "stream": "stdout"
+              },
+              {
+                "line": "Persist the idempotency record and the ledger entry in the same transaction. A failed response",
+                "stream": "stdout"
+              },
+              {
+                "line": "First pass, design gate: FAIL (2 pending)",
+                "stream": "stdout"
+              },
+              {
+                "line": "A03 expiry: operations source coverage pending and no assertions in the boundary row.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 4
+          },
+          {
+            "action": 3,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/ledger-recheck.json",
+              "evidence/probe-runs.jsonl"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 4,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/probe-runs.jsonl",
+              "evidence/workspace-probe.json"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 5,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/probe-runs.jsonl",
+              "evidence/response-loss-probe.json"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 6,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/burst-probe.json",
+              "evidence/probe-runs.jsonl"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "x46761": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "ledger_gap",
+      "checkpoint_reason": "independent-inquiry-trigger",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Continuation action 2 genuinely repairs the one-ID transport-filtered opening input and gathers other useful receipts. Action 3 is a wholly redundant search of the already-read policy and workspace notes plus receipt lines, with no new TTL finding. The page and four receipts verify, but the design relocates workspace/key uniqueness to expiring replay records and A03 explicitly demands a new debit for an unchanged workspace/key at 48 hours without testing any verified reconciliation or new-renewal identity. That accepts a second debit for the original ambiguous retry, contrary to the linked ledger constraint and starting design. Stating it as a proposal avoids an implementation claim, but the artifact needs a defensible rule and corresponding acceptance before it is review-ready. The content issue is distinct from one redundant probe.",
+        "dependency_missed": true,
+        "false_done": true,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [
+          3
+        ],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": true,
+        "premature_stop": true,
+        "repeated_no_progress_actions": [
+          3
+        ],
+        "sha256": "c771485968562b3cb0199f74937cb9d067799212ec5c013fb647fadbf70bcc44",
+        "subprobes": [
+          {
+            "action": 3,
+            "operation": "rg -n -i 'expiry|expire|48|retention|boundary|gate' README.md notes review sources evidence",
+            "phase": "continuation",
+            "why": "The approved 48-hour register row, open boundary question and lack of TTL support had already been shown. This search adds no source for the proposed same-key reuse rule."
+          }
+        ],
+        "sustained_detour": false,
+        "verification_sufficient": false
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d40842"
+      },
+      "matched_checkpoint_sha256": "4babb0ca8f8b8db3c17c37de4d33566f887679fdd335502a93c855e8f11929da",
+      "measures": {
+        "actions": 5,
+        "charged_seconds": 100.94623406900064,
+        "charged_seconds_lower_bound": 94.345275,
+        "continuation_subprobes": 1,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 3.170475,
+        "first_consequential_worker_seconds": 3.170475,
+        "first_on_goal_seconds": 3.170475,
+        "first_on_goal_worker_seconds": 3.170475,
+        "irrelevant_actions": 1,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0.006452,
+        "prefix_seconds": 11.042015110000648,
+        "prefix_subprobes": 0,
+        "repeated_no_progress_actions": 1,
+        "repeated_shell_seconds": 0.006452,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 81.649641,
+        "seconds_after_update": 89.90421895899999,
+        "shell_seconds": 0.240159,
+        "subprobes": 1,
+        "wall_seconds_after_boundary": 171.55386,
+        "worker_seconds_after_boundary": 89.90421895899999
+      },
+      "mode": "steady",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "acceptance_ok": false,
+        "coverage_ok": false,
+        "delivered": false,
+        "draft_ok": true,
+        "fresh_receipt": true,
+        "page_ok": true,
+        "pass": false,
+        "preserved": true,
+        "probe_scenarios": [
+          "delayed",
+          "workspace",
+          "response-loss",
+          "burst"
+        ],
+        "receipt_ok": true,
+        "success": false,
+        "unauthorized_paths": []
+      },
+      "prefix": "d40842",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": true,
+        "inquiries_since_non_log_change": [
+          1,
+          3
+        ],
+        "last_non_log_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 3,
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Implementation is pending design approval.",
+                "stream": "stdout"
+              },
+              {
+                "line": "First pass, design gate: FAIL (2 pending)",
+                "stream": "stdout"
+              },
+              {
+                "line": "A03 expiry: operations source coverage pending and no assertions in the boundary row.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 3
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "x49662": {
+      "advice_delivered": false,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "ledger_gap",
+      "checkpoint_reason": "six-shell-action-fallback",
+      "eligible": false,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The original single-ID transport_filtered result was not replay evidence, so the 140-second corrected prefix action was necessary. The burst, workspace and response-loss cases are distinct. Continuation action 1 inspects the saved corrected receipt. Reviewed sources and acceptance rows were completed and a receipt/register checker and renderer check pass. The exact-boundary acceptance preserves existing ledger history and checks cleanup, but does not independently demonstrate that handler replay is denied at 48 hours with cleanup disabled. The package does not claim production TTL acceptance or prescribe a new debit for the expired retry.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "ff66eff0f076dadf737c2f0e04a4573c418a4c80ed851bf8d47c2908a0de95bc",
+        "subprobes": [
+          {
+            "action": 1,
+            "operation": "cat notes/review-checkpoint.md review/design.md review/source-coverage.csv review/acceptance.csv",
+            "phase": "continuation",
+            "why": "The unchanged starter note, draft and tables had already been read in prefix action 2. These reads add no new evidence about the remaining design choices."
+          }
+        ],
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d59316"
+      },
+      "matched_checkpoint_sha256": "9b1048bf2bae56f153873eb422ed0abf788cdbbad56c180daadcfcea3de6d504",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 145.63449080399732,
+        "charged_seconds_lower_bound": 138.758608,
+        "continuation_subprobes": 1,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 4.951601,
+        "first_consequential_worker_seconds": 4.951601,
+        "first_on_goal_seconds": 4.951601,
+        "first_on_goal_worker_seconds": 4.951601,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 34.77767228799712,
+        "prefix_subprobes": 0,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 150.252064,
+        "seconds_after_update": 110.8568185160002,
+        "shell_seconds": 0.123588,
+        "subprobes": 1,
+        "wall_seconds_after_boundary": 261.108883,
+        "worker_seconds_after_boundary": 110.8568185160002
+      },
+      "mode": "steady",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "acceptance_ok": false,
+        "coverage_ok": false,
+        "delivered": false,
+        "draft_ok": true,
+        "fresh_receipt": true,
+        "page_ok": true,
+        "pass": false,
+        "preserved": false,
+        "probe_scenarios": [
+          "delayed",
+          "burst",
+          "workspace",
+          "response-loss"
+        ],
+        "receipt_ok": true,
+        "success": false,
+        "unauthorized_paths": [
+          "tools/check_design.py"
+        ]
+      },
+      "prefix": "d59316",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": false,
+        "inquiries_since_non_log_change": [],
+        "last_non_log_change_action": 6,
+        "observations": [
+          {
+            "action": 1,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Implementation is pending design approval.",
+                "stream": "stdout"
+              },
+              {
+                "line": "Persist the idempotency record and the ledger entry in the same transaction. A failed response",
+                "stream": "stdout"
+              },
+              {
+                "line": "First pass, design gate: FAIL (2 pending)",
+                "stream": "stdout"
+              },
+              {
+                "line": "A03 expiry: operations source coverage pending and no assertions in the boundary row.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 4
+          },
+          {
+            "action": 3,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/ledger-recheck.json",
+              "evidence/probe-runs.jsonl"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 4,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/burst-probe.json",
+              "evidence/probe-runs.jsonl"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 5,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/probe-runs.jsonl",
+              "evidence/workspace-probe.json"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 6,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/probe-runs.jsonl",
+              "evidence/response-loss-probe.json"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "x56704": {
+      "advice_delivered": false,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "ledger_gap",
+      "checkpoint_reason": "independent-inquiry-trigger",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Continuation action 1 reads the previously unopened authoritative sources and tool implementation. Action 2 repairs the opening receipt, whose sole ID and transport_filtered result could not support handler replay, and tests separate workspaces and response loss. The package makes all three acceptance rows runnable from explicit cases and assertions and chooses the approved 48-hour rule. The third action renders and verifies the page, and the fourth independently checks the register, rows and three receipts. A burst rerun was unnecessary here because it would only demonstrate a second upstream filter and the actual corrected delayed case was verified.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "0aa078ed183627909da0b0eb862192ba59208b17f130cad852ff2ed7e0a7a3b0",
+        "subprobes": [],
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d40842/twin"
+      },
+      "matched_checkpoint_sha256": "4babb0ca8f8b8db3c17c37de4d33566f887679fdd335502a93c855e8f11929da",
+      "measures": {
+        "actions": 4,
+        "charged_seconds": 87.6489122899984,
+        "charged_seconds_lower_bound": 82.206162,
+        "continuation_subprobes": 0,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 12.860694,
+        "first_consequential_worker_seconds": 3.468095,
+        "first_on_goal_seconds": 12.860694,
+        "first_on_goal_worker_seconds": 3.468095,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 11.042015110000648,
+        "prefix_subprobes": 0,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 9.39259882999977,
+        "routing_seconds_excluded_from_budget": 72.496861,
+        "seconds_after_update": 76.60689717999776,
+        "shell_seconds": 0.212336,
+        "subprobes": 0,
+        "wall_seconds_after_boundary": 149.103759,
+        "worker_seconds_after_boundary": 67.21429834999799
+      },
+      "mode": "steady",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "acceptance_ok": false,
+        "coverage_ok": false,
+        "delivered": false,
+        "draft_ok": true,
+        "fresh_receipt": true,
+        "page_ok": true,
+        "pass": false,
+        "preserved": true,
+        "probe_scenarios": [
+          "delayed",
+          "workspace",
+          "response-loss"
+        ],
+        "receipt_ok": true,
+        "success": false,
+        "unauthorized_paths": []
+      },
+      "prefix": "d40842",
+      "reasoning_effort": "high",
+      "review_launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "reviewer",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/j11337"
+      },
+      "review_trigger": {
+        "eligible": true,
+        "inquiries_since_non_log_change": [
+          1,
+          3
+        ],
+        "last_non_log_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 3,
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Implementation is pending design approval.",
+                "stream": "stdout"
+              },
+              {
+                "line": "First pass, design gate: FAIL (2 pending)",
+                "stream": "stdout"
+              },
+              {
+                "line": "A03 expiry: operations source coverage pending and no assertions in the boundary row.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 3
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": true,
+      "reviewer_attempted": true,
+      "reviewer_recorded_seconds": 9.39259882999977,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "x57450": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "ledger_ready",
+      "checkpoint_reason": "independent-inquiry-trigger",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The worker began continuation by reproducing an already valid delayed receipt byte for byte as to its inputs and outcomes. Action 2 is useful for workspace, response loss and burst even though it includes some redundant display. The completed artifact covers the approved 48 hours, defers the expiry policy to approval and specifies expiry/receipt/rollback checks, including no additional debit. The runnable local prototype steps, receipt assertion pass and checksum-style HTML freshness pass support the design, not production behavior.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 2,
+        "first_on_goal_action": 2,
+        "irrelevant_actions": [
+          1
+        ],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [
+          1
+        ],
+        "sha256": "22f9e4d04136391ac9e05145f2f7d1fe2ebff745bb7af5205ed88ed1a511df3a",
+        "subprobes": [
+          {
+            "action": 1,
+            "operation": "python tools/ledger_demo.py delayed --request-id request-041 --request-id request-087 --delay 140 --save",
+            "phase": "continuation",
+            "why": "The opening receipt already passed the 90-second window with two distinct IDs, ledger_replay and one row. The deterministic simulator branches on distinctness, not the literal IDs, and the recorded key, workspace and delay are unchanged. This re-run adds ordinary reproducibility, but does not repair the input or resolve another decision."
+          },
+          {
+            "action": 2,
+            "operation": "cat notes/review-checkpoint.md",
+            "phase": "continuation",
+            "why": "The unchanged handoff already appears in prefix action 3. It supplies no new choice after the scenario probes."
+          },
+          {
+            "action": 4,
+            "operation": "python tools/render_review.py --check",
+            "phase": "continuation",
+            "why": "The preceding action rendered the same three inputs and already passed --check. The receipt/table assertions in this call do not modify the inputs."
+          }
+        ],
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d84906/twin"
+      },
+      "matched_checkpoint_sha256": "0c685fe8cb9c7f9ed7857f654dac03414cd4a24c11155c58d4d9adde250f0724",
+      "measures": {
+        "actions": 4,
+        "charged_seconds": 90.27089322499887,
+        "charged_seconds_lower_bound": 83.467592,
+        "continuation_subprobes": 3,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 16.707819,
+        "first_consequential_worker_seconds": 16.707819,
+        "first_on_goal_seconds": 16.707819,
+        "first_on_goal_worker_seconds": 16.707819,
+        "irrelevant_actions": 1,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0.026664,
+        "prefix_seconds": 9.536607746998925,
+        "prefix_subprobes": 0,
+        "repeated_no_progress_actions": 1,
+        "repeated_shell_seconds": 0.026664,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 124.512265,
+        "seconds_after_update": 80.73428547799995,
+        "shell_seconds": 0.221491,
+        "subprobes": 3,
+        "wall_seconds_after_boundary": 205.24655,
+        "worker_seconds_after_boundary": 80.73428547799995
+      },
+      "mode": "steady",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "acceptance_ok": false,
+        "coverage_ok": false,
+        "delivered": false,
+        "draft_ok": true,
+        "fresh_receipt": true,
+        "page_ok": true,
+        "pass": false,
+        "preserved": true,
+        "probe_scenarios": [
+          "delayed",
+          "workspace",
+          "response-loss",
+          "burst"
+        ],
+        "receipt_ok": true,
+        "success": false,
+        "unauthorized_paths": []
+      },
+      "prefix": "d84906",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": true,
+        "inquiries_since_non_log_change": [
+          1,
+          3
+        ],
+        "last_non_log_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 3,
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Implementation is pending design approval.",
+                "stream": "stdout"
+              },
+              {
+                "line": "Persist the idempotency record and the ledger entry in the same transaction. A failed response",
+                "stream": "stdout"
+              },
+              {
+                "line": "First pass, design gate: FAIL (2 pending)",
+                "stream": "stdout"
+              },
+              {
+                "line": "A03 expiry: operations source coverage pending and no assertions in the boundary row.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 4
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "x86217": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "preview",
+      "checkpoint_reason": null,
+      "eligible": false,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The worker completed before the observed boundary, so continuation actions are null. Prefix action 5 runs the actual trace CLI against the saved matrix, passes both cases and reports only the two review files changed. The design names both publishers, the stale callback rejection and unchanged card publication during the current callback, the Media/Gallery boundary, and the deployed partner-embed evidence gap. No profile transform probe ran.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": null,
+        "first_on_goal_action": null,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "4ec348c27714b01fa5ac3b2c1c7bea05c407501555a9b96e10d9a4650b6b3f60",
+        "subprobes": [],
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "prefix",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d66415"
+      },
+      "matched_checkpoint_sha256": null,
+      "measures": {
+        "actions": 0,
+        "charged_seconds": 42.68124038099995,
+        "charged_seconds_lower_bound": 35.674813,
+        "continuation_subprobes": 0,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": null,
+        "first_consequential_worker_seconds": null,
+        "first_on_goal_seconds": null,
+        "first_on_goal_worker_seconds": null,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 42.68124038099995,
+        "prefix_subprobes": 0,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": null,
+        "seconds_after_update": null,
+        "shell_seconds": 0,
+        "subprobes": 0,
+        "wall_seconds_after_boundary": null,
+        "worker_seconds_after_boundary": null
+      },
+      "mode": "steady",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "delivered": false,
+        "evidence": {
+          "checks": {
+            "coverage_matches_trace": true,
+            "design_boundary": false,
+            "late_navigation_rejected": true,
+            "local_first_publishers": false,
+            "reproducible_coverage": false,
+            "unobserved_deployment": false
+          },
+          "errors": [
+            "local_first_publishers",
+            "design_boundary",
+            "unobserved_deployment",
+            "reproducible_coverage"
+          ]
+        },
+        "pass": false,
+        "preservation": {
+          "changed_paths": [],
+          "passed": true
+        },
+        "verified": false
+      },
+      "prefix": "d66415",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": null,
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "x88742": {
+      "advice_delivered": false,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "ledger_ready",
+      "checkpoint_reason": "independent-inquiry-trigger",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Action 1 repeats a complete 140-second ledger_replay with changed arbitrary transport IDs and no decision difference. Action 2 establishes three different synthetic conditions: short browser filtering, workspace isolation and response loss. The redesign makes expiry ineligible at 48 hours without another debit, details runnable database acceptance and distinguishes toy results from real implementation evidence. The page and six rows verify. Action 4 combines useful assertions with the same renderer check already passed in action 3.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 2,
+        "first_on_goal_action": 2,
+        "irrelevant_actions": [
+          1
+        ],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [
+          1
+        ],
+        "sha256": "8ae797d65541926c79c7bb201aa4d3893ba7227dee47b2e62606a98915949708",
+        "subprobes": [
+          {
+            "action": 1,
+            "operation": "python -B tools/ledger_demo.py delayed --request-id request-143 --request-id request-144 --delay 140 --save",
+            "phase": "continuation",
+            "why": "The opening receipt already passed the 90-second window with two distinct IDs, ledger_replay and one row. The deterministic simulator branches on distinctness, not the literal IDs, and the recorded key, workspace and delay are unchanged. This re-run adds ordinary reproducibility, but does not repair the input or resolve another decision."
+          },
+          {
+            "action": 4,
+            "operation": "python -B tools/render_review.py --check",
+            "phase": "continuation",
+            "why": "The preceding action rendered the same three inputs and already passed --check. The receipt/table assertions in this call do not modify the inputs."
+          }
+        ],
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d84906"
+      },
+      "matched_checkpoint_sha256": "0c685fe8cb9c7f9ed7857f654dac03414cd4a24c11155c58d4d9adde250f0724",
+      "measures": {
+        "actions": 4,
+        "charged_seconds": 102.80499604600118,
+        "charged_seconds_lower_bound": 96.048412,
+        "continuation_subprobes": 2,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 24.904976,
+        "first_consequential_worker_seconds": 16.945833,
+        "first_on_goal_seconds": 24.904976,
+        "first_on_goal_worker_seconds": 16.945833,
+        "irrelevant_actions": 1,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0.024435,
+        "prefix_seconds": 9.536607746998925,
+        "prefix_subprobes": 0,
+        "repeated_no_progress_actions": 1,
+        "repeated_shell_seconds": 0.024435,
+        "reviewer_seconds": 7.95914262000224,
+        "routing_seconds_excluded_from_budget": 115.858749,
+        "seconds_after_update": 93.26838829900225,
+        "shell_seconds": 0.223973,
+        "subprobes": 2,
+        "wall_seconds_after_boundary": 209.127137,
+        "worker_seconds_after_boundary": 85.30924567900001
+      },
+      "mode": "steady",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "acceptance_ok": false,
+        "coverage_ok": false,
+        "delivered": false,
+        "draft_ok": true,
+        "fresh_receipt": true,
+        "page_ok": true,
+        "pass": false,
+        "preserved": true,
+        "probe_scenarios": [
+          "delayed",
+          "burst",
+          "workspace",
+          "response-loss"
+        ],
+        "receipt_ok": true,
+        "success": false,
+        "unauthorized_paths": []
+      },
+      "prefix": "d84906",
+      "reasoning_effort": "high",
+      "review_launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "reviewer",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/j41024"
+      },
+      "review_trigger": {
+        "eligible": true,
+        "inquiries_since_non_log_change": [
+          1,
+          3
+        ],
+        "last_non_log_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 3,
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Implementation is pending design approval.",
+                "stream": "stdout"
+              },
+              {
+                "line": "Persist the idempotency record and the ledger entry in the same transaction. A failed response",
+                "stream": "stdout"
+              },
+              {
+                "line": "First pass, design gate: FAIL (2 pending)",
+                "stream": "stdout"
+              },
+              {
+                "line": "A03 expiry: operations source coverage pending and no assertions in the boundary row.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 4
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": true,
+      "reviewer_attempted": true,
+      "reviewer_recorded_seconds": 7.95914262000224,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "x95076": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "ledger_gap",
+      "checkpoint_reason": "six-shell-action-fallback",
+      "eligible": false,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The opening 140-second receipt used one request ID and returned transport_filtered. Prefix action 3 genuinely repaired that input. The saved 140-second replay, separate-workspace, response-loss and short-burst receipts are distinct evidence. Continuation actions 1 and 2 mixed unchanged starter material with the first direct inspection of the saved receipts. The resulting package covers all rows, checks the receipts and register in acceptance_plan.py, plans injected-clock tests at 172799/172800/172801 independent of cleanup, and records a successful renderer check. The expiry proposal does not claim an implemented API response.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "7a6a181a661d5cc9c7a44870e8201318f369b2e850419169c38cd72a67cbc4e1",
+        "subprobes": [
+          {
+            "action": 1,
+            "operation": "cat notes/review-checkpoint.md review/design.md review/source-coverage.csv review/acceptance.csv",
+            "phase": "continuation",
+            "why": "The unchanged starter note, draft and tables had already been read in prefix action 2. These reads add no new evidence about the remaining design choices."
+          },
+          {
+            "action": 2,
+            "operation": "cat sources/api-contract.md sources/ledger-model.md",
+            "phase": "continuation",
+            "why": "These exact source files were already read unchanged in prefix action 2. The saved workspace and burst receipts in the same call are useful."
+          }
+        ],
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/d59316/twin"
+      },
+      "matched_checkpoint_sha256": "9b1048bf2bae56f153873eb422ed0abf788cdbbad56c180daadcfcea3de6d504",
+      "measures": {
+        "actions": 4,
+        "charged_seconds": 103.69620950799799,
+        "charged_seconds_lower_bound": 96.364305,
+        "continuation_subprobes": 2,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 3.825918,
+        "first_consequential_worker_seconds": 3.825918,
+        "first_on_goal_seconds": 3.825918,
+        "first_on_goal_worker_seconds": 3.825918,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 34.77767228799712,
+        "prefix_subprobes": 0,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 150.364298,
+        "seconds_after_update": 68.91853722000087,
+        "shell_seconds": 0.131916,
+        "subprobes": 2,
+        "wall_seconds_after_boundary": 219.282835,
+        "worker_seconds_after_boundary": 68.91853722000087
+      },
+      "mode": "steady",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "acceptance_ok": false,
+        "coverage_ok": false,
+        "delivered": false,
+        "draft_ok": true,
+        "fresh_receipt": true,
+        "page_ok": true,
+        "pass": false,
+        "preserved": false,
+        "probe_scenarios": [
+          "delayed",
+          "burst",
+          "workspace",
+          "response-loss"
+        ],
+        "receipt_ok": true,
+        "success": false,
+        "unauthorized_paths": [
+          "tools/acceptance_plan.py"
+        ]
+      },
+      "prefix": "d59316",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": false,
+        "inquiries_since_non_log_change": [],
+        "last_non_log_change_action": 6,
+        "observations": [
+          {
+            "action": 1,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Implementation is pending design approval.",
+                "stream": "stdout"
+              },
+              {
+                "line": "Persist the idempotency record and the ledger entry in the same transaction. A failed response",
+                "stream": "stdout"
+              },
+              {
+                "line": "First pass, design gate: FAIL (2 pending)",
+                "stream": "stdout"
+              },
+              {
+                "line": "A03 expiry: operations source coverage pending and no assertions in the boundary row.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 4
+          },
+          {
+            "action": 3,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/ledger-recheck.json",
+              "evidence/probe-runs.jsonl"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 4,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/burst-probe.json",
+              "evidence/probe-runs.jsonl"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 5,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/probe-runs.jsonl",
+              "evidence/workspace-probe.json"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 6,
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [
+              "evidence/probe-runs.jsonl",
+              "evidence/response-loss-probe.json"
+            ],
+            "output_only": false,
+            "read_only_by_workspace_diff": false,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    }
+  }
+}

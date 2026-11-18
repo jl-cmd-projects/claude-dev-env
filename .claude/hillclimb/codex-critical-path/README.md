@@ -1,5 +1,7 @@
 # Does Codex return to the user's task?
 
+The [planning decision trial](design_slice_results.md) recorded redundant probes and one incorrect acceptance plan across 11 Codex outcomes. Both eligible reviewers passed without sending advice, so the paired outcome difference does not establish a reviewer effect.
+
 The [multi-step trajectory comparison](pivot_results.md) preserved eight workers' histories across matched cloud continuations and kept one early-finishing reserve. All 17 produced the requested files. Two independent readers found zero sustained diversions or needed follow-up nudges. Review added 8.15 seconds to median paired completion time.
 
 The [pre-nudge handoff comparison](pre_nudge_results.md) tested 50 fresh first-dispatch decisions. A case-specific warning improved pressure handoffs from 2/6 to 5/6 and an additional reviewer to 6/6. The portable wording did not reproduce the gain on either the development or independent case.
