@@ -108,6 +108,15 @@ def test_should_let_a_later_split_request_withdraw_an_approval(tmp_path: Path) -
     assert approval.has_user_approved_oversized_pull_request(path) is False
 
 
+def test_should_read_the_text_blocks_of_one_message_together(tmp_path: Path) -> None:
+    content = [
+        {"type": "text", "text": APPROVAL_TEXT},
+        {"type": "text", "text": "Split it after all."},
+    ]
+    path = _transcript(tmp_path, _user_record(content))
+    assert approval.has_user_approved_oversized_pull_request(path) is False
+
+
 def test_should_let_a_later_approval_replace_a_split_request(tmp_path: Path) -> None:
     path = _transcript(tmp_path, _user_record("Split that."), _user_record(APPROVAL_TEXT))
     assert approval.has_user_approved_oversized_pull_request(path) is True

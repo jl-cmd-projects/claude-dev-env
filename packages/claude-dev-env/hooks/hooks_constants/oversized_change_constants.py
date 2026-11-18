@@ -62,6 +62,7 @@ ROLE_KEY = "role"
 CONTENT_KEY = "content"
 TEXT_KEY = "text"
 TEXT_BLOCK_TYPE = "text"
+TEXT_BLOCK_JOINER = "\n"
 TOOL_RESULT_BLOCK_TYPE = "tool_result"
 ALL_SKIPPED_RECORD_FLAGS = ("isCompactSummary", "isSidechain")
 META_RECORD_FLAG = "isMeta"

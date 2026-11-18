@@ -57,6 +57,7 @@ from hooks_constants.oversized_change_constants import (
     SIZE_SUBJECT_PATTERN,
     SPLIT_WORD_PATTERN,
     STRAIGHT_APOSTROPHE,
+    TEXT_BLOCK_JOINER,
     TEXT_BLOCK_TYPE,
     TEXT_KEY,
     TOOL_RESULT_BLOCK_TYPE,
@@ -172,7 +173,7 @@ def _user_typed_texts(transcript_line: str) -> Iterator[str]:
         return
     if all_record_fields.get(META_RECORD_FLAG) or origin_kind not in ALL_TYPED_ORIGIN_KINDS:
         return
-    yield from (
+    yield TEXT_BLOCK_JOINER.join(
         each_text for each_text in all_block_texts if not LEADING_TAG_PATTERN.match(each_text)
     )
 
