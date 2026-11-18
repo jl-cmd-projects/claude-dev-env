@@ -3,17 +3,28 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from collections import Counter
-from pathlib import Path
-from typing import TYPE_CHECKING, TypedDict
+from dataclasses import dataclass
+from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING, NotRequired, TypedDict
 
-from tests.behavior.scope_drift import intake_probe, suite
+import pytest
+
+from tests.behavior.scope_drift import intake_probe, recall_driver, suite
+from tests.behavior.scope_drift.config import recall as protocol
 
 if TYPE_CHECKING:
     from tests.behavior.scope_drift.intake_probe import IntakeCase
 
 
 PUBLISHED_SEED = 4719
+BASELINE_INSTRUCTIONS_SHA256 = (
+    "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f"
+)
+BASELINE_HOOK_MANIFEST_SHA256 = (
+    "4502d9aab8ec5e62dceed55813b1ac93fd9994239ae1fff8d77d223305e2a78c"
+)
 ALL_CONDITIONS = (
     ("full", "baseline", 1),
     ("partial", "baseline", 1),
@@ -49,8 +60,15 @@ class _CapturedDelivery(TypedDict):
     recipient_loaded_sha256: str
     sender_loaded_sha256: str
     sender_input_sha256: str
+    sender_session_path: NotRequired[str]
     changes: dict[str, str | None]
     probe: _CapturedProbe
+
+
+@dataclass(frozen=True)
+class _BaselineInputs:
+    instructions: bytes
+    hooks_by_path: dict[str, bytes] | None
 
 
 def _read_captures() -> list[_CapturedDelivery]:
@@ -58,6 +76,57 @@ def _read_captures() -> list[_CapturedDelivery]:
     return [
         json.loads(line) for line in evidence.read_text(encoding="utf-8").splitlines()
     ]
+
+
+def _checked_out_hooks(repository: Path) -> dict[str, bytes] | None:
+    all_hooks = {}
+    for each_name in protocol.ALL_HOOK_SOURCES:
+        path = repository / protocol.HOOK_PACKAGE / each_name
+        if not path.is_file():
+            return None
+        all_hooks[each_name] = path.read_bytes()
+    all_digests = {name: suite.digest(source) for name, source in all_hooks.items()}
+    manifest = json.dumps(all_digests, sort_keys=True).encode()
+    if suite.digest(manifest) != BASELINE_HOOK_MANIFEST_SHA256:
+        return None
+    return all_hooks
+
+
+@pytest.fixture(scope="module")
+def baseline_inputs() -> _BaselineInputs:
+    """Load pinned trial inputs or verify identical files in a shallow checkout."""
+    pinned_commit = subprocess.run(
+        ["git", "cat-file", "-e", f"{suite.BASELINE}^{{commit}}"],
+        cwd=suite.ROOT,
+        capture_output=True,
+        check=False,
+    )
+    if pinned_commit.returncode == 0:
+        return _BaselineInputs(
+            suite.instructions("baseline"),
+            {
+                name: recall_driver._pinned_file(f"{protocol.HOOK_PACKAGE}/{name}")
+                for name in protocol.ALL_HOOK_SOURCES
+            },
+        )
+
+    repository_state = subprocess.check_output(
+        ["git", "rev-parse", "--is-shallow-repository", "--show-toplevel"],
+        cwd=suite.ROOT,
+        text=True,
+    )
+    shallow, repository = repository_state.splitlines()
+    if shallow != "true":
+        pinned_commit.check_returncode()
+    prompt = Path(repository) / suite.PROMPT
+    if prompt.is_file():
+        instructions = prompt.read_bytes()
+        if suite.digest(instructions) == BASELINE_INSTRUCTIONS_SHA256:
+            return _BaselineInputs(instructions, _checked_out_hooks(Path(repository)))
+    pytest.skip(
+        "The pinned Sol prompt is outside this shallow checkout and the checked-out "
+        "prompt cannot be verified against the archived baseline digest."
+    )
 
 
 def _delivery_key(capture: _CapturedDelivery) -> tuple[str, str, str, int]:
@@ -149,19 +218,22 @@ def _replay_delivery(
     assert (
         brief_digest == capture["brief_sha256"] == capture["transferred_brief_sha256"]
     )
-
-    grade = _replay_probes(case, work)
-    assert grade == capture["probe"], _delivery_key(capture)
     manifest = _workspace_manifest(work)
     assert manifest == all_files
     all_file_digests = {
         name: suite.digest(content) for name, content in manifest.items()
     }
     assert all_file_digests == capture["recipient_after_sha256"], _delivery_key(capture)
+
+    grade = _replay_probes(case, work)
+    assert grade == capture["probe"], _delivery_key(capture)
+    assert _workspace_manifest(work) == manifest
     return grade
 
 
-def test_replays_captured_intake_deliveries(tmp_path: Path) -> None:
+def test_replays_captured_intake_deliveries(
+    tmp_path: Path, baseline_inputs: _BaselineInputs
+) -> None:
     """Verify the durable roster, transferred bytes, and probe outcomes."""
     all_cases = intake_probe.read_cases()
     all_captures = _read_captures()
@@ -173,7 +245,7 @@ def test_replays_captured_intake_deliveries(tmp_path: Path) -> None:
     assert Counter(map(_delivery_key, all_captures)) == all_expected
     assert len(all_captures) == 14
 
-    instructions = suite.instructions("baseline")
+    instructions = baseline_inputs.instructions
     probe_totals: Counter[tuple[str, str]] = Counter()
     for each_index, each_capture in enumerate(all_captures):
         work = tmp_path / str(each_index)
@@ -189,3 +261,56 @@ def test_replays_captured_intake_deliveries(tmp_path: Path) -> None:
         ("clipped", "baseline"): 1,
         ("clipped", "candidate"): 2,
     }
+
+
+def _sender_packet(
+    case: IntakeCase,
+    capture: _CapturedDelivery,
+    local_session: Path,
+    baseline: _BaselineInputs,
+    hooks_by_path: dict[str, bytes],
+) -> bytes:
+    if capture["cohort"] == "full":
+        assert "sender_session_path" not in capture
+        return baseline.instructions
+    if capture["cohort"] == "clipped":
+        case = intake_probe.compact_case(case)
+    original_session = PurePosixPath(capture["sender_session_path"])
+    assert original_session.is_absolute() and original_session.name == protocol.SESSION
+    _materialize(
+        local_session,
+        {
+            **{f"hooks/{path}": source for path, source in hooks_by_path.items()},
+            protocol.TRANSCRIPT: recall_driver._transcript_bytes(case["original"]),
+        },
+    )
+    common = recall_driver._compact_context(local_session)
+    delivered, clipped = recall_driver.context_for_arm(
+        common, capture["arm"], original_session
+    )
+    assert clipped
+    return b"\n\n".join((baseline.instructions, delivered, case["summary"].encode()))
+
+
+def test_reconstructs_intake_sender_packets(
+    tmp_path: Path, baseline_inputs: _BaselineInputs
+) -> None:
+    """Rebuild and hash the sender's delivered instructions for each trial."""
+    hooks_by_path = baseline_inputs.hooks_by_path
+    if hooks_by_path is None:
+        pytest.skip(
+            "The pinned recall hook is outside this shallow checkout and the "
+            "checked-out hook dependencies cannot be verified against its manifest."
+        )
+    all_cases = intake_probe.read_cases()
+    for each_index, each_capture in enumerate(_read_captures()):
+        packet = _sender_packet(
+            all_cases[each_capture["case"]],
+            each_capture,
+            tmp_path / str(each_index),
+            baseline_inputs,
+            hooks_by_path,
+        )
+        assert suite.digest(packet) == each_capture["sender_input_sha256"], (
+            _delivery_key(each_capture)
+        )
