@@ -6,7 +6,7 @@ One question per item, no chat list: two or three choices, each a label and sent
 
 Question tools: Claude `AskUserQuestion`, Codex `request_user_input_async` or `request_user_input`. Honor mode rules. Its fields hold question and choices; if unusable, ask in chat.
 
-End a user-started session with a card per open item or end on `Open items: none.`; a Claude hook holds the stop.
+End a user-started session with a card per open item. While work is in progress, end on an `In progress:` footer, one plain-words list item per piece of running work; with nothing running, end with no closing line. A Claude hook holds the stop.
 
 Read the full text for a step handover, option cards, or Codex visual comparison.
 
