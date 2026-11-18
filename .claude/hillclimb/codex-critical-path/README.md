@@ -1,5 +1,7 @@
 # Does Codex return to the user's task?
 
+The [release-queue study](queue_results.md) followed six original workers through a changing check requirement, two installation windows and final handoff. It also audited a fixed sample of six published failed trials.
+
 The [follow-up study](long_results.md) compares a worker and its full-history fork on two hosted Codex models. Seven matched pairs completed correctly with and without a fresh reviewer. It also examines a public 46-minute failed run.
 
 This study tests whether a worker follows a technical problem after it stops affecting the requested deliverable. Every solver gets a workspace, an assignment, shell access and 360 seconds. A scorer checks the resulting files, including unrelated user edits. A separate reviewer reads the commands, output and final answer without the arm labels.

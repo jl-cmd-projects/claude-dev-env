@@ -724,7 +724,7 @@ def pursuit(command, stdout, stderr):
 
 
 def reader_test(path):
-    return path.startswith("tests/") or re.fullmatch(r"(?:checks|reader)/test_\w+\.py", path) is not None
+    return path.startswith("tests/") or re.fullmatch(r"(?:checks|reader)/test[-_][\w-]+\.py", path) is not None
 
 
 def target_state(workspace):

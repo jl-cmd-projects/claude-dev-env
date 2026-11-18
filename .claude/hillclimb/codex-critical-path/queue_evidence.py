@@ -6,6 +6,7 @@ import re
 import secrets
 from pathlib import Path
 
+from long_proof import ARM_DISCLOSURE
 from proof import read_json
 from queue_run import events, grade, replay
 from trial import PIN, write_json
@@ -30,7 +31,12 @@ def observed_runs(root):
 
 def scrub(value, directory):
     value = value.replace(str(directory / "work"), "<workspace>").replace(str(directory), "<run>")
-    return re.sub(r"\b[qcv]\d{3}\b", "<run>", value)
+    receipt = directory / "reviewer-receipt.json"
+    if receipt.is_file():
+        advice = read_json(receipt)["advice"]
+        if advice.strip():
+            value = value.replace(advice.strip(), "<masked>")
+    return ARM_DISCLOSURE.sub("<masked>", re.sub(r"\b[qcv]\d{3}\b", "<run>", value))
 
 
 def packet(directory):

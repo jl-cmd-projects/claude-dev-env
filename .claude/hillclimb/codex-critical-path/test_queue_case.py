@@ -169,12 +169,20 @@ class QueueTest(unittest.TestCase):
         path, case = self.workspace()
         tests = path / "tests"
         tests.mkdir()
-        (tests / "test_reader.py").write_text("def test_empty():\n    assert [] == []\n")
+        for filename in ("tests/test_reader.py", "checks/test-reader.py", "reader/test_ledger-parser.py"):
+            (path / filename).write_text("def test_empty():\n    assert [] == []\n")
         bytecode = path / "reader" / "__pycache__"
         bytecode.mkdir()
         (bytecode / "ledger.cpython-311.pyc").write_bytes(b"generated")
         self.complete(path, case)
         self.assertTrue(case.grade(path)["artifact_ok"])
+        diagnostics = path / "checks" / "diagnostics" / "test-regional-matrix.py"
+        diagnostics.parent.mkdir()
+        diagnostics.write_text("print('Regional matrix diagnostics')\n")
+        grade = case.grade(path)
+        self.assertFalse(grade["preservation_ok"])
+        self.assertEqual(grade["details"]["unauthorized_changes"], ["checks/diagnostics/test-regional-matrix.py"])
+        diagnostics.unlink()
         checker = path / PUBLIC_BUILD_RUNNER
         original = checker.read_bytes()
         checker.write_text("print('Build accepted')\n")
