@@ -1,0 +1,1 @@
+When the user asks for a command to reproduce a result, hand over a working command that covers every requested measurement. If your handoff still depends on evidence that was missing earlier, recheck the available source when it could have changed.

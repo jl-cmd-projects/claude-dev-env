@@ -1,0 +1,189 @@
+{
+  "seed": "portable-pre-dispatch-20261118",
+  "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+  "candidate_sha256": "88e90d94445a4e86d49cb54aa504ae912f96bb68d80365549f46d314ad5e93cf",
+  "development": [
+    {
+      "suite": "pressure",
+      "case": "h7218",
+      "model": "gpt-6.1-sol",
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "h7218-gpt-6.1-sol",
+      "id": "k58184"
+    },
+    {
+      "suite": "pressure",
+      "case": "h7218",
+      "model": "gpt-6.2-sol",
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "h7218-gpt-6.2-sol",
+      "id": "k59043"
+    },
+    {
+      "suite": "pressure",
+      "case": "h7218",
+      "model": "gpt-6.1-sol",
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "h7218-gpt-6.1-sol",
+      "id": "k70277"
+    },
+    {
+      "suite": "pressure",
+      "case": "h3660",
+      "model": "gpt-6.2-sol",
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "h3660-gpt-6.2-sol",
+      "id": "k90636"
+    },
+    {
+      "suite": "pressure",
+      "case": "h4586",
+      "model": "gpt-6.2-sol",
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "h4586-gpt-6.2-sol",
+      "id": "k70320"
+    },
+    {
+      "suite": "pressure",
+      "case": "h3660",
+      "model": "gpt-6.2-sol",
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "h3660-gpt-6.2-sol",
+      "id": "k64724"
+    },
+    {
+      "suite": "pressure",
+      "case": "h4586",
+      "model": "gpt-6.2-sol",
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "h4586-gpt-6.2-sol",
+      "id": "k72739"
+    },
+    {
+      "suite": "pressure",
+      "case": "h7218",
+      "model": "gpt-6.2-sol",
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "h7218-gpt-6.2-sol",
+      "id": "k54617"
+    }
+  ],
+  "holdout": [
+    {
+      "suite": "independent",
+      "case": "arrived",
+      "model": "gpt-6.1-sol",
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "arrived-gpt-6.1-sol",
+      "id": "k54317"
+    },
+    {
+      "suite": "independent",
+      "case": "omitted",
+      "model": "gpt-6.2-sol",
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "omitted-gpt-6.2-sol",
+      "id": "k29652"
+    },
+    {
+      "suite": "independent",
+      "case": "waiting",
+      "model": "gpt-6.1-sol",
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "waiting-gpt-6.1-sol",
+      "id": "k97732"
+    },
+    {
+      "suite": "independent",
+      "case": "omitted",
+      "model": "gpt-6.1-sol",
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "omitted-gpt-6.1-sol",
+      "id": "k30203"
+    },
+    {
+      "suite": "independent",
+      "case": "arrived",
+      "model": "gpt-6.2-sol",
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "arrived-gpt-6.2-sol",
+      "id": "k13927"
+    },
+    {
+      "suite": "independent",
+      "case": "waiting",
+      "model": "gpt-6.1-sol",
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "waiting-gpt-6.1-sol",
+      "id": "k60043"
+    },
+    {
+      "suite": "independent",
+      "case": "omitted",
+      "model": "gpt-6.1-sol",
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "omitted-gpt-6.1-sol",
+      "id": "k32277"
+    },
+    {
+      "suite": "independent",
+      "case": "waiting",
+      "model": "gpt-6.2-sol",
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "waiting-gpt-6.2-sol",
+      "id": "k99363"
+    },
+    {
+      "suite": "independent",
+      "case": "arrived",
+      "model": "gpt-6.1-sol",
+      "arm": "candidate",
+      "reasoning_effort": "high",
+      "pair": "arrived-gpt-6.1-sol",
+      "id": "k48941"
+    },
+    {
+      "suite": "independent",
+      "case": "arrived",
+      "model": "gpt-6.2-sol",
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "arrived-gpt-6.2-sol",
+      "id": "k13093"
+    },
+    {
+      "suite": "independent",
+      "case": "waiting",
+      "model": "gpt-6.2-sol",
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "waiting-gpt-6.2-sol",
+      "id": "k34779"
+    },
+    {
+      "suite": "independent",
+      "case": "omitted",
+      "model": "gpt-6.2-sol",
+      "arm": "baseline",
+      "reasoning_effort": "high",
+      "pair": "omitted-gpt-6.2-sol",
+      "id": "k66495"
+    }
+  ]
+}
