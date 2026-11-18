@@ -2,6 +2,8 @@
 
 The candidate supplied a continuation for **2 of 2** frozen closing responses that left an authorized delivery unfinished. The existing Stop gate supplied none. Both versions let the five explicit stop controls close. The candidate also supplied no second continuation across the seven repeated Stop events. The same two continuation decisions and five passes occurred on the candidate's `SubagentStop` command path. The baseline package did not register a child Stop gate. [Stop receipts](stop_receipts.json)
 
+A native `item_completed` user message exposed an additional cancellation regression. Before the parsing correction, both installed event paths treated an explicit stop, cancellation or status-only request as unfinished. The regression suite sends each of those requests, an authorized transfer and a verified transfer through both commands. The corrected handlers permit cancellation and completion, issue one continuation for the authorized transfer, and accept every repeated stop.
+
 The hosted study measured what workers did with the continuation. An operator gave fresh GPT-6.2 Sol High workers the same frozen closing point, assignment and disposable receiver. One arm got a neutral review request. The other got the same request plus the exact reason emitted by the candidate command when it held the stop. The two unfinished cases and three primary controls ran twice per arm. The ambiguous owner-hold control ran once per arm.
 
 | Observed result | Neutral review | Candidate response when emitted |

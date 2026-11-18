@@ -212,8 +212,9 @@
     }
   ],
   "verified_hook_sha256": {
-    "packages/claude-dev-env/hooks/blocking/codex_continuation_review.py": "b521c1001bacdf0d38a3bfaf5de214475c4c4ae0142032862a0704acc4586eb2",
-    "packages/claude-dev-env/hooks/blocking/open_tasks_stop_gate.py": "3ee8d7f0d0c1713e63067d997e53e72f0f1ea1ae564e4565ca4272215a0c1f1d",
-    "packages/claude-dev-env/hooks/hooks_constants/codex_continuation_constants.py": "f160ba0b8705408735c913ff6864631ec97a83e46367400b77bf9818500805a5"
+    "packages/claude-dev-env/hooks/blocking/codex_continuation_review.py": "05e7c1053e86d7f9350ea911fc93965f8eb4d79d089dc7b232d26fd9303ec707",
+    "packages/claude-dev-env/hooks/blocking/open_tasks_stop_gate.py": "d6484539782daff2ab13ebab3a7a774f8af84504ab1ff1afef808a9ec89158b1",
+    "packages/claude-dev-env/hooks/blocking/open_tasks_transcript_records.py": "6ba3908de875422acfd247d2b013a41b886c63dc071eb392289abfbc3f5b8fa2",
+    "packages/claude-dev-env/hooks/hooks_constants/codex_continuation_constants.py": "dede08f89650850253497612bc5d44e7069a6c0ad358601a3faa5742157916de"
   }
 }
