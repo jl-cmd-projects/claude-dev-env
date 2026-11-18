@@ -25,6 +25,8 @@ Both affirmative decisions contained only `APPROVED`. The workers read the authe
 
 The [launch manifest](evidence/launch.json) binds the assignment, instruction and work-order hashes, and canonical hosted task handle to the [service receipts and final report](evidence/receipts.jsonl). Each pair used the same prompt, files, loopback address, and GPT-6.2 Sol High request. The service ran from the immutable fixture revision in the manifest. The controller recorded each worker-to-service assignment. An independent reviewer matched all sixteen archived journals, states, and final messages to the per-run files. The replay rejects reuse of a journal and state across workers. The hosted platform did not provide signed assignment receipts or its internal model snapshot. The worker reads the project instructions inside its hosted environment. This comparison supports retaining the installed text. No user confirmation setting or runtime instruction changed.
 
+A [follow-up with two groups of six fresh workers](discovery/README.md) places the decision behind the connector’s Activity entry and puts a stale draft confirmation question in the handoff. Both instruction texts completed the two approved actions and asked only about the materially expanded rollout.
+
 ## Reproduce
 
 From the repository root:

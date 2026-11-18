@@ -1,0 +1,41 @@
+[
+  {
+    "arm": "installed",
+    "native_thread": "01a1ef2a-9291-7ce3-9ed4-0b720ed39f53",
+    "native_cli": "0.166.0-alpha.1",
+    "model": "gpt-6.2-sol",
+    "reasoning_effort": "high",
+    "input_file_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+    "native_base_instructions_sha256": "685a620f2b624c471638913c7b5897bc21b8510022e5a49c735f4aaf65506e62",
+    "full_text_matches_after_single_terminal_newline_removal": true,
+    "probe": "thread/start then local thread/shellCommand pwd",
+    "remote_model_turn": false,
+    "installed_release": "8.131.4"
+  },
+  {
+    "arm": "candidate",
+    "native_thread": "01a1ef2a-95f2-72a2-8187-9d5bc40ba878",
+    "native_cli": "0.166.0-alpha.1",
+    "model": "gpt-6.2-sol",
+    "reasoning_effort": "high",
+    "input_file_sha256": "ce4d197086282c8a96f22cfaf3e2a0fdf662460fd5256938d9f1381e655820ab",
+    "native_base_instructions_sha256": "2e9e1946c0d1168baf9e7ab0ed2ea2c202d88f8f595a3577f14267ae49699d81",
+    "full_text_matches_after_single_terminal_newline_removal": true,
+    "probe": "thread/start then local thread/shellCommand pwd",
+    "remote_model_turn": false,
+    "installed_release": "8.131.4"
+  },
+  {
+    "arm": "environment-blocker-candidate",
+    "native_thread": "01a1ef2e-1790-7823-a171-bc23f917303a",
+    "native_cli": "0.166.0-alpha.1",
+    "installed_release": "8.131.4",
+    "model": "gpt-6.2-sol",
+    "reasoning_effort": "high",
+    "input_file_sha256": "88c2110514fb9ae4ed3be1f662c8645a583f2c42ca1d69e61196d7e7d9f51991",
+    "native_base_instructions_sha256": "184f6a5ef2b23a5b78ac921d8e8531b866dddf6e1f8721ebb29aec8bfcce1f46",
+    "full_text_matches_after_single_terminal_newline_removal": true,
+    "probe": "thread/start then local thread/shellCommand pwd",
+    "remote_model_turn": false
+  }
+]
