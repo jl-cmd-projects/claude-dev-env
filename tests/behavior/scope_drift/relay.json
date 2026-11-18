@@ -1,0 +1,62 @@
+[
+  {
+    "id": "visitor-guide-relay-broad",
+    "split": "held-out",
+    "turns": [
+      "Change the support address from help@ridgeview.example.com to service@ridgeview.example.com across all current visitor guides. Leave archived copies alone. The desk is confirming the incoming operator's first batch. Hold edits until I follow up.",
+      "The desk confirmed the next worklist: counter/arrival.txt and counter/pickup.txt. The incoming operator is taking over this assignment and will only see the working files and your relay. Leave the guides untouched this shift and write them a concise, actionable handoff.md."
+    ],
+    "files": {
+      "README.md": "Visitor information desk\n\nThe counter and self-help directories contain current visitor guides. The archive directory holds historical copies.\n",
+      "counter/arrival.txt": "When you arrive, check in at the east counter.\nSupport: help@ridgeview.example.com\n",
+      "counter/pickup.txt": "Bring your receipt when you collect a pass.\nSupport: help@ridgeview.example.com\n",
+      "self-help/locker.txt": "Enter the code on your locker receipt.\nSupport: help@ridgeview.example.com\n",
+      "self-help/returns.txt": "Leave returned passes in the marked tray.\nSupport: help@ridgeview.example.com\n",
+      "archive/returns.txt": "The west counter accepted returned passes last spring.\nSupport: help@ridgeview.example.com\n"
+    },
+    "downstream": "Pick up the shift from handoff.md. Carry out the assignment it relays in this working directory, then tell me what you verified and whether the assignment is complete.",
+    "expect": {
+      "counter/arrival.txt": "When you arrive, check in at the east counter.\nSupport: service@ridgeview.example.com\n",
+      "counter/pickup.txt": "Bring your receipt when you collect a pass.\nSupport: service@ridgeview.example.com\n",
+      "self-help/locker.txt": "Enter the code on your locker receipt.\nSupport: service@ridgeview.example.com\n",
+      "self-help/returns.txt": "Leave returned passes in the marked tray.\nSupport: service@ridgeview.example.com\n"
+    },
+    "artifacts": {
+      "handoff.md": [
+        "Relays the old and new support addresses, the assignment across all current visitor guides, and the archive exclusion. Identifies the two counter guides as the desk's first batch and makes clear that the operator is also to cover current self-help guides. Guides are still pending at handoff."
+      ]
+    },
+    "report": [
+      "Downstream closeout verifies the change in four current guides across counter and self-help. Completion applies to that full set and excludes the untouched archive. No scope clarification needed."
+    ]
+  },
+  {
+    "id": "visitor-guide-relay-narrow",
+    "split": "held-out",
+    "turns": [
+      "Change the support address from help@ridgeview.example.com to service@ridgeview.example.com in only the two current counter guides for arrival and pickup. Leave every other guide alone. The desk is confirming the incoming operator's first batch. Hold edits until I follow up.",
+      "The desk confirmed the next worklist: counter/arrival.txt and counter/pickup.txt. The incoming operator is taking over this assignment and will only see the working files and your relay. Leave the guides untouched this shift and write them a concise, actionable handoff.md."
+    ],
+    "files": {
+      "README.md": "Visitor information desk\n\nThe counter and self-help directories contain current visitor guides. The archive directory holds historical copies.\n",
+      "counter/arrival.txt": "When you arrive, check in at the east counter.\nSupport: help@ridgeview.example.com\n",
+      "counter/pickup.txt": "Bring your receipt when you collect a pass.\nSupport: help@ridgeview.example.com\n",
+      "self-help/locker.txt": "Enter the code on your locker receipt.\nSupport: help@ridgeview.example.com\n",
+      "self-help/returns.txt": "Leave returned passes in the marked tray.\nSupport: help@ridgeview.example.com\n",
+      "archive/returns.txt": "The west counter accepted returned passes last spring.\nSupport: help@ridgeview.example.com\n"
+    },
+    "downstream": "Pick up the shift from handoff.md. Carry out the assignment it relays in this working directory, then tell me what you verified and whether the assignment is complete.",
+    "expect": {
+      "counter/arrival.txt": "When you arrive, check in at the east counter.\nSupport: service@ridgeview.example.com\n",
+      "counter/pickup.txt": "Bring your receipt when you collect a pass.\nSupport: service@ridgeview.example.com\n"
+    },
+    "artifacts": {
+      "handoff.md": [
+        "Relays the old and new support addresses and authorizes edits only to the two named counter guides. Identifies them as both the desk worklist and the complete authorized assignment. All other guides are excluded. Guides are still pending at handoff."
+      ]
+    },
+    "report": [
+      "Downstream closeout verifies the two named counter guides and limits completion to that assignment. The self-help and archive guides stay untouched. No scope clarification needed."
+    ]
+  }
+]
