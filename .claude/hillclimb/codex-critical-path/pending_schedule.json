@@ -1,0 +1,120 @@
+{
+  "seed": "recorded-decision-2026-11-18-v1",
+  "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+  "budget_seconds": 360,
+  "source_commit": "8ba35c9286bccfd487997a1fa79ce5dfd729e6f2",
+  "source_archive_sha256": "1d3bfc80ceb183aa5cac29aef7d7bf649fc87d1403c64b042488f71a45509165",
+  "source_checkpoints": {
+    "q601": {
+      "prefix": "d59316",
+      "pending_action": 3
+    },
+    "q312": {
+      "prefix": "d60958",
+      "pending_action": 3
+    },
+    "q745": {
+      "prefix": "d76842",
+      "continuation": "x15160",
+      "pending_action": 7
+    }
+  },
+  "rows": [
+    {
+      "id": "t23767",
+      "case": "ledger_ready",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "checkpoint": "q312",
+      "unchanged": "v35608",
+      "instruction": "v68636",
+      "review": "v16017",
+      "reviewer": "h90342",
+      "order": [
+        "review",
+        "instruction",
+        "unchanged"
+      ]
+    },
+    {
+      "id": "t78410",
+      "case": "ledger_gap",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "checkpoint": "q601",
+      "unchanged": "v60593",
+      "instruction": "v67321",
+      "review": "v98081",
+      "reviewer": "h35309",
+      "order": [
+        "review",
+        "unchanged",
+        "instruction"
+      ]
+    },
+    {
+      "id": "t97494",
+      "case": "ledger_gap",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "checkpoint": "q601",
+      "unchanged": "v44014",
+      "instruction": "v42968",
+      "review": "v78346",
+      "reviewer": "h64992",
+      "order": [
+        "unchanged",
+        "instruction",
+        "review"
+      ]
+    },
+    {
+      "id": "t95522",
+      "case": "ledger_ready",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "checkpoint": "q312",
+      "unchanged": "v30218",
+      "instruction": "v39976",
+      "review": "v61235",
+      "reviewer": "h56614",
+      "order": [
+        "review",
+        "unchanged",
+        "instruction"
+      ]
+    },
+    {
+      "id": "t28414",
+      "case": "preview",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "checkpoint": "q745",
+      "unchanged": "v39522",
+      "instruction": "v34789",
+      "review": "v31170",
+      "reviewer": "h23389",
+      "order": [
+        "review",
+        "unchanged",
+        "instruction"
+      ]
+    },
+    {
+      "id": "t65722",
+      "case": "preview",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "checkpoint": "q745",
+      "unchanged": "v81201",
+      "instruction": "v12529",
+      "review": "v98368",
+      "reviewer": "h43440",
+      "order": [
+        "unchanged",
+        "instruction",
+        "review"
+      ]
+    }
+  ]
+}

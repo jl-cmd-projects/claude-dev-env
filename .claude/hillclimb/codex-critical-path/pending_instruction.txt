@@ -1,0 +1,1 @@
+When a check is about to repeat an earlier investigation, use the evidence already in hand if it answers the decision you face. If the evidence missed a relevant condition or might have changed, check that condition. Continue with the work the user still needs.
