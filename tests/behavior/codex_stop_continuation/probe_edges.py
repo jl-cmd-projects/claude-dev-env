@@ -4,7 +4,14 @@ import argparse
 from pathlib import Path
 
 from tests.behavior.codex_stop_continuation.run_study import (
-    DEFAULT_RECEIVER, REPO_ROOT, STOP_HOOK, load_cases, response_item, serve, stop_matrix, write_json,
+    DEFAULT_RECEIVER,
+    REPO_ROOT,
+    STOP_HOOK,
+    load_cases,
+    response_item,
+    serve,
+    stop_matrix,
+    write_json,
 )
 
 

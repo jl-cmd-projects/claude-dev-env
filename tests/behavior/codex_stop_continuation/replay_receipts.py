@@ -10,7 +10,14 @@ from tempfile import TemporaryDirectory
 
 from tests.behavior.codex_stop_continuation.probe_edges import edge_cases
 from tests.behavior.codex_stop_continuation.run_study import (
-    DEFAULT_RECEIVER, EFFORT, MAX_SECONDS, MODEL, ROOT, digest, load_cases, work_state,
+    DEFAULT_RECEIVER,
+    EFFORT,
+    MAX_SECONDS,
+    MODEL,
+    ROOT,
+    digest,
+    load_cases,
+    work_state,
 )
 
 sys.path.insert(0, str(DEFAULT_RECEIVER))

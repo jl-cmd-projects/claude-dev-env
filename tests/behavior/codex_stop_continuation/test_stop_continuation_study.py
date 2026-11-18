@@ -5,7 +5,11 @@ from pathlib import Path
 
 import pytest
 
-from tests.behavior.codex_stop_continuation.replay_receipts import DELIVERY_CASES, replay, replay_state
+from tests.behavior.codex_stop_continuation.replay_receipts import (
+    DELIVERY_CASES,
+    replay,
+    replay_state,
+)
 from tests.behavior.codex_stop_continuation.run_study import ROOT, load_cases
 
 RECEIPTS = ROOT / "hosted_receipts.jsonl"

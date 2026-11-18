@@ -31,16 +31,16 @@ def _unquoted(text: str) -> list[str]:
     return [QUOTED_EXAMPLE.sub(WORD_SEPARATOR, WORD_SEPARATOR.join(part.split())) for part in prose_paragraphs(text)]
 
 
-def _warrants_review(match: Match[str], clause: str, nearby: list[str], has_question: bool) -> bool:
+def _warrants_review(match: Match[str], clause: str, all_nearby: list[str], has_question: bool) -> bool:
     if NEGATED_STATUS.search(clause[:match.start()]) or RESOLVED_STATUS.search(clause[match.end():]):
         return False
-    explanation = WORD_SEPARATOR.join([clause, *nearby])
+    explanation = WORD_SEPARATOR.join([clause, *all_nearby])
     protected = PROTECTED_DECISION.search(explanation)
     if APPROVAL_SUBJECT.search(clause) and (has_question or protected):
         return False
     is_wait = WAIT_SUBJECT.fullmatch(match.group())
     has_wake = REGISTERED_WAKE.search(clause) or any(
-        WAKE_EXPLANATION.match(part) and REGISTERED_WAKE.search(part) for part in nearby
+        WAKE_EXPLANATION.match(part) and REGISTERED_WAKE.search(part) for part in all_nearby
     )
     return not (is_wait and (has_wake or protected))
 
