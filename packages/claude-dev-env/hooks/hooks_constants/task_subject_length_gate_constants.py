@@ -30,7 +30,7 @@ MAXIMUM_SUBJECT_CHARACTERS = 80
 
 _SHORTEN_INSTRUCTION = (
     " The user reads the task list to see where things stand and what is left."
-    " Write a short subject: start with who acts (Me, You, or Handed off) and say what is left,"
+    " Write a short subject: start with who acts (Me, You, or Worker for a subagent or another session) and say what is left,"
     ' for example "You: one live try on your PC, then the pull request can merge".'
     " Put status detail, evidence and steps in the description."
 )
