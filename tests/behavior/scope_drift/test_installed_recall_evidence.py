@@ -16,6 +16,8 @@ from tests.behavior.scope_drift import suite
 
 with pytest.MonkeyPatch.context() as import_context:
     import_context.setitem(sys.modules, "suite", suite)
+    import_context.setitem(sys.modules, "config", importlib.import_module("tests.behavior.scope_drift.config"))
+    import_context.setitem(sys.modules, "config.scope", importlib.import_module("tests.behavior.scope_drift.config.scope"))
     recall = importlib.import_module("tests.behavior.scope_drift.recall_driver")
     apply_changes = importlib.import_module("tests.behavior.scope_drift.replay").apply_captured_changes
 
@@ -56,7 +58,7 @@ def check_wave(source: Path, cases: dict) -> tuple[dict, list]:
 
 
 def test_installed_waves_reproduce_their_destinations_and_review_inputs() -> None:
-    known = subprocess.run(["git", "cat-file", "-e", f"{suite.BASELINE}^{{commit}}"], cwd=suite.ROOT, capture_output=True)
+    known = subprocess.run(["git", "cat-file", "-e", f"{suite.BASELINE}^{{commit}}"], cwd=suite.ROOT, capture_output=True, check=False)
     if known.returncode and subprocess.check_output(["git", "rev-parse", "--is-shallow-repository"], cwd=suite.ROOT).strip() == b"true":
         pytest.skip("The pinned benchmark revision is outside this shallow checkout")
     known.check_returncode()
