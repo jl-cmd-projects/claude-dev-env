@@ -54,6 +54,7 @@ import {
     CODEX_NATIVE_ROUTING_MATCHER,
     ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES,
     ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
+    CODEX_RECALL_SCRIPT,
     ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES,
     CODEX_TASK_STOP_SCRIPT,
     ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES,
@@ -2405,9 +2406,13 @@ function selectCodexNativeHooksConfig(hooksConfig) {
                 hooks: group.hooks.map(hook => ({ ...hook, command: `${hook.command} --codex-child-stop` })),
             })),
             SessionStart: selectCodexNativeGroupsByScriptName(
-                hooksConfig.hooks?.SessionStart,
-                ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
-            ),
+                hooksConfig.hooks?.SessionStart, ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES,
+            ).map(group => ({
+                ...group,
+                hooks: group.hooks.map(hook => hookScriptName(hook) === CODEX_RECALL_SCRIPT
+                    ? { ...hook, command: `${hook.command} --codex` }
+                    : hook),
+            })),
         },
     };
 }

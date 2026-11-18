@@ -180,9 +180,8 @@ export const ALL_CODEX_NATIVE_STOP_HOOK_SCRIPT_NAMES = new Set([CODEX_TASK_STOP_
 export const ALL_CODEX_EXCLUDED_USER_PROMPT_SUBMIT_HOOK_SCRIPT_NAMES = new Set([
     'turn_review_gate.py',
 ]);
-export const ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES = new Set([
-    'compaction_recall_prompt.py',
-]);
+export const CODEX_RECALL_SCRIPT = 'compaction_recall_prompt.py';
+export const ALL_CODEX_NATIVE_SESSION_START_HOOK_SCRIPT_NAMES = new Set([CODEX_RECALL_SCRIPT]);
 export const ALL_CODEX_NATIVE_POST_TOOL_USE_HOOK_SCRIPT_NAMES = new Set([
     'owned_pr_review_loop.py',
 ]);

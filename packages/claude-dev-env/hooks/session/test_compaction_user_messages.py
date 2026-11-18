@@ -168,3 +168,26 @@ def test_should_keep_a_codex_message_typed_again_after_the_agent_replied() -> No
         codex_line({"type": "user_message", "message": "go"}),
     ]
     assert texts_of(all_lines) == ["go", "go"]
+
+
+def test_literal_codex_reader_uses_the_recall_positions_and_keeps_the_full_wording() -> None:
+    quoted = "  Only change this example. Quote <command-name>/compact</command-name> literally.  "
+    entry = {"type": "event_msg", "payload": {"type": "user_message", "message": quoted}}
+    all_lines = [json.dumps(entry), json.dumps(entry), user_line("  Claude wording  ")]
+    regular = extractor.typed_user_messages(all_lines)
+    literal = extractor.typed_user_messages(all_lines, should_preserve_codex_text=True)
+    assert [turn.position for turn in regular] == [turn.position for turn in literal] == [1, 2]
+    assert [turn.text for turn in regular] == ["/compact", "Claude wording"]
+    assert [turn.text for turn in literal] == [quoted, "Claude wording"]
+
+
+def test_reading_an_image_turn_preserves_the_harness_text_filter() -> None:
+    entry = {"type": "event_msg", "payload": {"type": "user_message", "images": ["preview"],
+                                            "message": "<system-reminder>hidden</system-reminder>"}}
+    literal = extractor.typed_user_messages([json.dumps(entry)], should_preserve_codex_text=True)
+    assert [turn.text for turn in literal] == ["[image]"]
+    entry["payload"]["message"] = "<system-reminder><command-name>/compact</command-name></system-reminder>"
+    regular = extractor.typed_user_messages([json.dumps(entry)])
+    literal = extractor.typed_user_messages([json.dumps(entry)], should_preserve_codex_text=True)
+    assert [turn.text for turn in literal] == [turn.text for turn in regular]
+    assert "system-reminder" not in literal[0].text
