@@ -103,6 +103,13 @@ verdict = {
 sys.stdout.write(json.dumps({"result": json.dumps(verdict), "is_error": False}))
 """
 STUB_JUDGE_MODE = 0o755
+STUB_JUDGE_WINDOWS_FILE_NAME = "claude.cmd"
+STUB_JUDGE_WINDOWS_TEMPLATE = '@"{python}" "%~dp0{script}" %*\r\n'
+JUDGE_EXECUTABLE_NAME = "claude"
+STUB_JUDGE_NOT_FIRST_TEMPLATE = "the stand-in judge in {stub_directory} is not the first claude on PATH: {found}"
+ALLOW_EXIT_CODE = 0
+GATE_START_FAILURE_TEMPLATE = "{gate} exited with code {exit_code}: {stderr_tail}"
+STDERR_TAIL_LENGTH = 400
 PATH_ENVIRONMENT_VARIABLE = "PATH"
 ALL_HOME_ENVIRONMENT_VARIABLES = ("HOME", "USERPROFILE")
 CLAUDE_CONFIG_DIRECTORY_ENVIRONMENT_VARIABLE = "CLAUDE_CONFIG_DIR"

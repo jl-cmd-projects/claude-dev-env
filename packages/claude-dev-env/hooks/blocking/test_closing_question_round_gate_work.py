@@ -532,3 +532,27 @@ def test_should_hold_later_work_when_a_task_started_after_the_last_footer(
     reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records))
     assert reason.startswith(FOOTER_MISSING_REASON_LEAD)
     assert f"- {LEDGER_SUBJECT} [discount ledger]" in reason
+
+
+def test_should_hold_later_work_when_a_task_the_last_footer_named_finished(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(
+        tmp_path,
+        [
+            {"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"},
+            {"id": "29", "subject": LEDGER_SUBJECT, "status": "completed"},
+        ],
+    )
+    two_line_footer = f"{FOOTER}\n- I am watching the discount ledger so you see its next update."
+    all_records = [
+        typed_prompt_record(),
+        *edit_records(),
+        reply_record(f"The retry flag is in place.\n\n{two_line_footer}"),
+        *edit_records(),
+        reply_record("The ledger update landed."),
+    ]
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(
+        FOOTER_MISSING_REASON_LEAD
+    )
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": ["ledger"]}) is None

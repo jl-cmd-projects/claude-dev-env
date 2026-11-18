@@ -36,8 +36,9 @@ is a non-empty list, object, or string.
   items: none.`` beside an in-progress task holds the stop.
 - Work with work in progress and no footer holds the stop, unless a reply
   since the later of the last typed prompt and the last question call that
-  reached the user already ended with a footer that names every in-progress
-  task. The user saw that footer, so it is not sent again.
+  reached the user already ended with a footer that still shows the work, as
+  ``is_footer_still_current`` reads it. The user saw that footer, so it is
+  not sent again.
 - A footer that leaves out an in-progress task holds the stop, as
   ``closing_question_round_footer.left_out_tasks`` matches the tasks.
 - Nothing in progress and no background work: the reply owes no closing line.
@@ -333,6 +334,37 @@ def _missing_footer_lead(
     return None
 
 
+def is_footer_still_current(
+    all_last_footer_lines: tuple[str, ...] | None, all_tasks: SessionTasks, is_background_running: bool
+) -> bool:
+    """Return True when the newest footer the user saw still shows the work in progress.
+
+    ::
+
+        footer names #28 and #29, both in progress                -> True
+        footer names #28 and #29, #29 finished                    -> False, one line too many
+        footer names #28, #29 started since                       -> False, #29 left out
+        footer names #28 and a background job, background runs   -> True
+        no footer since the typed prompt or answered card         -> False
+
+    The footer has one line per piece of work, so with no background work a
+    footer with more lines than tasks in progress shows work that is done.
+
+    Args:
+        all_last_footer_lines: The lines of the newest footer sent, or None.
+        all_tasks: The session's tasks.
+        is_background_running: Whether the payload names background work.
+
+    Returns:
+        Whether the footer can stand for the reply.
+    """
+    if all_last_footer_lines is None:
+        return False
+    if left_out_tasks(all_last_footer_lines, all_tasks.in_progress, all_tasks.still_open):
+        return False
+    return is_background_running or len(all_last_footer_lines) <= len(all_tasks.in_progress)
+
+
 def footer_hold_reason(
     all_hook_input_fields: dict[str, object],
     closing_reply: str,
@@ -351,7 +383,7 @@ def footer_hold_reason(
         a footer that names every in-progress task         -> None
         no work, no footer                                 -> None, a chat-only turn
         work, no footer, an earlier footer since the typed
-            prompt or answered card names every task       -> None, the footer is not sent again
+            prompt or answered card still shows the work   -> None, the footer is not sent again
 
     Args:
         all_hook_input_fields: The Stop payload, read for ``background_tasks``
@@ -375,10 +407,8 @@ def footer_hold_reason(
     if not all_tasks.in_progress and not has_background_work(all_hook_input_fields):
         return None
     if footer_items is None:
-        if (
-            not is_declared
-            and all_last_footer_lines is not None
-            and not left_out_tasks(all_last_footer_lines, all_tasks.in_progress, all_tasks.still_open)
+        if not is_declared and is_footer_still_current(
+            all_last_footer_lines, all_tasks, has_background_work(all_hook_input_fields)
         ):
             return None
         reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work)

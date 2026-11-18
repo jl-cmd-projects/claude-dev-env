@@ -1197,13 +1197,23 @@ FOOTER_REPLY = (
 )
 
 
-def test_should_send_the_judge_the_reply_without_its_in_progress_footer(
+def test_should_drop_a_judged_list_that_is_the_in_progress_footer(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
 ) -> None:
     judge_stub.answer(verdict=judge_answer(list_span=FOOTER_LEAD))
     transcript_path = write_records(tmp_path / "s.jsonl", judged_turn("Lift the holds you need to"))
     assert run_gate(monkeypatch, capsys, transcript_path, reply_text=FOOTER_REPLY) == {}
-    all_judge_inputs = [str(each_call["stdin"]) for each_call in judge_stub.calls()]
-    assert len(all_judge_inputs) == 1
-    assert "The hold on pull request 8678 is off." in all_judge_inputs[0]
-    assert "pull request 8590" not in all_judge_inputs[0]
+    assert len(judge_stub.calls()) == 1
+
+
+def test_should_hold_a_judged_promise_inside_the_in_progress_footer(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    footer_promise = "I will report back once 8693 is in."
+    judge_stub.answer(verdict=judge_answer(promise_span=footer_promise, list_span=FOOTER_LEAD))
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn("Lift the holds you need to"))
+    block_reason = run_gate(
+        monkeypatch, capsys, transcript_path, reply_text=f"{FOOTER_REPLY} {footer_promise}"
+    )["reason"]
+    assert block_reason.startswith(PROMISE_REASON_START)
+    assert "The closing reply lists" not in block_reason

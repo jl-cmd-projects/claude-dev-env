@@ -14,12 +14,14 @@ from __future__ import annotations
 import itertools
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 from repeated_footer_eval_support.config.constants import (
     ALL_HOME_ENVIRONMENT_VARIABLES,
+    ALLOW_EXIT_CODE,
     ALL_REMOVED_ENVIRONMENT_VARIABLES,
     ALL_STOP_GATE_FILE_NAMES,
     ALL_STOP_PAYLOAD_FIELDS,
@@ -28,10 +30,12 @@ from repeated_footer_eval_support.config.constants import (
     CLAUDE_CONFIG_DIRECTORY_ENVIRONMENT_VARIABLE,
     CLAUDE_HOME_DIRECTORY_NAME,
     CONTENT_KEY,
+    GATE_START_FAILURE_TEMPLATE,
     HOLD_EXIT_CODE,
     HOME_DIRECTORY_NAME,
     HOOK_TIMEOUT_SECONDS,
     INTERACTIVE_SESSION_ATTENDED_TEXT,
+    JUDGE_EXECUTABLE_NAME,
     LAST_ASSISTANT_MESSAGE_KEY,
     MESSAGE_KEY,
     PATH_ENVIRONMENT_VARIABLE,
@@ -40,12 +44,16 @@ from repeated_footer_eval_support.config.constants import (
     ROLE_KEY,
     SESSION_ATTENDED_ENVIRONMENT_VARIABLE,
     SESSION_ID,
+    STDERR_TAIL_LENGTH,
     STOP_HOOK_ACTIVE_KEY,
     STOP_REASON_KEY,
     STUB_BIN_DIRECTORY_NAME,
     STUB_JUDGE_FILE_NAME,
     STUB_JUDGE_MODE,
+    STUB_JUDGE_NOT_FIRST_TEMPLATE,
     STUB_JUDGE_SOURCE,
+    STUB_JUDGE_WINDOWS_FILE_NAME,
+    STUB_JUDGE_WINDOWS_TEMPLATE,
     TASK_FILE_SUFFIX,
     TASK_ID_KEY,
     TASKS_DIRECTORY_NAME,
@@ -71,6 +79,10 @@ from repeated_footer_eval_support.config.constants import (
 )
 
 
+class ReplayGateRunFatal(RuntimeError):
+    """The gates cannot run as Claude Code runs them, so the whole replay stops."""
+
+
 def write_task_store(claude_home: Path, all_tasks: list[dict[str, object]]) -> None:
     """Write each task to the store the gates read, ``<claude home>/tasks/<session id>/<id>.json``.
 
@@ -89,6 +101,9 @@ def write_task_store(claude_home: Path, all_tasks: list[dict[str, object]]) -> N
 def write_stub_judge(session_directory: Path) -> Path:
     """Write the stand-in ``claude`` that plays the reply judge and return its folder.
 
+    The folder holds the script as ``claude`` for POSIX and a ``claude.cmd``
+    that runs it with this Python, which Windows finds through ``PATHEXT``.
+
     Args:
         session_directory: The session folder.
 
@@ -100,7 +115,35 @@ def write_stub_judge(session_directory: Path) -> Path:
     stub_judge = stub_directory / STUB_JUDGE_FILE_NAME
     stub_judge.write_text(STUB_JUDGE_SOURCE, encoding=UTF8_ENCODING)
     stub_judge.chmod(STUB_JUDGE_MODE)
+    (stub_directory / STUB_JUDGE_WINDOWS_FILE_NAME).write_text(
+        STUB_JUDGE_WINDOWS_TEMPLATE.format(
+            python=sys.executable, script=STUB_JUDGE_FILE_NAME
+        ),
+        encoding=UTF8_ENCODING,
+    )
     return stub_directory
+
+
+def require_stub_judge_first(stub_directory: Path, search_path: str) -> None:
+    """Raise when the first ``claude`` on the search path is not the stand-in judge.
+
+    Args:
+        stub_directory: The folder that holds the stand-in judge.
+        search_path: The PATH the gates run with.
+
+    Raises:
+        ReplayGateRunFatal: When another ``claude`` would answer the gates.
+    """
+    found_judge = shutil.which(JUDGE_EXECUTABLE_NAME, path=search_path)
+    if (
+        found_judge is None
+        or Path(found_judge).resolve().parent != stub_directory.resolve()
+    ):
+        raise ReplayGateRunFatal(
+            STUB_JUDGE_NOT_FIRST_TEMPLATE.format(
+                stub_directory=stub_directory, found=found_judge
+            )
+        )
 
 
 def gate_environment(
@@ -137,6 +180,14 @@ def gate_environment(
     return all_variables
 
 
+def _json_object(text: str) -> dict[str, object] | None:
+    try:
+        parsed = json.loads(text)
+    except ValueError:
+        return None
+    return parsed if isinstance(parsed, dict) else None
+
+
 def _message_record(
     record_type: str, all_blocks: list[dict[str, object]] | str
 ) -> dict[str, object]:
@@ -160,8 +211,12 @@ class ReplaySession:
             session_directory / HOME_DIRECTORY_NAME / CLAUDE_HOME_DIRECTORY_NAME
         )
         write_task_store(claude_home, all_tasks)
+        stub_directory = write_stub_judge(session_directory)
         self.environment = gate_environment(
-            session_directory, claude_home, write_stub_judge(session_directory)
+            session_directory, claude_home, stub_directory
+        )
+        require_stub_judge_first(
+            stub_directory, self.environment[PATH_ENVIRONMENT_VARIABLE]
         )
 
     def _append(self, all_record_fields: dict[str, object]) -> None:
@@ -217,6 +272,35 @@ class ReplaySession:
             )
         )
 
+    def _hold_reason(
+        self, hooks_directory: Path, gate_name: str, stop_payload: str
+    ) -> str | None:
+        gate_run = subprocess.run(
+            [
+                sys.executable,
+                str(hooks_directory.resolve() / BLOCKING_DIRECTORY_NAME / gate_name),
+            ],
+            input=stop_payload,
+            capture_output=True,
+            text=True,
+            env=self.environment,
+            cwd=self.session_directory,
+            timeout=HOOK_TIMEOUT_SECONDS,
+            check=False,
+        )
+        if gate_run.returncode == ALLOW_EXIT_CODE:
+            return None
+        hold_fields = _json_object(gate_run.stdout)
+        if gate_run.returncode != HOLD_EXIT_CODE or hold_fields is None:
+            raise ReplayGateRunFatal(
+                GATE_START_FAILURE_TEMPLATE.format(
+                    gate=gate_name,
+                    exit_code=gate_run.returncode,
+                    stderr_tail=gate_run.stderr[-STDERR_TAIL_LENGTH:],
+                )
+            )
+        return str(hold_fields.get(STOP_REASON_KEY, ""))
+
     def stop_reasons(
         self, hooks_directory: Path, reply_text: str, is_held_stop: bool
     ) -> list[str]:
@@ -229,6 +313,10 @@ class ReplaySession:
 
         Returns:
             One reason per gate that held, in gate order.
+
+        Raises:
+            ReplayGateRunFatal: When a gate exits with a code other than 0, or
+                exits with 2 and no JSON hold on stdout, as Python does for a missing file.
         """
         self.transcript_path.write_text(
             RECORD_SEPARATOR.join(
@@ -244,24 +332,8 @@ class ReplaySession:
                 LAST_ASSISTANT_MESSAGE_KEY: reply_text,
             }
         )
-        all_runs = [
-            subprocess.run(
-                [
-                    sys.executable,
-                    str(hooks_directory / BLOCKING_DIRECTORY_NAME / each_gate_name),
-                ],
-                input=stop_payload,
-                capture_output=True,
-                text=True,
-                env=self.environment,
-                cwd=self.session_directory,
-                timeout=HOOK_TIMEOUT_SECONDS,
-                check=False,
-            )
+        all_reasons = [
+            self._hold_reason(hooks_directory, each_gate_name, stop_payload)
             for each_gate_name in ALL_STOP_GATE_FILE_NAMES
         ]
-        return [
-            str(json.loads(each_run.stdout).get(STOP_REASON_KEY, ""))
-            for each_run in all_runs
-            if each_run.returncode == HOLD_EXIT_CODE
-        ]
+        return [each_reason for each_reason in all_reasons if each_reason is not None]

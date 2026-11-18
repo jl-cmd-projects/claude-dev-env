@@ -72,7 +72,7 @@ once::
     block: "The benchmark table will be posted when you get back."  no typed prompt asked for a report
     block: "What I deferred:" over 3 or more items             no question tool call this turn
     allow: the same list after an AskUserQuestion call
-    allow: an "In progress:" footer over 9 items     the footer is cut off before both checks
+    allow: an "In progress:" footer over 9 items     the list check reads only the reply above the footer
     allow: the same promise after the prompt "report back when the run ends"
     allow: any reply when the transcript cannot be read
 
@@ -356,16 +356,17 @@ def is_judged_payload(all_hook_input_fields: dict[str, object], replay: Transcri
 def _judged_reply_text(all_hook_input_fields: dict[str, object]) -> str:
     payload_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     if isinstance(payload_reply, str) and payload_reply.strip():
-        return split_footer(payload_reply).body
-    return split_footer(_last_assistant_message_text(_ReversedTranscript(all_hook_input_fields))).body
+        return payload_reply
+    return _last_assistant_message_text(_ReversedTranscript(all_hook_input_fields))
 
 
 def _verdict_findings(verdict: JudgeVerdict, reply_text: str) -> list[ClosingReplyFinding]:
     all_findings: list[ClosingReplyFinding] = []
     if verdict.promise_span:
         all_findings.append(_promise_finding(verdict.promise_span))
-    if verdict.list_span:
-        all_findings.append(_list_finding(verdict.list_span, item_count_under(reply_text, verdict.list_span)))
+    reply_body = split_footer(reply_text).body
+    if verdict.list_span and verdict.list_span in reply_body:
+        all_findings.append(_list_finding(verdict.list_span, item_count_under(reply_body, verdict.list_span)))
     return all_findings
 
 
@@ -405,22 +406,26 @@ def closing_reply_findings(
     transcript's last assistant text when that field is empty. A judge that
     gives no verdict gives no finding. Codex and Cursor stops, and a host with
     no ``claude``, use the phrase checks in ``closing_reply_shapes.py``. A
-    session whose transcript cannot be read gives no finding. Both read the
-    reply with its In progress footer cut off, as
+    session whose transcript cannot be read gives no finding. The open-item
+    list finding reads only the reply above its In progress footer, as
     ``closing_question_round_footer.split_footer`` cuts it, because the footer
-    is a status list that ``closing_question_round_gate.py`` checks.
+    is a status list that ``closing_question_round_gate.py`` checks. The
+    promised report finding reads the whole reply, footer included.
     """
     if is_judged_payload(all_hook_input_fields, replay):
         return _judged_findings(all_hook_input_fields, replay)
-    payload_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
-    if not isinstance(payload_reply, str) or not _has_readable_transcript(all_hook_input_fields):
+    reply_text = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
+    if not isinstance(reply_text, str) or not _has_readable_transcript(all_hook_input_fields):
         return []
-    reply_text = split_footer(payload_reply).body
     all_findings: list[ClosingReplyFinding] = []
     promise_phrase = promised_report_phrase(reply_text, replay.turn_prompt_text)
     if promise_phrase is not None:
         all_findings.append(_promise_finding(promise_phrase))
-    item_list = None if replay.has_turn_question_tool else open_item_list(reply_text, replay.turn_prompt_text)
+    item_list = (
+        None
+        if replay.has_turn_question_tool
+        else open_item_list(split_footer(reply_text).body, replay.turn_prompt_text)
+    )
     if item_list is not None:
         all_findings.append(_list_finding(item_list.lead, item_list.item_count))
     return all_findings
