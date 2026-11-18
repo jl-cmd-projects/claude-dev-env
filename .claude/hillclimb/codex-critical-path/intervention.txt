@@ -1,0 +1,1 @@
+When a side issue turns up, ask what would go wrong with the requested outcome if you left it alone. Investigate while the answer could change what you deliver or how you verify it. When further work on the issue stops answering that question, return to the task.

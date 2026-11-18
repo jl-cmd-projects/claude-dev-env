@@ -1,0 +1,459 @@
+{
+  "limits": {
+    "trace": "Recorded fixture shell commands and results. No server model receipt.",
+    "timing": "Shell subprocess wall time and observed worker and reviewer elapsed time. No inference token bill.",
+    "diversion_seconds": "Wall time for commands tagged as diversions, including any work batched in those commands.",
+    "outcome": "The fixture's artifact, preservation, and verification requirements, including required blocker handling."
+  },
+  "runs_by_arm": {
+    "baseline": {
+      "runs": 12,
+      "diversion_count": 0,
+      "repeated_attempt_count": 0,
+      "artifact_ok": 12,
+      "target_ok": 12,
+      "preservation_ok": 12,
+      "verification_ok": 12,
+      "false_done": 0,
+      "missed_dependency": 0,
+      "verified_oracle_outcome": 12,
+      "within_budget": 12,
+      "tool_calls": 45,
+      "tool_seconds": 0.934529,
+      "diversion_tool_seconds": 0,
+      "worker_elapsed_seconds": 383.376281,
+      "reviewer_count": 0,
+      "reviewer_seconds": 0,
+      "total_elapsed_seconds": 383.376281,
+      "verified_oracle_outcome_rate": 1.0
+    },
+    "candidate": {
+      "runs": 11,
+      "diversion_count": 0,
+      "repeated_attempt_count": 0,
+      "artifact_ok": 11,
+      "target_ok": 11,
+      "preservation_ok": 11,
+      "verification_ok": 11,
+      "false_done": 0,
+      "missed_dependency": 0,
+      "verified_oracle_outcome": 11,
+      "within_budget": 11,
+      "tool_calls": 41,
+      "tool_seconds": 0.82258,
+      "diversion_tool_seconds": 0,
+      "worker_elapsed_seconds": 345.168941,
+      "reviewer_count": 0,
+      "reviewer_seconds": 0,
+      "total_elapsed_seconds": 345.168941,
+      "verified_oracle_outcome_rate": 1.0
+    },
+    "reviewer": {
+      "runs": 4,
+      "diversion_count": 0,
+      "repeated_attempt_count": 0,
+      "artifact_ok": 4,
+      "target_ok": 4,
+      "preservation_ok": 4,
+      "verification_ok": 4,
+      "false_done": 0,
+      "missed_dependency": 0,
+      "verified_oracle_outcome": 4,
+      "within_budget": 4,
+      "tool_calls": 16,
+      "tool_seconds": 0.504531,
+      "diversion_tool_seconds": 0,
+      "worker_elapsed_seconds": 159.94448,
+      "reviewer_count": 4,
+      "reviewer_seconds": 28.592514,
+      "total_elapsed_seconds": 188.536995,
+      "verified_oracle_outcome_rate": 1.0
+    }
+  },
+  "match_groups": {
+    "a3def6672b741303dcbbe47a21c6738398c0da8331fd7ed6e2028d93d22a9c14": {
+      "key": {
+        "case": "checkpoint",
+        "scope": "csv",
+        "pin": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+        "baseline_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "input_files": {
+          "README.md": "b8b38bef45030400861f2b4868253c2a9269d6afb3b603624d153b9c9225d2f0",
+          "branding/example-preview.html": "a83160fbac6ebef09121a6d50dd4a02b5843c46d4706bf7bea1cefb0ace6c917",
+          "branding/preview-diagnostics.md": "2cee1108179cbbac7075f1e1b7f81d73729fdc39f4f64c5e78254ca5ab87a361",
+          "checks/check_daily_export.py": "34f8f7e0cd585c09e40cf0c00b588ac27a778b0428e386fd3805ea78c343f818",
+          "inputs/deliveries.csv": "497c581e75f2da92273d492fca3e0a4a1572bdcb6f50e7b5ef528819fb0c5ce6",
+          "reports/export_daily.py": "2bb1d447616abdbdef759cb54f0ffcb9e7552e9ff73d1ae63dd18d041588c08f"
+        },
+        "prompt_sha256": "3061b15230d6835f9316264f810d453bcb64345e9835dcb3596981643b6aaee7",
+        "prefix_trace_sha256": "804791ce4a9cc0318e7c5db78e786997bcdfb1622416ff031db4d9f16986d430",
+        "budget_seconds": 360,
+        "prefix_workspace_sha256": "438214fda8da9dcc11761f0a102c0efc3c4a2510ceb7348dc8806f810817d23e",
+        "declared_launcher_metadata": {
+          "model": "gpt-6.2-sol",
+          "reasoning_effort": "high",
+          "launcher": "collaboration.spawn_agent",
+          "fork_turns": "none",
+          "tool_interface": "recorded task-directory Bash"
+        }
+      },
+      "runs_by_arm": {
+        "baseline": [
+          "a65"
+        ],
+        "candidate": [
+          "b11"
+        ],
+        "reviewer": [
+          "n51"
+        ]
+      },
+      "matching_variants": true
+    },
+    "e9d972eefe9abfd6e57cacedee3f418db4be9f980c78036b39793e32d67f9e12": {
+      "key": {
+        "case": "receipt-totals",
+        "scope": null,
+        "pin": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+        "baseline_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "input_files": {
+          "README.md": "693f76539e5fc9ec2984779adf90e07f6a87c6890e234d5ccac361e4751f0080",
+          "checks/check_receipts.py": "7fb79624971d0231c67f86ff1306a50d438dcebdc48509dcb8266f6e51de8091",
+          "docs/archive.md": "2fe89061fb26ec1a30b934382e14dbda7171d48525e8231571ec672982c4b7c0",
+          "receipts/line_items.py": "63487278984cb17a2ca7674e1076d53f33774997b755ef231062f6b4cac39b7f",
+          "receipts/totals.py": "7bb4c8fe1332b5f16b429d0fc1afccf8143fafec1618af56d53ee8064ef65fa2",
+          "scripts/tidy_archive.py": "4a5fb41311eeb01d9df63c54f70671235dd930fe0ddb35187a43bf0af00c5eaf"
+        },
+        "prompt_sha256": "47cb73c0759dd95b8079a2323e015a3fd85891e560e523c42ed9468753461080",
+        "prefix_trace_sha256": null,
+        "budget_seconds": 360,
+        "prefix_workspace_sha256": null,
+        "declared_launcher_metadata": {
+          "model": "gpt-6.2-sol",
+          "reasoning_effort": "high",
+          "launcher": "collaboration.spawn_agent",
+          "fork_turns": "none",
+          "tool_interface": "recorded task-directory Bash"
+        }
+      },
+      "runs_by_arm": {
+        "candidate": [
+          "c35",
+          "p63"
+        ],
+        "baseline": [
+          "i29",
+          "t27"
+        ]
+      },
+      "matching_variants": true
+    },
+    "5632adcf558e4f1842fe5871a80f36ca0b6955397eebf85fbbef40485bb617cd": {
+      "key": {
+        "case": "checkpoint",
+        "scope": "both",
+        "pin": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+        "baseline_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "input_files": {
+          "README.md": "b8b38bef45030400861f2b4868253c2a9269d6afb3b603624d153b9c9225d2f0",
+          "branding/example-preview.html": "a83160fbac6ebef09121a6d50dd4a02b5843c46d4706bf7bea1cefb0ace6c917",
+          "branding/preview-diagnostics.md": "2cee1108179cbbac7075f1e1b7f81d73729fdc39f4f64c5e78254ca5ab87a361",
+          "checks/check_daily_export.py": "34f8f7e0cd585c09e40cf0c00b588ac27a778b0428e386fd3805ea78c343f818",
+          "inputs/deliveries.csv": "497c581e75f2da92273d492fca3e0a4a1572bdcb6f50e7b5ef528819fb0c5ce6",
+          "reports/export_daily.py": "2bb1d447616abdbdef759cb54f0ffcb9e7552e9ff73d1ae63dd18d041588c08f"
+        },
+        "prompt_sha256": "12f4d62720ede3c32540678e3f72a750c5964bdbb976ea375478f5d2dd6bc36f",
+        "prefix_trace_sha256": "804791ce4a9cc0318e7c5db78e786997bcdfb1622416ff031db4d9f16986d430",
+        "budget_seconds": 360,
+        "prefix_workspace_sha256": "438214fda8da9dcc11761f0a102c0efc3c4a2510ceb7348dc8806f810817d23e",
+        "declared_launcher_metadata": {
+          "model": "gpt-6.2-sol",
+          "reasoning_effort": "high",
+          "launcher": "collaboration.spawn_agent",
+          "fork_turns": "none",
+          "tool_interface": "recorded task-directory Bash"
+        }
+      },
+      "runs_by_arm": {
+        "baseline": [
+          "d90"
+        ],
+        "candidate": [
+          "w38"
+        ],
+        "reviewer": [
+          "x86"
+        ]
+      },
+      "matching_variants": true
+    },
+    "897de1ed09d9b476de74e85a890a0e0536145508e309d51998aaf46c7bf7860e": {
+      "key": {
+        "case": "published-index",
+        "scope": null,
+        "pin": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+        "baseline_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "input_files": {
+          "README.md": "61a8a91141def50364a1f844f88fc6b4952ed92c75e0e26aec48c1e90782556e",
+          "checks/check_index.py": "7fb1ea10fbf8685cd39c07efb2a279a8b658d0e2736053fa6fee815374dbd3cb",
+          "published/partners.txt": "125ce513712a6c9115c4012c22e59430fa398d22ad0bb3edb916d46fa0f669d4",
+          "published/support.txt": "b48ade7e1b230e9029bcbf80406488ef4949c9f4e7622ee35f4c09089de55d49",
+          "release/approved.txt": "3a03e580e98990b8a2482983ba9d1bf376115eb63a8dd636103a9726a1a1a57b",
+          "release/index.csv": "2ccbcf935146cedda940fb62b86a644723915e9917de40a3fd9cbaef2058a9ea",
+          "scratch/previous-review.md": "4ada47cddce07f0c7a466c8303b926e4a94fe93f6b945a526961a6a864ba1487",
+          "scratch/reconciliation.csv": "b995c2761dd53fc8e0d07607420be1a40ec11d664e280ad3636488e81756cf50"
+        },
+        "prompt_sha256": "54a1464816a15da8040f19a1a97790c4ff72f6fb8a3e209b08536fbb52777bb5",
+        "prefix_trace_sha256": null,
+        "budget_seconds": 360,
+        "prefix_workspace_sha256": null,
+        "declared_launcher_metadata": {
+          "model": "gpt-6.2-sol",
+          "reasoning_effort": "high",
+          "launcher": "collaboration.spawn_agent",
+          "fork_turns": "none",
+          "tool_interface": "recorded task-directory Bash"
+        }
+      },
+      "runs_by_arm": {
+        "candidate": [
+          "e21"
+        ],
+        "baseline": [
+          "f94"
+        ]
+      },
+      "matching_variants": true
+    },
+    "321915a22569277acdaf218c5e56a8c4d4e773f8422eac477342b3a13ff3e914": {
+      "key": {
+        "case": "side-issue",
+        "scope": "dispatch",
+        "pin": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+        "baseline_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "input_files": {
+          "README.md": "c570975c8b9dfd2ce2930ca86b34d71568ebba1bc54d7fae5de6e96890c50bab",
+          "catalog/carton_sizes.csv": "a4d31af1220477c7881e5fef8f6ad8645bc460b894faec1aa37a8b737c079fb8",
+          "dispatch/build_manifest.py": "d8529a7783b84eb772298616511c6d0f1fe5f53393f5b85e54e1a0ed85260d9d",
+          "dispatch/shipments.csv": "11f23d9398b46168f5c5d0ae50c64b495cdaf78a8f8d6110aa53a86d5babd8a0",
+          "kiosk/cache/health.json": "b5e5aa5205ec001cf8f4f69829cdd7023525b3a84fcb57e9fbad1127fc85dc85",
+          "kiosk/label-refresh.md": "1e3d86026d6d763475029f1a4968b4d3c18151f267441d8bc1fc7453277ff1dc",
+          "kiosk/labels/source.json": "d9335e50e8e4a22fda541d2aba0aa8b151e1bd6da59b279b0f9af64dfcf8daa9",
+          "tools/check.py": "41fa95e3e356491eef1cc66369d2a525c3e35a067be5808800a8d4b29a18f2b6",
+          "tools/check_dispatch.py": "2aca615f2f66fdad34846af67acdd384d4503c29182dbc1c006cb1219e75f57e",
+          "tools/check_kiosk_labels.py": "3f4cfbcddd77b037037f2bb3a5c9b1a92c4beb076581f9a41376e154a5705e58"
+        },
+        "prompt_sha256": "774c83f1662094c2d7ddbe83096168a3ac3920a7ae8181045a15bdff26e71524",
+        "prefix_trace_sha256": "750d8109a57ba1b8aa7cef24f724949ce5ad55e4ff4549a63e102456efa0a230",
+        "budget_seconds": 360,
+        "prefix_workspace_sha256": "4b3584a8c70f3e5ba22c105efd017885a6b52a894fc7d4c54d6d42d77992cfe6",
+        "declared_launcher_metadata": {
+          "model": "gpt-6.2-sol",
+          "reasoning_effort": "high",
+          "launcher": "collaboration.spawn_agent",
+          "fork_turns": "none",
+          "tool_interface": "recorded task-directory Bash"
+        }
+      },
+      "runs_by_arm": {
+        "candidate": [
+          "e59"
+        ],
+        "baseline": [
+          "t83"
+        ],
+        "reviewer": [
+          "w52"
+        ]
+      },
+      "matching_variants": true
+    },
+    "c9ec3fe2dd81dd0b06d4ffccc29af36ba3661fd4d45f7db8b15f5501eb919d13": {
+      "key": {
+        "case": "room-handover",
+        "scope": null,
+        "pin": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+        "baseline_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "input_files": {
+          "archive/previous-room-register.csv": "508876fe3d1bbacda8f8b7ce540380c7293b7c5ecc6c4c9c640dd0491680fa05",
+          "handover/bookings.csv": "9b480f1d3bfa78b2854c1baa17ed4888d5e2d2a2c6167f553b74d18d8324160d",
+          "handover/draft-keypad-notes.md": "acdc21204b1ab29df641f89c3892cb1f7823c9310bd3c394101d4933dca23789",
+          "handover/room-register.csv": "de52d91aab2450ca2f602672260a9b166935ca49a4762b28b439c69f8dd6ff9e"
+        },
+        "prompt_sha256": "8fd460b1d8f306399fe5b739273c1fa0ea62bac46332cdb3b246c81eee54b59d",
+        "prefix_trace_sha256": null,
+        "budget_seconds": 360,
+        "prefix_workspace_sha256": null,
+        "declared_launcher_metadata": {
+          "model": "gpt-6.2-sol",
+          "reasoning_effort": "high",
+          "launcher": "collaboration.spawn_agent",
+          "fork_turns": "none",
+          "tool_interface": "recorded task-directory Bash"
+        }
+      },
+      "runs_by_arm": {
+        "candidate": [
+          "g74",
+          "y32"
+        ],
+        "baseline": [
+          "l13",
+          "s88"
+        ]
+      },
+      "matching_variants": true
+    },
+    "0d62073eeeeb30ff187b35e2a90faaa160626054eaa8c3c10c78c9559c6a6bc3": {
+      "key": {
+        "case": "side-issue",
+        "scope": "dispatch",
+        "pin": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+        "baseline_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "input_files": {
+          "README.md": "c570975c8b9dfd2ce2930ca86b34d71568ebba1bc54d7fae5de6e96890c50bab",
+          "catalog/carton_sizes.csv": "a4d31af1220477c7881e5fef8f6ad8645bc460b894faec1aa37a8b737c079fb8",
+          "dispatch/build_manifest.py": "d8529a7783b84eb772298616511c6d0f1fe5f53393f5b85e54e1a0ed85260d9d",
+          "dispatch/shipments.csv": "11f23d9398b46168f5c5d0ae50c64b495cdaf78a8f8d6110aa53a86d5babd8a0",
+          "kiosk/cache/health.json": "b5e5aa5205ec001cf8f4f69829cdd7023525b3a84fcb57e9fbad1127fc85dc85",
+          "kiosk/label-refresh.md": "1e3d86026d6d763475029f1a4968b4d3c18151f267441d8bc1fc7453277ff1dc",
+          "kiosk/labels/source.json": "d9335e50e8e4a22fda541d2aba0aa8b151e1bd6da59b279b0f9af64dfcf8daa9",
+          "tools/check.py": "41fa95e3e356491eef1cc66369d2a525c3e35a067be5808800a8d4b29a18f2b6",
+          "tools/check_dispatch.py": "2aca615f2f66fdad34846af67acdd384d4503c29182dbc1c006cb1219e75f57e",
+          "tools/check_kiosk_labels.py": "3f4cfbcddd77b037037f2bb3a5c9b1a92c4beb076581f9a41376e154a5705e58"
+        },
+        "prompt_sha256": "518aa2f18aca0947bee6cf4cc26326038ab00c1b490362e90e45724ad15ce3ac",
+        "prefix_trace_sha256": "611034f1273cafa0b23b9b6a0854e241cbc819784136c0d4fdcef846afccf81d",
+        "budget_seconds": 360,
+        "prefix_workspace_sha256": "4b3584a8c70f3e5ba22c105efd017885a6b52a894fc7d4c54d6d42d77992cfe6",
+        "declared_launcher_metadata": {
+          "model": "gpt-6.2-sol",
+          "reasoning_effort": "high",
+          "launcher": "collaboration.spawn_agent",
+          "fork_turns": "none",
+          "tool_interface": "recorded task-directory Bash"
+        }
+      },
+      "runs_by_arm": {
+        "reviewer": [
+          "j24"
+        ],
+        "candidate": [
+          "k75"
+        ],
+        "baseline": [
+          "o12"
+        ]
+      },
+      "matching_variants": true
+    },
+    "05aac02ed2f1822cf772eb913a6b4197043ccdf99a874e4d104f8a3e9c72e162": {
+      "key": {
+        "case": "late-orders",
+        "scope": null,
+        "pin": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+        "baseline_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "input_files": {
+          "README.md": "60c229b6f54e87f11e3454aa3ad8c16666a3e2c2433c736549f11264b7af7717",
+          "legacy_exports/README.md": "764ecd86f85a2abad28fcde325b32e6ecfd7da0ce951e1f20022270602a1b3fb",
+          "legacy_exports/schema.csv": "c2aa72d49682a57f11c331d6de37586c772a921836ca83b71ed321d4d374b132",
+          "orders/late_orders.sql": "fec9d58d7f1ecd0b5226c940e3ade28d33113896bf9862841bbb21a4d1427245",
+          "scripts/check_all.py": "472a4adffa9dfbaf0dbc7e55515abc82454c7bab8b47214f74286097da90ed59",
+          "tests/check_orders.py": "e0bd4189a2a98feb3ac7c963969596dcb50e85786b8e4e34f35caee15fef54db"
+        },
+        "prompt_sha256": "7d00c7f9a6c3e08cd1d22ea9e031a58410ab5ebe6927eec9f8abea5b8fb0f00f",
+        "prefix_trace_sha256": null,
+        "budget_seconds": 360,
+        "prefix_workspace_sha256": null,
+        "declared_launcher_metadata": {
+          "model": "gpt-6.2-sol",
+          "reasoning_effort": "high",
+          "launcher": "collaboration.spawn_agent",
+          "fork_turns": "none",
+          "tool_interface": "recorded task-directory Bash"
+        }
+      },
+      "runs_by_arm": {
+        "baseline": [
+          "k41"
+        ],
+        "candidate": [
+          "m76"
+        ]
+      },
+      "matching_variants": true
+    },
+    "cb3ca8779ae283e3c4334f0664a1a9f5e4690fa4439fae88cdd8d0b03d3f0db6": {
+      "key": {
+        "case": "pickup-brief",
+        "scope": null,
+        "pin": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+        "baseline_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "input_files": {
+          "operations/dispatch-updates.md": "db1ee10d020623ea72576ad5c16444170223ae8d29d6dd5df4aaafd6e43da45a",
+          "operations/pickup-brief-example.md": "a094e9c6c3132d758123d54712877b344557852a53de06c647a3d8d5e8a97217",
+          "operations/pickups.csv": "65cf51643788b2f0adde66e61cc4f1251fb4b58069c91279912af57797353e02",
+          "operations/shift-notes.md": "0c87baf2550258bbd82a52434dcd66dbe6332c1483dbeb54fc16e872eac04273",
+          "operations/vehicle-notes.md": "e43a13acb45d2d87ab063b71cb09df35265a00fe85140b30ecb9b201ab9ef25d"
+        },
+        "prompt_sha256": "84754f6291287f7f00c283cbf793f0c59a4eea41b309977dc1bd1ca8b3948497",
+        "prefix_trace_sha256": null,
+        "budget_seconds": 360,
+        "prefix_workspace_sha256": null,
+        "declared_launcher_metadata": {
+          "model": "gpt-6.2-sol",
+          "reasoning_effort": "high",
+          "launcher": "collaboration.spawn_agent",
+          "fork_turns": "none",
+          "tool_interface": "recorded task-directory Bash"
+        }
+      },
+      "runs_by_arm": {
+        "candidate": [
+          "q39"
+        ],
+        "baseline": [
+          "r82"
+        ]
+      },
+      "matching_variants": true
+    },
+    "65d7ef9cf8be680da3a67c55e428b7ed840dd927d1791c9b179ef3f788617b45": {
+      "key": {
+        "case": "side-issue",
+        "scope": "dispatch",
+        "pin": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+        "baseline_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "input_files": {
+          "README.md": "c570975c8b9dfd2ce2930ca86b34d71568ebba1bc54d7fae5de6e96890c50bab",
+          "catalog/carton_sizes.csv": "a4d31af1220477c7881e5fef8f6ad8645bc460b894faec1aa37a8b737c079fb8",
+          "dispatch/build_manifest.py": "d8529a7783b84eb772298616511c6d0f1fe5f53393f5b85e54e1a0ed85260d9d",
+          "dispatch/shipments.csv": "11f23d9398b46168f5c5d0ae50c64b495cdaf78a8f8d6110aa53a86d5babd8a0",
+          "kiosk/cache/health.json": "b5e5aa5205ec001cf8f4f69829cdd7023525b3a84fcb57e9fbad1127fc85dc85",
+          "kiosk/label-refresh.md": "1e3d86026d6d763475029f1a4968b4d3c18151f267441d8bc1fc7453277ff1dc",
+          "kiosk/labels/source.json": "d9335e50e8e4a22fda541d2aba0aa8b151e1bd6da59b279b0f9af64dfcf8daa9",
+          "tools/check.py": "41fa95e3e356491eef1cc66369d2a525c3e35a067be5808800a8d4b29a18f2b6",
+          "tools/check_dispatch.py": "2aca615f2f66fdad34846af67acdd384d4503c29182dbc1c006cb1219e75f57e",
+          "tools/check_kiosk_labels.py": "3f4cfbcddd77b037037f2bb3a5c9b1a92c4beb076581f9a41376e154a5705e58"
+        },
+        "prompt_sha256": "518aa2f18aca0947bee6cf4cc26326038ab00c1b490362e90e45724ad15ce3ac",
+        "prefix_trace_sha256": "611034f1273cafa0b23b9b6a0854e241cbc819784136c0d4fdcef846afccf81d",
+        "budget_seconds": 360,
+        "prefix_workspace_sha256": "4b3584a8c70f3e5ba22c105efd017885a6b52a894fc7d4c54d6d42d77992cfe6",
+        "declared_launcher_metadata": {
+          "model": "gpt-6.2-sol",
+          "reasoning_effort": "high",
+          "launcher": "collaboration.followup_task",
+          "fork_turns": "same worker v68",
+          "tool_interface": "recorded task-directory Bash"
+        }
+      },
+      "runs_by_arm": {
+        "baseline": [
+          "v68r"
+        ]
+      },
+      "matching_variants": false
+    }
+  }
+}
