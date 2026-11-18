@@ -1,32 +1,40 @@
 #!/usr/bin/env python3
-"""Stop hook that ends a session a person started with a question card round or a declaration.
+"""Stop hook that ends a working reply with an In progress footer or a question card round.
 
-The gate holds the stop for three shapes, and only in a session it covers::
+The gate holds the stop for these shapes, and only in a session it covers::
 
     hold:  "I deferred the backoff setting."        no question card after it
     hold:  "Nothing is deferred."                   a marker line; negation does not cancel it
-    hold:  an Edit call, then "Done."               work with no card and no declaration
-    allow: an Edit call, then "Open items: none."   the declaration ends the reply
-    allow: "Both tests pass."                        no work and no marker line
     allow: a marker line, then an answered AskUserQuestion call
-    hold:  "Open items: none." beside task #2 in_progress, as closing_question_round_tasks reads it
+    allow: an Edit call, then "Done."               nothing in progress, no closing line owed
+    hold:  an Edit call, then "Done."               task #28 in_progress: the footer is owed
+    allow: an Edit call, then the footer naming task #28
+    hold:  the footer that names #28 and leaves out in-progress task #29
+    hold:  "Open items: none." beside task #28 in_progress
 
 The stretch is every top-level record after the last question call that
-reached the user, then the payload's closing reply. A marker line is a prose
-line ``closing_question_round_open_items`` finds: a marker word or a line that
-ends with a question mark. Work is any tool call that is no question call and
-that sits in the stretch after the last record whose final text ends with the
-declaration, in a record with no work call of its own. The declaration is the
-closing reply's last prose line, read after masking as ``Open items: none.``,
-with or without its period, alone or wrapped in one bold or italic mark. The closing reply is the newest
-text after the last work call.
+reached the user, then the payload's closing reply. The closing reply is the
+newest text after the last work call. Its In progress footer, as
+``closing_question_round_footer.split_footer`` reads it, is cut off first, so
+a marker word inside the footer counts for nothing. A marker line is a prose
+line ``closing_question_round_open_items`` finds in the rest: a marker word or
+a line that ends with a question mark. Work is any tool call that is no
+question call and that sits in the stretch after the last record whose final
+text ends with the footer, in a record with no work call of its own. Work is
+in progress when the session's task list, as ``closing_question_round_tasks``
+reads it, holds an ``in_progress`` task, or the payload's ``background_tasks``
+is a non-empty list, object, or string.
 
-- A marker line holds the stop, and a declaration does not excuse it. The
-  reason quotes the last 8 marker lines at most, each cut to 160 characters,
-  and counts the earlier ones. Three dots in backticks stand where a code span
-  sat.
-- Work with no marker line and no declaration holds the stop with the work
-  reason.
+- A marker line holds the stop with the closing round reason, unless
+  background work runs. The reason quotes the last 8 marker lines at most,
+  each cut to 160 characters, and counts the earlier ones. Three dots in
+  backticks stand where a code span sat.
+- A closing reply with no footer that ends with the old declaration ``Open
+  items: none.`` beside an in-progress task holds the stop.
+- Work with work in progress and no footer holds the stop.
+- A footer that leaves out an in-progress task holds the stop, as
+  ``closing_question_round_footer.left_out_tasks`` matches the tasks.
+- Nothing in progress and no background work: the reply owes no closing line.
 
 The gate leaves a stop alone, with exit code 0 and no output, when:
 
@@ -36,7 +44,6 @@ The gate leaves a stop alone, with exit code 0 and no output, when:
 - the session turned the gate off: a prompt that held ``--nocards`` set the
   session's flag, and a later prompt with it clears the flag again, as
   ``session/closing_question_gate_bypass.py`` describes;
-- the payload's ``background_tasks`` is a non-empty list, object, or string;
 - the transcript is missing or cannot be read;
 - no person started the session. A record that carries ``turnOrigin`` equal to
   ``human`` and starts a turn, as ``claude_prompt_text`` reads it, is a prompt
@@ -59,11 +66,13 @@ The gate leaves a stop alone, with exit code 0 and no output, when:
 - any step raises.
 
 A transcript line over 16 MiB or a text over 2 MiB is skipped. The gate does
-not read ``stop_hook_active``. Both reasons tell the agent to read the task
-list, its notes, and the live state of each item, to keep the turn's chat text inside
-the limit ``question_brief_gate.py`` counts, and to send each item as its own
-``AskUserQuestion`` question. A hold exits with code 2 and writes the reason
-to stdout and stderr.
+not read ``stop_hook_active``. The closing round reason tells the agent to
+read the task list, its notes, and the live state of each item, to keep the
+turn's chat text inside the limit ``question_brief_gate.py`` counts, and to
+send each item as its own ``AskUserQuestion`` question. Each footer reason
+lists the in-progress tasks with their key words and asks for a footer in
+plain words for the user. A hold exits with code 2 and writes the reason to
+stdout and stderr.
 """
 
 from __future__ import annotations
@@ -84,9 +93,10 @@ if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
 from closing_question_gate_flag import is_bypass_on
+from closing_question_round_footer import footer_reason, left_out_tasks, split_footer
 from closing_question_round_lines import transcript_lines
 from closing_question_round_open_items import declares_no_open_items, marked_open_lines
-from closing_question_round_tasks import declared_tasks_reason
+from closing_question_round_tasks import session_tasks
 from closing_question_round_transcript import (
     assistant_texts,
     block_texts,
@@ -107,7 +117,10 @@ from hooks_constants.closing_question_round_gate_constants import (
     CODE_SPAN_SHOWN_TEXT,
     DECISION_PROCESS_FLAG,
     FEEDBACK_OPENING_LENGTH,
+    FOOTER_GAP_REASON_LEAD,
+    FOOTER_MISSING_REASON_LEAD,
     HEADLESS_SESSION_ATTENDED_TEXT,
+    IN_PROGRESS_TASKS_REASON_LEAD,
     MAXIMUM_HOLD_COUNT,
     MAXIMUM_PAYLOAD_BYTES,
     MAXIMUM_QUOTED_LINE_COUNT,
@@ -122,8 +135,6 @@ from hooks_constants.closing_question_round_gate_constants import (
     STOP_DEADLINE_SECONDS,
     SUBAGENT_ID_KEY,
     WATCHDOG_GRACE_SECONDS,
-    WORK_INSTRUCTION,
-    WORK_REASON_LEAD,
 )
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.setup_project_paths_constants import UTF8_BYTE_ORDER_MARK
@@ -145,13 +156,16 @@ from hooks_constants.user_step_wording_constants import CODE_SPAN_STAND_IN
 
 
 def is_exempt_stop(all_hook_input_fields: dict[str, object]) -> bool:
-    """Return True for a subagent, a Cursor stop, a headless run, or a stop with background work running."""
+    """Return True for a subagent, a Cursor stop, or a headless run."""
     if all_hook_input_fields.get(SUBAGENT_ID_KEY) or all_hook_input_fields.get(
         CURSOR_CONVERSATION_ID_KEY
     ):
         return True
-    if os.environ.get(SESSION_ATTENDED_ENVIRONMENT_VARIABLE) == HEADLESS_SESSION_ATTENDED_TEXT:
-        return True
+    return os.environ.get(SESSION_ATTENDED_ENVIRONMENT_VARIABLE) == HEADLESS_SESSION_ATTENDED_TEXT
+
+
+def has_background_work(all_hook_input_fields: dict[str, object]) -> bool:
+    """Return True when the payload's ``background_tasks`` is a non-empty list, object, or string."""
     all_background_tasks = all_hook_input_fields.get(BACKGROUND_TASKS_KEY)
     return isinstance(all_background_tasks, (list, dict, str)) and bool(all_background_tasks)
 
@@ -220,11 +234,6 @@ def closing_round_reason(all_open_item_lines: list[str]) -> str:
     )
 
 
-def work_reason() -> str:
-    """Return the hold reason for work with no card and no declaration: its fixed first sentence, then the instruction."""
-    return REASON_PART_SEPARATOR.join([WORK_REASON_LEAD, WORK_INSTRUCTION])
-
-
 def _covered_texts_and_records(
     all_hook_input_fields: dict[str, object], deadline_at: float
 ) -> tuple[list[str], list[dict[str, object]], list[dict[str, object]]] | None:
@@ -243,17 +252,86 @@ def _covered_texts_and_records(
     return all_payload_texts, all_stretch_records, all_counted_records
 
 
-def _records_since_declaration(
-    all_stretch_records: list[dict[str, object]], deadline_at: float
-) -> list[dict[str, object]]:
+def _has_work_since_footer(all_stretch_records: list[dict[str, object]]) -> bool:
+    start_position = 0
     for each_position in range(len(all_stretch_records) - 1, -1, -1):
         each_record = all_stretch_records[each_position]
         all_record_texts = block_texts(each_record) if is_assistant_record(each_record) else []
         if has_work_call([each_record]) or not all_record_texts:
             continue
-        if declares_no_open_items(all_record_texts[-1], deadline_at):
-            return all_stretch_records[each_position + 1 :]
-    return all_stretch_records
+        if split_footer(all_record_texts[-1]).footer_items is not None:
+            start_position = each_position + 1
+            break
+    return has_work_call(all_stretch_records[start_position:])
+
+
+def _closing_reply_texts(
+    all_stretch_records: list[dict[str, object]], all_payload_texts: list[str]
+) -> list[str]:
+    all_work_positions = [
+        each_position
+        for each_position, each_record in enumerate(all_stretch_records)
+        if has_work_call([each_record])
+    ]
+    first_closing_position = all_work_positions[-1] + 1 if all_work_positions else 0
+    return [*assistant_texts(all_stretch_records[first_closing_position:]), *all_payload_texts]
+
+
+def _missing_footer_lead(is_declared_over_tasks: bool, did_work: bool) -> str | None:
+    if is_declared_over_tasks:
+        return IN_PROGRESS_TASKS_REASON_LEAD
+    if did_work:
+        return FOOTER_MISSING_REASON_LEAD
+    return None
+
+
+def footer_hold_reason(
+    all_hook_input_fields: dict[str, object],
+    closing_reply: str,
+    did_work: bool,
+    deadline_at: float,
+) -> str | None:
+    """Return the footer hold reason for the closing reply, or None when the reply may end.
+
+    ::
+
+        nothing in progress, no background work           -> None, no closing line owed
+        "Open items: none."  task #28 in_progress          -> the declaration reason
+        work, no footer, task #28 or background work       -> the missing-footer reason
+        a footer that leaves out in-progress task #29      -> the gap reason
+        a footer that names every in-progress task         -> None
+        no work, no footer                                 -> None, a chat-only turn
+
+    Args:
+        all_hook_input_fields: The Stop payload, read for ``background_tasks``
+            and the task list.
+        closing_reply: The newest text after the last work call.
+        did_work: Whether the stretch holds work after the last reply that
+            ended with the footer.
+        deadline_at: The monotonic time the declaration scan stops at.
+
+    Returns:
+        The reason, or None.
+    """
+    is_background_running = has_background_work(all_hook_input_fields)
+    all_tasks = session_tasks(all_hook_input_fields)
+    if not all_tasks.in_progress and not is_background_running:
+        return None
+    footer_items = split_footer(closing_reply).footer_items
+    if footer_items is None:
+        reason_lead = _missing_footer_lead(
+            bool(all_tasks.in_progress) and declares_no_open_items(closing_reply, deadline_at),
+            did_work,
+        )
+        if reason_lead is None:
+            return None
+        return footer_reason(reason_lead, all_tasks.in_progress, (), all_tasks.still_open)
+    all_left_out_items = left_out_tasks(footer_items, all_tasks.in_progress, all_tasks.still_open)
+    if not all_left_out_items:
+        return None
+    return footer_reason(
+        FOOTER_GAP_REASON_LEAD, all_tasks.in_progress, all_left_out_items, all_tasks.still_open
+    )
 
 
 def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -> str | None:
@@ -263,29 +341,21 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     all_payload_texts, all_stretch_records, all_counted_records = covered_session
     if prior_hold_count(all_counted_records) >= MAXIMUM_HOLD_COUNT:
         return None
+    all_closing_texts = _closing_reply_texts(all_stretch_records, all_payload_texts)
+    closing_reply = all_closing_texts[-1] if all_closing_texts else ""
     all_texts = [*assistant_texts(all_stretch_records), *all_payload_texts]
-    all_open_item_lines = marked_open_lines(all_texts, deadline_at)
-    if all_open_item_lines:
-        return closing_round_reason(all_open_item_lines)
-    tasks_reason = declared_tasks_reason(all_hook_input_fields, all_texts, deadline_at)
-    if tasks_reason:
-        return tasks_reason
-    all_undeclared_records = _records_since_declaration(all_stretch_records, deadline_at)
-    all_work_positions = [
-        each_position
-        for each_position, each_record in enumerate(all_undeclared_records)
-        if has_work_call([each_record])
-    ]
-    if not all_work_positions:
-        return None
-    all_later_texts = [
-        *assistant_texts(all_undeclared_records[all_work_positions[-1] + 1 :]),
-        *all_payload_texts,
-    ]
-    closing_reply = all_later_texts[-1] if all_later_texts else ""
-    if declares_no_open_items(closing_reply, deadline_at):
-        return None
-    return work_reason()
+    if all_closing_texts:
+        all_texts[-1] = split_footer(closing_reply).body
+    if not has_background_work(all_hook_input_fields):
+        all_open_item_lines = marked_open_lines(all_texts, deadline_at)
+        if all_open_item_lines:
+            return closing_round_reason(all_open_item_lines)
+    return footer_hold_reason(
+        all_hook_input_fields,
+        closing_reply,
+        _has_work_since_footer(all_stretch_records),
+        deadline_at,
+    )
 
 
 def _capped_hook_input() -> dict[str, object] | None:

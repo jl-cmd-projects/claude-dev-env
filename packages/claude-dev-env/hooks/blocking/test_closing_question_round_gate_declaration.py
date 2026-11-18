@@ -13,9 +13,10 @@ import closing_question_round_gate
 
 from hooks_constants.closing_question_round_gate_constants import (
     MAXIMUM_PAYLOAD_BYTES,
-    WORK_REASON_LEAD,
+    FOOTER_MISSING_REASON_LEAD,
 )
 from test_closing_question_round_gate import (
+    SESSION_ID,
     held_reason,
     reply_record,
     stop_feedback_record,
@@ -25,9 +26,11 @@ from test_closing_question_round_gate import (
     write_records,
 )
 from test_closing_question_round_gate_work import (
-    DECLARATION,
-    WORK_FEEDBACK_TEXT,
+    FOOTER,
+    LIST_READER_ITEM,
+    FOOTER_FEEDBACK_TEXT,
     edit_records,
+    task_in_progress,
 )
 
 GATE_PATH = Path(__file__).resolve().parent / "closing_question_round_gate.py"
@@ -41,31 +44,31 @@ def scratch_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "closing_reply",
-    [f"Done.\n\n* {DECLARATION}", f"Done.\n\n* **{DECLARATION}**", "Done.\n\nOpen_ items: none."],
+    [f"Done.\n\n* {FOOTER}", f"Done.\n\n* **{FOOTER}**", f"Done.\n\nIn_ progress:\n{LIST_READER_ITEM}"],
 )
-def test_should_hold_a_declaration_in_a_star_list_item_or_with_a_stray_mark(
+def test_should_hold_a_footer_heading_in_a_star_list_item_or_with_a_stray_mark(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
     closing_reply: str,
 ) -> None:
     all_records = [typed_prompt_record(), *edit_records(), reply_record(closing_reply)]
-    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(WORK_REASON_LEAD)
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
 def test_should_not_count_a_hand_back_that_quotes_the_reason_as_a_hold(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    hand_back = stop_feedback_record(f"A worker reports. It quotes this: {WORK_REASON_LEAD}")
+    hand_back = stop_feedback_record(f"A worker reports. It quotes this: {FOOTER_MISSING_REASON_LEAD}")
     all_records = [
         typed_prompt_record(),
         *edit_records(),
         reply_record("Done."),
-        stop_feedback_record(WORK_FEEDBACK_TEXT),
+        stop_feedback_record(FOOTER_FEEDBACK_TEXT),
         hand_back,
         reply_record("Done."),
     ]
-    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(WORK_REASON_LEAD)
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
 def test_should_not_count_a_typed_prompt_that_quotes_the_feedback_as_a_hold(
@@ -74,7 +77,7 @@ def test_should_not_count_a_typed_prompt_that_quotes_the_feedback_as_a_hold(
     typed_quote = typed_prompt_record()
     message_body = typed_quote["message"]
     assert isinstance(message_body, dict)
-    message_body["content"] = WORK_FEEDBACK_TEXT
+    message_body["content"] = FOOTER_FEEDBACK_TEXT
     all_records = [
         typed_prompt_record(),
         typed_quote,
@@ -83,11 +86,11 @@ def test_should_not_count_a_typed_prompt_that_quotes_the_feedback_as_a_hold(
         *edit_records(),
         reply_record("Done."),
     ]
-    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(WORK_REASON_LEAD)
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
 @pytest.mark.parametrize("closing_payload", [{}, {"last_assistant_message": ""}])
-def test_should_hold_work_after_an_earlier_declaration_when_no_closing_text_follows(
+def test_should_hold_work_after_an_earlier_footer_when_no_closing_text_follows(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
@@ -96,58 +99,58 @@ def test_should_hold_work_after_an_earlier_declaration_when_no_closing_text_foll
     all_records = [
         typed_prompt_record(),
         *edit_records(),
-        reply_record(f"The retry flag is in place.\n\n{DECLARATION}"),
+        reply_record(f"The retry flag is in place.\n\n{FOOTER}"),
         typed_prompt_record(),
         *edit_records(),
     ]
     reason = held_reason(monkeypatch, capsys, tmp_path, all_records, closing_payload)
-    assert str(reason).startswith(WORK_REASON_LEAD)
+    assert str(reason).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
-def test_should_hold_a_tool_call_that_shares_a_record_with_the_declaration(
+def test_should_hold_a_tool_call_that_shares_a_record_with_the_footer(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     declared_call = tool_call_record("Edit", {"file_path": "jobs/export.py"}, tool_use_id="id-x")
     message_body = declared_call["message"]
     assert isinstance(message_body, dict)
-    message_body["content"] = [{"type": "text", "text": DECLARATION}, *message_body["content"]]
+    message_body["content"] = [{"type": "text", "text": FOOTER}, *message_body["content"]]
     all_records = [
         typed_prompt_record(),
         declared_call,
         tool_result_record("Edit", "The file was updated.", tool_use_id="id-x"),
     ]
     reason = held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": ""})
-    assert str(reason).startswith(WORK_REASON_LEAD)
+    assert str(reason).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
-def test_should_allow_a_declaration_the_payload_carries_after_work(
+def test_should_allow_a_footer_the_payload_carries_after_work(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     all_records = [typed_prompt_record(), *edit_records()]
-    closing_payload: dict[str, object] = {"last_assistant_message": f"Done.\n\n{DECLARATION}"}
+    closing_payload: dict[str, object] = {"last_assistant_message": f"Done.\n\n{FOOTER}"}
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, closing_payload) is None
 
 
-def test_should_allow_a_payload_declaration_that_repeats_a_text_from_before_the_work(
+def test_should_allow_a_payload_footer_that_repeats_a_text_from_before_the_work(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    all_records = [typed_prompt_record(), reply_record(DECLARATION), *edit_records()]
-    closing_payload: dict[str, object] = {"last_assistant_message": DECLARATION}
+    all_records = [typed_prompt_record(), reply_record(FOOTER), *edit_records()]
+    closing_payload: dict[str, object] = {"last_assistant_message": FOOTER}
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, closing_payload) is None
 
 
 @pytest.mark.parametrize(
     "closing_reply",
-    [f"**{DECLARATION}", f"{DECLARATION}__", f"**{DECLARATION}_"],
+    [f"**In progress:\n{LIST_READER_ITEM}", f"In progress:__\n{LIST_READER_ITEM}", f"**In progress:_\n{LIST_READER_ITEM}"],
 )
-def test_should_hold_a_declaration_with_unmatched_marks(
+def test_should_hold_a_footer_heading_with_unmatched_marks(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
     closing_reply: str,
 ) -> None:
     all_records = [typed_prompt_record(), *edit_records(), reply_record(closing_reply)]
-    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(WORK_REASON_LEAD)
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
 def test_should_allow_within_ten_seconds_when_a_scan_step_never_reads_the_clock(
@@ -201,6 +204,7 @@ def test_should_allow_a_payload_over_the_payload_cap_without_parsing_it(
     write_records(transcript_path, [typed_prompt_record(), *edit_records(), reply_record("Done.")])
     hook_input = {
         "hook_event_name": "Stop",
+        "session_id": SESSION_ID,
         "transcript_path": str(transcript_path),
         "last_assistant_message": "Done.",
         "padding": "z" * (MAXIMUM_PAYLOAD_BYTES + 1),
@@ -221,6 +225,7 @@ def test_should_hold_a_payload_under_the_payload_cap(tmp_path: Path) -> None:
     write_records(transcript_path, [typed_prompt_record(), *edit_records(), reply_record("Done.")])
     hook_input = {
         "hook_event_name": "Stop",
+        "session_id": SESSION_ID,
         "transcript_path": str(transcript_path),
         "last_assistant_message": "Done.",
     }

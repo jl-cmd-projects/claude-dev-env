@@ -11,10 +11,11 @@ import pytest
 import closing_question_round_gate
 from hooks_constants.closing_question_round_gate_constants import (
     CLOSING_ROUND_REASON_LEAD,
+    FOOTER_GAP_REASON_LEAD,
+    FOOTER_MISSING_REASON_LEAD,
     IN_PROGRESS_TASKS_REASON_LEAD,
     MAXIMUM_QUOTED_LINE_COUNT,
     MAXIMUM_QUOTED_LINE_LENGTH,
-    WORK_REASON_LEAD,
 )
 
 GATE_PATH = Path(closing_question_round_gate.__file__)
@@ -661,13 +662,20 @@ def test_is_exempt_stop_reads_the_payload_and_the_environment(
 ) -> None:
     assert closing_question_round_gate.is_exempt_stop({"agent_id": "agent-1"})
     assert closing_question_round_gate.is_exempt_stop({"conversation_id": "conversation-1"})
-    assert closing_question_round_gate.is_exempt_stop({"background_tasks": [{"id": "task-1"}]})
-    assert closing_question_round_gate.is_exempt_stop({"background_tasks": {"task-1": {}}})
-    assert closing_question_round_gate.is_exempt_stop({"background_tasks": "task-1"})
-    assert not closing_question_round_gate.is_exempt_stop({"background_tasks": {}})
+    assert not closing_question_round_gate.is_exempt_stop({"background_tasks": [{"id": "task-1"}]})
     assert not closing_question_round_gate.is_exempt_stop({"agent_id": "", "background_tasks": []})
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ATTENDED", "0")
     assert closing_question_round_gate.is_exempt_stop({})
+
+
+def test_has_background_work_reads_a_non_empty_list_object_or_string() -> None:
+    assert closing_question_round_gate.has_background_work({"background_tasks": [{"id": "task-1"}]})
+    assert closing_question_round_gate.has_background_work({"background_tasks": {"task-1": {}}})
+    assert closing_question_round_gate.has_background_work({"background_tasks": "task-1"})
+    assert not closing_question_round_gate.has_background_work({"background_tasks": {}})
+    assert not closing_question_round_gate.has_background_work({"background_tasks": []})
+    assert not closing_question_round_gate.has_background_work({"background_tasks": 3})
+    assert not closing_question_round_gate.has_background_work({})
 
 
 def test_prior_hold_count_counts_feedback_records_that_carry_the_lead() -> None:
@@ -700,21 +708,74 @@ def test_closing_round_reason_leads_with_the_fixed_sentence_and_ends_with_the_in
     assert "refuses a question past 450 words or 15 items" in all_reason_lines[-1]
     assert "a refused question starts a new count" in all_reason_lines[-1]
     assert "write a link in a card as a bare URL" in all_reason_lines[-1]
-    assert "end the reply with the line Open items: none." in all_reason_lines[-1]
+    assert "end the reply with the In progress footer" in all_reason_lines[-1]
+    assert "Open items: none." not in all_reason_lines[-1]
     assert all_reason_lines[-1].endswith(
         "send one question that says so and lets the user add an item."
     )
 
 
-def test_work_reason_leads_with_its_sentence_and_ends_with_the_declaration_line() -> None:
-    reason = closing_question_round_gate.work_reason()
-    all_reason_lines = reason.split("\n")
-    assert all_reason_lines[0] == WORK_REASON_LEAD
-    assert len(all_reason_lines) == 2
-    assert "Read the task list, your notes, and the live state of each item." in reason
-    assert "needs or can use the user's judgment" in reason
-    assert "refuses a question past 450 words or 15 items" in reason
-    assert reason.endswith("in plain text with no backticks or list marker: Open items: none.")
+def write_session_tasks(tmp_path: Path, all_task_entries: list[dict[str, str]]) -> None:
+    task_directory = tmp_path / ".claude" / "tasks" / SESSION_ID
+    task_directory.mkdir(parents=True, exist_ok=True)
+    for each_entry in all_task_entries:
+        (task_directory / f"{each_entry['id']}.json").write_text(
+            json.dumps(each_entry), encoding="utf-8"
+        )
+
+
+@pytest.mark.parametrize(
+    ("closing_reply", "did_work", "expected_lead"),
+    [
+        ("Done.", True, FOOTER_MISSING_REASON_LEAD),
+        ("Done.", False, ""),
+        ("Done.\n\nOpen items: none.", False, IN_PROGRESS_TASKS_REASON_LEAD),
+        ("Done.\n\nIn progress:\n- I am fixing the list reader.", True, FOOTER_GAP_REASON_LEAD),
+        (
+            "Done.\n\nIn progress:\n- I am fixing the list reader.\n- I am watching the discounts.",
+            True,
+            "",
+        ),
+    ],
+)
+def test_footer_hold_reason_picks_the_lead_from_the_reply_and_the_tasks(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    closing_reply: str,
+    did_work: bool,
+    expected_lead: str,
+) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / ".claude"))
+    monkeypatch.delenv("CLAUDE_CODE_TASK_LIST_ID", raising=False)
+    write_session_tasks(
+        tmp_path,
+        [
+            {"id": "28", "subject": "Fix list reader lint finding", "status": "in_progress"},
+            {"id": "29", "subject": "Watch discount ledger", "status": "in_progress"},
+        ],
+    )
+    reason = closing_question_round_gate.footer_hold_reason(
+        {"session_id": SESSION_ID}, closing_reply, did_work, time.monotonic() + 60
+    )
+    assert (reason or "").split("\n")[0] == expected_lead
+
+
+def test_footer_hold_reason_owes_no_closing_line_when_nothing_runs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / ".claude"))
+    monkeypatch.delenv("CLAUDE_CODE_TASK_LIST_ID", raising=False)
+    write_session_tasks(tmp_path, [{"id": "1", "subject": "Ship the export", "status": "completed"}])
+    all_payload_fields: dict[str, object] = {"session_id": SESSION_ID}
+    assert closing_question_round_gate.footer_hold_reason(
+        all_payload_fields, "Done.", True, time.monotonic() + 60
+    ) is None
+    all_payload_fields["background_tasks"] = [{"id": "task-1"}]
+    assert str(
+        closing_question_round_gate.footer_hold_reason(
+            all_payload_fields, "Done.", True, time.monotonic() + 60
+        )
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
 def test_should_read_the_closing_reply_from_the_payload(
@@ -883,6 +944,9 @@ def test_supervised_main_should_allow_with_no_output_when_a_standard_stream_is_c
 def test_should_hold_work_whose_record_spells_its_type_with_a_json_escape(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path / ".claude"))
+    monkeypatch.delenv("CLAUDE_CODE_TASK_LIST_ID", raising=False)
+    write_session_tasks(tmp_path, [{"id": "1", "subject": "Ship the export", "status": "in_progress"}])
     escaped_work_line = json.dumps(tool_call_record("Edit")).replace(
         '"assistant"', '"\\u0061ssistant"'
     )
@@ -900,7 +964,7 @@ def test_should_hold_work_whose_record_spells_its_type_with_a_json_escape(
     block_output = run_gate(
         monkeypatch, capsys, transcript_path, {"last_assistant_message": "Done."}
     )
-    assert block_output["reason"].startswith(WORK_REASON_LEAD)
+    assert block_output["reason"].startswith(FOOTER_MISSING_REASON_LEAD)
 
 
 def _held_gate_run(
@@ -999,4 +1063,4 @@ def test_should_hold_a_declaration_beside_an_in_progress_task_in_the_store(
     all_records = [typed_prompt_record(), reply_record("Done.\n\nOpen items: none.")]
     reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records))
     assert reason.startswith(IN_PROGRESS_TASKS_REASON_LEAD)
-    assert '#1 "Ship the export"' in reason
+    assert "- Ship the export [ship export]" in reason
