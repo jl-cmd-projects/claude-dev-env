@@ -188,6 +188,7 @@ PROOF_IMAGE_PATTERN = (
 )
 ALL_DEFAULT_BRANCH_REFERENCES = ("origin/HEAD", "origin/main", "main")
 REMOTE_BRANCH_PREFIX = "origin/"
+LONG_FLAG_PREFIX = "--"
 ALL_HEAD_FLAGS = frozenset({"--head", "-H"})
 HEAD_FLAG_ASSIGNMENT_PREFIX = "--head="
 ALL_BASE_FLAGS = frozenset({"--base", "-B"})

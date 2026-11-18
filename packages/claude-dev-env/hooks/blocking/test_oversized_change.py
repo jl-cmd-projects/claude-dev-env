@@ -171,6 +171,20 @@ def test_should_count_a_stacked_level_against_its_own_base(tmp_path: Path) -> No
     )
 
 
+def test_should_read_a_base_written_against_its_short_flag(tmp_path: Path) -> None:
+    clone_path = _clone_on_branch(tmp_path, "parent")
+    _commit_lines(clone_path, "library.py", 1500)
+    _git(clone_path, "push", "-q", "origin", "parent")
+    _git(clone_path, "checkout", "-q", "-b", "child")
+    _commit_lines(clone_path, "caller.py", 200)
+    _git(clone_path, "config", "branch.child.gh-merge-base", "parent")
+    assert size.oversized_pull_request_reason(_create(clone_path, PLAIN_BODY)) is None
+    assert (
+        size.oversized_pull_request_reason(_create(clone_path, PLAIN_BODY, "-Bmain"))
+        == OVERSIZED_PULL_REQUEST_REASON.format(measured_line_count=1700, measured_line_bar=1000)
+    )
+
+
 def test_should_leave_out_linguist_generated_files_and_lockfiles(tmp_path: Path) -> None:
     clone_path = _clone_on_branch(tmp_path, "feature")
     (clone_path / ".gitattributes").write_text(
