@@ -1,5 +1,7 @@
 # Does Codex return to the user's task?
 
+The [pending-command trial](pending_results.md) tested two models on 18 fresh continuations. A fresh reader stopped both unnecessary retry probes and preserved both required ones. Review took longer in every matched group. A short instruction reduced repeated checks, while the two independent graders disagreed on whether it prevented a user nudge.
+
 The [planning decision trial](design_slice_results.md) recorded redundant probes and one incorrect acceptance plan across 11 Codex outcomes. Both eligible reviewers passed without sending advice, so the paired outcome difference does not establish a reviewer effect.
 
 The [multi-step trajectory comparison](pivot_results.md) preserved eight workers' histories across matched cloud continuations and kept one early-finishing reserve. All 17 produced the requested files. Two independent readers found zero sustained diversions or needed follow-up nudges. Review added 8.15 seconds to median paired completion time.
