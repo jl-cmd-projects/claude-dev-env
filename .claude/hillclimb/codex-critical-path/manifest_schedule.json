@@ -1,0 +1,62 @@
+{
+  "seed": "album-export-holdout-20261118",
+  "budget_seconds": 240,
+  "rows": [
+    {
+      "case": "primary",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "arm": "candidate",
+      "id": "m47422"
+    },
+    {
+      "case": "sidecar",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "arm": "candidate",
+      "id": "m83278"
+    },
+    {
+      "case": "sidecar",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "arm": "candidate",
+      "id": "m95712"
+    },
+    {
+      "case": "sidecar",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "arm": "baseline",
+      "id": "m83505"
+    },
+    {
+      "case": "primary",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "arm": "candidate",
+      "id": "m72391"
+    },
+    {
+      "case": "primary",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "arm": "baseline",
+      "id": "m42339"
+    },
+    {
+      "case": "primary",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "arm": "baseline",
+      "id": "m81007"
+    },
+    {
+      "case": "sidecar",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "arm": "baseline",
+      "id": "m94605"
+    }
+  ]
+}
