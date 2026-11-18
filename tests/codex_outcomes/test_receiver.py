@@ -12,7 +12,9 @@ import pytest
 HERE = Path(__file__).parent
 SPEC = importlib.util.spec_from_file_location("outcome_receiver", HERE / "receiver.py")
 MODULE = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(MODULE)
+with pytest.MonkeyPatch.context() as import_context:
+    import_context.syspath_prepend(str(HERE))
+    SPEC.loader.exec_module(MODULE)
 CASES = {case["id"]: case for case in json.loads((HERE / "cases.json").read_text())}
 
 
