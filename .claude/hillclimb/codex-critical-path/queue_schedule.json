@@ -1,0 +1,12 @@
+{
+  "seed": "critical-path-queue-20261118-before-launch",
+  "active_budget_seconds": 1500,
+  "cells": [
+    {"case":"queue-required","model":"gpt-6.2-sol","effort":"high","rep":1,"prefix":"q210","incumbent":"c123","fork":"c746","reviewer":"v627","review_incumbent":true},
+    {"case":"queue-direct","model":"gpt-6.2-sol","effort":"high","rep":1,"prefix":"q173","incumbent":"c533","fork":"c677","reviewer":"v285","review_incumbent":false},
+    {"case":"queue-direct","model":"gpt-6.1-sol","effort":"high","rep":1,"prefix":"q342","incumbent":"c110","fork":"c463","reviewer":"v575","review_incumbent":false},
+    {"case":"queue-required","model":"gpt-6.2-sol","effort":"high","rep":2,"prefix":"q872","incumbent":"c743","fork":"c955","reviewer":"v400","review_incumbent":false},
+    {"case":"queue-required","model":"gpt-6.1-sol","effort":"high","rep":1,"prefix":"q453","incumbent":"c443","fork":"c699","reviewer":"v147","review_incumbent":true},
+    {"case":"queue-direct","model":"gpt-6.2-sol","effort":"high","rep":2,"prefix":"q648","incumbent":"c525","fork":"c790","reviewer":"v432","review_incumbent":true}
+  ]
+}
