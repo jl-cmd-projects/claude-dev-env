@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.132.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.6...claude-dev-env-v8.132.0) (2026-11-18)
+
+
+### Features
+
+* **hooks:** end a working reply with a plain-words In progress footer ([#2455](https://github.com/jl-cmd-projects/claude-dev-env/issues/2455)) ([d2c6b8d](https://github.com/jl-cmd-projects/claude-dev-env/commit/d2c6b8dcf7d1bd8975b84a995b9ff4e0add28acd))
+
 ## [8.131.6](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.131.5...claude-dev-env-v8.131.6) (2026-11-18)
 
 
