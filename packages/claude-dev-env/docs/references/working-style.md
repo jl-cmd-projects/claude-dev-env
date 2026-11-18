@@ -8,7 +8,7 @@ The SessionStart hook `hooks/session/working_style_prompt.py` points every sessi
 - Keep a running scratch text ledger as you work.
 - Remove completed items from the task list before the turn ends, so the list shows only open work.
 - Read an open item's live state before you show it to the user as open.
-- Keep each task list subject to 80 characters or fewer, start it with who acts (Me, You, or Handed off), and say what is left; put detail in the description.
+- Keep each task list subject to 80 characters or fewer, start it with who acts (Me, You, or Worker for a subagent or another session), and say what is left; put detail in the description.
 
 ## Presentation
 
