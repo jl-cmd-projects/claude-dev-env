@@ -20,13 +20,14 @@ from hooks_constants.codex_continuation_constants import (
     QUOTED_EXAMPLE,
     REGISTERED_WAKE,
     RESOLVED_STATUS,
+    SEPARATE_SUBJECT,
     STANDALONE_STOP,
     WAIT_SUBJECT,
 )
 
 
 def _unquoted(text: str) -> list[str]:
-    return [WORD_SEPARATOR.join(QUOTED_EXAMPLE.sub(WORD_SEPARATOR, part).split()) for part in prose_paragraphs(text)]
+    return [QUOTED_EXAMPLE.sub(WORD_SEPARATOR, WORD_SEPARATOR.join(part.split())) for part in prose_paragraphs(text)]
 
 
 def _warrants_review(match: Match[str], clause: str, explanation: str, has_question: bool) -> bool:
@@ -35,8 +36,7 @@ def _warrants_review(match: Match[str], clause: str, explanation: str, has_quest
     protected = PROTECTED_DECISION.search(explanation)
     if APPROVAL_SUBJECT.search(clause) and (has_question or protected):
         return False
-    is_wait = any(each_wait.start() <= match.start() and each_wait.end() >= match.end()
-                  for each_wait in WAIT_SUBJECT.finditer(clause))
+    is_wait = WAIT_SUBJECT.fullmatch(match.group())
     return not (is_wait and (REGISTERED_WAKE.search(explanation) or protected))
 
 
@@ -61,7 +61,7 @@ def continuation_review(reply: object, user_request: str, has_question: bool) ->
     all_clauses = [part.strip() for part in CLAUSE_BREAK.split(LINE_SEPARATOR.join(_unquoted(reply))) if part.strip()]
     for each_index, each_clause in enumerate(all_clauses):
         nearby = all_clauses[each_index + 1:each_index + 1 + MAX_REASON_SENTENCES]
-        explanation = WORD_SEPARATOR.join([each_clause, *takewhile(lambda part: not CLOSING_PHRASE.search(part), nearby)])
+        explanation = WORD_SEPARATOR.join([each_clause, *takewhile(lambda part: not (CLOSING_PHRASE.search(part) or SEPARATE_SUBJECT.search(part)), nearby)])
         if any(_warrants_review(match, each_clause, explanation, has_question) for match in CLOSING_PHRASE.finditer(each_clause)):
             return CONTINUATION_REVIEW
     return None

@@ -437,7 +437,7 @@ def turn_block_reason(all_hook_input_fields: dict[str, object], replay: Transcri
         tracker finding only           -> the finding, then "Then end the turn. Leave the reply as it stands."
         promise and list findings      -> both findings, the list's closing line, then both keep conditions
 
-    "end the turn" appears once in every reason.
+    A Codex continuation asks for the next authorized step when the closing text still describes unfinished work.
     """
     all_tracker_reasons = tracker_reasons(all_hook_input_fields, replay)
     all_step_reasons = user_step_reasons(all_hook_input_fields, replay)
@@ -515,6 +515,8 @@ def _stop_block_reason(all_hook_input_fields: dict[str, object]) -> str | None:
         return None
     replay = replayed_transcript(all_hook_input_fields.get(TRANSCRIPT_PATH_KEY))
     if is_claude_held_stop:
+        if all_hook_input_fields.get(CODEX_TURN_ID_KEY) or replay.is_codex_turn:
+            return None
         return continued_stop_reason(all_hook_input_fields, replay)
     block_reason = turn_block_reason(all_hook_input_fields, replay)
     if block_reason is not None and replay.turn_key is not None:
