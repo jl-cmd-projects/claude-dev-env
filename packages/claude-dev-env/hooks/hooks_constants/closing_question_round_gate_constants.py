@@ -3,7 +3,8 @@
 Groups: the payload and transcript fields that mark a stop the gate leaves
 alone, the transcript text each cheap scan looks for, the time and size
 budget, the wording that marks an open item, the masking of indented code,
-the declaration line, the hold cap, the three hold reasons, and the keyword
+the old declaration line, the In progress footer and the words its coverage
+check skips, the hold cap, the four hold reasons, and the keyword
 and flag file that turn the gate off for one session.
 """
 
@@ -44,6 +45,7 @@ OUTPUT_WATCHDOG_SECONDS = 1.0
 MAXIMUM_SCANNED_BYTES = 16 * 1024 * 1024
 MAXIMUM_PAYLOAD_BYTES = 16 * 1024 * 1024
 MAXIMUM_SCANNED_TEXT_BYTES = 2 * 1024 * 1024
+MAXIMUM_REPLAYED_TRANSCRIPT_BYTES = 64 * 1024 * 1024
 LINE_FEED_BYTES = b"\n"
 ESCAPED_ASCII_TEXT = "\\u00"
 ESCAPED_PRINTABLE_ASCII_PATTERN = re.compile(r"\\u00[2-7][0-9a-fA-F]")
@@ -128,13 +130,21 @@ CLIPPED_LINE_END = "..."
 CLOSING_ROUND_REASON_LEAD = (
     "This session wrote about open items and sent no question card after them."
 )
-WORK_REASON_LEAD = (
-    "This session did work and ended without a question card or the declaration line."
-)
 IN_PROGRESS_TASKS_REASON_LEAD = (
     "This session declared no open items while its own task list holds work in progress."
 )
-ALL_REASON_LEADS = (CLOSING_ROUND_REASON_LEAD, WORK_REASON_LEAD, IN_PROGRESS_TASKS_REASON_LEAD)
+FOOTER_MISSING_REASON_LEAD = (
+    "This session did work while work is still in progress and ended without the In progress footer."
+)
+FOOTER_GAP_REASON_LEAD = (
+    "This session's In progress footer leaves out work that is still in progress."
+)
+ALL_REASON_LEADS = (
+    CLOSING_ROUND_REASON_LEAD,
+    IN_PROGRESS_TASKS_REASON_LEAD,
+    FOOTER_MISSING_REASON_LEAD,
+    FOOTER_GAP_REASON_LEAD,
+)
 OPEN_ITEM_LINES_LABEL = "The lines:"
 QUOTED_LINE_TEMPLATE = '"{line}"'
 REMAINING_LINES_TEMPLATE = "Earlier lines left out here: {remaining_count}."
@@ -155,29 +165,57 @@ CARD_INSTRUCTION = (
     " recommendation first. Give each option a one-sentence description. A card shows plain"
     " text, so write a link in a card as a bare URL. After the user answers, act on each answer"
     " and close with what you did with it. Do not restate the items, because open-item lines"
-    " written after the cards start a new round. When that work leaves nothing open, end the"
-    f" reply with the line {NO_OPEN_ITEMS_DECLARATION}"
+    " written after the cards start a new round. When work is still in progress, end the reply"
+    " with the In progress footer. When nothing is in progress, end it with no closing line."
 )
 CLOSING_ROUND_INSTRUCTION = (
     f"{READ_ITEMS_INSTRUCTION} {CARD_INSTRUCTION} When the lines name nothing that is still open,"
     " send one question that says so and lets the user add an item."
 )
-WORK_INSTRUCTION = (
-    f"{READ_ITEMS_INSTRUCTION} When something is deferred, uncertain, or needs or can use the"
-    " user's judgment, brief it and send the cards, as follows."
-    f" {CARD_INSTRUCTION} When nothing is, do not list what is not open: end the reply with this"
-    f" exact line alone, in plain text with no backticks or list marker: {NO_OPEN_ITEMS_DECLARATION}"
+FOOTER_HEADING = "In progress:"
+FOOTER_HEADING_PATTERN = re.compile(
+    r"(?P<mark>\*\*|__|)" + re.escape(FOOTER_HEADING) + r"(?P=mark)", re.IGNORECASE
 )
-IN_PROGRESS_TASKS_LABEL = "Tasks in progress:"
-IN_PROGRESS_TASK_LINE_TEMPLATE = '#{task_id} "{subject}"'
-IN_PROGRESS_TASKS_INSTRUCTION = (
-    "These tasks are the goal the user gave this session, and a side question or a closing"
-    " round does not close them. Do not tell the user nothing is open. Read the live state of"
-    " each task, tell the user in a line or two where each one stands, and keep working on it."
-    " Mark a task completed only when its work is done, and delete it only when the user drops"
-    f" it. End a reply with the line {NO_OPEN_ITEMS_DECLARATION} only when no task is in progress."
+FOOTER_ITEM_LINE_PATTERN = re.compile(r"^ {0,3}[-*+][ \t]+(?P<item>\S.*)$")
+FOOTER_CONTINUATION_LINE_PATTERN = re.compile(r"^[ \t]+\S")
+FOOTER_WORD_PATTERN = re.compile(r"[a-z][a-z']+")
+POSSESSIVE_ENDING = "'s"
+MATCH_PREFIX_LENGTH = 5
+ALL_SUBJECT_SKIP_WORDS = frozenset(
+    {
+        "a", "an", "the", "and", "or", "of", "to", "for", "in", "on", "at", "by", "with",
+        "from", "into", "fix", "fixes", "watch", "open", "opens", "run", "runs", "check",
+        "checks", "finding", "findings", "make", "add", "update", "scheduled", "wake", "lint",
+        "pr", "prs", "pull", "request", "ci", "task", "tasks", "new", "old", "stale", "merge",
+        "start", "get", "set",
+    }
+)
+TASK_KEY_WORD_SEPARATOR = " "
+FOOTER_TASK_LINE_TEMPLATE = "- {subject} [{key_words}]"
+FOOTER_TASKS_LABEL = "Work in progress, with the words that name each task in brackets:"
+FOOTER_GAP_LABEL = "Left out of the footer:"
+FOOTER_KEY_WORDS_INSTRUCTION = "Keep the words in brackets above, so the footer names each task."
+FOOTER_INSTRUCTION = (
+    f"End the reply with the In progress footer: a line that holds only {FOOTER_HEADING}, then"
+    " one list item for each piece of work still in progress. The user reads this footer on a"
+    " phone and does not read the code, so write it for them in plain words. Write each item in"
+    " first person, as one Claude, and say what the work does for the user and where it stands,"
+    " in at most 25 words. Leave out task numbers, run, build, and check numbers, commit ids, agent, session, schedule, or"
+    " process ids, file paths, and code names. A pull request number is the one number that may"
+    " stay. Leave out which agent, helper, or worker does the work. Leave out tool and process"
+    " words, such as agent, subagent, shell, monitor, lint, cron, wake, push, branch, rebase,"
+    " check run, log, or background. When the work waits on tests, call them the automated"
+    " tests, not checks, and do not call the work a run. Say what is left before the work is done and what it shows the"
+    " user, in words the user can picture. Write each short form in full: pull request, not PR."
+    " Give the work that runs on its own one short clause that says what it gets the user, and do"
+    " not list each job or each preparation step. Write the footer in your own words for this"
+    " session. Do not end with the line Open items: none. When nothing is in progress and no"
+    " background work runs, end the reply with no closing line."
 )
 REASON_PART_SEPARATOR = "\n"
+SCANNED_PARAGRAPH_SEPARATOR = "\n\n"
+FOOTER_STATUS_MARKER_PATTERN = re.compile(r"\b(?:pending|blocked|not done|not run)\b", re.IGNORECASE)
+FOOTER_STATUS_STAND_IN = "in progress"
 
 SESSION_ID_KEY = "session_id"
 BYPASS_KEYWORD = "--nocards"

@@ -153,3 +153,50 @@ def test_graded_rows_miss_the_allow_case_for_a_gate_that_always_holds(
     )
     assert [has_passed for has_passed, _ in all_rows] == [True, False]
     assert all_rows[1][1] == "MISS closed: expected allow, got hold"
+
+
+def test_write_task_store_writes_one_file_per_task_under_the_case_claude_home(
+    tmp_path: Path,
+) -> None:
+    task_case = {
+        **CLOSED_CASE,
+        "tasks": [{"id": "28", "subject": "Fix list reader", "status": "in_progress"}],
+    }
+    closing_round_run.write_task_store(task_case, tmp_path)
+    task_file = tmp_path / "home" / ".claude" / "tasks" / "eval-session" / "28.json"
+    assert json.loads(task_file.read_text(encoding="utf-8"))["status"] == "in_progress"
+    closing_round_run.write_task_store(CLOSED_CASE, tmp_path / "other")
+    assert not (tmp_path / "other").exists()
+
+
+def test_case_environment_points_the_claude_home_into_the_case_folder(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CLAUDE_CODE_TASK_LIST_ID", "caller-list")
+    environment = closing_round_run.case_environment(CLOSED_CASE, tmp_path)
+    assert environment["CLAUDE_CONFIG_DIR"] == str(tmp_path / "home" / ".claude")
+    assert "CLAUDE_CODE_TASK_LIST_ID" not in environment
+
+
+def test_case_decision_holds_work_beside_a_seeded_task_in_progress() -> None:
+    work_case = {
+        "id": "work",
+        "expected": "hold",
+        "transcript": [
+            OPEN_ITEM_CASE["transcript"][0],
+            {
+                "type": "assistant",
+                "message": {
+                    "role": "assistant",
+                    "content": [{"type": "tool_use", "id": "toolu_1", "name": "Edit", "input": {}}],
+                },
+            },
+            CLOSED_CASE["transcript"][1],
+        ],
+    }
+    assert closing_round_run.case_decision(work_case, closing_round_run.HOOK_FILE) == "allow"
+    seeded_case = {
+        **work_case,
+        "tasks": [{"id": "28", "subject": "Fix list reader", "status": "in_progress"}],
+    }
+    assert closing_round_run.case_decision(seeded_case, closing_round_run.HOOK_FILE) == "hold"

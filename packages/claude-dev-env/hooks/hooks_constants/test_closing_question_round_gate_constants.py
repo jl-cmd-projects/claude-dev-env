@@ -3,16 +3,16 @@ import pytest
 from hooks_constants.closing_question_round_gate_constants import (
     ALL_REASON_LEADS,
     CLOSING_ROUND_INSTRUCTION,
-    IN_PROGRESS_TASKS_INSTRUCTION,
     DECLARATION_LINE_PATTERN,
     ESCAPED_PRINTABLE_ASCII_PATTERN,
     FILE_NAME_PATTERN,
+    FOOTER_HEADING,
+    FOOTER_INSTRUCTION,
     PATH_EDGE_CHARACTERS,
     NO_OPEN_ITEMS_DECLARATION,
     OPEN_ITEM_MARKER_PATTERN,
     OUTPUT_WATCHDOG_SECONDS,
     STDIN_WATCHDOG_SECONDS,
-    WORK_INSTRUCTION,
 )
 
 
@@ -41,12 +41,17 @@ def test_marker_pattern_should_find_each_added_wording(open_line: str, marker: s
     assert marker_match.group(0) == marker
 
 
-def test_declaration_should_carry_no_marker_and_end_both_instructions() -> None:
-    assert OPEN_ITEM_MARKER_PATTERN.search(NO_OPEN_ITEMS_DECLARATION) is None
-    assert WORK_INSTRUCTION.endswith(NO_OPEN_ITEMS_DECLARATION)
-    assert NO_OPEN_ITEMS_DECLARATION in CLOSING_ROUND_INSTRUCTION
-    assert NO_OPEN_ITEMS_DECLARATION in IN_PROGRESS_TASKS_INSTRUCTION
-    assert len(set(ALL_REASON_LEADS)) == 3
+def test_instructions_should_ask_for_the_footer_and_never_for_the_declaration() -> None:
+    assert FOOTER_HEADING in FOOTER_INSTRUCTION
+    assert "In progress footer" in CLOSING_ROUND_INSTRUCTION
+    assert f"line {NO_OPEN_ITEMS_DECLARATION}" not in CLOSING_ROUND_INSTRUCTION
+    assert f"Do not end with the line {NO_OPEN_ITEMS_DECLARATION}" in FOOTER_INSTRUCTION
+    assert len(set(ALL_REASON_LEADS)) == 4
+
+
+def test_footer_instruction_should_hold_no_example_sentence_to_copy() -> None:
+    assert "'" not in FOOTER_INSTRUCTION
+    assert "I am" not in FOOTER_INSTRUCTION
 
 
 @pytest.mark.parametrize(

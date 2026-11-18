@@ -13,7 +13,7 @@ from closing_question_round_transcript import (
     top_level_records,
 )
 from hooks_constants.closing_question_round_gate_constants import (
-    WORK_REASON_LEAD,
+    FOOTER_MISSING_REASON_LEAD,
 )
 
 NO_DEADLINE = float("inf")
@@ -115,7 +115,7 @@ def test_top_level_records_keeps_assistant_records_and_this_gates_holds() -> Non
     hold_record = {
         "type": "user",
         "isMeta": True,
-        "message": {"role": "user", "content": f"Stop hook feedback:\n{WORK_REASON_LEAD}"},
+        "message": {"role": "user", "content": f"Stop hook feedback:\n{FOOTER_MISSING_REASON_LEAD}"},
     }
     first_reply = reply_record("One.")
     bash_call = tool_call_record("Bash")

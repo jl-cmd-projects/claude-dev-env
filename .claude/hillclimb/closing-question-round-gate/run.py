@@ -6,10 +6,11 @@
     python3 run.py --hook /path/to/another_gate.py
 
 Each case in ``cases.json`` holds a synthetic transcript, the fields it adds to
-the Stop payload, the environment it sets, and the decision it expects. The
-runner writes the transcript to a temporary folder and starts the hook as its
-own process, the way Claude Code does: the payload on stdin, and the case's
-environment on top of an interactive session's.
+the Stop payload, the environment it sets, the task store it seeds, and the
+decision it expects. The runner writes the transcript and the task store to a
+temporary folder and starts the hook as its own process, the way Claude Code
+does: the payload on stdin, and the case's environment on top of an
+interactive session's.
 
 The grader reads the exit code and stdout::
 
@@ -43,8 +44,11 @@ from closing_round_eval_support.config.constants import (
     CASE_EXPECTED_KEY,
     CASE_ID_KEY,
     CASE_PAYLOAD_KEY,
+    CASE_TASKS_KEY,
     CASE_TRANSCRIPT_KEY,
     CASES_FILE,
+    CLAUDE_CONFIG_DIRECTORY_ENVIRONMENT_VARIABLE,
+    CLAUDE_HOME_DIRECTORY_NAME,
     HOLD_DECISION,
     HOLD_EXIT_CODE,
     HOME_DIRECTORY_NAME,
@@ -58,9 +62,14 @@ from closing_round_eval_support.config.constants import (
     RECORD_SEPARATOR,
     ROW_TEMPLATE,
     SESSION_ATTENDED_ENVIRONMENT_VARIABLE,
+    SESSION_ID_KEY,
     STOP_BLOCK_DECISION,
     STOP_DECISION_KEY,
     SUMMARY_TEMPLATE,
+    TASK_FILE_SUFFIX,
+    TASK_ID_KEY,
+    TASK_LIST_ID_ENVIRONMENT_VARIABLE,
+    TASKS_DIRECTORY_NAME,
     TRANSCRIPT_FILE_NAME,
     TRANSCRIPT_PATH_KEY,
     UNREADABLE_DECISION,
@@ -109,13 +118,43 @@ def stop_payload(
     }
 
 
+def _claude_home(case_directory: Path) -> Path:
+    return case_directory / HOME_DIRECTORY_NAME / CLAUDE_HOME_DIRECTORY_NAME
+
+
+def write_task_store(all_case_fields: dict[str, object], case_directory: Path) -> None:
+    """Write the case's tasks to the task store the hook reads, one file per task.
+
+    The store is ``<case home>/.claude/tasks/<session id>/<task id>.json``. A
+    case with no ``tasks`` list gets no store, so the hook falls back to the
+    transcript's task calls.
+
+    Args:
+        all_case_fields: One case from the cases file.
+        case_directory: The temporary folder that holds the case's home.
+    """
+    all_tasks = all_case_fields.get(CASE_TASKS_KEY)
+    if not isinstance(all_tasks, list):
+        return
+    task_directory = (
+        _claude_home(case_directory)
+        / TASKS_DIRECTORY_NAME
+        / str(ALL_BASE_PAYLOAD_FIELDS[SESSION_ID_KEY])
+    )
+    task_directory.mkdir(parents=True, exist_ok=True)
+    for each_task in all_tasks:
+        task_file = task_directory / f"{each_task[TASK_ID_KEY]}{TASK_FILE_SUFFIX}"
+        task_file.write_text(json.dumps(each_task), encoding=UTF8_ENCODING)
+
+
 def case_environment(
     all_case_fields: dict[str, object], case_directory: Path
 ) -> dict[str, str]:
     """Return the environment the hook runs in for a case.
 
-    The base is an interactive session with its home inside the case folder.
-    The case's own variables go on top.
+    The base is an interactive session with its home and its Claude home
+    inside the case folder, and without the caller's task list id. The case's
+    own variables go on top.
 
     Args:
         all_case_fields: One case from the cases file.
@@ -127,9 +166,15 @@ def case_environment(
     home_directory = case_directory / HOME_DIRECTORY_NAME
     home_directory.mkdir(exist_ok=True)
     all_case_variables = all_case_fields.get(CASE_ENVIRONMENT_KEY)
+    all_caller_variables = {
+        each_name: each_setting
+        for each_name, each_setting in os.environ.items()
+        if each_name != TASK_LIST_ID_ENVIRONMENT_VARIABLE
+    }
     return {
-        **os.environ,
+        **all_caller_variables,
         **dict.fromkeys(ALL_HOME_ENVIRONMENT_VARIABLES, str(home_directory)),
+        CLAUDE_CONFIG_DIRECTORY_ENVIRONMENT_VARIABLE: str(_claude_home(case_directory)),
         SESSION_ATTENDED_ENVIRONMENT_VARIABLE: INTERACTIVE_SESSION_ATTENDED_TEXT,
         **(all_case_variables if isinstance(all_case_variables, dict) else {}),
     }
@@ -179,6 +224,7 @@ def case_decision(all_case_fields: dict[str, object], hook_path: Path) -> str:
     """
     with tempfile.TemporaryDirectory() as case_directory_name:
         case_directory = Path(case_directory_name)
+        write_task_store(all_case_fields, case_directory)
         hook_run = subprocess.run(
             [sys.executable, str(hook_path)],
             input=json.dumps(stop_payload(all_case_fields, case_directory)),

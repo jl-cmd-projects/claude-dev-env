@@ -62,7 +62,7 @@ def test_should_hold_the_declaration_while_a_task_store_item_is_in_progress(
     )
     reason = str(held_reason(monkeypatch, capsys, tmp_path, nothing_open_records()))
     assert reason.startswith(IN_PROGRESS_TASKS_REASON_LEAD)
-    assert f'#2 "{MAIN_GOAL_SUBJECT}"' in reason
+    assert f"- {MAIN_GOAL_SUBJECT} [landed]" in reason
     assert "P0: 5/6 landed" not in reason
 
 
@@ -81,7 +81,7 @@ def test_should_hold_the_declaration_while_the_transcript_task_list_has_an_in_pr
     ]
     reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records))
     assert reason.startswith(IN_PROGRESS_TASKS_REASON_LEAD)
-    assert f'#7 "{MAIN_GOAL_SUBJECT}"' in reason
+    assert f"- {MAIN_GOAL_SUBJECT} [landed]" in reason
 
 
 @pytest.mark.parametrize("task_status", ["completed", "pending", "deleted"])
