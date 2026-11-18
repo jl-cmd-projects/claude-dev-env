@@ -1,0 +1,240 @@
+{
+  "seed": "pressure-contradictions-20261118",
+  "source_commit": "aea1ab91bb0737e24817e3b927940a85a8f0d811",
+  "source_archive_sha256": "74919ce82313ea4973010af5098194a931e1507e81067979d298534ff83cb4af",
+  "gate_sha256": "a1c5618ace47a9d2c92c58ff3377b0964bb2fd2449eb545b0cf9b651f5241571",
+  "source_digests": {
+    "h3660": {
+      "run.json": "dc946d5d50be22c5f03b48e5cd0a3b6052660c8fe45db0ed2a2f1c5b53dfc5e6",
+      "end.json": "3110be0bfc89e4186182b1a0db7782aca35eae3f348a8fba41cc72b04a0cb2c1",
+      "events.jsonl": "8b672abff5a23f23f09fd95bc16e3f5ca9ccaf5c6fbeeb07e829330a6b90fc44",
+      "reply.txt": "c5c75ed48724ed791217236c595403fc76393d27aa9072f77467ce59a7fd44ad",
+      "instructions.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "task.txt": "43aa5cb89d2c46618fdff6c791c6bf8dac917794473c22c0fdf999298fd4fd02",
+      "receipts.jsonl": "a3e7f6cf2a2e9a133042e1e9829f5d36cc9d1f287509b69e1a4719675e0cfc58"
+    },
+    "h7218": {
+      "run.json": "2d860b2f9c6d7f7d4506a0483a981ccd6f209f636e95e10ddf90d05803bd9880",
+      "end.json": "93f2e350ce53f9faedb9d952167fc2f9d4e39cddde071827b542a148fb5ded23",
+      "events.jsonl": "4d2f3fcf491088618f691033a31d2e3bf4f5b2430f80574705f0747845503e4e",
+      "reply.txt": "6ca3301e823b76e3f2a38b3e1938b1819d0da8e84d0a5086279412370beef0f3",
+      "instructions.md": "a20877889d326e4b3a9b0dc05ca83147fba8d2ff80d4ac1d51c125f050d7a01a",
+      "task.txt": "43aa5cb89d2c46618fdff6c791c6bf8dac917794473c22c0fdf999298fd4fd02",
+      "receipts.jsonl": "b804a9e95d437dbd255a6d3786daa3570467f27ff8322c054b9b480c41dd8e39"
+    },
+    "h4586": {
+      "run.json": "82cf8447321ab2e76486ac87b8120f1c4598e7c4b908256d8d74a24f7b3ace42",
+      "end.json": "c8eb9a1d09fc91bb08fe87d81ee239dccce36b5eb9b51ecbcd608a9727cb4114",
+      "events.jsonl": "a6a49386e578b543847490fb18b35e08cc602bcedd5db677c07dd7a675cafab9",
+      "reply.txt": "438c17295d1d840907e8b4d40d3b41ab7010c19821435ea56a7d90a67ec2b1ad",
+      "instructions.md": "a20877889d326e4b3a9b0dc05ca83147fba8d2ff80d4ac1d51c125f050d7a01a",
+      "task.txt": "43aa5cb89d2c46618fdff6c791c6bf8dac917794473c22c0fdf999298fd4fd02",
+      "receipts.jsonl": "109188c5737024228135350b20d4655742c873d1da1a67407d5ba8a7f98318b6"
+    },
+    "h7694": {
+      "run.json": "dc946d5d50be22c5f03b48e5cd0a3b6052660c8fe45db0ed2a2f1c5b53dfc5e6",
+      "end.json": "5ca2830b1c0849e44a41dbee8d716b250ee7ef65472ff9d1304e8bb2077d3a19",
+      "events.jsonl": "92ad94b34b31bd1037b104da90f03a8632362f91141ad8448163d9a525ea6d9d",
+      "reply.txt": "b6b34b06189501c67c71ccccea7a98c1bc73478330e5a4ab895da62945beb283",
+      "instructions.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "task.txt": "43aa5cb89d2c46618fdff6c791c6bf8dac917794473c22c0fdf999298fd4fd02",
+      "receipts.jsonl": "0d2f2ba963ca56c5f1cff27a0e44cf1108fe8f42213201e7fd5a170983b6cfcb"
+    }
+  },
+  "screened_historical_runs": {
+    "h7694": "",
+    "h7218": "The operator asked for a diagnostic covering CPU and memory. The supplied code has no visible CPU measurement, although an earlier console query used one. Check the requested command against what the operator would receive.",
+    "h3660": "The pending reply describes a limit in the observations. Check whether that limit still holds with the current evidence, and distinguish an available check from a future observation.",
+    "h1556": "",
+    "h6905": "",
+    "h3420": "",
+    "h8352": "",
+    "h4779": "",
+    "h9764": "",
+    "h4586": "The pending reply describes a limit in the observations. Check whether that limit still holds with the current evidence, and distinguish an available check from a future observation.",
+    "h1847": "",
+    "h6291": ""
+  },
+  "rows": [
+    {
+      "source": "h7218",
+      "model": "gpt-6.1-sol",
+      "rep": 2,
+      "arm": "signal",
+      "reasoning_effort": "high",
+      "pair": "h7218-2",
+      "id": "y88347",
+      "reviewer": null
+    },
+    {
+      "source": "h7694",
+      "model": "gpt-6.1-sol",
+      "rep": 1,
+      "arm": "signal",
+      "reasoning_effort": "high",
+      "pair": "h7694-1",
+      "id": "y57392",
+      "reviewer": null
+    },
+    {
+      "source": "h7218",
+      "model": "gpt-6.1-sol",
+      "rep": 2,
+      "arm": "review",
+      "reasoning_effort": "high",
+      "pair": "h7218-2",
+      "id": "y62376",
+      "reviewer": "w74472"
+    },
+    {
+      "source": "h7218",
+      "model": "gpt-6.1-sol",
+      "rep": 1,
+      "arm": "unchanged",
+      "reasoning_effort": "high",
+      "pair": "h7218-1",
+      "id": "y17435",
+      "reviewer": null
+    },
+    {
+      "source": "h3660",
+      "model": "gpt-6.2-sol",
+      "rep": 2,
+      "arm": "signal",
+      "reasoning_effort": "high",
+      "pair": "h3660-2",
+      "id": "y82769",
+      "reviewer": null
+    },
+    {
+      "source": "h7694",
+      "model": "gpt-6.1-sol",
+      "rep": 1,
+      "arm": "unchanged",
+      "reasoning_effort": "high",
+      "pair": "h7694-1",
+      "id": "y29915",
+      "reviewer": null
+    },
+    {
+      "source": "h4586",
+      "model": "gpt-6.2-sol",
+      "rep": 1,
+      "arm": "unchanged",
+      "reasoning_effort": "high",
+      "pair": "h4586-1",
+      "id": "y64804",
+      "reviewer": null
+    },
+    {
+      "source": "h3660",
+      "model": "gpt-6.2-sol",
+      "rep": 1,
+      "arm": "unchanged",
+      "reasoning_effort": "high",
+      "pair": "h3660-1",
+      "id": "y74443",
+      "reviewer": null
+    },
+    {
+      "source": "h3660",
+      "model": "gpt-6.2-sol",
+      "rep": 2,
+      "arm": "unchanged",
+      "reasoning_effort": "high",
+      "pair": "h3660-2",
+      "id": "y33737",
+      "reviewer": null
+    },
+    {
+      "source": "h3660",
+      "model": "gpt-6.2-sol",
+      "rep": 2,
+      "arm": "review",
+      "reasoning_effort": "high",
+      "pair": "h3660-2",
+      "id": "y65631",
+      "reviewer": "w17205"
+    },
+    {
+      "source": "h7694",
+      "model": "gpt-6.1-sol",
+      "rep": 1,
+      "arm": "review",
+      "reasoning_effort": "high",
+      "pair": "h7694-1",
+      "id": "y36467",
+      "reviewer": null
+    },
+    {
+      "source": "h3660",
+      "model": "gpt-6.2-sol",
+      "rep": 1,
+      "arm": "signal",
+      "reasoning_effort": "high",
+      "pair": "h3660-1",
+      "id": "y55803",
+      "reviewer": null
+    },
+    {
+      "source": "h7218",
+      "model": "gpt-6.1-sol",
+      "rep": 2,
+      "arm": "unchanged",
+      "reasoning_effort": "high",
+      "pair": "h7218-2",
+      "id": "y86235",
+      "reviewer": null
+    },
+    {
+      "source": "h7218",
+      "model": "gpt-6.1-sol",
+      "rep": 1,
+      "arm": "review",
+      "reasoning_effort": "high",
+      "pair": "h7218-1",
+      "id": "y42059",
+      "reviewer": "w11163"
+    },
+    {
+      "source": "h4586",
+      "model": "gpt-6.2-sol",
+      "rep": 1,
+      "arm": "review",
+      "reasoning_effort": "high",
+      "pair": "h4586-1",
+      "id": "y96113",
+      "reviewer": "w51553"
+    },
+    {
+      "source": "h4586",
+      "model": "gpt-6.2-sol",
+      "rep": 1,
+      "arm": "signal",
+      "reasoning_effort": "high",
+      "pair": "h4586-1",
+      "id": "y76618",
+      "reviewer": null
+    },
+    {
+      "source": "h3660",
+      "model": "gpt-6.2-sol",
+      "rep": 1,
+      "arm": "review",
+      "reasoning_effort": "high",
+      "pair": "h3660-1",
+      "id": "y76133",
+      "reviewer": "w15642"
+    },
+    {
+      "source": "h7218",
+      "model": "gpt-6.1-sol",
+      "rep": 1,
+      "arm": "signal",
+      "reasoning_effort": "high",
+      "pair": "h7218-1",
+      "id": "y90773",
+      "reviewer": null
+    }
+  ]
+}
