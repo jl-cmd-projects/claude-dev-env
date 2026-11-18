@@ -74,6 +74,7 @@ def prelude_commands():
     pr = inventory_for("independent")[LEAD]
     thread = pr["threads"][0]
     return (
+        ("status",),
         ("show", LEAD),
         ("evidence", LEAD),
         ("resolve", LEAD, thread["id"], "--head", pr["head"], "--receipt", thread["fix"]["receipt"]),
