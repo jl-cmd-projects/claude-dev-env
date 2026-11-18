@@ -249,12 +249,14 @@ def prepare(case, arm, run, delivery="named"):
         )
         prepared_run["startup_sha256"] = suite.digest(startup_content)
     else:
-        paths = f"Read {work / INSTRUCTIONS} and the compact-session context at {session / CONTEXT}."
-        if SUMMARY in sources:
-            paths += f" Read the session summary at {session / SUMMARY}."
+        command = shlex.join(
+            ("python3", str(suite.ROOT / "load_instructions.py"), "--compact", str(run))
+        )
         wrapper = (
-            f"Work in {work}. Use only that workspace and its associated read-only session directory "
-            f"at {session}. {paths}"
+            f"Work in {work}. The associated read-only session archive is {session}. "
+            f"Before starting, run {command} with a tool output limit of 15000 tokens "
+            "and follow the loaded instructions. Local tools only. You have up to "
+            "14 tool calls. Make task changes only in your workspace."
         )
     prepared_run["turn"] = f"{wrapper}\n\n{case['turns'][0]}"
     return prepared_run
