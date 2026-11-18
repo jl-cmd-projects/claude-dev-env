@@ -171,6 +171,35 @@ def test_should_measure_against_main_when_neither_the_named_base_nor_the_compare
     )
 
 
+def test_should_tell_a_create_over_the_reason_ceiling_to_split_when_it_gives_no_reason(
+    tmp_path: Path,
+) -> None:
+    clone_path = _clone_on_branch(tmp_path, "feature")
+    _commit_lines(clone_path, "tool.py", 2500)
+    reason = size.oversized_pull_request_reason(_create(clone_path, PLAIN_BODY))
+    assert reason == OVER_REASON_CEILING_PULL_REQUEST_REASON.format(
+        measured_line_count=2500, reason_line_ceiling=2000
+    )
+
+
+def test_should_keep_the_ceiling_off_a_count_taken_against_main_for_a_named_base(
+    tmp_path: Path,
+) -> None:
+    clone_path = _clone_on_branch(tmp_path, "local-only")
+    _commit_lines(clone_path, "library.py", 1000)
+    _git(clone_path, "checkout", "-q", "-b", "child")
+    _commit_lines(clone_path, "caller.py", 1500)
+    assert (
+        size.oversized_pull_request_reason(
+            _create(clone_path, ONE_PULL_REQUEST_BODY, "--base local-only")
+        )
+        is None
+    )
+    assert size.oversized_pull_request_reason(
+        _create(clone_path, PLAIN_BODY, "--base local-only")
+    ) == OVERSIZED_PULL_REQUEST_REASON.format(measured_line_count=2500, measured_line_bar=1000)
+
+
 def test_remote_count_should_sum_files_and_leave_out_lockfiles(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

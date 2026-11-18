@@ -4,7 +4,7 @@
 
     branch changes 1,500 lines against main, plain body          -> OVERSIZED_PULL_REQUEST_REASON
     same branch, body has a 'Why one pull request' section       -> None
-    branch changes 2,500 lines, body has the section             -> OVER_REASON_CEILING_PULL_REQUEST_REASON
+    branch changes 2,500 lines, with or without the section      -> OVER_REASON_CEILING_PULL_REQUEST_REASON
     stacked level, --base parent, 200 lines of its own           -> None
     compare API at its file cap, listed files over the bar       -> OVERSIZED_PULL_REQUEST_REASON
     compare API at its file cap, listed files under the bar      -> None
@@ -62,14 +62,16 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
 
         create, 1,500 changed lines, no 'Why one pull request' section -> OVERSIZED_PULL_REQUEST_REASON
         create, 1,500 changed lines, the section states a reason      -> None
-        create, 2,500 changed lines, the section states a reason      -> OVER_REASON_CEILING_PULL_REQUEST_REASON
+        create, 2,500 changed lines, with or without the section      -> OVER_REASON_CEILING_PULL_REQUEST_REASON
         create, 900 changed lines                                      -> None
-        named base neither origin/<base> nor the compare API can read  -> measured against main
+        named base neither origin/<base> nor the compare API can read  -> measured against main, bar only
         create whose size git and the compare API cannot read          -> None
         a body edit, a merge, any other tool                           -> None
 
     The section covers a create up to the reason ceiling. Each create is measured
-    against its own base, so a stacked level counts only its own lines.
+    against its own base, so a stacked level counts only its own lines. A count
+    taken against main for a named base can hold the levels below it. That count
+    is held to the bar, and the ceiling is left off it.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
@@ -81,15 +83,43 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
         measured_line_count = _measured_line_count_for_create(each_call, working_directory)
         if measured_line_count is None or measured_line_count <= MEASURED_LINE_BAR:
             continue
+        own_base_line_count = _own_base_line_count(each_call, working_directory, measured_line_count)
+        if own_base_line_count is not None and own_base_line_count > REASON_LINE_CEILING:
+            return OVER_REASON_CEILING_PULL_REQUEST_REASON.format(
+                measured_line_count=own_base_line_count, reason_line_ceiling=REASON_LINE_CEILING
+            )
         if not any(_all_section_texts(each_call.body, ONE_PULL_REQUEST_HEADING_PATTERN)):
             return OVERSIZED_PULL_REQUEST_REASON.format(
                 measured_line_count=measured_line_count, measured_line_bar=MEASURED_LINE_BAR
             )
-        if measured_line_count > REASON_LINE_CEILING:
-            return OVER_REASON_CEILING_PULL_REQUEST_REASON.format(
-                measured_line_count=measured_line_count, reason_line_ceiling=REASON_LINE_CEILING
-            )
     return None
+
+
+def _own_base_line_count(
+    create_call: CreateCall, working_directory: str, measured_line_count: int
+) -> int | None:
+    repository, base_branch, head_branch = (
+        create_call.repository,
+        create_call.base,
+        create_call.head,
+    )
+    if not base_branch:
+        return measured_line_count
+    return answer_once(
+        ("changed line count against the named base", working_directory, repository, base_branch, head_branch),
+        lambda: read_named_base_first(
+            working_directory,
+            repository,
+            head_branch,
+            base_branch,
+            lambda each_base_branch: (
+                local_measured_line_count(working_directory, each_base_branch, head_branch)
+                if each_base_branch
+                else None
+            ),
+            lambda: remote_measured_line_count(repository, base_branch, head_branch),
+        ),
+    )
 
 
 def _measured_line_count_for_create(create_call: CreateCall, working_directory: str) -> int | None:
