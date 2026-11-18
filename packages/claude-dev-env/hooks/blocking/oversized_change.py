@@ -83,7 +83,8 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
 
     One pull request is the repository, head and base the create names.
     Repository falls back to the checkout's top-level folder, then the session
-    folder. Head falls back to the checked-out branch. A refusal records that
+    folder. Head falls back to the checked-out branch. Base falls back to the
+    branch ``gh-merge-base`` names for the head. A refusal records that
     key for the session, so the next create for it passes.
 
     Args:
@@ -114,7 +115,8 @@ def _pull_request_key(create_call: CreateCall, working_directory: str) -> list[s
         working_directory, "rev-parse", "--show-toplevel"
     )
     head_branch = create_call.head or _first_git_line(working_directory, "branch", "--show-current")
-    return [repository or working_directory, head_branch or "", create_call.base or ""]
+    base_branch = create_call.base or _configured_merge_base(working_directory, create_call.head)
+    return [repository or working_directory, head_branch or "", base_branch or ""]
 
 
 def _first_git_line(working_directory: str, *all_git_arguments: str) -> str | None:
