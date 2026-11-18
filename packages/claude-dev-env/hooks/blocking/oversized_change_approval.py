@@ -7,6 +7,8 @@
     user types "split that, it is way too big for one PR"        -> not approved
     user types "approved" or "is this one pull request?"         -> not approved
     user types "the size gate allows it if the user approved"    -> not approved
+    user approves, then later types "split it after all"         -> not approved
+    a peer agent's message holds the approving words             -> not approved
     the same words in an assistant message or a tool result      -> not approved
     relay message, the words inside <cited author="user">        -> approved
     relay message, the words only in the agent's <note>          -> not approved
@@ -32,7 +34,9 @@ if hooks_directory not in sys.path:
 from blocking.gate_run_reads import ReadSlice, transcript_lines_within_slice
 from blocking.open_tasks_transcript_records import parsed_object
 from hooks_constants.oversized_change_constants import (
+    ALL_RELAY_ORIGIN_KINDS,
     ALL_SKIPPED_RECORD_FLAGS,
+    ALL_TYPED_ORIGIN_KINDS,
     APPROVAL_PATTERN,
     CITED_USER_TEXT_PATTERN,
     CONTENT_KEY,
@@ -42,6 +46,8 @@ from hooks_constants.oversized_change_constants import (
     MESSAGE_KEY,
     META_RECORD_FLAG,
     NEGATION_PATTERN,
+    ORIGIN_KEY,
+    ORIGIN_KIND_KEY,
     QUESTION_MARK,
     RECORD_TYPE_KEY,
     RELAY_WRAPPER_PATTERN,
@@ -60,9 +66,10 @@ from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY, 
 
 
 def has_user_approved_oversized_pull_request(transcript_path: object) -> bool:
-    """Return True when a message the user typed in the transcript approves one large pull request.
+    """Return True when the newest size verdict the user typed approves one large pull request.
 
-    A transcript that is missing or cannot be read holds no approval.
+    The scan reads newest first and stops at the first message that approves or
+    asks for a split. A transcript that is missing or cannot be read holds no approval.
 
     Args:
         transcript_path: The ``transcript_path`` the hook payload names.
@@ -74,13 +81,35 @@ def has_user_approved_oversized_pull_request(transcript_path: object) -> bool:
             all_lines = transcript_lines_within_slice(
                 transcript, UTF8_ENCODING, DECODE_ERRORS_POLICY, ReadSlice.PROOF_AND_LOOK
             )
-            return any(
-                is_size_approval(each_text)
+            all_verdicts = (
+                size_verdict(each_text)
                 for each_line in all_lines
                 for each_text in _user_typed_texts(each_line)
             )
+            return next(
+                (each_verdict for each_verdict in all_verdicts if each_verdict is not None), False
+            )
     except OSError:
         return False
+
+
+def size_verdict(message_text: str) -> bool | None:
+    """Return False for a message that asks for a split, True for one that approves, else None.
+
+    ::
+
+        "keep it as one PR, that's approved"        -> True
+        "split it after all"                        -> False
+        "approved as one PR. then, split it"        -> False
+        "don't split hairs"                         -> None
+        "run the tests"                             -> None
+
+    Args:
+        message_text: The text of one message the user typed.
+    """
+    if any(_is_split_request(each_sentence) for each_sentence in _sentences(message_text)):
+        return False
+    return True if is_size_approval(message_text) else None
 
 
 def is_size_approval(message_text: str) -> bool:
@@ -97,11 +126,18 @@ def is_size_approval(message_text: str) -> bool:
     Args:
         message_text: The text of one message the user typed.
     """
+    return any(_is_approving_sentence(each_sentence) for each_sentence in _sentences(message_text))
+
+
+def _sentences(message_text: str) -> list[str]:
     normalized_text = message_text.lower().replace(CURLY_APOSTROPHE, STRAIGHT_APOSTROPHE)
-    return any(
-        _is_approving_sentence(each_sentence.strip())
-        for each_sentence in SENTENCE_BREAK_PATTERN.split(normalized_text)
-    )
+    return [each_sentence.strip() for each_sentence in SENTENCE_BREAK_PATTERN.split(normalized_text)]
+
+
+def _is_split_request(sentence: str) -> bool:
+    if sentence.endswith(QUESTION_MARK) or NEGATION_PATTERN.search(sentence):
+        return False
+    return bool(SPLIT_WORD_PATTERN.search(sentence)) and not RULE_TALK_PATTERN.search(sentence)
 
 
 def _is_approving_sentence(sentence: str) -> bool:
@@ -128,15 +164,22 @@ def _user_typed_texts(transcript_line: str) -> Iterator[str]:
     all_block_texts = _block_texts(message_body.get(CONTENT_KEY))
     if all_block_texts is None:
         return
+    origin = all_record_fields.get(ORIGIN_KEY)
+    origin_kind = origin.get(ORIGIN_KIND_KEY) if isinstance(origin, dict) else None
     if any(RELAY_WRAPPER_PATTERN.search(each_text) for each_text in all_block_texts):
-        for each_text in all_block_texts:
-            yield from CITED_USER_TEXT_PATTERN.findall(each_text)
+        if origin_kind in ALL_RELAY_ORIGIN_KINDS:
+            yield from _cited_user_texts(all_block_texts)
         return
-    if all_record_fields.get(META_RECORD_FLAG):
+    if all_record_fields.get(META_RECORD_FLAG) or origin_kind not in ALL_TYPED_ORIGIN_KINDS:
         return
     yield from (
         each_text for each_text in all_block_texts if not LEADING_TAG_PATTERN.match(each_text)
     )
+
+
+def _cited_user_texts(all_block_texts: list[str]) -> Iterator[str]:
+    for each_text in all_block_texts:
+        yield from CITED_USER_TEXT_PATTERN.findall(each_text)
 
 
 def _block_texts(content: object) -> list[str] | None:

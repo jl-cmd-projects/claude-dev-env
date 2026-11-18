@@ -97,7 +97,7 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
         line_count = _line_count_for_create(each_call, working_directory)
         if line_count is None or line_count <= MEASURED_LINE_BAR:
             continue
-        if has_user_approved_oversized_pull_request(all_payload_fields.get(TRANSCRIPT_PATH_FIELD)):
+        if _has_user_approval(all_payload_fields.get(TRANSCRIPT_PATH_FIELD)):
             continue
         if _is_repeat_attempt(
             all_payload_fields.get(SESSION_ID_FIELD),
@@ -108,6 +108,13 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
             measured_line_count=line_count, measured_line_bar=MEASURED_LINE_BAR
         )
     return None
+
+
+def _has_user_approval(transcript_path: object) -> bool:
+    return answer_once(
+        ("size approval", str(transcript_path)),
+        lambda: has_user_approved_oversized_pull_request(transcript_path),
+    )
 
 
 def _pull_request_key(create_call: CreateCall, working_directory: str) -> list[str]:

@@ -103,6 +103,47 @@ def test_should_skip_the_same_words_outside_a_typed_user_message(
     assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is False
 
 
+def test_should_let_a_later_split_request_withdraw_an_approval(tmp_path: Path) -> None:
+    path = _transcript(tmp_path, _user_record(APPROVAL_TEXT), _user_record("Split it after all."))
+    assert approval.has_user_approved_oversized_pull_request(path) is False
+
+
+def test_should_let_a_later_approval_replace_a_split_request(tmp_path: Path) -> None:
+    path = _transcript(tmp_path, _user_record("Split that."), _user_record(APPROVAL_TEXT))
+    assert approval.has_user_approved_oversized_pull_request(path) is True
+
+
+@pytest.mark.parametrize(
+    ("message_text", "expected_verdict"),
+    [
+        (APPROVAL_TEXT, True),
+        ("Split it after all.", False),
+        ("Approved as one PR. On second thought, split it.", False),
+        ("Don't split hairs.", None),
+        ("Run the tests.", None),
+    ],
+)
+def test_should_give_one_size_verdict_per_message(
+    message_text: str, expected_verdict: bool | None
+) -> None:
+    assert approval.size_verdict(message_text) is expected_verdict
+
+
+def test_should_skip_an_approval_a_peer_agent_sent(tmp_path: Path) -> None:
+    record = _user_record(APPROVAL_TEXT, origin={"kind": "peer", "from": "agent-1"})
+    assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is False
+
+
+def test_should_find_an_approval_with_a_human_origin(tmp_path: Path) -> None:
+    record = _user_record(APPROVAL_TEXT, origin={"kind": "human"})
+    assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is True
+
+
+def test_should_skip_a_cited_block_a_peer_agent_quoted(tmp_path: Path) -> None:
+    record = _user_record(_relay_text(APPROVAL_TEXT, "Report."), origin={"kind": "peer"})
+    assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is False
+
+
 def _relay_text(cited_text: str, note_text: str) -> str:
     return (
         '<relay from="coordinator" session="s" reason="spawn">\n'

@@ -65,6 +65,10 @@ TEXT_BLOCK_TYPE = "text"
 TOOL_RESULT_BLOCK_TYPE = "tool_result"
 ALL_SKIPPED_RECORD_FLAGS = ("isCompactSummary", "isSidechain")
 META_RECORD_FLAG = "isMeta"
+ORIGIN_KEY = "origin"
+ORIGIN_KIND_KEY = "kind"
+ALL_TYPED_ORIGIN_KINDS = (None, "human")
+ALL_RELAY_ORIGIN_KINDS = (None, "task-notification")
 RELAY_WRAPPER_PATTERN = re.compile(r"<(?:coordinator-)?relay\b")
 CITED_USER_TEXT_PATTERN = re.compile(r"<cited\b[^>]*\bauthor=\"user\"[^>]*>(.*?)</cited>", re.DOTALL)
 LEADING_TAG_PATTERN = re.compile(r"\s*<[a-z]")
