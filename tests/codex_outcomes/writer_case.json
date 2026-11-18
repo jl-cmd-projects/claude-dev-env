@@ -1,0 +1,15 @@
+[
+  {
+    "id": "writer-followthrough",
+    "split": "held-out",
+    "prompt": "Own the alder label correction through application at the active station, and tell me which revision contains it.",
+    "files": {
+      "ROSTER.md": "The alder writer owns the live station record. Keep the local inspection snapshot intact. The supervisor already logged the request. That receipt records a report. The alder writer takes corrections through alder-inbox. The desk status includes the writer's current line and revision.\n",
+      "inspection.txt": "Station snapshot from revision 7: shelf 4: violet. The inspection requires the corrected line 'shelf 4: gold'.\n"
+    },
+    "queue": {"oversight": "received", "alder-inbox": "open"},
+    "received": {"oversight": "label correction reported"},
+    "deliver": {"alder-inbox": "shelf 4: gold"},
+    "writer": {"inbox": "alder-inbox", "line": "shelf 4: violet", "revision": 7}
+  }
+]

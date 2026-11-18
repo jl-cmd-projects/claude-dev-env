@@ -10,17 +10,17 @@ import tomllib
 from pathlib import Path
 
 
-def digest(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
+def digest(content_bytes: bytes) -> str:
+    return hashlib.sha256(content_bytes).hexdigest()
 
 
 def verify_input(environment: dict, prompt: Path, directory: Path, overrides=()) -> str:
-    result = subprocess.run(
+    rendered = subprocess.run(
         ["codex", *overrides, "debug", "prompt-input", "Check the receipt."],
         cwd=directory, env=environment, capture_output=True, text=True,
         check=True, timeout=45,
     )
-    messages = json.loads(result.stdout)
+    messages = json.loads(rendered.stdout)
     expected = prompt.read_text(encoding="utf-8").strip()
     found = False
     normalized = []
@@ -29,14 +29,14 @@ def verify_input(environment: dict, prompt: Path, directory: Path, overrides=())
             if message.get("role") == "developer" and content.get("text", "").strip() == expected:
                 found = True
                 content["text"] = "<tested prompt>"
-        normalized.append({k: message[k] for k in ("type", "role", "content", "tools") if k in message})
+        normalized.append({field: message[field] for field in ("type", "role", "content", "tools") if field in message})
     if not found:
         raise ValueError("The installed model prompt is absent from Codex developer input")
     serialized = json.dumps(normalized, sort_keys=True).replace(str(directory), "<fixture>")
     return digest(serialized.encode())
 
 
-def install(source: Path, destination: Path) -> dict:
+def install(source: Path, destination: Path, model: str) -> dict:
     package = source / "packages/claude-dev-env"
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip()
     dirty = subprocess.check_output(
@@ -66,7 +66,10 @@ def install(source: Path, destination: Path) -> dict:
     if prompt != codex_home / "codex-sol.md" or prompt.read_bytes() != shipped.read_bytes():
         raise ValueError("Installed model prompt differs from pinned source")
     with tempfile.TemporaryDirectory() as scratch:
-        verify_input(env, prompt, Path(scratch))
+        verify_input(env, prompt, Path(scratch), (
+            "--model", model, "-c", 'model_reasoning_effort="high"',
+            "--sandbox", "workspace-write", "-c", 'approval_policy="never"',
+        ))
     metadata = {"revision": head, "prompt_sha256": digest(shipped.read_bytes())}
     (destination / "install.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
     return metadata
@@ -76,5 +79,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path)
     parser.add_argument("new_home", type=Path)
+    parser.add_argument("--model", default="gpt-6.1-sol")
     args = parser.parse_args()
-    print(json.dumps(install(args.source.resolve(), args.new_home.resolve())))
+    print(json.dumps(install(args.source.resolve(), args.new_home.resolve(), args.model)))
