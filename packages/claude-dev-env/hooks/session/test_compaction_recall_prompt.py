@@ -150,3 +150,26 @@ def test_budget_omits_a_whole_turn_but_a_user_quoting_a_marker_gets_no_hint(tmp_
     assert context and "earlier messages left out" in context and "more characters left out" not in context
     command = json.loads(context.splitlines()[-1])
     assert json.loads(subprocess.check_output([*command[:-1], "2"], text=True))[0]["text"] == entries[1]["payload"]["message"]
+
+
+def test_compact_session_should_recover_an_inclusive_range_from_completed_codex_items(tmp_path: Path) -> None:
+    transcript = tmp_path / "completed 'user' & turns.jsonl"
+    first = "Sort the receiving records. " + "review folder `ledger/items`. " * 100 + "Omit the archive."
+    second = "  Only change the east row. Quote <command-name>/compact</command-name> literally.  "
+    third = "Leave the west row as written."
+    entries = [
+        {"type": "event_msg", "payload": {"type": "item_completed", "turn_id": f"turn-{index}",
+         "item": {"type": "UserMessage", "id": f"user-{index}",
+                  "content": [{"type": "text", "text": text, "text_elements": []}]}}}
+        for index, text in enumerate((first, second, third), 1)
+    ]
+    transcript.write_text("\n".join(json.dumps(entry) for entry in entries), encoding="utf-8")
+    command = [sys.executable, str(HOOK_PATH), "--codex"]
+    output = subprocess.check_output(command, input=json.dumps(compact_input(str(transcript))), text=True)
+    context = json.loads(output)["hookSpecificOutput"]["additionalContext"]
+    assert "Omit the archive." not in context
+    reader = json.loads(context.splitlines()[-1])
+    assert json.loads(subprocess.check_output([*reader[:-1], "1", "2"], text=True)) == [
+        {"position": 1, "text": first}, {"position": 2, "text": second},
+    ]
+    assert subprocess.run([*reader[:-1], "2", "4"], capture_output=True).returncode == 2

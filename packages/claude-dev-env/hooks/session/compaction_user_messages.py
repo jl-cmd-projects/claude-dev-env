@@ -4,8 +4,11 @@
 ::
 
     Claude Code entry {"type": "user", "message": {"content": "fix login"}}
-    Codex entry {"type": "event_msg",
-                 "payload": {"type": "user_message", "message": "fix login"}}
+    Codex legacy entry {"type": "event_msg",
+                        "payload": {"type": "user_message", "message": "fix login"}}
+    Codex paginated entry {"type": "event_msg", "payload": {"type": "item_completed",
+                           "item": {"type": "UserMessage", "content": [{"type": "text",
+                                    "text": "fix login"}]}}}
     -> TypedMessage(position=1, timestamp=..., text="fix login")
 
 The compaction recall hook trims these messages and returns them to the
@@ -26,16 +29,22 @@ if _hooks_directory not in sys.path:
     sys.path.insert(0, _hooks_directory)
 
 from hooks_constants.compaction_user_messages_constants import (
+    ALL_CODEX_IMAGE_INPUT_TYPES,
     ALL_SKIPPED_ENTRY_FLAGS,
     ASSISTANT_ENTRY_TYPE,
     ATTACHMENT_ENTRY_TYPE,
     ATTACHMENT_KEY,
     BLOCK_SEPARATOR,
     BLOCK_TYPE_KEY,
+    CODEX_AGENT_ITEM_TYPE,
     CODEX_AGENT_MESSAGE_TYPE,
+    CODEX_COMPLETED_ITEM_TYPE,
     CODEX_EVENT_ENTRY_TYPE,
     CODEX_IMAGES_KEY,
+    CODEX_ITEM_ID_KEY,
+    CODEX_ITEM_KEY,
     CODEX_PAYLOAD_KEY,
+    CODEX_USER_ITEM_TYPE,
     CODEX_USER_MESSAGE_TYPE,
     CONTENT_KEY,
     ENTRY_TYPE_KEY,
@@ -121,7 +130,32 @@ def _codex_payload(all_entry_fields: dict[str, object]) -> dict[str, object]:
     if all_entry_fields.get(ENTRY_TYPE_KEY) != CODEX_EVENT_ENTRY_TYPE:
         return {}
     payload = all_entry_fields.get(CODEX_PAYLOAD_KEY)
-    return payload if isinstance(payload, dict) else {}
+    if not isinstance(payload, dict):
+        return {}
+    if payload.get(ENTRY_TYPE_KEY) != CODEX_COMPLETED_ITEM_TYPE:
+        return payload
+    item = payload.get(CODEX_ITEM_KEY)
+    if not isinstance(item, dict):
+        return {}
+    if item.get(ENTRY_TYPE_KEY) == CODEX_AGENT_ITEM_TYPE:
+        return {ENTRY_TYPE_KEY: CODEX_AGENT_MESSAGE_TYPE}
+    if item.get(ENTRY_TYPE_KEY) != CODEX_USER_ITEM_TYPE:
+        return {}
+    content = item.get(CONTENT_KEY)
+    if not isinstance(content, list):
+        return {}
+    all_blocks = [block for block in content if isinstance(block, dict)]
+    message = "".join(
+        block[TEXT_KEY] for block in all_blocks
+        if block.get(BLOCK_TYPE_KEY) == TEXT_BLOCK_TYPE and isinstance(block.get(TEXT_KEY), str)
+    )
+    has_images = any(block.get(BLOCK_TYPE_KEY) in ALL_CODEX_IMAGE_INPUT_TYPES for block in all_blocks)
+    return {
+        ENTRY_TYPE_KEY: CODEX_USER_MESSAGE_TYPE,
+        MESSAGE_KEY: message,
+        CODEX_IMAGES_KEY: has_images,
+        CODEX_ITEM_ID_KEY: item.get(CODEX_ITEM_ID_KEY),
+    }
 
 
 def _codex_user_text(all_payload_fields: dict[str, object]) -> str | None:
@@ -134,17 +168,17 @@ def _codex_user_text(all_payload_fields: dict[str, object]) -> str | None:
     )
 
 
-def _is_assistant_turn(all_entry_fields: dict[str, object]) -> bool:
-    if all_entry_fields.get(ENTRY_TYPE_KEY) == ASSISTANT_ENTRY_TYPE:
-        return True
-    return _codex_payload(all_entry_fields).get(ENTRY_TYPE_KEY) == CODEX_AGENT_MESSAGE_TYPE
+def _is_assistant_turn(all_entry_fields: dict[str, object], all_codex_fields: dict[str, object]) -> bool:
+    return (
+        all_entry_fields.get(ENTRY_TYPE_KEY) == ASSISTANT_ENTRY_TYPE
+        or all_codex_fields.get(ENTRY_TYPE_KEY) == CODEX_AGENT_MESSAGE_TYPE
+    )
 
 
-def _entry_text(all_entry_fields: dict[str, object]) -> str | None:
+def _entry_text(all_entry_fields: dict[str, object], all_codex_fields: dict[str, object]) -> str | None:
     entry_type = all_entry_fields.get(ENTRY_TYPE_KEY)
-    codex_payload = _codex_payload(all_entry_fields)
-    if codex_payload.get(ENTRY_TYPE_KEY) == CODEX_USER_MESSAGE_TYPE:
-        return _codex_user_text(codex_payload)
+    if all_codex_fields.get(ENTRY_TYPE_KEY) == CODEX_USER_MESSAGE_TYPE:
+        return _codex_user_text(all_codex_fields)
     if entry_type == USER_ENTRY_TYPE and _is_typed_by_a_person(all_entry_fields):
         message = all_entry_fields.get(MESSAGE_KEY)
         content = message.get(CONTENT_KEY) if isinstance(message, dict) else None
@@ -160,30 +194,40 @@ def _entry_text(all_entry_fields: dict[str, object]) -> str | None:
     return _typed_text(queued_prompt) if isinstance(queued_prompt, str) else None
 
 
-def _codex_literal_text(all_entry_fields: dict[str, object], formatted: str) -> str:
-    payload = _codex_payload(all_entry_fields)
-    message = payload.get(MESSAGE_KEY)
-    if payload.get(ENTRY_TYPE_KEY) != CODEX_USER_MESSAGE_TYPE or not isinstance(message, str):
+def _codex_literal_text(all_codex_fields: dict[str, object], formatted: str) -> str:
+    message = all_codex_fields.get(MESSAGE_KEY)
+    if all_codex_fields.get(ENTRY_TYPE_KEY) != CODEX_USER_MESSAGE_TYPE or not isinstance(message, str):
         return formatted
     if not message.strip() or HARNESS_TAG_OPENING_PATTERN.match(message.strip()):
         return formatted
-    if payload.get(CODEX_IMAGES_KEY):
+    if all_codex_fields.get(CODEX_IMAGES_KEY):
         return BLOCK_SEPARATOR.join(part for part in (message, IMAGE_PLACEHOLDER) if part)
     return message
 
 
 def _typed_texts(all_transcript_lines: Iterable[str], should_preserve_codex_text: bool) -> Iterator[tuple[str, str]]:
     previous_text = None
+    previous_item_id = None
     for each_line in all_transcript_lines:
         all_entry_fields = _parsed_entry(each_line)
-        if _is_assistant_turn(all_entry_fields):
+        all_codex_fields = _codex_payload(all_entry_fields)
+        if _is_assistant_turn(all_entry_fields, all_codex_fields):
             previous_text = None
+            previous_item_id = None
             continue
-        entry_text = _entry_text(all_entry_fields)
-        if entry_text is None or entry_text == previous_text:
+        entry_text = _entry_text(all_entry_fields, all_codex_fields)
+        if entry_text is None:
+            continue
+        identifier = all_codex_fields.get(CODEX_ITEM_ID_KEY)
+        item_id = identifier if isinstance(identifier, str) else None
+        same_text = entry_text == previous_text
+        different_items = previous_item_id and item_id and previous_item_id != item_id
+        if same_text and not different_items:
+            previous_item_id = item_id or previous_item_id
             continue
         previous_text = entry_text
-        selected_text = _codex_literal_text(all_entry_fields, entry_text) if should_preserve_codex_text else entry_text
+        previous_item_id = item_id
+        selected_text = _codex_literal_text(all_codex_fields, entry_text) if should_preserve_codex_text else entry_text
         yield str(all_entry_fields.get(TIMESTAMP_KEY, "")), selected_text
 
 
@@ -200,10 +244,12 @@ def typed_user_messages(all_transcript_lines: Iterable[str], *, should_preserve_
         user "<system-reminder>...", "<local-command-stdout>" -> left out
         attachment queued_command "also check logs"    -> kept
         Codex event_msg user_message "fix it"          -> kept
+        Codex event_msg item_completed UserMessage    -> kept
         Codex event_msg user_message with images       -> text plus "[image]"
 
     A message repeated right after itself, such as a queued prompt that later
-    lands as a user entry, counts once.
+    lands as a user entry, counts once. Distinct Codex user item IDs number
+    separate turns even when their wording is identical.
 
     Args:
         all_transcript_lines: The session transcript, one JSON entry per line.
