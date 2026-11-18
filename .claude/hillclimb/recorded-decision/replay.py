@@ -1,4 +1,4 @@
-"""Verify and score the recorded-decision comparison archive."""
+"""Verify the hosted worker receipts and score both prompt variants."""
 
 import argparse
 import gzip

@@ -1,4 +1,4 @@
-"""Paths and conventions for the recorded-decision archive."""
+"""Expected worker settings and archive filenames."""
 
 from pathlib import Path
 
