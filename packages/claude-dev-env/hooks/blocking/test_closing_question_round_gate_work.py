@@ -735,6 +735,33 @@ def test_should_allow_later_work_when_the_footer_stop_ran_before_the_reply_was_w
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]}) is None
 
 
+@pytest.mark.parametrize("is_split_with_an_edit", [False, True])
+def test_should_count_a_footer_only_when_no_record_of_its_message_called_a_tool(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    is_split_with_an_edit: bool,
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    footer_record = reply_record(f"The retry flag is in place.\n\n{FOOTER}")
+    footer_record["message"]["id"] = "message-7"
+    split_edit_record = tool_call_record("Edit", {"file_path": "jobs/export.py"}, tool_use_id="id-split")
+    split_edit_record["message"]["id"] = "message-7" if is_split_with_an_edit else "message-8"
+    all_records = [
+        typed_prompt_record(),
+        *edit_records(),
+        footer_record,
+        split_edit_record,
+        tool_result_record("Edit", "The file was updated.", tool_use_id="id-split"),
+        reply_record("The flag reads well."),
+    ]
+    reason = held_reason(monkeypatch, capsys, tmp_path, all_records)
+    if is_split_with_an_edit:
+        assert str(reason).startswith(FOOTER_MISSING_REASON_LEAD)
+    else:
+        assert reason is None
+
+
 def test_should_read_the_task_list_once_when_a_footer_stop_keeps_its_snapshot(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
@@ -750,6 +777,24 @@ def test_should_read_the_task_list_once_when_a_footer_stop_keeps_its_snapshot(
     all_footer_records, _ = _footer_then_work()
     assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([{"id": "ledger"}])) is None
     assert len(all_task_reads) == 1
+
+
+def test_should_read_the_footer_snapshot_once_when_later_work_has_no_footer(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_footer_records, all_records = _footer_then_work()
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([{"id": "ledger"}])) is None
+    all_snapshot_reads: list[object] = []
+    original_read = closing_question_round_gate.kept_footer_snapshot
+
+    def counted_read(all_hook_input_fields: dict[str, object]) -> object:
+        all_snapshot_reads.append(all_hook_input_fields)
+        return original_read(all_hook_input_fields)
+
+    monkeypatch.setattr(closing_question_round_gate, "kept_footer_snapshot", counted_read)
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]}) is None
+    assert len(all_snapshot_reads) == 1
 
 
 def test_should_allow_later_work_after_a_footer_that_sums_up_two_jobs_in_one_line(

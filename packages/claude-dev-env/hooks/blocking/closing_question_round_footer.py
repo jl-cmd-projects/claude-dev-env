@@ -43,11 +43,13 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_KEY_WORDS_INSTRUCTION,
     FOOTER_STATUS_MARKER_PATTERN,
     FOOTER_STATUS_STAND_IN,
-    ASK_OF_USER_PATTERN,
     FIRST_PERSON_ITEM_PATTERN,
     FOOTER_TASK_LINE_TEMPLATE,
     LIST_SCOPE_FOOTER_TEMPLATE,
     LIST_SCOPE_ITEM_TEMPLATE,
+    PURPOSE_CLAUSE_PATTERN,
+    PURPOSE_CLAUSE_STAND_IN,
+    USER_MENTION_PATTERN,
     FOOTER_TASKS_LABEL,
     FOOTER_WORD_PATTERN,
     MATCH_PREFIX_LENGTH,
@@ -114,20 +116,21 @@ def is_footer_ask(footer_item: str) -> bool:
 
         "I am shipping 8590."                          -> False
         "I am watching the ledger so you see it."      -> False
-        "I am merging 8590 once it has your approval." -> True, it waits on the user
-        "I can go on once you approve."                -> True
+        "I am merging 8590 once it has your approval." -> True, it names the user
+        "I will release it only with an OK from you."  -> True
         "Approve the release."                         -> True, not first person
         "Should I merge 8590?"                         -> True, a question
 
-    The rule writes each footer item in first person. An item that is not,
-    that waits for the user to act, or that holds an open-item line other
-    than the status markers "pending", "blocked", "not done", and "not run"
-    asks the user something.
+    The rule writes each footer item in first person and says what the work
+    gets the user, as "so you see its next update" does. An item that is not
+    first person, that names the user in any other way, or that holds an
+    open-item line other than the status markers "pending", "blocked", "not
+    done", and "not run" may ask the user something, so it counts as an ask.
     """
     status_item = FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, footer_item)
     return (
         FIRST_PERSON_ITEM_PATTERN.match(footer_item) is None
-        or ASK_OF_USER_PATTERN.search(footer_item) is not None
+        or USER_MENTION_PATTERN.search(PURPOSE_CLAUSE_PATTERN.sub(PURPOSE_CLAUSE_STAND_IN, footer_item)) is not None
         or bool(marked_open_lines([status_item], math.inf))
     )
 

@@ -269,8 +269,10 @@ def _is_heading_inside_prose(list_span: str, list_scope: str) -> bool:
 def _is_short_footer_list(list_span: str, list_scope: str) -> bool:
     if not FOOTER_HEADING_PATTERN.fullmatch(list_span.strip()):
         return False
-    all_footer_items = split_footer(list_scope).footer_items
-    return all_footer_items is not None and len(all_footer_items) < OPEN_ITEM_LIST_MINIMUM
+    split_scope = split_footer(list_scope)
+    if split_scope.footer_items is None or len(split_scope.footer_items) >= OPEN_ITEM_LIST_MINIMUM:
+        return False
+    return not any(FOOTER_HEADING_PATTERN.fullmatch(each_line.strip()) for each_line in split_scope.body.splitlines())
 
 
 def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
@@ -284,6 +286,7 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
         a list span only in the In progress footer                               -> JudgeVerdict(<promise>, "")
         "In progress:" as the span, where the body holds it only inside prose    -> JudgeVerdict(<promise>, "")
         "In progress:" as the span, with fewer than three asks under it in scope -> JudgeVerdict(<promise>, "")
+        the same, while the body holds its own "In progress:" list            -> the verdict stands
         prose, an extra key, or a string in place of a bool                      -> None
 
     Args:

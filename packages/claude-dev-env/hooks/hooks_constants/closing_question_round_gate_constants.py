@@ -27,6 +27,8 @@ FOOTER_JOBS_MARKER_NAME = "closing-question-round-footer-jobs"
 FOOTER_JOBS_KEY_TEMPLATE = "footer-jobs-{digest}"
 FOOTER_JOBS_FILE_TEMPLATE = "claude-{marker}-{session}.txt"
 FOOTER_JOBS_FILE_MODE = 0o600
+FOOTER_JOBS_TEMP_SUFFIX = ".part"
+MESSAGE_ID_KEY = "id"
 FOOTER_SNAPSHOT_SEPARATOR = " "
 FOOTER_SNAPSHOT_PART_COUNT = 3
 LIST_SCOPE_FOOTER_TEMPLATE = "{body}\n\nIn progress:\n{items}"
@@ -36,17 +38,9 @@ FOOTER_JOBS_READ_LIMIT = 256
 FOOTER_JOBS_TEXT_ENCODING = "ascii"
 FOOTER_JOBS_DIGEST_LENGTH = 32
 FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’]m\b)")
-ASK_OF_USER_PATTERN = re.compile(
-    r"\b(?:once|when|after|until|if|unless)\s+you\b"
-    r"|\byou\s+(?:need|must|should|have)\s+to\b"
-    r"|\bneeds?\s+you\b"
-    r"|\b(?:asking|ask|need|needs|want|wants)\s+you\s+to\b"
-    r"|\bneeds?\s+your\b"
-    r"|\b(?:waiting|wait)\s+(?:on|for)\s+you\b"
-    r"|\bfor\s+you\s+to\b"
-    r"|\byour\s+(?:approval|answer|decision|go-ahead|sign-off|input|call|reply)\b",
-    re.IGNORECASE,
-)
+USER_MENTION_PATTERN = re.compile(r"\byou(?:r|rs|rself)?\b", re.IGNORECASE)
+PURPOSE_CLAUSE_PATTERN = re.compile(r"\bso(?:\s+that)?\s+you\b", re.IGNORECASE)
+PURPOSE_CLAUSE_STAND_IN = "so"
 ALL_BACKGROUND_JOB_ID_KEYS = ("id", "task_id", "taskId")
 HUMAN_TURN_ORIGIN = "human"
 IS_SIDECHAIN_KEY = "isSidechain"

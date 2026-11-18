@@ -103,6 +103,11 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
         "- I am watching the ledger."
     )
     assert parsed_verdict(verdict_text, one_ask_reply) == JudgeVerdict("", "")
+    body_list_reply = (
+        "In progress:\n- Should I delete the backup?\n- Should I merge 8590?\n- Should I close 8693?\n\n"
+        "Pick one when you are back.\n\nIn progress:\n- I am shipping 8590.\n- I am merging 8790 once it has your approval."
+    )
+    assert parsed_verdict(verdict_text, body_list_reply) == JudgeVerdict("", "In progress:")
 
 
 def test_should_send_the_command_name_and_args_for_a_slash_command() -> None:

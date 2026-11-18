@@ -148,6 +148,8 @@ from hooks_constants.closing_question_round_gate_constants import (
     ALL_BACKGROUND_JOB_ID_KEYS,
     FOOTER_JOBS_DIGEST_LENGTH,
     FOOTER_JOBS_FILE_MODE,
+    FOOTER_JOBS_TEMP_SUFFIX,
+    MESSAGE_ID_KEY,
     FOOTER_SNAPSHOT_PART_COUNT,
     FOOTER_SNAPSHOT_SEPARATOR,
     FOOTER_JOBS_FILE_TEMPLATE,
@@ -309,10 +311,21 @@ class CoveredSession(NamedTuple):
     prompt_position: int
 
 
+def _message_id(all_record_fields: dict[str, object]) -> str | None:
+    message_body = all_record_fields.get(MESSAGE_KEY)
+    message_id = message_body.get(MESSAGE_ID_KEY) if isinstance(message_body, dict) else None
+    return message_id if isinstance(message_id, str) and message_id else None
+
+
 def _footer_positions(all_records: list[dict[str, object]]) -> list[int]:
+    all_tool_message_ids = {
+        _message_id(each_record) for each_record in all_records if _has_tool_call(each_record)
+    } - {None}
     all_positions = []
     for each_position, each_record in enumerate(all_records):
         if not is_assistant_record(each_record) or _has_tool_call(each_record):
+            continue
+        if _message_id(each_record) in all_tool_message_ids:
             continue
         all_record_texts = block_texts(each_record)
         if all_record_texts and split_footer(all_record_texts[-1]).footer_items is not None:
@@ -419,23 +432,32 @@ def record_footer_jobs(
 
         footer F with job a, then F with jobs a and b   -> the snapshot is F with a and b
         payload with no session id                      -> nothing kept
-        the snapshot name is a symlink                  -> nothing kept, the link target untouched
+        the snapshot name is a symlink                  -> the new file takes the name, the target untouched
 
-    The file opens with no symlink following and mode 0600, since it sits in
-    the shared temp folder.
+    The snapshot sits in the shared temp folder, so it is written to a new
+    file created with mode 0600 that no other file can stand behind, and
+    then moved onto the snapshot name. A move takes the name, link or not,
+    and never follows a link, on Windows too.
     """
     snapshot_path = _snapshot_path(all_hook_input_fields)
     if snapshot_path is None:
         return
     snapshot = footer_snapshot(all_hook_input_fields, footer, all_tasks)
     snapshot_text = FOOTER_SNAPSHOT_SEPARATOR.join([snapshot.footer_key, snapshot.state_key, str(snapshot.job_count)])
-    write_flags = os.O_WRONLY | os.O_CREAT | os.O_TRUNC | NO_FOLLOW_FLAG
     try:
-        file_descriptor = os.open(snapshot_path, write_flags, FOOTER_JOBS_FILE_MODE)
+        file_descriptor, temporary_name = tempfile.mkstemp(
+            prefix=snapshot_path.name, suffix=FOOTER_JOBS_TEMP_SUFFIX, dir=snapshot_path.parent
+        )
     except OSError:
         return
-    with os.fdopen(file_descriptor, "w", encoding=FOOTER_JOBS_TEXT_ENCODING) as snapshot_file:
-        snapshot_file.write(snapshot_text)
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(file_descriptor, "w", encoding=FOOTER_JOBS_TEXT_ENCODING) as snapshot_file:
+            snapshot_file.write(snapshot_text)
+        os.chmod(temporary_path, FOOTER_JOBS_FILE_MODE)
+        os.replace(temporary_path, snapshot_path)
+    except OSError:
+        temporary_path.unlink(missing_ok=True)
 
 
 def kept_footer_snapshot(all_hook_input_fields: dict[str, object]) -> FooterSnapshot | None:
@@ -462,7 +484,10 @@ def kept_footer_snapshot(all_hook_input_fields: dict[str, object]) -> FooterSnap
 
 
 def were_jobs_shown(
-    all_hook_input_fields: dict[str, object], footer: FooterSeen | None, all_tasks: SessionTasks
+    kept_snapshot: FooterSnapshot | None,
+    all_hook_input_fields: dict[str, object],
+    footer: FooterSeen | None,
+    all_tasks: SessionTasks,
 ) -> bool:
     """Return True when the kept snapshot is this footer with exactly these tasks and jobs.
 
@@ -475,6 +500,7 @@ def were_jobs_shown(
         no footer, or no snapshot kept for this session                -> False
 
     Args:
+        kept_snapshot: The session's kept snapshot, from ``kept_footer_snapshot``.
         all_hook_input_fields: The Stop hook payload.
         footer: The newest footer the user saw, or None.
         all_tasks: The session's tasks.
@@ -482,13 +508,12 @@ def were_jobs_shown(
     Returns:
         Whether the snapshot names that footer with exactly these tasks and jobs.
     """
-    kept_snapshot = kept_footer_snapshot(all_hook_input_fields)
     if footer is None or kept_snapshot is None:
         return False
     return kept_snapshot == footer_snapshot(all_hook_input_fields, footer, all_tasks)
 
 
-def did_footer_show_jobs(all_hook_input_fields: dict[str, object], footer: FooterSeen | None) -> bool:
+def did_footer_show_jobs(kept_snapshot: FooterSnapshot | None, footer: FooterSeen | None) -> bool:
     """Return True when this footer went out while background jobs ran.
 
     ::
@@ -497,7 +522,6 @@ def did_footer_show_jobs(all_hook_input_fields: dict[str, object], footer: Foote
         footer F sent with no background work               -> False
         no footer, or no snapshot kept for this session     -> False
     """
-    kept_snapshot = kept_footer_snapshot(all_hook_input_fields)
     if footer is None or kept_snapshot is None:
         return False
     return kept_snapshot.footer_key == footer_key(footer) and kept_snapshot.job_count > 0
@@ -661,12 +685,13 @@ def footer_hold_reason(
     if not all_tasks.in_progress and not has_background_work(all_hook_input_fields):
         return None
     if footer_items is None:
+        kept_snapshot = None if newest_footer is None else kept_footer_snapshot(all_hook_input_fields)
         if not is_declared and is_footer_still_current(
             None if newest_footer is None else newest_footer.lines,
             all_tasks,
             background_job_count(all_hook_input_fields),
-            were_jobs_shown(all_hook_input_fields, newest_footer, all_tasks),
-            did_footer_show_jobs(all_hook_input_fields, newest_footer),
+            were_jobs_shown(kept_snapshot, all_hook_input_fields, newest_footer, all_tasks),
+            did_footer_show_jobs(kept_snapshot, newest_footer),
         ):
             return None
         reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work)

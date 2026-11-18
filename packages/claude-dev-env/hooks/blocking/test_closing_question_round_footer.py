@@ -134,4 +134,6 @@ def test_should_tell_a_footer_ask_from_a_status_line() -> None:
     assert is_footer_ask("I am merging 8790 once it has your approval.")
     assert is_footer_ask("Approve the release.")
     assert is_footer_ask("Should I merge 8590?")
+    assert is_footer_ask("I will release version A only with an OK from you.")
+    assert not is_footer_ask("I am running the automated tests so that you know it works.")
 
