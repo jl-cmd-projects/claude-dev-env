@@ -1217,3 +1217,4 @@ def test_should_hold_a_judged_promise_inside_the_in_progress_footer(
     )["reason"]
     assert block_reason.startswith(PROMISE_REASON_START)
     assert "The closing reply lists" not in block_reason
+    assert len(judge_stub.calls()) == 1

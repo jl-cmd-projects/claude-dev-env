@@ -70,6 +70,7 @@ ALL_FOOTER_HOLD_TEXTS = (
     "declared no open items",
 )
 MAXIMUM_HOLDS_PER_STOP = 4
+HOLDS_UNCLEARED_TEMPLATE = "a turn was still held after {hold_count} stops; last hold: {lead}"
 
 HOME_DIRECTORY_NAME = "home"
 CLAUDE_HOME_DIRECTORY_NAME = ".claude"

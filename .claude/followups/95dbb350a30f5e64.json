@@ -1,8 +1,0 @@
-{
-  "rule_id": "validators",
-  "file_path": ".claude/hillclimb/repeated-footer/replay.py",
-  "message": ".claude/hillclimb/repeated-footer/replay.py:216: Function 'replay' has nesting depth 3 (max 2)",
-  "check_id": "validators/nesting-depth",
-  "severity": "smell",
-  "origin_commit": "14b30c2557d676b6685b1057ae4d7f91fa441d2b"
-}

@@ -53,6 +53,7 @@ from repeated_footer_eval_support.config.constants import (
     HOLD_LEAD_LENGTH,
     HOLD_ROW_TEMPLATE,
     HOOKS_DIRECTORY,
+    HOLDS_UNCLEARED_TEMPLATE,
     HUMAN_TURN_ORIGIN,
     LINE_BREAK,
     LIST_HOLD_TEXT,
@@ -84,6 +85,10 @@ from repeated_footer_eval_support.replay_session import ReplaySession
 from repeated_lines import repeat_report
 
 logger = logging.getLogger(__name__)
+
+
+class ReplayHoldsUnclearedRunFatal(RuntimeError):
+    """A turn was still held after the agent answered every hold it could, so the counts would be partial."""
 
 
 class ReplayOutcome(NamedTuple):
@@ -203,14 +208,16 @@ def _held_turn_replies(
         all_replies.append(reply_text)
         all_reasons = session.stop_reasons(hooks_directory, reply_text, is_held_stop)
         if not all_reasons:
-            break
+            return all_replies, all_hold_leads
         all_hold_leads.extend(each_reason.split(LINE_BREAK)[0][:HOLD_LEAD_LENGTH] for each_reason in all_reasons)
         for each_reason in all_reasons:
             session.add_user_text(STOP_FEEDBACK_TEMPLATE.format(reasons=each_reason), None)
         all_tool_names, reply_text = held_reply(all_reasons, all_turn_fields, reply_text, all_footer_lines)
         session.add_tool_calls(all_tool_names)
         is_held_stop = True
-    return all_replies, all_hold_leads
+    raise ReplayHoldsUnclearedRunFatal(
+        HOLDS_UNCLEARED_TEMPLATE.format(hold_count=MAXIMUM_HOLDS_PER_STOP + 1, lead=all_hold_leads[-1])
+    )
 
 
 def replay(hooks_directory: Path, all_scenario_fields: dict[str, object], policy: str) -> ReplayOutcome:
@@ -223,6 +230,9 @@ def replay(hooks_directory: Path, all_scenario_fields: dict[str, object], policy
 
     Returns:
         The replies sent and the holds met.
+
+    Raises:
+        ReplayHoldsUnclearedRunFatal: When a turn is still held after five stops.
     """
     all_footers = all_scenario_fields[SCENARIO_FOOTERS_KEY]
     all_replies: list[str] = []

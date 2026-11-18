@@ -177,8 +177,23 @@ def is_exempt_stop(all_hook_input_fields: dict[str, object]) -> bool:
 
 def has_background_work(all_hook_input_fields: dict[str, object]) -> bool:
     """Return True when the payload's ``background_tasks`` is a non-empty list, object, or string."""
+    return background_job_count(all_hook_input_fields) > 0
+
+
+def background_job_count(all_hook_input_fields: dict[str, object]) -> int:
+    """Return how many pieces of background work the payload's ``background_tasks`` names.
+
+    ::
+
+        [{"id": "a"}, {"id": "b"}]   -> 2
+        {"a": {...}}                 -> 1
+        "ledger"                     -> 1
+        missing, empty, or a number  -> 0
+    """
     all_background_tasks = all_hook_input_fields.get(BACKGROUND_TASKS_KEY)
-    return isinstance(all_background_tasks, (list, dict, str)) and bool(all_background_tasks)
+    if isinstance(all_background_tasks, (list, dict)):
+        return len(all_background_tasks)
+    return int(isinstance(all_background_tasks, str) and bool(all_background_tasks))
 
 
 def _record_text(all_record_fields: dict[str, object]) -> str:
@@ -267,10 +282,19 @@ def newest_footer_items(all_records: list[dict[str, object]]) -> tuple[str, ...]
     ::
 
         "Done.\n\nIn progress:\n- I am shipping 8590." then "Nothing new."  -> ("I am shipping 8590.",)
+        a footer and a work call in one record                             -> None, not a closing reply
         "Nothing new." only                                                -> None
+
+    A record counts only when it holds no work call and its last text block
+    ends with the footer, the same rule the work-since-footer scan uses.
     """
-    for each_text in reversed(assistant_texts(all_records)):
-        footer_items = split_footer(each_text).footer_items
+    for each_record in reversed(all_records):
+        if not is_assistant_record(each_record) or has_work_call([each_record]):
+            continue
+        all_record_texts = block_texts(each_record)
+        if not all_record_texts:
+            continue
+        footer_items = split_footer(all_record_texts[-1]).footer_items
         if footer_items is not None:
             return footer_items
     return None
@@ -335,7 +359,7 @@ def _missing_footer_lead(
 
 
 def is_footer_still_current(
-    all_last_footer_lines: tuple[str, ...] | None, all_tasks: SessionTasks, is_background_running: bool
+    all_last_footer_lines: tuple[str, ...] | None, all_tasks: SessionTasks, background_count: int
 ) -> bool:
     """Return True when the newest footer the user saw still shows the work in progress.
 
@@ -344,16 +368,19 @@ def is_footer_still_current(
         footer names #28 and #29, both in progress                -> True
         footer names #28 and #29, #29 finished                    -> False, one line too many
         footer names #28, #29 started since                       -> False, #29 left out
-        footer names #28 and a background job, background runs   -> True
+        footer names #28 and the one job running in the background -> True
+        footer names #28 only, a job started in the background    -> False, the job is left out
         no footer since the typed prompt or answered card         -> False
 
-    The footer has one line per piece of work, so with no background work a
+    The footer has one line per piece of work. With no background work, a
     footer with more lines than tasks in progress shows work that is done.
+    With background work, the footer must hold one line per task in progress
+    and one per background job, so a job that starts or ends makes it owed.
 
     Args:
         all_last_footer_lines: The lines of the newest footer sent, or None.
         all_tasks: The session's tasks.
-        is_background_running: Whether the payload names background work.
+        background_count: How many background jobs the payload names.
 
     Returns:
         Whether the footer can stand for the reply.
@@ -362,7 +389,9 @@ def is_footer_still_current(
         return False
     if left_out_tasks(all_last_footer_lines, all_tasks.in_progress, all_tasks.still_open):
         return False
-    return is_background_running or len(all_last_footer_lines) <= len(all_tasks.in_progress)
+    if background_count:
+        return len(all_last_footer_lines) == len(all_tasks.in_progress) + background_count
+    return len(all_last_footer_lines) <= len(all_tasks.in_progress)
 
 
 def footer_hold_reason(
@@ -408,7 +437,7 @@ def footer_hold_reason(
         return None
     if footer_items is None:
         if not is_declared and is_footer_still_current(
-            all_last_footer_lines, all_tasks, has_background_work(all_hook_input_fields)
+            all_last_footer_lines, all_tasks, background_job_count(all_hook_input_fields)
         ):
             return None
         reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work)

@@ -44,11 +44,8 @@ def test_should_stop_the_replay_when_another_claude_answers_first(
 ) -> None:
     (tmp_path / "stub").mkdir()
     stub_directory = write_stub_judge(tmp_path / "stub")
-    other_directory = tmp_path / "other"
-    other_directory.mkdir()
-    other_judge = other_directory / "claude"
-    other_judge.write_text("#!/bin/sh\n", encoding="utf-8")
-    other_judge.chmod(0o755)
+    (tmp_path / "other").mkdir()
+    other_directory = write_stub_judge(tmp_path / "other")
     with pytest.raises(ReplayGateRunFatal):
         require_stub_judge_first(
             stub_directory, os.pathsep.join([str(other_directory), str(stub_directory)])

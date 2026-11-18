@@ -44,7 +44,30 @@ def test_should_send_only_the_summary_line_for_a_task_notification() -> None:
         "user_prompt": "Lint job ended",
         "reply": "Done.",
         "question_tool_used": False,
+        "list_scope": "Done.",
     }
+
+
+def test_should_send_the_list_check_the_reply_without_its_in_progress_footer() -> None:
+    footer_reply = "Shipped.\n\nIn progress:\n- I am fixing the list reader.\n- I am watching the ledger."
+    all_input_fields = judge_input("Fix the build", footer_reply, False)
+    assert all_input_fields["reply"] == footer_reply
+    assert all_input_fields["list_scope"].strip() == "Shipped."
+
+
+def test_should_drop_a_list_span_from_the_footer_and_keep_the_promise() -> None:
+    footer_reply = "I will send a summary later.\n\nIn progress:\n- I am fixing the list reader.\n- I am watching the ledger.\n- I am shipping 8590."
+    verdict_text = json.dumps(
+        {
+            "promised_report": True,
+            "promise_span": "I will send a summary later.",
+            "decisions_as_list": True,
+            "list_span": "In progress:",
+        }
+    )
+    assert parsed_verdict(verdict_text, footer_reply) == JudgeVerdict("I will send a summary later.", "")
+    body_heading_reply = f"See the status below.\nIn progress:\n\n{footer_reply}"
+    assert parsed_verdict(verdict_text, body_heading_reply) == JudgeVerdict("I will send a summary later.", "")
 
 
 def test_should_send_the_command_name_and_args_for_a_slash_command() -> None:

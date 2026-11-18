@@ -1,6 +1,9 @@
 import json
+from pathlib import Path
 
-from replay import ReplayOutcome, first_reply, footer_text, held_reply, outcome_rows, replay, with_footer
+import pytest
+
+from replay import ReplayHoldsUnclearedRunFatal, ReplayOutcome, first_reply, footer_text, held_reply, outcome_rows, replay, with_footer
 from repeated_footer_eval_support.config.constants import HOOKS_DIRECTORY, SCENARIO_FILE
 
 ALL_FOOTER_ITEMS = ["I am shipping pull request 8590 once its automated tests pass."]
@@ -46,3 +49,20 @@ def test_should_print_the_summary_then_each_hold_of_a_replay() -> None:
         "main [minimal]: replies 2, holds 1, footer copies 1, repeated lines 0",
         "  turn 1 hold: This turn worked on the user's ask",
     ]
+
+
+ALWAYS_HOLD_GATE_SOURCE = """import json, sys
+sys.stdin.read()
+print(json.dumps({"decision": "block", "reason": "Stand-in hold that no reply clears."}))
+sys.exit(2)
+"""
+
+
+def test_should_stop_the_replay_when_a_turn_never_clears_its_holds(tmp_path: Path) -> None:
+    blocking_directory = tmp_path / "hooks" / "blocking"
+    blocking_directory.mkdir(parents=True)
+    (blocking_directory / "open_tasks_stop_gate.py").write_text(ALWAYS_HOLD_GATE_SOURCE, encoding="utf-8")
+    (blocking_directory / "closing_question_round_gate.py").write_text("import sys\nsys.stdin.read()\n", encoding="utf-8")
+    all_scenario_fields = json.loads(SCENARIO_FILE.read_text(encoding="utf-8"))
+    with pytest.raises(ReplayHoldsUnclearedRunFatal, match="still held after 5 stops"):
+        replay(tmp_path / "hooks", all_scenario_fields, "minimal")

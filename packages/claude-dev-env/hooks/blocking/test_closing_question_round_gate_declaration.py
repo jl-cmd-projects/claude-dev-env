@@ -29,11 +29,8 @@ from test_closing_question_round_gate_work import (
     FOOTER,
     LIST_READER_ITEM,
     FOOTER_FEEDBACK_TEXT,
-    LEDGER_SUBJECT,
-    LIST_READER_SUBJECT,
     edit_records,
     task_in_progress,
-    write_tasks,
 )
 
 GATE_PATH = Path(__file__).resolve().parent / "closing_question_round_gate.py"
@@ -110,16 +107,9 @@ def test_should_hold_work_after_an_earlier_footer_when_no_closing_text_follows(
     assert str(reason).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
-def test_should_hold_a_tool_call_that_shares_a_record_with_a_footer_that_misses_a_task(
+def test_should_hold_a_tool_call_that_shares_a_record_with_the_footer(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    write_tasks(
-        tmp_path,
-        [
-            {"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"},
-            {"id": "29", "subject": LEDGER_SUBJECT, "status": "in_progress"},
-        ],
-    )
     declared_call = tool_call_record("Edit", {"file_path": "jobs/export.py"}, tool_use_id="id-x")
     message_body = declared_call["message"]
     assert isinstance(message_body, dict)

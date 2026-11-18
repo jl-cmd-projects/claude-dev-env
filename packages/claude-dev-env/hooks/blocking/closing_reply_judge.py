@@ -4,7 +4,8 @@ The open tasks Stop gate sends the turn's prompt and its closing reply to
 ``claude -p --model haiku --effort medium`` with the prompt on stdin, and reads
 back one JSON verdict::
 
-    in:  {"prompt_kind": "typed", "user_prompt": "...", "reply": "...", "question_tool_used": false}
+    in:  {"prompt_kind": "typed", "user_prompt": "...", "reply": "...", "question_tool_used": false,
+          "list_scope": "..."}
     out: {"promised_report": true, "promise_span": "...", "decisions_as_list": false, "list_span": ""}
 
 The prompt kind tells the model where the prompt came from::
@@ -15,6 +16,10 @@ The prompt kind tells the model where the prompt came from::
 
 A verdict counts only when it is the four-key object, bare or in one ``json``
 code fence, and each raised flag names a nonempty span found in the reply.
+The list lead counts only in ``list_scope``, the reply with its In progress
+footer cut off by ``closing_question_round_footer``: a lead in the footer,
+or one that is only the footer heading, drops the list flag and keeps the
+promise.
 Two code gates then drop the list flag: the turn used the question tool, or
 the prompt asked for a list.
 
@@ -39,7 +44,9 @@ import tempfile
 from pathlib import Path
 from typing import NamedTuple
 
+from closing_question_round_footer import split_footer
 from closing_reply_shapes import prompt_asks_for_list
+from hooks_constants.closing_question_round_gate_constants import FOOTER_HEADING_PATTERN
 from hooks_constants.closing_reply_judge_constants import (
     ALL_JUDGE_COMMAND_FLAGS,
     ALL_JUDGE_ENVIRONMENT_SETTINGS,
@@ -62,6 +69,7 @@ from hooks_constants.closing_reply_judge_constants import (
     JUDGE_DATA_PLACEHOLDER,
     JUDGE_PROMPT_TEMPLATE,
     JUDGE_TIMEOUT_SECONDS,
+    LIST_SCOPE_KEY,
     LIST_SPAN_KEY,
     LOG_LINE_TEMPLATE,
     NO_VERDICT_LOG_TEMPLATE,
@@ -138,7 +146,7 @@ def _prompt_kind_and_text(prompt_text: str) -> tuple[str, str]:
 
 
 def judge_input(prompt_text: str, reply_text: str, has_question_tool_call: bool) -> dict[str, object]:
-    """Return the data the judge reads: the prompt kind, the prompt text, the reply, and the question-tool flag.
+    """Return the data the judge reads: the prompt kind, the prompt text, the reply, the question-tool flag, and the list scope.
 
     ::
 
@@ -157,6 +165,7 @@ def judge_input(prompt_text: str, reply_text: str, has_question_tool_call: bool)
         USER_PROMPT_KEY: user_prompt,
         REPLY_KEY: reply_text,
         QUESTION_TOOL_USED_KEY: bool(has_question_tool_call),
+        LIST_SCOPE_KEY: split_footer(reply_text).body,
     }
 
 
@@ -254,12 +263,14 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
 
         '{"promised_report": true, "promise_span": "I will report back", ...}'  -> JudgeVerdict("I will report back", "")
         the same object inside one json code fence                              -> the same verdict
-        a raised flag whose span is empty or not in the reply                    -> None
+        a raised flag whose span is empty or not in its scope                    -> None
+        a list span only in the In progress footer, or only its heading           -> JudgeVerdict(<promise>, "")
         prose, an extra key, or a string in place of a bool                      -> None
 
     Args:
         result_text: The ``result`` string of the ``claude -p`` JSON answer.
-        reply_text: The closing reply the judge read.
+        reply_text: The closing reply the judge read. A list span counts only
+            above its In progress footer.
     """
     fence_match = ANSWER_FENCE_PATTERN.match(result_text)
     verdict_text = fence_match.group(1) if fence_match else result_text.strip()
@@ -275,6 +286,8 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
     list_span = _raised_span(all_verdict_fields, DECISIONS_AS_LIST_KEY, LIST_SPAN_KEY, reply_text)
     if promise_span is None or list_span is None:
         return None
+    if list_span not in split_footer(reply_text).body or FOOTER_HEADING_PATTERN.fullmatch(list_span.strip()):
+        return JudgeVerdict(promise_span, "")
     return JudgeVerdict(promise_span, list_span)
 
 

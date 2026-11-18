@@ -556,3 +556,20 @@ def test_should_hold_later_work_when_a_task_the_last_footer_named_finished(
         FOOTER_MISSING_REASON_LEAD
     )
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": ["ledger"]}) is None
+
+
+def test_should_hold_later_work_when_a_background_job_started_after_the_footer(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_records = [
+        typed_prompt_record(),
+        *edit_records(),
+        reply_record(f"The retry flag is in place.\n\n{FOOTER}"),
+        *edit_records(),
+        reply_record("The ledger job is started."),
+    ]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
