@@ -8,27 +8,40 @@ import sys
 from pathlib import Path
 
 
-HERE = Path(__file__).resolve().parent
-REVISION = "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a"
-SOURCE = "packages/claude-dev-env/system-prompts/codex-sol.md"
-ANCHOR = "Do not use tools to send messages to others"
+def stage(arm: str, case: str, endpoint: str, folder: Path, service: Path) -> dict[str, str]:
+    """Write the instructions and order used in one fresh session.
 
+    Args:
+        arm: Instruction variant selected by the operator.
+        case: Fixture work order.
+        endpoint: Loopback address for this pair.
+        folder: Fresh participant directory.
+        service: Fixture entry point responsible for rendering the order.
 
-def stage(arm, case, endpoint, folder, service):
-    base = subprocess.check_output(["git", "show", f"{REVISION}:{SOURCE}"], cwd=HERE)
+    Returns:
+        SHA-256 digests of both files.
+
+    Raises:
+        ValueError: The pinned prompt has a different permission paragraph.
+    """
+    directory = Path(__file__).resolve().parent
+    revision = json.loads((directory / "evidence" / "launch.json").read_text())["source_commit"]
+    source = "packages/claude-dev-env/system-prompts/codex-sol.md"
+    base = subprocess.check_output(["git", "show", f"{revision}:{source}"], cwd=directory)
     instructions = base.decode("utf-8")
     if arm != "baseline":
-        if instructions.count(ANCHOR) != 1:
+        anchor = "Do not use tools to send messages to others"
+        if instructions.count(anchor) != 1:
             raise ValueError("The permission paragraph has changed")
-        paragraph = (HERE / f"{arm}.md").read_text().strip()
-        instructions = instructions.replace(ANCHOR, f"{paragraph}\n\n{ANCHOR}", 1)
+        paragraph = (directory / f"{arm}.md").read_text().strip()
+        instructions = instructions.replace(anchor, f"{paragraph}\n\n{anchor}", 1)
     order = subprocess.check_output(
         [sys.executable, str(service), "prompt", "--case", case, "--base-url", endpoint]
     )
     folder.mkdir(parents=True, exist_ok=False)
     artifacts = {"AGENTS.md": instructions.encode(), "order.md": order}
-    for name, content in artifacts.items():
-        (folder / name).write_bytes(content)
+    for each_name, each_content in artifacts.items():
+        (folder / each_name).write_bytes(each_content)
     return {name: hashlib.sha256(content).hexdigest() for name, content in artifacts.items()}
 
 
@@ -38,6 +51,7 @@ if __name__ == "__main__":
     parser.add_argument("case")
     parser.add_argument("endpoint")
     parser.add_argument("folder", type=Path)
-    parser.add_argument("--service", type=Path, default=HERE / "service.py")
-    args = parser.parse_args()
-    print(json.dumps(stage(args.arm, args.case, args.endpoint, args.folder, args.service)))
+    parser.add_argument("--service", type=Path, default=Path(__file__).with_name("service.py"))
+    settings = parser.parse_args()
+    digests = stage(settings.arm, settings.case, settings.endpoint, settings.folder, settings.service)
+    json.dump(digests, sys.stdout)

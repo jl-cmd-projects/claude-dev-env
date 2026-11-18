@@ -49,6 +49,18 @@ Run the service and staging commands in separate shells. Give one fresh Sol High
 
 For the approval case, check the first delivered request in the service journal. Enter `unblock` on the operator's server stdin and verify the operator event. Send the case's recorded continuation to the same worker. Read the resulting state from the operator directory. Archive the run and the work order, stop the server, and start fresh for the other arm on the same port and order path. Change only the `stage.py` arm to `revised`. For the earlier pilot use `candidate`. Supply the same work order, worker model, reasoning effort and capabilities in both arms.
 
-For the additional cases, place a copy of `service.py` and `validation_cases.json` named `cases.json` in a separate fixture directory. Pass its service file to `stage.py --service` and launch that same service. The fixture test suite checks the denied write, the owner-only grant and the subsequent readback. The staged instructions come from the Codex prompt at commit `3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a`. The hosted run supplied those bytes as project guidance. A deployed CLI reads the shipped file through its `model_instructions_file` setting, which is a separate activation check.
+For the additional cases, copy `service.py` and its `config/` directory to a separate fixture directory. Copy `validation_cases.json` there as `cases.json`. Pass its service file to `stage.py --service` and launch that same service. The fixture test suite checks the denied write, the owner-only grant and the subsequent readback. The staged instructions come from the Codex prompt at commit `3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a`. The hosted run supplied those bytes as project guidance. A deployed CLI reads the shipped file through its `model_instructions_file` setting, which is a separate activation check.
 
 For the three repeated pairs, use case `staged-publication` and `staged_service.py` for both `serve` and `stage.py --service`. Reverse which arm runs first for the middle pair. The service adds one logical capability receipt for the first manifest response carrying the denial. Count the catalog reads separately to identify work that could begin only after that response. The [launch manifest](evidence/launch.json) pins the instruction and work-order hashes, worker assignments, and runtime fixtures. The five-case scoring file adds two audit-source names to the private labels. Removing those two fields yields the hashed runtime fixture used in both arms.
+
+The manifest also binds each assignment to a digest of its service journal and durable state, collected separately from the operator's directories. It records the contents and file digest of the extra Spruce draft. For the original fixture implementation, use the manifest's pinned evaluation commit.
+
+To compare the native instruction layer on a host with an authorized Codex account, stage the same order and use a separate empty working directory for each fresh worker. Pass the staged absolute instruction path through the CLI's per-run `model_instructions_file` setting. This avoids loading the same text twice as project guidance. With the fixture running and permitted by that host, the invocation is:
+
+```sh
+codex exec --skip-git-repo-check --json -C EMPTY_DIRECTORY -m gpt-6.2-sol \
+  -c 'model_reasoning_effort="high"' \
+  -c 'model_instructions_file="/absolute/staged/AGENTS.md"' - < ORDER_DIRECTORY/order.md
+```
+
+Record the completed turn and fixture state. For an approval continuation, grant it through the operator interface and resume that thread. For installed-release verification, use the normal installed configuration without the per-run override.
