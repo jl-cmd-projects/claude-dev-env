@@ -1,0 +1,286 @@
+{
+  "advice_responses": 0,
+  "median_paired_active_difference_seconds": 5.034436413001458,
+  "pairs": [
+    {
+      "baseline": {
+        "ambiguities": [],
+        "empty_queue_simulated_minutes": 0,
+        "empty_queue_watches": 0,
+        "id": "w84665",
+        "needs_continuation": false,
+        "nominated": false,
+        "reasons": [],
+        "response": null,
+        "review_seconds": 0,
+        "selection_receipt": {
+          "attempt_sha256": "ab4e2df51abe198af50d56463e8ec25582fd55662171ebebef705b1ac690e5e3",
+          "packet_sha256": "2bb84d52d5f4e42f3255593b216562cc48b2776d7325064c8d5a7b115b092f92",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 72.75816904199746,
+        "worker_seconds": 72.75816904199746
+      },
+      "candidate": {
+        "ambiguities": [
+          "Event 6 does not show a usable fleet result from the list command."
+        ],
+        "empty_queue_simulated_minutes": 0,
+        "empty_queue_watches": 0,
+        "id": "w15233",
+        "needs_continuation": false,
+        "nominated": true,
+        "reasons": [
+          "#8692 has a denial with no visible handoff to someone who can resolve its thread."
+        ],
+        "response": "PASS",
+        "review_seconds": 19.622480617999827,
+        "selection_receipt": {
+          "attempt_sha256": "9ab8df732879f4bdf12148708771b97ed59e43d1d78d6e73c4692a3c6afeb1ff",
+          "packet_sha256": "d4ea542e87675a6ffeca6bd48f0c29bb5308b93bfa206004cbce5945e433624a",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 88.14799169099933,
+        "worker_seconds": 68.5255110729995
+      },
+      "case": "independent",
+      "paired_active_difference_seconds": 15.389822649001871
+    },
+    {
+      "baseline": {
+        "ambiguities": [
+          "Event 10 does not show a usable fleet result from the list command.",
+          "Event 11 does not show a usable fleet result from the list command.",
+          "Event 12 does not show a usable fleet result from the list command.",
+          "Event 14 does not show a usable fleet result from the list command."
+        ],
+        "empty_queue_simulated_minutes": 105,
+        "empty_queue_watches": 4,
+        "id": "w21852",
+        "needs_continuation": false,
+        "nominated": true,
+        "reasons": [
+          "#8692 has a denial with no visible handoff to someone who can resolve its thread."
+        ],
+        "response": null,
+        "review_seconds": 0,
+        "selection_receipt": {
+          "attempt_sha256": "f570e0440fe2e3ed83e5eef42b74d69e3f3ac042d518e8ae7695593b265100fa",
+          "packet_sha256": "531fe1ffbf0a6209fe1330c1d2931547c183173e874b9ff55272ca98f0e43510",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 85.844518357997,
+        "worker_seconds": 85.844518357997
+      },
+      "candidate": {
+        "ambiguities": [
+          "Event 6 does not show a usable fleet result from the list command.",
+          "Event 11 does not show a usable fleet result from the list command.",
+          "Event 12 does not show a usable fleet result from the list command.",
+          "Event 14 does not show a usable fleet result from the list command.",
+          "Event 15 does not show a usable fleet result from the list command."
+        ],
+        "empty_queue_simulated_minutes": 90,
+        "empty_queue_watches": 4,
+        "id": "w43994",
+        "needs_continuation": false,
+        "nominated": false,
+        "reasons": [],
+        "response": null,
+        "review_seconds": 0,
+        "selection_receipt": {
+          "attempt_sha256": "13cdaeb7c5a63c388a4ed75eeb3a4786d5b32b58ca30000f3160604c9da2d708",
+          "packet_sha256": "e7815daf69986777302d602c72a1a23443d78038ebb43701ec895c70313a4884",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 80.52356853499805,
+        "worker_seconds": 80.52356853499805
+      },
+      "case": "dependent",
+      "paired_active_difference_seconds": -5.320949822998955
+    },
+    {
+      "baseline": {
+        "ambiguities": [
+          "Event 6 does not show a usable fleet result from the list command."
+        ],
+        "empty_queue_simulated_minutes": 75,
+        "empty_queue_watches": 3,
+        "id": "w64694",
+        "needs_continuation": false,
+        "nominated": false,
+        "reasons": [],
+        "response": null,
+        "review_seconds": 0,
+        "selection_receipt": {
+          "attempt_sha256": "4f2a2ad3b62cc468ff8ca785e6a63fc0f8a0f95c76b716d6242b94075ce02ae2",
+          "packet_sha256": "2b5422ea1196d1875e1631b4918664c4ccc18bdf858fc0c573443c754e658fe4",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 60.70163548399796,
+        "worker_seconds": 60.70163548399796
+      },
+      "candidate": {
+        "ambiguities": [
+          "Event 6 does not show a usable fleet result from the list command."
+        ],
+        "empty_queue_simulated_minutes": 90,
+        "empty_queue_watches": 4,
+        "id": "w75473",
+        "needs_continuation": false,
+        "nominated": true,
+        "reasons": [
+          "#8692 has a denial with no visible handoff to someone who can resolve its thread."
+        ],
+        "response": "PASS",
+        "review_seconds": 27.53254871199897,
+        "selection_receipt": {
+          "attempt_sha256": "4b44825290edd78814ecba64a7be872e43f65811fafc753ea68c14d1337b9105",
+          "packet_sha256": "b8a8054fbeec818865a65bdcc1c46e3fce1c2a833919c3a47ef00d7f9d94fc50",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 104.26635378299761,
+        "worker_seconds": 76.73380507099864
+      },
+      "case": "dependent",
+      "paired_active_difference_seconds": 43.56471829899965
+    },
+    {
+      "baseline": {
+        "ambiguities": [],
+        "empty_queue_simulated_minutes": 0,
+        "empty_queue_watches": 0,
+        "id": "w67281",
+        "needs_continuation": false,
+        "nominated": false,
+        "reasons": [],
+        "response": null,
+        "review_seconds": 0,
+        "selection_receipt": {
+          "attempt_sha256": "261fa18f03526da7c6eba07a091a4e8a6d7654f80b24c184e69c073bf8d1b2f2",
+          "packet_sha256": "53748f1df31f184d48a3e7b039e2a9db78f5387eeeefbb5f42f1e60e56987ad3",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 49.752539584998885,
+        "worker_seconds": 49.752539584998885
+      },
+      "candidate": {
+        "ambiguities": [
+          "Event 6 does not show a usable fleet result from the list command.",
+          "The handoff reports queue progress for #8692, but no exact-head ticket was visible."
+        ],
+        "empty_queue_simulated_minutes": 0,
+        "empty_queue_watches": 0,
+        "id": "w69182",
+        "needs_continuation": false,
+        "nominated": true,
+        "reasons": [
+          "#8692 has a denial with no visible handoff to someone who can resolve its thread.",
+          "The handoff reports queue progress for #8692 without an observed terminal result."
+        ],
+        "response": "PASS",
+        "review_seconds": 7.976648388998001,
+        "selection_receipt": {
+          "attempt_sha256": "3fcbf5fe34f83771db151edaec9e7462391558113c512688e4075eb61c28c6e6",
+          "packet_sha256": "b0f44e95312419064cf7d924ff2b868c6514a045ceae58249bdcad2a86c06cab",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 90.10723643600068,
+        "worker_seconds": 82.13058804700268
+      },
+      "case": "independent",
+      "paired_active_difference_seconds": 40.35469685100179
+    },
+    {
+      "baseline": {
+        "ambiguities": [
+          "Event 6 does not show a usable fleet result from the list command."
+        ],
+        "empty_queue_simulated_minutes": 75,
+        "empty_queue_watches": 3,
+        "id": "w36833",
+        "needs_continuation": false,
+        "nominated": true,
+        "reasons": [
+          "No usable fleet read was observed after the integration denied the focal resolution.",
+          "#8692 repeated the same denied resolution with the same head, thread and fix receipt."
+        ],
+        "response": null,
+        "review_seconds": 0,
+        "selection_receipt": {
+          "attempt_sha256": "7d8b9dcfda77b1172d710aa21d996a224680e5aaa6c0ba348b8f701ab0728d81",
+          "packet_sha256": "20c9828702252463aa573eb8d15959143cd906d5d66c5706c6ea8888ebd9ff78",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 71.83389383100075,
+        "worker_seconds": 71.83389383100075
+      },
+      "candidate": {
+        "ambiguities": [
+          "Event 6 does not show a usable fleet result from the list command."
+        ],
+        "empty_queue_simulated_minutes": 90,
+        "empty_queue_watches": 4,
+        "id": "w24335",
+        "needs_continuation": false,
+        "nominated": false,
+        "reasons": [],
+        "response": null,
+        "review_seconds": 0,
+        "selection_receipt": {
+          "attempt_sha256": "faac10678ca7b172911ea1a66e02509cb5fd4991ebb117db4c9ad4b0fc1d1171",
+          "packet_sha256": "b6436f87f8adf4b97012dd851b9c3aab7dd4ce98ab5736a0b057c727739e579c",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 62.239609620999545,
+        "worker_seconds": 62.239609620999545
+      },
+      "case": "restricted",
+      "paired_active_difference_seconds": -9.594284210001206
+    },
+    {
+      "baseline": {
+        "ambiguities": [],
+        "empty_queue_simulated_minutes": 45,
+        "empty_queue_watches": 2,
+        "id": "w22728",
+        "needs_continuation": false,
+        "nominated": true,
+        "reasons": [
+          "#8692 repeated the same denied resolution with the same head, thread and fix receipt."
+        ],
+        "response": null,
+        "review_seconds": 0,
+        "selection_receipt": {
+          "attempt_sha256": "508d711ff7e416e5b24944ac7a6201aada985ada9aa6ab04212ec918db2ae484",
+          "packet_sha256": "05b7ad14015cdeab84313a72a2a98cc8ab1e59068b2b4c7cfd04d94d2905fb64",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 75.71375915799945,
+        "worker_seconds": 75.71375915799945
+      },
+      "candidate": {
+        "ambiguities": [],
+        "empty_queue_simulated_minutes": 45,
+        "empty_queue_watches": 2,
+        "id": "w97954",
+        "needs_continuation": false,
+        "nominated": false,
+        "reasons": [],
+        "response": null,
+        "review_seconds": 0,
+        "selection_receipt": {
+          "attempt_sha256": "5a95cf036e8f13ad84ab24795c4d33d5415aa389a40f73efa83f1a5b1061d712",
+          "packet_sha256": "a3902638d8c80a188b9ca70004779d88bb502efb5391e0c871f39a63e222b303",
+          "selector_sha256": "95ac75b2e958e2252f4b2f69081cf8363458f7d680724703e23f36c230de8d8a"
+        },
+        "worker_plus_review_seconds": 46.41650839400245,
+        "worker_seconds": 46.41650839400245
+      },
+      "case": "restricted",
+      "paired_active_difference_seconds": -29.297250763997
+    }
+  ],
+  "review_calls": 3,
+  "review_seconds": 55.1316777189968
+}
