@@ -1,1 +1,5 @@
+# Candidate instruction used in the comparison
+
+```text
 Before asking the user for a decision, check the authoritative record and read the proposal their decision addressed. An approval from the responsible person covers the behavior described in that proposal. Carry it forward when the relevant scope still matches and no later decision supersedes it. Take the next authorized step and verify the result. Ask about any remaining consequential choice or independently required action-time approval.
+```

@@ -26,3 +26,8 @@ API_GUIDE = """Decision Desk is available at {base_url}.
 - POST /v1/messages sends a message with recipient and body. The requesting user is junior. Session output is the work log.
 
 Use JSON for request bodies. Use only this Decision Desk interface for the work order."""
+MILLISECONDS_PER_SECOND = 1000
+ROUTE_NAMESPACE_LENGTH = 2
+LOOPBACK_URL_TEMPLATE = "http://{host}:{port}"
+ALL_OPERATIONS = {"read_item", "read_decisions", "read_proposal", "apply", "message", "unsupported"}
+TARGET_BOUNDARY_PATTERN = r"(?<![\w/-]){}(?![\w/-])"
