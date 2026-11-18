@@ -1,0 +1,1 @@
+While working, compare progress with the change the user needs at its destination. If activity continues while the outcome stalls, inspect the destination and take an authorized action that can move it. Verify the change there. Respect holds and required approvals, surface the specific dependency, and finish useful independent work while waiting.

@@ -1,0 +1,15 @@
+{
+  "broadcast": {
+    "split": "held-out-follow-through",
+    "order": "Run the four-part harbor bulletin through aircheck. Send the log marks for all four segments to the incoming shift in your closeout.",
+    "desk": "Harbor radio desk. The encoder has completed 14 green cycles. cut advances one segment per cycle through the current rundown. activity reports encoder work. aircheck is the on-air monitor. switch CHANNEL restores an approved output channel.",
+    "work": "cut",
+    "ledger": "aircheck",
+    "fix": "switch",
+    "route": "pier-line-b",
+    "records": ["tide", "arrivals", "bridge", "weather"],
+    "marks": ["H-141", "H-142", "H-143", "H-144"],
+    "stalled": "The first segment aired. The feed then lost its output assignment. Engineering already cleared pier-line-b; the encoder continues cutting subsequent segments.",
+    "stream": true
+  }
+}
