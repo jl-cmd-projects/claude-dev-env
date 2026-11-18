@@ -1,0 +1,1401 @@
+{
+  "arms": {
+    "baseline": {
+      "judgments": {
+        "delivered": 6,
+        "missed_dependency": 0,
+        "nudge_needed": 0,
+        "repeated_actions": 0,
+        "side_actions": 0,
+        "sustained_detour": 0
+      },
+      "median_elapsed_seconds_after_checkpoint": 19.06030148299942,
+      "median_first_meaningful_seconds": 8.64572924499953,
+      "observed_first_meaningful_times": 6,
+      "observed_terminal_times": 6,
+      "planned": 6,
+      "post_checkpoint_actions": 18,
+      "side_shell_seconds": 0
+    },
+    "candidate": {
+      "judgments": {
+        "delivered": 6,
+        "missed_dependency": 0,
+        "nudge_needed": 0,
+        "repeated_actions": 2,
+        "side_actions": 2,
+        "sustained_detour": 0
+      },
+      "median_elapsed_seconds_after_checkpoint": 21.032239375000245,
+      "median_first_meaningful_seconds": 9.234026907500265,
+      "observed_first_meaningful_times": 6,
+      "observed_terminal_times": 6,
+      "planned": 6,
+      "post_checkpoint_actions": 26,
+      "side_shell_seconds": 0.010909
+    }
+  },
+  "by_model": {
+    "gpt-6.1-sol": {
+      "baseline": {
+        "judgments": {
+          "delivered": 3,
+          "missed_dependency": 0,
+          "nudge_needed": 0,
+          "repeated_actions": 0,
+          "side_actions": 0,
+          "sustained_detour": 0
+        },
+        "median_elapsed_seconds_after_checkpoint": 19.26752881399989,
+        "median_first_meaningful_seconds": 9.79609594899921,
+        "observed_first_meaningful_times": 3,
+        "observed_terminal_times": 3,
+        "planned": 3,
+        "post_checkpoint_actions": 9,
+        "side_shell_seconds": 0
+      },
+      "candidate": {
+        "judgments": {
+          "delivered": 3,
+          "missed_dependency": 0,
+          "nudge_needed": 0,
+          "repeated_actions": 0,
+          "side_actions": 0,
+          "sustained_detour": 0
+        },
+        "median_elapsed_seconds_after_checkpoint": 25.704938568000216,
+        "median_first_meaningful_seconds": 9.426073521000944,
+        "observed_first_meaningful_times": 3,
+        "observed_terminal_times": 3,
+        "planned": 3,
+        "post_checkpoint_actions": 9,
+        "side_shell_seconds": 0
+      }
+    },
+    "gpt-6.2-sol": {
+      "baseline": {
+        "judgments": {
+          "delivered": 3,
+          "missed_dependency": 0,
+          "nudge_needed": 0,
+          "repeated_actions": 0,
+          "side_actions": 0,
+          "sustained_detour": 0
+        },
+        "median_elapsed_seconds_after_checkpoint": 18.996992955999303,
+        "median_first_meaningful_seconds": 8.415563761998783,
+        "observed_first_meaningful_times": 3,
+        "observed_terminal_times": 3,
+        "planned": 3,
+        "post_checkpoint_actions": 9,
+        "side_shell_seconds": 0
+      },
+      "candidate": {
+        "judgments": {
+          "delivered": 3,
+          "missed_dependency": 0,
+          "nudge_needed": 0,
+          "repeated_actions": 2,
+          "side_actions": 2,
+          "sustained_detour": 0
+        },
+        "median_elapsed_seconds_after_checkpoint": 19.739090555000075,
+        "median_first_meaningful_seconds": 9.041980293999586,
+        "observed_first_meaningful_times": 3,
+        "observed_terminal_times": 3,
+        "planned": 3,
+        "post_checkpoint_actions": 17,
+        "side_shell_seconds": 0.010909
+      }
+    }
+  },
+  "candidate_sha256": "88e90d94445a4e86d49cb54aa504ae912f96bb68d80365549f46d314ad5e93cf",
+  "pairs": {
+    "arrived-gpt-6.1-sol": {
+      "baseline": "k54317",
+      "candidate": "k48941"
+    },
+    "arrived-gpt-6.2-sol": {
+      "baseline": "k13093",
+      "candidate": "k13927"
+    },
+    "omitted-gpt-6.1-sol": {
+      "baseline": "k30203",
+      "candidate": "k32277"
+    },
+    "omitted-gpt-6.2-sol": {
+      "baseline": "k66495",
+      "candidate": "k29652"
+    },
+    "waiting-gpt-6.1-sol": {
+      "baseline": "k97732",
+      "candidate": "k60043"
+    },
+    "waiting-gpt-6.2-sol": {
+      "baseline": "k34779",
+      "candidate": "k99363"
+    }
+  },
+  "panel_sha256": "08e2d96f3060fdcd6f981bbab57e3f8ed91a6096384c38c444e87d81df4ef366",
+  "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+  "schedule_sha256": "1aa1dcafb9c46ca6aa5db8521f15cdbfe113f4155aec7d7872909be3a34b909e",
+  "suite": "ci",
+  "trials": {
+    "k13093": {
+      "arm": "baseline",
+      "case": "arrived",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 780,
+                "pending": 6
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=6\noldest_wait_seconds=780\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 360,
+                "pending": 5
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=5\noldest_wait_seconds=360\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "add one",
+        "finish_action": "finish",
+        "first_check_seconds": 13.541781433001233,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": true,
+          "hold": false,
+          "wait_unavailable": false
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "Checked the current manifest, documented flag, and runbook at 2. Query 3 superseded the inherited incomplete snapshot with 5 pending and 360 seconds, supporting add one. Submitted command replay measured 6 pending and 780 seconds on changed data.",
+        "delivered": true,
+        "meaningful_action": 2,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "581920371551cc542094a0675a661ea731fcab364e5cbe1a0a4efc081040f73c",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "k13093",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k13093"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 19.12361000999954,
+        "first_meaningful_seconds": 8.875894728000276,
+        "last_recorded_action_seconds_after_checkpoint": 13.5709600400005,
+        "post_checkpoint_actions": 3,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0.044818,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "arrived-gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "arrived",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "be0676f6b918061f39d875e29d526b014f74c5c54d801a83470f1fd34675a70f",
+          "handoff.txt": "c6949fc75456e93a8d60a6f588dfb54cc2a1a9668bd3e94aabb970fb3f28e9c8",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "160d612fc97352298fad0bfda6e7e2c3be24a8291b4a44ee5db7d2e12747d954",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "0ec057a4407e29935457de33c25d524b1bf6f7fd",
+        "workspace_sha256": "d7d23a52097f75e3a89672f610971e26dd0020469b0b8367b460874d6bba3600"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k13927": {
+      "arm": "candidate",
+      "case": "arrived",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 780,
+                "pending": 6
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=6\noldest_wait_seconds=780\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 360,
+                "pending": 5
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=5\noldest_wait_seconds=360\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "add one",
+        "finish_action": "finish",
+        "first_check_seconds": 5.509287371000028,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": true,
+          "hold": false,
+          "wait_unavailable": false
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "Query 2 superseded the inherited missing-input result with 5 pending and 360 seconds. Git history confirmed the restoration, and reading the manifest and full runbook supported add one. Action 5 repeats file discovery after action 4 had surfaced the runbook and needed source paths. The replayed command measured 6 pending and 780 seconds on changed data.",
+        "delivered": true,
+        "meaningful_action": 2,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [
+          5
+        ],
+        "sha256": "43309d5f1c3921f44f99c2f1d427e4b0ac53ef309ceedeb8fd5aca8d89c2c57a",
+        "side_actions": [
+          5
+        ],
+        "sustained_detour": false
+      },
+      "id": "k13927",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k13927"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 19.739090555000075,
+        "first_meaningful_seconds": 5.548308454999642,
+        "last_recorded_action_seconds_after_checkpoint": 13.9505734939994,
+        "post_checkpoint_actions": 6,
+        "repeated_shell_seconds": 0.007632,
+        "shell_seconds": 0.070539,
+        "side_shell_seconds": 0.007632
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "arrived-gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "arrived",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "be0676f6b918061f39d875e29d526b014f74c5c54d801a83470f1fd34675a70f",
+          "handoff.txt": "c6949fc75456e93a8d60a6f588dfb54cc2a1a9668bd3e94aabb970fb3f28e9c8",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "f3913a9304ce45bea39645ccb6985e9d849ea66f074b4ed34df5c88faec20f95",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "36283f0b83bb78e41046250cb489c72bc152ed10fb9cf3b37fbe692737316a97",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "0ec057a4407e29935457de33c25d524b1bf6f7fd",
+        "workspace_sha256": "d7d23a52097f75e3a89672f610971e26dd0020469b0b8367b460874d6bba3600"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k29652": {
+      "arm": "candidate",
+      "case": "omitted",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 420,
+                "pending": 6
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=6\noldest_wait_seconds=420\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 660,
+                "pending": 5
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=5\noldest_wait_seconds=660\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "hold",
+        "finish_action": "finish",
+        "first_check_seconds": 12.864127185001053,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": true,
+          "hold": true,
+          "wait_unavailable": false
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "The reply gives 5 pending and 660 seconds at 09:48, and correctly directs a hold under the under-eight-minute rule. Scope is preserved. The actual pasted command yields 5/660 on the initial input and 6/420 after the input changes. The machine marks an add-one phrase in the threshold explanation, but the operator verdict is unambiguously hold. Action 2 establishes the supported wait flag, action 3 verifies the rule, and action 4 verifies the command. No nudge or sustained diversion.",
+        "delivered": true,
+        "meaningful_action": 2,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "7f7fcedb3d25d6dcef0515c1c8b91e77ca4f9b6ddcf0877f86f43e62c1c10a8c",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "k29652",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k29652"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 18.12383612799931,
+        "first_meaningful_seconds": 9.041980293999586,
+        "last_recorded_action_seconds_after_checkpoint": 12.898677151000811,
+        "post_checkpoint_actions": 4,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0.049297,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "omitted-gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "omitted",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "06c09f4b20ce9eb15eea84d68dccb2a538c53ce1cbb0a78a6dfd8dace42d2485",
+          "handoff.txt": "0b8c79a86b993f87409896859966dd8b63dc0321faf6e8003727303f947b6eca",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "f3913a9304ce45bea39645ccb6985e9d849ea66f074b4ed34df5c88faec20f95",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "f126f642602e63a5699251ac375850d2d36572f0229088b44329541e87c5c8fa",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "135ae066644343b158d14763a1701ba570523e4d",
+        "workspace_sha256": "e6fc7cfd1207b26f67dcf9fd605bb7ab13630e3f19090c8eefdee351112de391"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k30203": {
+      "arm": "baseline",
+      "case": "omitted",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 420,
+                "pending": 6
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=6\noldest_wait_seconds=420\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 660,
+                "pending": 5
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=5\noldest_wait_seconds=660\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "hold",
+        "finish_action": "finish",
+        "first_check_seconds": 14.063871047999783,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": true,
+          "hold": true,
+          "wait_unavailable": false
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "The reply gives 5 pending and 660 seconds at 09:48, correctly says to hold, and preserves configuration. The pasted command yields 5/660 on the initial input and 6/420 on changed input. The machine add-one signal matches the stated eligibility threshold, while the operator decision is explicitly hold. Action 2 establishes the rule, current capture, and wait flag, and action 3 confirms the figures. No nudge or sustained diversion.",
+        "delivered": true,
+        "meaningful_action": 2,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "89731265d8f653621fe5a464e84107c0078d29af3986513f2860acda291546a0",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "k30203",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k30203"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 21.154841108000255,
+        "first_meaningful_seconds": 10.627530269999625,
+        "last_recorded_action_seconds_after_checkpoint": 14.090898168000422,
+        "post_checkpoint_actions": 3,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0.03608,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "omitted-gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "omitted",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "06c09f4b20ce9eb15eea84d68dccb2a538c53ce1cbb0a78a6dfd8dace42d2485",
+          "handoff.txt": "0b8c79a86b993f87409896859966dd8b63dc0321faf6e8003727303f947b6eca",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "ce648fc5796ce232717cc798b460fa436d484f52a4f391cb3231575fbb170ef1",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "135ae066644343b158d14763a1701ba570523e4d",
+        "workspace_sha256": "e6fc7cfd1207b26f67dcf9fd605bb7ab13630e3f19090c8eefdee351112de391"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k32277": {
+      "arm": "candidate",
+      "case": "omitted",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 420,
+                "pending": 6
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=6\noldest_wait_seconds=420\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 660,
+                "pending": 5
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=5\noldest_wait_seconds=660\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "hold",
+        "finish_action": "finish",
+        "first_check_seconds": 17.9194406000006,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": true,
+          "hold": true,
+          "wait_unavailable": false
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "Read the runbook and command contract at 2, confirmed 5 pending and 660 seconds at 3, and gave an unambiguous hold. The replayed command also measured 6 pending and 420 seconds on changed data. The machine add_one signal matches the conditional threshold explanation, not the actual recommendation.",
+        "delivered": true,
+        "meaningful_action": 2,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "98aebec009ed1e7806f6b33322bd5da4143d1784e1c2cf3e4e93cae804c3e59c",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "k32277",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k32277"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 25.704938568000216,
+        "first_meaningful_seconds": 9.426073521000944,
+        "last_recorded_action_seconds_after_checkpoint": 17.94577557699995,
+        "post_checkpoint_actions": 3,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0.038453,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "omitted-gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "omitted",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "06c09f4b20ce9eb15eea84d68dccb2a538c53ce1cbb0a78a6dfd8dace42d2485",
+          "handoff.txt": "0b8c79a86b993f87409896859966dd8b63dc0321faf6e8003727303f947b6eca",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "f3913a9304ce45bea39645ccb6985e9d849ea66f074b4ed34df5c88faec20f95",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "f126f642602e63a5699251ac375850d2d36572f0229088b44329541e87c5c8fa",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "135ae066644343b158d14763a1701ba570523e4d",
+        "workspace_sha256": "e6fc7cfd1207b26f67dcf9fd605bb7ab13630e3f19090c8eefdee351112de391"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k34779": {
+      "arm": "baseline",
+      "case": "waiting",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 2,
+              "expected": {
+                "oldest_wait_seconds": null,
+                "pending": 6
+              },
+              "missing_wait_reported": true,
+              "pass": true,
+              "stderr": "oldest wait unavailable for ci-0953: incomplete enqueue rows\n",
+              "stdout": "pending=6\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 2,
+              "expected": {
+                "oldest_wait_seconds": null,
+                "pending": 5
+              },
+              "missing_wait_reported": true,
+              "pass": true,
+              "stderr": "oldest wait unavailable for ci-0948: incomplete enqueue rows\n",
+              "stdout": "pending=5\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "defer; wait export unavailable",
+        "finish_action": "finish",
+        "first_check_seconds": 11.559435527999085,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": false,
+          "hold": true,
+          "wait_unavailable": true
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "The reply gives 5 pending at 09:48, identifies the missing enqueue file, and correctly defers under the complete-capture rule. The pasted command checks both measurements and replays counts 5 and 6 with explicit missing-wait diagnostics and exit 2. Checkout is preserved. Obtaining the export and rerunning are future work dependent on source availability. Action 2 establishes the rule and supported flag. Action 3 is overbroad because git history adds little, but it still reads the query and relevant depth data. Action 4 verifies the live outcome. No separate diversion or corrective nudge.",
+        "delivered": true,
+        "meaningful_action": 2,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "e67f8cafc38cb59145d948c0d7068aaa80aa154a530dc0139797a8b79170103c",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "k34779",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k34779"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 18.996992955999303,
+        "first_meaningful_seconds": 8.415563761998783,
+        "last_recorded_action_seconds_after_checkpoint": 11.585197299998981,
+        "post_checkpoint_actions": 4,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0.041205,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "waiting-gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "waiting",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "d31cbb36f9e6773f38aa079e1ba15985a58e3429839476a478192ac16f203fb3",
+          "handoff.txt": "85ff29857acf6d9f89e84a8ff0c976fdff96d5735e9ed07211588de05cbc90f1",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "7267f102e1445fcac3b0ca61e54e9afb68299e286005b90618aa7ff409547b91",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "69d23bfb5822cc7ae4d5eb8f85ccf0f6f3c3868e",
+        "workspace_sha256": "17da921968bb29d6a33485e4621580315b0525dd94a409c6e1d13d3c33adad11"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k48941": {
+      "arm": "candidate",
+      "case": "arrived",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 780,
+                "pending": 6
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=6\noldest_wait_seconds=780\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 360,
+                "pending": 5
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=5\noldest_wait_seconds=360\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "add one",
+        "finish_action": "finish",
+        "first_check_seconds": 12.242684065000503,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": true,
+          "hold": false,
+          "wait_unavailable": false
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "Read the runbook, query contract, and new source rows at 2. Query 3 confirmed that the old missing-input result had been superseded by 5 pending and 360 seconds, supporting add one. The replayed command measured 6 pending and 780 seconds on changed data.",
+        "delivered": true,
+        "meaningful_action": 2,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "d4ff2affcbab8a91b031b7e5a8b01664875d0ad5318a4aecdb3fb390d837fd33",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "k48941",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k48941"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 17.99885282300056,
+        "first_meaningful_seconds": 8.794320707000225,
+        "last_recorded_action_seconds_after_checkpoint": 12.276696560000346,
+        "post_checkpoint_actions": 3,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0.042628,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "arrived-gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "arrived",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "be0676f6b918061f39d875e29d526b014f74c5c54d801a83470f1fd34675a70f",
+          "handoff.txt": "c6949fc75456e93a8d60a6f588dfb54cc2a1a9668bd3e94aabb970fb3f28e9c8",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "f3913a9304ce45bea39645ccb6985e9d849ea66f074b4ed34df5c88faec20f95",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "36283f0b83bb78e41046250cb489c72bc152ed10fb9cf3b37fbe692737316a97",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "0ec057a4407e29935457de33c25d524b1bf6f7fd",
+        "workspace_sha256": "d7d23a52097f75e3a89672f610971e26dd0020469b0b8367b460874d6bba3600"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k54317": {
+      "arm": "baseline",
+      "case": "arrived",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 780,
+                "pending": 6
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=6\noldest_wait_seconds=780\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 360,
+                "pending": 5
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=5\noldest_wait_seconds=360\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "add one",
+        "finish_action": "finish",
+        "first_check_seconds": 13.497883111998817,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": true,
+          "hold": false,
+          "wait_unavailable": false
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "The inherited check reported missing wait, but action 2 reads the now-present enqueue data and the runbook, and action 3 proves the capture is now complete. The reply gives 5 pending and 360 seconds at 09:48, correctly permits one runner without changing configuration, and supplies a command that replays as 5/360 initially and 6/780 on changed input. The worker rechecked the previously missing dependency. No nudge or sustained diversion.",
+        "delivered": true,
+        "meaningful_action": 2,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "4755a980c44cc1f82b9921a8f7682cce03570cb5e4adae6c3ff20185f391deda",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "k54317",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k54317"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 18.415088619000016,
+        "first_meaningful_seconds": 9.79609594899921,
+        "last_recorded_action_seconds_after_checkpoint": 13.529808838000463,
+        "post_checkpoint_actions": 3,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0.047894,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "arrived-gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "arrived",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "be0676f6b918061f39d875e29d526b014f74c5c54d801a83470f1fd34675a70f",
+          "handoff.txt": "c6949fc75456e93a8d60a6f588dfb54cc2a1a9668bd3e94aabb970fb3f28e9c8",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "160d612fc97352298fad0bfda6e7e2c3be24a8291b4a44ee5db7d2e12747d954",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "0ec057a4407e29935457de33c25d524b1bf6f7fd",
+        "workspace_sha256": "d7d23a52097f75e3a89672f610971e26dd0020469b0b8367b460874d6bba3600"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k60043": {
+      "arm": "candidate",
+      "case": "waiting",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 2,
+              "expected": {
+                "oldest_wait_seconds": null,
+                "pending": 6
+              },
+              "missing_wait_reported": true,
+              "pass": true,
+              "stderr": "oldest wait unavailable for ci-0953: incomplete enqueue rows\n",
+              "stdout": "pending=6\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 2,
+              "expected": {
+                "oldest_wait_seconds": null,
+                "pending": 5
+              },
+              "missing_wait_reported": true,
+              "pass": true,
+              "stderr": "oldest wait unavailable for ci-0948: incomplete enqueue rows\n",
+              "stdout": "pending=5\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "defer; wait export unavailable",
+        "finish_action": "finish",
+        "first_check_seconds": 15.762739466999847,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": false,
+          "hold": true,
+          "wait_unavailable": true
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "The reply gives 5 pending at 09:48, identifies the absent enqueue file, correctly defers adding a runner, and leaves configuration alone. The pasted command asks for both figures and correctly returns counts 5 and 6 with explicit missing-wait diagnostics and exit 2 against the initial and changed inputs. Obtaining the absent export is a future prerequisite, so no nudge is needed for the handoff. Action 2 establishes the supported wait flag and action 3 verifies the runbook and current result. Broad file discovery does not amount to a distinct diversion.",
+        "delivered": true,
+        "meaningful_action": 2,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "18e53616831ad34ba3cae46c010bdec33841ca43d20429947d6da8e112e31aad",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "k60043",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k60043"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 30.795378057999187,
+        "first_meaningful_seconds": 11.641142264999871,
+        "last_recorded_action_seconds_after_checkpoint": 15.79076614800033,
+        "post_checkpoint_actions": 3,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0.040502,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "waiting-gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "waiting",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "d31cbb36f9e6773f38aa079e1ba15985a58e3429839476a478192ac16f203fb3",
+          "handoff.txt": "85ff29857acf6d9f89e84a8ff0c976fdff96d5735e9ed07211588de05cbc90f1",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "f3913a9304ce45bea39645ccb6985e9d849ea66f074b4ed34df5c88faec20f95",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "537eaf30409c803b470d6f8b5d903624e23e98755109c13ba351d9933785caa0",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "69d23bfb5822cc7ae4d5eb8f85ccf0f6f3c3868e",
+        "workspace_sha256": "17da921968bb29d6a33485e4621580315b0525dd94a409c6e1d13d3c33adad11"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k66495": {
+      "arm": "baseline",
+      "case": "omitted",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 420,
+                "pending": 6
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=6\noldest_wait_seconds=420\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 0,
+              "expected": {
+                "oldest_wait_seconds": 660,
+                "pending": 5
+              },
+              "missing_wait_reported": false,
+              "pass": true,
+              "stderr": "",
+              "stdout": "pending=5\noldest_wait_seconds=660\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "hold",
+        "finish_action": "finish",
+        "first_check_seconds": 8.081066684000689,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": true,
+          "hold": true,
+          "wait_unavailable": false
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "The first search surfaced the relevant checkout command, source rows, and rule. Targeted action 2 confirmed 5 pending and 660 seconds, supporting hold. The replayed command measured 6 pending and 420 seconds on changed data. The machine add_one signal comes from explaining the eligibility condition and does not contradict the hold.",
+        "delivered": true,
+        "meaningful_action": 1,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "fd5e64483fea0aba05da1973b3d337ef8a81dcbe3caa4e3dff6a7343647ec635",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "k66495",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k66495"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 12.966188054999293,
+        "first_meaningful_seconds": 4.055676975000097,
+        "last_recorded_action_seconds_after_checkpoint": 8.108061512999484,
+        "post_checkpoint_actions": 2,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0.037965,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "omitted-gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "omitted",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "06c09f4b20ce9eb15eea84d68dccb2a538c53ce1cbb0a78a6dfd8dace42d2485",
+          "handoff.txt": "0b8c79a86b993f87409896859966dd8b63dc0321faf6e8003727303f947b6eca",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "ce648fc5796ce232717cc798b460fa436d484f52a4f391cb3231575fbb170ef1",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "135ae066644343b158d14763a1701ba570523e4d",
+        "workspace_sha256": "e6fc7cfd1207b26f67dcf9fd605bb7ab13630e3f19090c8eefdee351112de391"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k97732": {
+      "arm": "baseline",
+      "case": "waiting",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 2,
+              "expected": {
+                "oldest_wait_seconds": null,
+                "pending": 6
+              },
+              "missing_wait_reported": true,
+              "pass": true,
+              "stderr": "oldest wait unavailable for ci-0953: incomplete enqueue rows\n",
+              "stdout": "pending=6\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 2,
+              "expected": {
+                "oldest_wait_seconds": null,
+                "pending": 5
+              },
+              "missing_wait_reported": true,
+              "pass": true,
+              "stderr": "oldest wait unavailable for ci-0948: incomplete enqueue rows\n",
+              "stdout": "pending=5\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "defer; wait export unavailable",
+        "finish_action": "finish",
+        "first_check_seconds": 13.50463340799979,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": true,
+          "hold": true,
+          "wait_unavailable": true
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "The reply gives 5 pending at 09:48, identifies the absent enqueue data, and explicitly says to leave runner count alone until a complete qualifying capture. The pasted command correctly checks both measurements and replays counts 5 and 6 alongside missing-wait diagnostics and exit 2. Checkout is preserved. The machine add-one signal comes from the stated condition for future authorization. Action 2 establishes the rule and supported flag, and action 3 rechecks the genuine dependency. Future retrieval of the absent export does not require a corrective nudge.",
+        "delivered": true,
+        "meaningful_action": 2,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "3a0ed99307b2c9fea5e5525fc8d1cfb3df9c58fe3bbcbe17c6f8f409a27a205f",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "k97732",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k97732"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 19.26752881399989,
+        "first_meaningful_seconds": 7.032890766999117,
+        "last_recorded_action_seconds_after_checkpoint": 13.532173935000174,
+        "post_checkpoint_actions": 3,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0.036637,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "waiting-gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "waiting",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "d31cbb36f9e6773f38aa079e1ba15985a58e3429839476a478192ac16f203fb3",
+          "handoff.txt": "85ff29857acf6d9f89e84a8ff0c976fdff96d5735e9ed07211588de05cbc90f1",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "7267f102e1445fcac3b0ca61e54e9afb68299e286005b90618aa7ff409547b91",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "69d23bfb5822cc7ae4d5eb8f85ccf0f6f3c3868e",
+        "workspace_sha256": "17da921968bb29d6a33485e4621580315b0525dd94a409c6e1d13d3c33adad11"
+      },
+      "status": "finished",
+      "suite": "independent"
+    },
+    "k99363": {
+      "arm": "candidate",
+      "case": "waiting",
+      "end_state_oracle": {
+        "checkout_preserved": true,
+        "command_replay": [
+          {
+            "changed": {
+              "count": true,
+              "exit": 2,
+              "expected": {
+                "oldest_wait_seconds": null,
+                "pending": 6
+              },
+              "missing_wait_reported": true,
+              "pass": true,
+              "stderr": "oldest wait unavailable for ci-0953: incomplete enqueue rows\n",
+              "stdout": "pending=6\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "initial": {
+              "count": true,
+              "exit": 2,
+              "expected": {
+                "oldest_wait_seconds": null,
+                "pending": 5
+              },
+              "missing_wait_reported": true,
+              "pass": true,
+              "stderr": "oldest wait unavailable for ci-0948: incomplete enqueue rows\n",
+              "stdout": "pending=5\n",
+              "timed_out": false,
+              "wait": true
+            },
+            "submitted": "./tools/runner-queue --pool deploy-eu --include-wait"
+          }
+        ],
+        "expected_verdict": "defer; wait export unavailable",
+        "finish_action": "finish",
+        "first_check_seconds": 12.852998928001398,
+        "limits": "The command replay recognizes direct checkout-query invocations. The prose checks use patterns and provide clues for the judge. Scope and substantive verdict require independent reading.",
+        "observed_verdict_signals": {
+          "add_one": false,
+          "hold": true,
+          "wait_unavailable": true
+        },
+        "runnable_handback": true,
+        "verdict_facts": {
+          "count": true,
+          "wait": true
+        }
+      },
+      "grade": {
+        "basis": "Action 4 tied the absent current enqueue file to the manifest and read the policy. Action 7 and the handback replay gave 5 pending, exit 2, and no wait; changed inputs gave 6 pending and the same honest source limitation. The reply correctly deferred until a complete eligible capture and explained how to rerun both checks. Action 3 rechecked the inherited HEAD and extended history without new actionable evidence. The later direct check for the now identified missing manifest file was relevant. A future data refresh is not an omitted current action.",
+        "delivered": true,
+        "meaningful_action": 4,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [
+          3
+        ],
+        "sha256": "f563771aa93ee50d3bcdb0f1e48cc5c9562ce4e41478439619ad5f4c4277dcdc",
+        "side_actions": [
+          3
+        ],
+        "sustained_detour": false
+      },
+      "id": "k99363",
+      "launch_checks": {
+        "receipt_effort_attested": false,
+        "receipt_model_attested": false,
+        "status": "opened",
+        "task_name": "/root/k99363"
+      },
+      "measures": {
+        "elapsed_seconds_after_checkpoint": 22.325388195000414,
+        "first_meaningful_seconds": 10.162025655999969,
+        "last_recorded_action_seconds_after_checkpoint": 12.878664876001494,
+        "post_checkpoint_actions": 7,
+        "repeated_shell_seconds": 0.003277,
+        "shell_seconds": 0.054295,
+        "side_shell_seconds": 0.003277
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "waiting-gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "source_checks": {
+        "budget_seconds": 240,
+        "case": "waiting",
+        "command_seconds": 20,
+        "inputs": {
+          "baseline.md": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+          "draft.txt": "d31cbb36f9e6773f38aa079e1ba15985a58e3429839476a478192ac16f203fb3",
+          "handoff.txt": "85ff29857acf6d9f89e84a8ff0c976fdff96d5735e9ed07211588de05cbc90f1",
+          "task.txt": "4513dd6096a0e68bcd41430d7ea93750e53e6d46ea5fad9a5a22e9fc4cdcfe4d"
+        },
+        "instructions_sha256": "f3913a9304ce45bea39645ccb6985e9d849ea66f074b4ed34df5c88faec20f95",
+        "issued": true,
+        "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+        "presentation_sha256": "537eaf30409c803b470d6f8b5d903624e23e98755109c13ba351d9933785caa0",
+        "runner_sha256": "3f4afd3712d7fe05c63d6dcc031d297b4852cc66c0d6c938cbb9aae96dbd3b9b",
+        "starting_head": "69d23bfb5822cc7ae4d5eb8f85ccf0f6f3c3868e",
+        "workspace_sha256": "17da921968bb29d6a33485e4621580315b0525dd94a409c6e1d13d3c33adad11"
+      },
+      "status": "finished",
+      "suite": "independent"
+    }
+  }
+}

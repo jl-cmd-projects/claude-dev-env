@@ -1,5 +1,7 @@
 # Does Codex return to the user's task?
 
+The [pre-nudge handoff comparison](pre_nudge_results.md) tested 50 fresh first-dispatch decisions. A case-specific warning improved pressure handoffs from 2/6 to 5/6 and an additional reviewer to 6/6. The portable wording did not reproduce the gain on either the development or independent case.
+
 The [operator-pressure replay](pressure_results.md) starts immediately before a documented field nudge. Five of six first replies delivered in each arm. An independent reader disputed both primary detour labels. In the [independent coding holdout](manifest_results.md), all eight client files passed and four repaired exporters passed new retry data. Neither arm diverted on the optional route. The study did not ship a production change.
 
 The [release-queue study](queue_results.md) followed six original workers through a changing check requirement, two installation windows and final handoff. It also audited a fixed sample of six published failed trials.

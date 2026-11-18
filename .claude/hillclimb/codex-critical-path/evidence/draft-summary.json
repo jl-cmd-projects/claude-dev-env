@@ -1,0 +1,2215 @@
+{
+  "arms": {
+    "baseline": {
+      "delivered": 3,
+      "median_elapsed_seconds_after_checkpoint": 15.720602,
+      "missed_dependency": 1,
+      "nudge_needed": 3,
+      "observed_terminal_times": 6,
+      "planned": 6,
+      "post_checkpoint_actions": 3,
+      "repeated_actions": 1,
+      "repeated_shell_seconds": 0.673613,
+      "shell_seconds": 2.013104,
+      "side_actions": 0,
+      "side_shell_seconds": 0,
+      "sustained_detour": 0
+    },
+    "candidate": {
+      "delivered": 2,
+      "median_elapsed_seconds_after_checkpoint": 18.577968,
+      "missed_dependency": 1,
+      "nudge_needed": 4,
+      "observed_terminal_times": 6,
+      "planned": 6,
+      "post_checkpoint_actions": 4,
+      "repeated_actions": 0,
+      "repeated_shell_seconds": 0,
+      "shell_seconds": 2.715252,
+      "side_actions": 0,
+      "side_shell_seconds": 0,
+      "sustained_detour": 0
+    }
+  },
+  "by_model": {
+    "gpt-6.1-sol": {
+      "baseline": {
+        "delivered": 1,
+        "median_elapsed_seconds_after_checkpoint": 5.942894,
+        "missed_dependency": 0,
+        "nudge_needed": 2,
+        "observed_terminal_times": 3,
+        "planned": 3,
+        "post_checkpoint_actions": 0,
+        "repeated_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_actions": 0,
+        "side_shell_seconds": 0,
+        "sustained_detour": 0
+      },
+      "candidate": {
+        "delivered": 1,
+        "median_elapsed_seconds_after_checkpoint": 4.907481,
+        "missed_dependency": 0,
+        "nudge_needed": 2,
+        "observed_terminal_times": 3,
+        "planned": 3,
+        "post_checkpoint_actions": 0,
+        "repeated_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_actions": 0,
+        "side_shell_seconds": 0,
+        "sustained_detour": 0
+      }
+    },
+    "gpt-6.2-sol": {
+      "baseline": {
+        "delivered": 2,
+        "median_elapsed_seconds_after_checkpoint": 48.581293,
+        "missed_dependency": 1,
+        "nudge_needed": 1,
+        "observed_terminal_times": 3,
+        "planned": 3,
+        "post_checkpoint_actions": 3,
+        "repeated_actions": 1,
+        "repeated_shell_seconds": 0.673613,
+        "shell_seconds": 2.013104,
+        "side_actions": 0,
+        "side_shell_seconds": 0,
+        "sustained_detour": 0
+      },
+      "candidate": {
+        "delivered": 1,
+        "median_elapsed_seconds_after_checkpoint": 43.06711,
+        "missed_dependency": 1,
+        "nudge_needed": 2,
+        "observed_terminal_times": 3,
+        "planned": 3,
+        "post_checkpoint_actions": 4,
+        "repeated_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 2.715252,
+        "side_actions": 0,
+        "side_shell_seconds": 0,
+        "sustained_detour": 0
+      }
+    }
+  },
+  "pairs": {
+    "h3660-1": {
+      "baseline": "v74872",
+      "candidate": "v74309"
+    },
+    "h3660-2": {
+      "baseline": "v16011",
+      "candidate": "v39824"
+    },
+    "h7218-1": {
+      "baseline": "v39799",
+      "candidate": "v98951"
+    },
+    "h7218-2": {
+      "baseline": "v38690",
+      "candidate": "v37569"
+    },
+    "h7694-1": {
+      "baseline": "v40744",
+      "candidate": "v71861"
+    },
+    "h9764-1": {
+      "baseline": "v10721",
+      "candidate": "v73392"
+    }
+  },
+  "schedule_sha256": "b1e7111cbf4bcf6ac7158d1e1756b3155e2fad00436acd7495f93dfe812db592",
+  "trials": {
+    "v10721": {
+      "arm": "baseline",
+      "case": "native",
+      "grade": {
+        "basis": "Visible CIM/counter snapshots and worker counts support CPU 64%\u219241%, free RAM 5.30\u21925.70 GiB, and falling commit. The opening semicolon export and live PoolMon both show File at 9,099,961,958 bytes. The immediate six-read CIM loop uses supported memory/processor classes and gives CPU, free RAM, commit, nonpaged pool and workers. The PoolMon follow-up is conditional on future growth and its binary was available. The full submitted loop was not executed in this packet, and CIM query overhead can extend the nominal 25-second sample.",
+        "command_excerpt": "$samples = @(1..6 | ForEach-Object {\n    $memory = Get-CimInstance Win32_PerfFormattedData_PerfOS_Memory\n    $cpu = Get-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter \"Name='_Total'\"\n    [pscustomobject]@{\n        Time = Get-Date -Format 'HH:mm:ss'\n        Workers = @(Get-Process -Name ci-task -ErrorAction SilentlyContinue).Count\n        CPUPercent = $cpu.PercentProcessorTime\n        FreeMiB = $memory.AvailableMBytes\n        CommitMiB = [math]::Round($memory.CommittedBytes / 1MB)\n        NonpagedMiB = [math]::Round($memory.PoolNonpagedBytes / 1MB)\n    }\n    if ($_ -lt 6) { Start-Sleep -Seconds 5 }\n})\n$samples | Format-Table -AutoSize\n$first = $samples[0]\n$last = $samples[-1]\n[pscustomobject]@{\n    Workers = \"$($first.Workers) -> $($last.Workers)\"\n    CPU = \"$($first.CPUPercent)% -> $($last.CPUPercent)%\"\n    FreeDeltaMiB = $last.FreeMiB - $first.FreeMiB\n    CommitDeltaMiB = $last.CommitMiB - $first.CommitMiB\n    NonpagedDeltaMiB = $last.NonpagedMiB - $first.NonpagedMiB\n} | Format-List",
+        "delivered": true,
+        "meaningful_action": "answer",
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "9b79b5063d7960a250d3973d0f682b8016fb0f412dd1ad5e64e55ccdfa5e2d59",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v10721",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 48.581293,
+        "first_meaningful_seconds": 48.581293,
+        "last_recorded_action_seconds_after_checkpoint": null,
+        "post_checkpoint_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "h9764-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "source": "h9764",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 1,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:50:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:50:00"
+              ],
+              "process_memory": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 3,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 4,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T09:03:00"
+              ],
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 11,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 14,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 16,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": true,
+          "paged_pool": true,
+          "process_memory": true,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 9,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 12,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 13,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 15,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "v16011": {
+      "arm": "baseline",
+      "case": "archive",
+      "grade": {
+        "basis": "Prior action 11 ran the same ~25-second CPU/free RAM/commit command and supports the overall recovery. Actions 2\u20133 saw one pool export early. Action 11 reached 09:03, making a refresh of the export directory material after the earlier pool-counter failures. The 08:57 and 09:03 exports were now available, but the reply asks for a second snapshot later. The command is usable and the broad verdict is sound. The pool uncertainty is avoidable.",
+        "command_excerpt": "Get-Counter @('\\Memory\\Available MBytes','\\Memory\\Committed Bytes','\\Processor(_Total)\\% Processor Time') -SampleInterval 5 -MaxSamples 6 -ErrorAction Stop | ForEach-Object {\n    $readings = $_.CounterSamples\n    [pscustomobject]@{\n        Time = $_.Timestamp\n        FreeGiB = [math]::Round((($readings | Where-Object Path -Like '*\\available mbytes').CookedValue / 1024), 2)\n        CommitGiB = [math]::Round((($readings | Where-Object Path -Like '*\\committed bytes').CookedValue / 1GB), 2)\n        CPUPercent = [math]::Round(($readings | Where-Object Path -Like '*\\% processor time').CookedValue, 1)\n    }\n} | Format-Table -AutoSize",
+        "delivered": false,
+        "meaningful_action": "answer",
+        "missed_dependency": true,
+        "nudge_needed": true,
+        "repeated_actions": [],
+        "sha256": "2dc663ab04b47f936b43c03542c47a3a3bd7c50bc4ecdd55fb0d190a8bb7e4c7",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v16011",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 24.905063,
+        "first_meaningful_seconds": 24.905063,
+        "last_recorded_action_seconds_after_checkpoint": null,
+        "post_checkpoint_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "h3660-2",
+      "reasoning_effort": "high",
+      "rep": 2,
+      "source": "h3660",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 3,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 4,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 11,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": false,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": false,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": false
+        },
+        "reviewable_sources": [
+          {
+            "action": 1,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "v37569": {
+      "arm": "candidate",
+      "case": "archive",
+      "grade": {
+        "basis": "Prior actions 9\u201310 already exposed three semicolon captures and the live CPU/free-memory series (64%\u219241%, 5.30\u219220.40 GiB). The submitted bounded verdict is useful, but its only command imports historical pool-tag rows and cannot remeasure CPU or free RAM. The demonstrated Get-Counter inputs could have been included. No missing diagnostic source or post-checkpoint tool detour.",
+        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv |\n  ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } |\n  Select-Object Timestamp,Tag,Type,@{n='GiB';e={[math]::Round([double]$_.Bytes / 1GB,2)}},CIActive,CICompleted |\n  Format-Table -AutoSize",
+        "delivered": false,
+        "meaningful_action": "answer",
+        "missed_dependency": false,
+        "nudge_needed": true,
+        "repeated_actions": [],
+        "sha256": "6f0b97dee1c883c63493d4fbfe179be842124406a8e1690b32f7e63edadd5634",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v37569",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 3.604844,
+        "first_meaningful_seconds": 3.604844,
+        "last_recorded_action_seconds_after_checkpoint": null,
+        "post_checkpoint_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "h7218-2",
+      "reasoning_effort": "high",
+      "rep": 2,
+      "source": "h7218",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 8,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 4,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/*.csv"
+          }
+        ]
+      }
+    },
+    "v38690": {
+      "arm": "baseline",
+      "case": "archive",
+      "grade": {
+        "basis": "Prior actions 9\u201310 already exposed three semicolon captures and the live CPU/free-memory series (64%\u219241%, 5.30\u219220.40 GiB). The submitted bounded verdict is useful, but its only command imports historical pool-tag rows and cannot remeasure CPU or free RAM. The demonstrated Get-Counter inputs could have been included. No missing diagnostic source or post-checkpoint tool detour.",
+        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv |\n  ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } |\n  Select-Object Timestamp,Tag,Type,@{n='GiB';e={[math]::Round([double]$_.Bytes / 1GB,2)}},CIActive,CICompleted |\n  Format-Table -AutoSize",
+        "delivered": false,
+        "meaningful_action": "answer",
+        "missed_dependency": false,
+        "nudge_needed": true,
+        "repeated_actions": [],
+        "sha256": "69513bc4bfc9e2d1608800624bfd67c1441aee9ca28c5c33d0d9e190fc0038cd",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v38690",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 6.536141,
+        "first_meaningful_seconds": 6.536141,
+        "last_recorded_action_seconds_after_checkpoint": null,
+        "post_checkpoint_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "h7218-2",
+      "reasoning_effort": "high",
+      "rep": 2,
+      "source": "h7218",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 8,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 4,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/*.csv"
+          }
+        ]
+      }
+    },
+    "v39799": {
+      "arm": "baseline",
+      "case": "archive",
+      "grade": {
+        "basis": "Prior actions 9\u201310 already exposed three semicolon captures and the live CPU/free-memory series (64%\u219241%, 5.30\u219220.40 GiB). The submitted bounded verdict is useful, but its only command imports historical pool-tag rows and cannot remeasure CPU or free RAM. The demonstrated Get-Counter inputs could have been included. No missing diagnostic source or post-checkpoint tool detour.",
+        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv |\n  ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } |\n  Select-Object Timestamp,Tag,Type,@{n='GiB';e={[math]::Round([double]$_.Bytes / 1GB,2)}},CIActive,CICompleted |\n  Format-Table -AutoSize",
+        "delivered": false,
+        "meaningful_action": "answer",
+        "missed_dependency": false,
+        "nudge_needed": true,
+        "repeated_actions": [],
+        "sha256": "072fe8ea128b52d9e464f8ae788bdd302d18d50558be3cc6e98d097e4358b7cf",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v39799",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 5.751067,
+        "first_meaningful_seconds": 5.751067,
+        "last_recorded_action_seconds_after_checkpoint": null,
+        "post_checkpoint_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "h7218-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "source": "h7218",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 8,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 4,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/*.csv"
+          }
+        ]
+      }
+    },
+    "v39824": {
+      "arm": "candidate",
+      "case": "archive",
+      "grade": {
+        "basis": "Post action 1 found two captures absent in the opening inventory, making it the first consequential action. Post action 2 verified that all five tags shrank with four CI completions, so these checks were material. Prior action 11 had already demonstrated a working live CPU/free-RAM/commit command. The final verdict is supported, but the reply drops that command and gives only the historical CSV import; the remeasurement omission would need a nudge.",
+        "command_excerpt": "Get-ChildItem ./captures/memory/*.csv | ForEach-Object {\n    Import-Csv -LiteralPath $_.FullName -Delimiter ([char]59)\n} | Format-Table -AutoSize",
+        "delivered": false,
+        "meaningful_action": 1,
+        "missed_dependency": false,
+        "nudge_needed": true,
+        "repeated_actions": [],
+        "sha256": "5cdb9ac04d03f401240ba6b31f419bcf9652c94832cafcf0fde031cf30d2cdb6",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v39824",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 43.06711,
+        "first_meaningful_seconds": 18.412525,
+        "last_recorded_action_seconds_after_checkpoint": 23.604631,
+        "post_checkpoint_actions": 2,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 1.531856,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "h3660-2",
+      "reasoning_effort": "high",
+      "rep": 2,
+      "source": "h3660",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 3,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 4,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 11,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 13,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 1,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 12,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "v40744": {
+      "arm": "baseline",
+      "case": "archive",
+      "grade": {
+        "basis": "Prior action 8 executed the submitted semicolon-archive plus live Get-Counter command. It showed captured pool tags falling from 19.12 to 3.90 GiB, free RAM rising from 5.30 to 20.40 GiB and total CPU falling from 64% to 41% as four jobs finished. The live part remeasures CPU and available memory. The conclusion is bounded to the observed window.",
+        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv | Sort-Object Name | ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } | Group-Object Timestamp | ForEach-Object { [pscustomobject]@{ Time=$_.Name; PoolGiB=[math]::Round(($_.Group | Measure-Object Bytes -Sum).Sum/1GB,2); CIActive=$_.Group[0].CIActive; CICompleted=$_.Group[0].CICompleted } } | Format-Table -AutoSize; Get-Counter '\\Memory\\Available MBytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 2 -MaxSamples 3 | ForEach-Object { $_.CounterSamples } | Select-Object Timestamp,Path,CookedValue | Format-Table -AutoSize",
+        "delivered": true,
+        "meaningful_action": "answer",
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "a6d29ec8d8fa1b850aca14da8a4e7c5902e41055b9dab368468dadfa570e78ee",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v40744",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 5.942894,
+        "first_meaningful_seconds": 5.942894,
+        "last_recorded_action_seconds_after_checkpoint": null,
+        "post_checkpoint_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "h7694-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "source": "h7694",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 4,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "process_memory": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 8,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": true,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 8,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0850.csv"
+          },
+          {
+            "action": 8,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0857.csv"
+          },
+          {
+            "action": 8,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0903.csv"
+          }
+        ]
+      }
+    },
+    "v71861": {
+      "arm": "candidate",
+      "case": "archive",
+      "grade": {
+        "basis": "Prior action 8 is the exact submitted semicolon archive plus live Get-Counter command. It shows the sum of captured tags declining 19.12\u21923.90 GiB, four job completions, free RAM 5.30\u219220.40 GiB and CPU 64%\u219241%. Live kernel counters were unavailable but the existing exports resolve the historical pool trend. The sample-window verdict appropriately leaves intermittent leaks unresolved.",
+        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv | Sort-Object Name | ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } | Group-Object Timestamp | ForEach-Object { [pscustomobject]@{ Time=$_.Name; PoolGiB=[math]::Round(($_.Group | Measure-Object Bytes -Sum).Sum/1GB,2); CIActive=$_.Group[0].CIActive; CICompleted=$_.Group[0].CICompleted } } | Format-Table -AutoSize; Get-Counter '\\Memory\\Available MBytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 2 -MaxSamples 3 | ForEach-Object { $_.CounterSamples } | Select-Object Timestamp,Path,CookedValue | Format-Table -AutoSize",
+        "delivered": true,
+        "meaningful_action": "answer",
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "e8561ae10854662f0634418e2ba233dd5cdd751f5201a87d55e214b8cea23345",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v71861",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 6.680419,
+        "first_meaningful_seconds": 6.680419,
+        "last_recorded_action_seconds_after_checkpoint": null,
+        "post_checkpoint_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "h7694-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "source": "h7694",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 4,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "process_memory": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 8,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": true,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 8,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0850.csv"
+          },
+          {
+            "action": 8,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0857.csv"
+          },
+          {
+            "action": 8,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0903.csv"
+          }
+        ]
+      }
+    },
+    "v73392": {
+      "arm": "candidate",
+      "case": "native",
+      "grade": {
+        "basis": "Prior action 16 read the opening File row, and post-checkpoint action 1 explicitly bound an identical native PoolMon reading to 09:03. Action 2 successfully ran the combined command sent to the operator, including current CPU/RAM, CI count and pool bytes. Free RAM recovered only slightly and the large File allocation stayed flat. The queued idle rerun is genuine future data: four jobs still ran at the latest frame, and the command provides immediate readings as well.",
+        "command_excerpt": "Get-Date\n(Get-Process -Name ci-task -ErrorAction SilentlyContinue | Measure-Object).Count\nGet-CimInstance Win32_PerfFormattedData_PerfOS_Memory | Select-Object AvailableMBytes,CommittedBytes,PoolNonpagedBytes\nGet-CimInstance Win32_PerfFormattedData_PerfOS_Processor -Filter \"Name='_Total'\" | Select-Object PercentProcessorTime\npoolmon.exe /p /b",
+        "delivered": true,
+        "meaningful_action": 1,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [],
+        "sha256": "534fde2ac19362e92d0f4f7849b44d42a986177531622dc01357fcd537a2ff79",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v73392",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 56.601336,
+        "first_meaningful_seconds": 12.127685,
+        "last_recorded_action_seconds_after_checkpoint": 37.196307,
+        "post_checkpoint_actions": 2,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 1.183396,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "h9764-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "source": "h9764",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 1,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:50:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:50:00"
+              ],
+              "process_memory": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 3,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 4,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T09:03:00"
+              ],
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 11,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 14,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 16,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 17,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 18,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T09:03:00"
+              ],
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": true,
+          "paged_pool": true,
+          "process_memory": true,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 9,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 12,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 13,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 15,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "v74309": {
+      "arm": "candidate",
+      "case": "archive",
+      "grade": {
+        "basis": "Prior actions 9 and 11 already support the bounded overall verdict, and the reply supplies a usable quick CPU/free RAM/commit command. It treats the opening archive listing from actions 2\u20133 as current even though action 11 reached 09:03. After pool counter failures, the later semicolon exports were the available way to decide observed tag growth. The assertion that the available data cannot show whether a tag grew leaves that work unresolved.",
+        "command_excerpt": "Get-Counter -Counter @('\\Memory\\Available MBytes', '\\Memory\\Committed Bytes', '\\Processor(_Total)\\% Processor Time') -SampleInterval 5 -MaxSamples 6 |\n    ForEach-Object { $reading = $_; $reading.CounterSamples | Select-Object @{Name='Time';Expression={$reading.Timestamp}}, Path, CookedValue } |\n    Format-Table -AutoSize",
+        "delivered": false,
+        "meaningful_action": "answer",
+        "missed_dependency": true,
+        "nudge_needed": true,
+        "repeated_actions": [],
+        "sha256": "68bedc60dee7221582636563cd989df526e7d92bd5bc434857477d05bb05a5a7",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v74309",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 30.475517,
+        "first_meaningful_seconds": 30.475517,
+        "last_recorded_action_seconds_after_checkpoint": null,
+        "post_checkpoint_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "h3660-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "source": "h3660",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 3,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 4,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 11,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": false,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": false,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": false
+        },
+        "reviewable_sources": [
+          {
+            "action": 1,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "v74872": {
+      "arm": "baseline",
+      "case": "archive",
+      "grade": {
+        "basis": "Post-checkpoint action 1 found two newly materialized exports and linked them to completed jobs, then action 2 parsed all three and showed all five captured tags declining, including File from 8.47 to 1.05 GiB. The submitted live CPU/free RAM/commit command and bounded verdict cover the task. Action 3 reconfirmed the submission but duplicated the already verified CPU/RAM diagnostic in prior action 11 and returned identical results.",
+        "command_excerpt": "Get-Counter @('\\Memory\\Available MBytes','\\Memory\\Committed Bytes','\\Processor(_Total)\\% Processor Time') -SampleInterval 5 -MaxSamples 6 -ErrorAction Stop | ForEach-Object {\n    $c = $_.CounterSamples\n    [pscustomobject]@{\n        Time = $_.Timestamp\n        FreeGiB = [math]::Round((($c | Where-Object Path -Like '*\\available mbytes').CookedValue / 1024), 2)\n        CommitGiB = [math]::Round((($c | Where-Object Path -Like '*\\committed bytes').CookedValue / 1GB), 2)\n        CPUPercent = [math]::Round(($c | Where-Object Path -Like '*\\% processor time').CookedValue, 1)\n    }\n} | Format-Table -AutoSize",
+        "delivered": true,
+        "meaningful_action": 1,
+        "missed_dependency": false,
+        "nudge_needed": false,
+        "repeated_actions": [
+          3
+        ],
+        "sha256": "341fb6da5c07d784aad62513bb3aed6918b34ecdd61d5e762f615721714d507e",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v74872",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 50.48595,
+        "first_meaningful_seconds": 16.657711,
+        "last_recorded_action_seconds_after_checkpoint": 38.182169,
+        "post_checkpoint_actions": 3,
+        "repeated_shell_seconds": 0.673613,
+        "shell_seconds": 2.013104,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "pair": "h3660-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "source": "h3660",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 3,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 4,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 11,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 13,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 14,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 1,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 12,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "v98951": {
+      "arm": "candidate",
+      "case": "archive",
+      "grade": {
+        "basis": "Prior actions 9\u201310 support the bounded recovery verdict and already established a working four-second CPU/free-RAM test. The only submitted block imports historical pool CSVs and cannot remeasure either system CPU or free RAM. This is an incomplete operator command, separate from a missing dependency. The 8.48 GiB starting value is about 0.01 GiB above rounding the archived byte count directly.",
+        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv |\n  ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } |\n  Select-Object Timestamp,Tag,Type,@{n='GiB';e={[math]::Round([double]$_.Bytes / 1GB,2)}},CIActive,CICompleted |\n  Format-Table -AutoSize",
+        "delivered": false,
+        "meaningful_action": "answer",
+        "missed_dependency": false,
+        "nudge_needed": true,
+        "repeated_actions": [],
+        "sha256": "2c9f873902029ebf54aa494855931c9f193b4270afa6be97b99e52be3fcdc3ee",
+        "side_actions": [],
+        "sustained_detour": false
+      },
+      "id": "v98951",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "elapsed_seconds_after_checkpoint": 4.907481,
+        "first_meaningful_seconds": 4.907481,
+        "last_recorded_action_seconds_after_checkpoint": null,
+        "post_checkpoint_actions": 0,
+        "repeated_shell_seconds": 0,
+        "shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "pair": "h7218-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "source": "h7218",
+      "status": "finished",
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 8,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 4,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/*.csv"
+          }
+        ]
+      }
+    }
+  }
+}
