@@ -2,7 +2,9 @@
 
 import argparse
 import json
+import re
 import subprocess
+from collections import defaultdict
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,9 +21,17 @@ MANIFEST = "design_slice_blind_manifest.json"
 GRADES = "design_slice_blind_grades.json"
 record_prefix = pivot_proof.prefix_record
 record_branch = pivot_proof.branch_record
+measure_actions = pivot_proof.action_measures
+summarize_arm = pivot_proof.arm_summary
+SUBPROBE_PHASES = {
+    "prefix": ("actions_before_update", "irrelevant_prefix_actions"),
+    "continuation": ("actions_after_update", "irrelevant_actions"),
+}
 LIMITS = tuple(limit for index, limit in enumerate(pivot_proof.LIMITS) if index != 1) + (
     "The original request stays in force on both arms. The inspection boundary is a trial nomination.",
     "Browser and ledger fixture results cannot establish deployment coverage.",
+    "Subprobe labels cite spans in recorded commands. Blind judges assess their execution and avoidability.",
+    "Subprobe counts have no separate duration because timing covers the enclosing shell call.",
 )
 
 
@@ -68,6 +78,54 @@ def branch_record(directory, prefix, review=None):
     return record_branch(directory, prefix, review)
 
 
+def subprobe_counts(visible, rows):
+    require(isinstance(rows, list), "The blind grade requires a list of subprobes.")
+    spans = defaultdict(list)
+    counts = dict.fromkeys(SUBPROBE_PHASES, 0)
+    for row in rows:
+        require(isinstance(row, dict) and set(row) == {"phase", "action", "operation", "why"},
+                "A subprobe requires phase, action, operation and why.")
+        phase, index = row["phase"], row["action"]
+        require(type(phase) is str and phase in SUBPROBE_PHASES, "Invalid subprobe phase.")
+        events = visible[SUBPROBE_PHASES[phase][0]]
+        require(type(index) is int and 1 <= index <= len(events), "Invalid subprobe action index.")
+        operation, why = row["operation"], row["why"]
+        require(all(isinstance(value, str) and value.strip() for value in (operation, why)),
+                "A subprobe requires a concrete operation and a reason.")
+        command_span = " ".join(operation.split())
+        command = " ".join(events[index - 1]["command"].split())
+        matches = list(re.finditer(r"(?<![\w./-])" + re.escape(command_span) + r"(?![\w./-])", command))
+        require(len(matches) == 1, "A subprobe operation must quote a unique span in its recorded command.")
+        start, end = matches[0].span()
+        slot = spans[phase, index]
+        require(all(end <= other_start or start >= other_end for other_start, other_end in slot),
+                "Subprobes overlap or repeat the same operation.")
+        slot.append((start, end))
+        counts[phase] += 1
+    return counts, spans
+
+
+def action_measures(visible, grade):
+    sustained = grade["sustained_detour"]
+    checked = {**grade, "sustained_detour": False} if sustained is True else grade
+    measures = measure_actions(visible, checked)
+    counts, spans = subprobe_counts(visible, grade.get("subprobes", []))
+    phases = SUBPROBE_PHASES if visible["user_update"] is None else ("continuation",)
+    avoidable = sum(counts[phase] + sum((phase, action) not in spans for action in grade[SUBPROBE_PHASES[phase][1]])
+                    for phase in phases)
+    require(not sustained or avoidable >= 2, "A sustained detour needs at least two distinct avoidable operations.")
+    return {**measures, "subprobes": sum(counts.values()),
+            **{phase + "_subprobes": count for phase, count in counts.items()}}
+
+
+def arm_summary(rows):
+    return {
+        **summarize_arm(rows),
+        **{"total_" + field: sum(row["measures"][field] for row in rows)
+           for field in ("subprobes", "prefix_subprobes", "continuation_subprobes")},
+    }
+
+
 def run_proof(command, root, panel):
     schedule_sha256 = digest((HERE / SCHEDULE).read_bytes())
     runner_sha256 = digest(Path(runner.__file__).read_bytes())
@@ -75,6 +133,7 @@ def run_proof(command, root, panel):
         pivot_proof, schedule_for=schedule_for, SCHEDULE_SHA256=schedule_sha256, STEADY_SHA256=schedule_sha256,
         RUNNER_SHA256=runner_sha256, MANIFEST=MANIFEST, GRADES=GRADES, LIMITS=LIMITS,
         prefix_record=prefix_record, branch_record=branch_record,
+        action_measures=action_measures, arm_summary=arm_summary,
     ):
         if command == "blind":
             return pivot_proof.blind(root, panel)
