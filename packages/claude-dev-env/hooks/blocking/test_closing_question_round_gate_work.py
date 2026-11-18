@@ -470,6 +470,7 @@ def test_should_read_no_marker_inside_a_footer_of_an_earlier_turn(
     [
         "- I am fixing the list reader. Should I also raise the timeout?",
         "- I am fixing the list reader. I need your input on the timeout.",
+        "- I am fixing the list reader. I deferred the backoff setting to a later change.",
     ],
 )
 def test_should_hold_a_question_inside_the_footer(

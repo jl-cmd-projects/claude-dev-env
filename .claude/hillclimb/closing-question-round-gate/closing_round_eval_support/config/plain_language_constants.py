@@ -6,14 +6,13 @@ calibrated judge prompt, and the report text.
 """
 
 import re
-import tempfile
 from pathlib import Path
 
 from closing_round_eval_support.config.constants import REPOSITORY_ROOT
 
 BLOCKING_DIRECTORY = REPOSITORY_ROOT / "packages" / "claude-dev-env" / "hooks" / "blocking"
 BROKER_SCRIPT = Path.home() / ".claude" / "scripts" / "account_broker.py"
-DEFAULT_OUT_DIRECTORY = Path(tempfile.gettempdir()) / "closing-round-plain-language-runs"
+RUN_DIRECTORY_PREFIX = "closing-round-plain-language-runs-"
 DEFAULT_SAMPLE_COUNT = 3
 DEFAULT_WORKER_COUNT = 6
 MAXIMUM_HOLD_ROUNDS = 2

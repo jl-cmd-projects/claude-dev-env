@@ -50,7 +50,7 @@ from closing_round_eval_support.config.plain_language_constants import (
     BROKER_PRODUCT,
     BROKER_REPORT_SUFFIX,
     BROKER_SCRIPT,
-    DEFAULT_OUT_DIRECTORY,
+    RUN_DIRECTORY_PREFIX,
     DEFAULT_SAMPLE_COUNT,
     DEFAULT_WORKER_COUNT,
     FIRST_REPLY,
@@ -116,8 +116,8 @@ def _parse_arguments() -> argparse.Namespace:
     parser.add_argument(
         "--out",
         type=Path,
-        default=DEFAULT_OUT_DIRECTORY,
-        help="The folder for one JSON file per sample.",
+        default=None,
+        help="The folder for one JSON file per sample; a new private temp folder by default.",
     )
     return parser.parse_args()
 
@@ -425,7 +425,10 @@ def main() -> int:
     """
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stdout)
     arguments = _parse_arguments()
+    if arguments.out is None:
+        arguments.out = Path(tempfile.mkdtemp(prefix=RUN_DIRECTORY_PREFIX))
     arguments.out.mkdir(parents=True, exist_ok=True)
+    logger.info("samples in %s", arguments.out)
     all_jobs = [
         (each_scenario, each_sample)
         for each_scenario in ALL_SCENARIO_BACKGROUNDS

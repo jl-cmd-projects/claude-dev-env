@@ -213,12 +213,8 @@ FOOTER_INSTRUCTION = (
 )
 REASON_PART_SEPARATOR = "\n"
 SCANNED_PARAGRAPH_SEPARATOR = "\n\n"
-FOOTER_USER_ASK_PATTERN = re.compile(
-    r"\b(?:your call|up to you|you may want to|your judge?ment|for you to decide"
-    r"|needs? your (?:decision|judge?ment|approval|input)|I need you to"
-    r"|wait(?:s|ing)? on you|left (?:it|this|that|them|these) for you)\b",
-    re.IGNORECASE,
-)
+FOOTER_STATUS_MARKER_PATTERN = re.compile(r"\b(?:pending|blocked|not done|not run)\b", re.IGNORECASE)
+FOOTER_STATUS_STAND_IN = "in progress"
 
 SESSION_ID_KEY = "session_id"
 BYPASS_KEYWORD = "--nocards"
