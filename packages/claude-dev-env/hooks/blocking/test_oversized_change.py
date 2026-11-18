@@ -137,6 +137,29 @@ def test_should_refuse_each_time_when_the_attempt_record_cannot_be_written(
     assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
 
 
+def _session_transcript(tmp_path: Path, role: str, text: str) -> str:
+    transcript_path = tmp_path / "session.jsonl"
+    record = {"type": role, "message": {"role": role, "content": text}}
+    transcript_path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+    return str(transcript_path)
+
+
+def test_should_pass_a_first_create_the_user_approved_in_the_session(
+    large_branch: Path, tmp_path: Path
+) -> None:
+    transcript_path = _session_transcript(tmp_path, "user", "Don't split it, keep it as one PR.")
+    payload = {**_create(large_branch, PLAIN_BODY), "transcript_path": transcript_path}
+    assert size.oversized_pull_request_reason(payload) is None
+
+
+def test_should_refuse_a_first_create_when_only_the_assistant_wrote_the_approval(
+    large_branch: Path, tmp_path: Path
+) -> None:
+    transcript_path = _session_transcript(tmp_path, "assistant", "Don't split it, keep it as one PR.")
+    payload = {**_create(large_branch, PLAIN_BODY), "transcript_path": transcript_path}
+    assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
+
+
 def test_should_pass_a_create_under_the_bar(tmp_path: Path) -> None:
     clone_path = _clone_on_branch(tmp_path, "feature")
     _commit_lines(clone_path, "tool.py", 900)

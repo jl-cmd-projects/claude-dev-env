@@ -4,6 +4,7 @@
 
     branch changes 1,500 lines against main, first create          -> OVERSIZED_PULL_REQUEST_REASON
     same repository, head and base, second or later create         -> None
+    first create, the user typed "keep it as one PR" this session  -> None
     stacked level, --base parent, 200 lines of its own             -> None
     compare API at its file cap, listed files over the bar         -> OVERSIZED_PULL_REQUEST_REASON
     compare API at its file cap, listed files under the bar        -> None
@@ -29,6 +30,7 @@ if hooks_directory not in sys.path:
 
 from atomic_file_writer import write_text_atomically
 from blocking.gate_run_reads import answer_once
+from blocking.oversized_change_approval import has_user_approved_oversized_pull_request
 from blocking.pull_request_proof import (
     CreateCall,
     _compare_lines,
@@ -58,6 +60,7 @@ from hooks_constants.oversized_change_constants import (
     OVERSIZED_PULL_REQUEST_REASON,
     RENAME_DETECTION_LIMIT_OPTION,
     SESSION_ID_FIELD,
+    TRANSCRIPT_PATH_FIELD,
     WORKING_DIRECTORY_FIELD,
 )
 from hooks_constants.session_file_id import session_file_id
@@ -71,6 +74,7 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
 
         create, 1,500 changed lines, first create for this pull request -> OVERSIZED_PULL_REQUEST_REASON
         same create again, any size                                      -> None
+        create, 1,500 changed lines, the user approved it this session   -> None
         create, 900 changed lines                                        -> None
         named base neither origin/<base> nor the compare API can read    -> measured against main
         no --base, gh-merge-base set for the branch                      -> measured against that branch
@@ -91,6 +95,8 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
             continue
         line_count = _line_count_for_create(each_call, working_directory)
         if line_count is None or line_count <= MEASURED_LINE_BAR:
+            continue
+        if has_user_approved_oversized_pull_request(all_payload_fields.get(TRANSCRIPT_PATH_FIELD)):
             continue
         if _is_repeat_attempt(
             all_payload_fields.get(SESSION_ID_FIELD),

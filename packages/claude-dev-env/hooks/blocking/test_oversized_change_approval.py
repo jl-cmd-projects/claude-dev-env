@@ -1,0 +1,122 @@
+"""Behavior tests for reading the user's approval of one oversized pull request."""
+
+import json
+import sys
+from pathlib import Path
+
+import pytest
+
+HOOKS_DIRECTORY = Path(__file__).resolve().parent.parent
+if str(HOOKS_DIRECTORY) not in sys.path:
+    sys.path.insert(0, str(HOOKS_DIRECTORY))
+
+from blocking import oversized_change_approval as approval
+
+
+@pytest.mark.parametrize(
+    "message_text",
+    [
+        "I approve this as one pull request",
+        "keep it as one PR, that's approved",
+        "don't split it",
+        "Do not split this pull request.",
+        "the size is fine, open it",
+        "approved over the size bar",
+        "Thanks. Don’t split it, it stays one PR.",
+    ],
+)
+def test_should_count_a_message_that_approves_one_large_pull_request(message_text: str) -> None:
+    assert approval.is_size_approval(message_text) is True
+
+
+@pytest.mark.parametrize(
+    "message_text",
+    [
+        "split that, it is way too big for one PR",
+        "for the size gate, refuse, but allow it if the user has explicitly approved it.",
+        "the size is fine if the tests pass",
+        "approved",
+        "is this one pull request?",
+        "not approved over the size bar",
+        "don't keep it as one PR",
+        "ok, split it, it is too big for one pull request",
+    ],
+)
+def test_should_not_count_a_message_that_does_not_approve_the_size(message_text: str) -> None:
+    assert approval.is_size_approval(message_text) is False
+
+
+def _transcript(tmp_path: Path, *all_records: dict[str, object]) -> str:
+    transcript_path = tmp_path / "session.jsonl"
+    transcript_path.write_text(
+        "".join(json.dumps(each_record) + "\n" for each_record in all_records), encoding="utf-8"
+    )
+    return str(transcript_path)
+
+
+def _user_record(content: object, **all_flags: object) -> dict[str, object]:
+    return {"type": "user", "message": {"role": "user", "content": content}, **all_flags}
+
+
+APPROVAL_TEXT = "keep it as one PR, that's approved"
+
+
+def test_should_find_an_approval_the_user_typed(tmp_path: Path) -> None:
+    path = _transcript(tmp_path, _user_record("start"), _user_record(APPROVAL_TEXT))
+    assert approval.has_user_approved_oversized_pull_request(path) is True
+
+
+def test_should_find_an_approval_in_a_text_block_beside_a_reminder(tmp_path: Path) -> None:
+    content = [
+        {"type": "text", "text": APPROVAL_TEXT},
+        {"type": "text", "text": "<system-reminder>notes</system-reminder>"},
+    ]
+    assert approval.has_user_approved_oversized_pull_request(
+        _transcript(tmp_path, _user_record(content))
+    )
+
+
+@pytest.mark.parametrize(
+    "record",
+    [
+        {"type": "assistant", "message": {"role": "assistant", "content": APPROVAL_TEXT}},
+        _user_record(
+            [{"type": "tool_result", "content": [{"type": "text", "text": APPROVAL_TEXT}]}]
+        ),
+        _user_record(APPROVAL_TEXT, isMeta=True),
+        _user_record(APPROVAL_TEXT, isSidechain=True),
+        _user_record("<system-reminder>" + APPROVAL_TEXT + "</system-reminder>"),
+    ],
+)
+def test_should_skip_the_same_words_outside_a_typed_user_message(
+    tmp_path: Path, record: dict[str, object]
+) -> None:
+    assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is False
+
+
+def _relay_text(cited_text: str, note_text: str) -> str:
+    return (
+        '<relay from="coordinator" session="s" reason="spawn">\n'
+        '  <cited id="cmsg_1" author="user" name="Jon" where="timeline">\n'
+        f"      {cited_text}\n"
+        "  </cited>\n"
+        f"  <note>{note_text}</note>\n"
+        "</relay>"
+    )
+
+
+def test_should_find_an_approval_inside_a_cited_user_block_of_a_relay(tmp_path: Path) -> None:
+    record = _user_record(_relay_text(APPROVAL_TEXT, "Build it."), isMeta=True)
+    assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is True
+
+
+def test_should_skip_an_approval_in_the_agent_note_of_a_relay(tmp_path: Path) -> None:
+    record = _user_record(_relay_text("Please build the gate.", APPROVAL_TEXT), isMeta=True)
+    assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is False
+
+
+def test_should_find_no_approval_when_the_transcript_cannot_be_read(tmp_path: Path) -> None:
+    assert (
+        approval.has_user_approved_oversized_pull_request(str(tmp_path / "missing.jsonl")) is False
+    )
+    assert approval.has_user_approved_oversized_pull_request(None) is False
