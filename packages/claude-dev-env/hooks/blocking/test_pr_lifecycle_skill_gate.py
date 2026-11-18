@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+import tempfile
 from io import BytesIO, StringIO, TextIOWrapper
 from pathlib import Path
 from unittest.mock import patch
@@ -835,7 +836,10 @@ def test_should_read_the_proof_of_an_oversized_create_before_its_size(tmp_path: 
     assert decision["hookSpecificOutput"]["permissionDecisionReason"] == MISSING_PROOF_REASON + UNDECLARED_TOOL_TIER
 
 
-def test_should_deny_an_oversized_create_whose_other_sections_pass(tmp_path: Path) -> None:
+def test_should_deny_an_oversized_create_whose_other_sections_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     body = PROVEN_FOLLOWUP_BODY.replace("Follow-up to #1731", "Adds a guard.")
     decision = gate.decision_for(_body_file_create(_clone_with_branch_lines(tmp_path, 1500, body)))
     assert decision is not None

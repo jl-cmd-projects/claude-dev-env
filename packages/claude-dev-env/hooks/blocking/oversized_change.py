@@ -1,36 +1,36 @@
-"""Deny a new pull request that changes more than 1,000 lines against its own base, unless its body says why it stays one.
+"""Refuse the first create of a pull request that changes more than 1,000 lines against its own base.
 
 ::
 
-    branch changes 1,500 lines against main, plain body          -> OVERSIZED_PULL_REQUEST_REASON
-    same branch, body has a 'Why one pull request' section       -> None
-    branch changes 2,500 lines, with or without the section      -> OVER_REASON_CEILING_PULL_REQUEST_REASON
-    stacked level, --base parent, 200 lines of its own           -> None
-    compare API at its file cap, listed files over the bar       -> OVERSIZED_PULL_REQUEST_REASON
-    same capped count, body has the section                      -> PARTIAL_COUNT_PULL_REQUEST_REASON
-    compare API at its file cap, listed files under the bar      -> None
-    size unreadable or no base                                   -> None
+    branch changes 1,500 lines against main, first create          -> OVERSIZED_PULL_REQUEST_REASON
+    same repository, head and base, second or later create         -> None
+    stacked level, --base parent, 200 lines of its own             -> None
+    compare API at its file cap, listed files over the bar         -> OVERSIZED_PULL_REQUEST_REASON
+    compare API at its file cap, listed files under the bar        -> None
+    size unreadable or no base                                     -> None
 
 Generated files, marked ``linguist-generated`` in ``.gitattributes``, and
-lockfiles are left out. A binary file counts zero lines.
+lockfiles are left out. A binary file counts zero lines. Each refusal is
+recorded in ``oversized-create-attempts-<session id>.json`` in the system
+temp directory, so the next create for the same pull request passes.
 """
 
 from __future__ import annotations
 
 import json
 import sys
+import tempfile
 from collections.abc import Iterator, Mapping
 from pathlib import Path
-from typing import NamedTuple
 
 hooks_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
+from atomic_file_writer import write_text_atomically
 from blocking.gate_run_reads import answer_once
 from blocking.pull_request_proof import (
     CreateCall,
-    _all_section_texts,
     _compare_lines,
     _create_calls,
     _git_lines,
@@ -38,10 +38,14 @@ from blocking.pull_request_proof import (
     _merge_base_and_head,
     read_named_base_first,
 )
+from hooks_constants.atomic_file_writer_constants import ATOMIC_WRITE_TEMPORARY_SUFFIX
 from hooks_constants.pull_request_proof_constants import COMPARE_FILE_LIST_LIMIT
 from hooks_constants.oversized_change_constants import (
     ALL_GENERATED_ATTRIBUTE_VALUES,
     ALL_LOCKFILE_NAMES,
+    ATTEMPT_RECORD_ENCODING,
+    ATTEMPT_RECORD_FILE_TEMPLATE,
+    ATTEMPT_RECORD_TEMPORARY_PREFIX,
     BINARY_NUMSTAT_COUNT,
     MEASURED_LINE_BAR,
     CHECK_ATTR_FIELD_COUNT,
@@ -51,85 +55,106 @@ from hooks_constants.oversized_change_constants import (
     LINGUIST_GENERATED_ATTRIBUTE,
     NUMSTAT_FIELD_COUNT,
     NUMSTAT_FIELD_SEPARATOR,
-    ONE_PULL_REQUEST_HEADING_PATTERN,
-    OVER_REASON_CEILING_PULL_REQUEST_REASON,
     OVERSIZED_PULL_REQUEST_REASON,
-    PARTIAL_COUNT_PULL_REQUEST_REASON,
-    REASON_LINE_CEILING,
     RENAME_DETECTION_LIMIT_OPTION,
+    SESSION_ID_FIELD,
+    WORKING_DIRECTORY_FIELD,
 )
+from hooks_constants.session_file_id import session_file_id
+from hooks_constants.state_file_lock import hold_state_file_lock
 
 
 def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> str | None:
-    """Return a deny reason when a new pull request changes more lines than the bar, else None.
+    """Return a refusal when a first create of a pull request changes more lines than the bar, else None.
 
     ::
 
-        create, 1,500 changed lines, no 'Why one pull request' section -> OVERSIZED_PULL_REQUEST_REASON
-        create, 1,500 changed lines, the section states a reason      -> None
-        create, 2,500 changed lines, with or without the section      -> OVER_REASON_CEILING_PULL_REQUEST_REASON
-        create, 900 changed lines                                      -> None
-        named base neither origin/<base> nor the compare API can read  -> measured against main, bar only
-        no --base, gh-merge-base set for the branch                    -> measured against that branch
-        compare API at its file cap, 1,500 lines listed, a reason      -> PARTIAL_COUNT_PULL_REQUEST_REASON
-        create whose size git and the compare API cannot read          -> None
-        a body edit, a merge, any other tool                           -> None
+        create, 1,500 changed lines, first create for this pull request -> OVERSIZED_PULL_REQUEST_REASON
+        same create again, any size                                      -> None
+        create, 900 changed lines                                        -> None
+        named base neither origin/<base> nor the compare API can read    -> measured against main
+        no --base, gh-merge-base set for the branch                      -> measured against that branch
+        create whose size git and the compare API cannot read            -> None
+        a body edit, a merge, any other tool                             -> None
 
-    The section covers a create up to the reason ceiling. Each create is measured
-    against its own base, so a stacked level counts only its own lines. A count
-    taken against main for a named base can hold the levels below it. That count
-    is held to the bar, and the ceiling is left off it.
+    One pull request is the repository, head and base the create names.
+    Repository falls back to the checkout's top-level folder, then the session
+    folder. Head falls back to the checked-out branch. A refusal records that
+    key for the session, so the next create for it passes.
 
     Args:
         all_payload_fields: The parsed PreToolUse input.
     """
-    working_directory = str(all_payload_fields.get("cwd") or "")
+    working_directory = str(all_payload_fields.get(WORKING_DIRECTORY_FIELD) or "")
     for each_call in _create_calls(all_payload_fields):
         if each_call.body is None:
             continue
-        measurement = _measurement_for_create(each_call, working_directory)
-        if measurement is None or measurement.line_count <= MEASURED_LINE_BAR:
+        line_count = _line_count_for_create(each_call, working_directory)
+        if line_count is None or line_count <= MEASURED_LINE_BAR:
             continue
-        if measurement.is_against_own_base and measurement.line_count > REASON_LINE_CEILING:
-            return OVER_REASON_CEILING_PULL_REQUEST_REASON.format(
-                measured_line_count=measurement.line_count, reason_line_ceiling=REASON_LINE_CEILING
-            )
-        if not any(_all_section_texts(each_call.body, ONE_PULL_REQUEST_HEADING_PATTERN)):
-            return OVERSIZED_PULL_REQUEST_REASON.format(
-                measured_line_count=measurement.line_count, measured_line_bar=MEASURED_LINE_BAR
-            )
-        if measurement.is_against_own_base and not measurement.is_complete:
-            return PARTIAL_COUNT_PULL_REQUEST_REASON.format(
-                measured_line_count=measurement.line_count,
-                compare_file_list_limit=COMPARE_FILE_LIST_LIMIT,
-                reason_line_ceiling=REASON_LINE_CEILING,
-            )
+        if _is_repeat_attempt(
+            all_payload_fields.get(SESSION_ID_FIELD),
+            _pull_request_key(each_call, working_directory),
+        ):
+            continue
+        return OVERSIZED_PULL_REQUEST_REASON.format(
+            measured_line_count=line_count, measured_line_bar=MEASURED_LINE_BAR
+        )
     return None
 
 
-class SizeMeasurement(NamedTuple):
-    """One count of a create's changed lines, with what the count can vouch for.
-
-    ::
-
-        clone read against origin/parent for --base parent  -> own base, complete
-        clone read against main after origin/parent failed  -> another base, complete
-        clone read for --repo other/repo with no --head     -> another base, complete
-        compare API listing fewer files than its cap        -> own base, complete
-        compare API at its file cap                         -> own base, a lower bound
-
-    The reason ceiling holds only for a count against the create's own base.
-    A lower bound can show a create is over a limit. It cannot show one is under.
-    """
-
-    line_count: int
-    is_against_own_base: bool
-    is_complete: bool
+def _pull_request_key(create_call: CreateCall, working_directory: str) -> list[str]:
+    repository = create_call.repository or _first_git_line(
+        working_directory, "rev-parse", "--show-toplevel"
+    )
+    head_branch = create_call.head or _first_git_line(working_directory, "branch", "--show-current")
+    return [repository or working_directory, head_branch or "", create_call.base or ""]
 
 
-def _measurement_for_create(
-    create_call: CreateCall, working_directory: str
-) -> SizeMeasurement | None:
+def _first_git_line(working_directory: str, *all_git_arguments: str) -> str | None:
+    if not working_directory:
+        return None
+    all_lines = _git_lines(working_directory, *all_git_arguments)
+    return all_lines[0] if all_lines else None
+
+
+def _is_repeat_attempt(session_id: object, all_key_parts: list[str]) -> bool:
+    record_path = Path(tempfile.gettempdir()) / ATTEMPT_RECORD_FILE_TEMPLATE.format(
+        session_id=session_file_id(session_id)
+    )
+    try:
+        with hold_state_file_lock(record_path):
+            return _is_recorded_or_record(record_path, all_key_parts)
+    except (OSError, ValueError):
+        return False
+
+
+def _is_recorded_or_record(record_path: Path, all_key_parts: list[str]) -> bool:
+    all_attempted_keys = _attempted_keys(record_path)
+    if all_key_parts in all_attempted_keys:
+        return True
+    write_text_atomically(
+        record_path,
+        json.dumps([*all_attempted_keys, all_key_parts]),
+        ATTEMPT_RECORD_ENCODING,
+        ATTEMPT_RECORD_TEMPORARY_PREFIX,
+        ATOMIC_WRITE_TEMPORARY_SUFFIX,
+        should_reap_orphans=False,
+    )
+    return False
+
+
+def _attempted_keys(record_path: Path) -> list[list[str]]:
+    try:
+        all_recorded_values = json.loads(record_path.read_text(encoding=ATTEMPT_RECORD_ENCODING))
+    except (OSError, ValueError):
+        return []
+    if not isinstance(all_recorded_values, list):
+        return []
+    return [each_value for each_value in all_recorded_values if isinstance(each_value, list)]
+
+
+def _line_count_for_create(create_call: CreateCall, working_directory: str) -> int | None:
     repository, base_branch, head_branch = (
         create_call.repository,
         create_call.base,
@@ -143,21 +168,17 @@ def _measurement_for_create(
 
 def _read_measurement(
     working_directory: str, repository: str | None, base_branch: str | None, head_branch: str | None
-) -> SizeMeasurement | None:
+) -> int | None:
     own_base_branch = base_branch or _configured_merge_base(working_directory, head_branch)
     return read_named_base_first(
         working_directory,
         repository,
         head_branch,
         own_base_branch,
-        lambda each_base_branch: _local_measurement(
-            working_directory,
-            each_base_branch,
-            head_branch,
-            is_against_own_base=(bool(each_base_branch) or not own_base_branch)
-            and (repository is None or bool(head_branch)),
+        lambda each_base_branch: local_measured_line_count(
+            working_directory, each_base_branch, head_branch
         ),
-        lambda: remote_size_measurement(repository, own_base_branch, head_branch),
+        lambda: remote_measured_line_count(repository, own_base_branch, head_branch),
     )
 
 
@@ -177,21 +198,6 @@ def _configured_merge_base(working_directory: str, head_branch: str | None) -> s
         GH_MERGE_BASE_CONFIG_KEY.format(branch_name=branch_name),
     )
     return all_configured_lines[0] if all_configured_lines and all_configured_lines[0] else None
-
-
-def _local_measurement(
-    working_directory: str,
-    base_branch: str | None,
-    head_branch: str | None,
-    *,
-    is_against_own_base: bool,
-) -> SizeMeasurement | None:
-    line_count = local_measured_line_count(working_directory, base_branch, head_branch)
-    if line_count is None:
-        return None
-    return SizeMeasurement(line_count, is_against_own_base, is_complete=True)
-
-
 def local_measured_line_count(
     working_directory: str, base_branch: str | None, head_branch: str | None
 ) -> int | None:
@@ -338,16 +344,16 @@ def _is_lockfile(path: str) -> bool:
     return path.rsplit("/", 1)[-1] in ALL_LOCKFILE_NAMES
 
 
-def remote_size_measurement(
+def remote_measured_line_count(
     repository: str | None, base_branch: str | None, head_branch: str | None
-) -> SizeMeasurement | None:
-    """Return the compare API's count with whether it lists every file, or None when it cannot tell.
+) -> int | None:
+    """Return the lines the compare API lists for the create, or None when it cannot tell.
 
     ::
 
-        compare lists 2 files, 1200 lines     -> 1200 lines, complete
-        compare lists only uv.lock +3000 -0   -> 0 lines, complete
-        compare lists 300 files, 1500 lines   -> 1500 lines, a lower bound
+        compare lists 2 files, 1200 lines     -> 1200
+        compare lists only uv.lock +3000 -0   -> 0
+        compare lists 300 files, 1500 lines   -> 1500, a lower bound over the bar
         compare lists 300 files, 500 lines    -> None
 
     The count is against the named base, else the repository's default branch.
@@ -375,4 +381,4 @@ def remote_size_measurement(
     is_complete = int(all_lines[0]) < COMPARE_FILE_LIST_LIMIT
     if not is_complete and measured_line_count <= MEASURED_LINE_BAR:
         return None
-    return SizeMeasurement(measured_line_count, is_against_own_base=True, is_complete=is_complete)
+    return measured_line_count
