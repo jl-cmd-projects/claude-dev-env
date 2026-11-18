@@ -133,13 +133,14 @@ def review_result(prefix, directory):
     require(read_json(directory / "binding.json") == binding and (directory / "request.txt").read_bytes() == request,
             "The review request lacks the matching checkpoint and input digests.")
     receipt = read_json(directory / "receipt.json")
-    require(receipt.get("request_sha256") == binding["request_sha256"],
+    require(isinstance(receipt, dict) and receipt.get("request_sha256") == binding["request_sha256"],
             "The review receipt lacks the matching request digest.")
     stamp = float(read_text(directory / "started"))
     elapsed = receipt["elapsed_seconds"]
     require(finite_seconds(stamp) and stamp >= prefix["marker"]["monotonic"]
             and finite_seconds(elapsed) and isinstance(receipt.get("session"), str) and receipt["session"],
             "The review receipt lacks valid session or timing evidence.")
+    require(isinstance(receipt.get("advice"), str), "The receipt has no reviewer response.")
     advice = receipt["advice"].strip()
     if advice.rstrip(".!").upper() == "PASS":
         return None, stamp, elapsed
@@ -163,7 +164,8 @@ def recipient(first, worker, mode, fork):
     if fork is None:
         require(worker == original, "Resume the hosted worker named in the first launch receipt.")
     else:
-        require(mode != "policy" and worker != original and worker.rsplit("/", 1)[0] == original
+        require(isinstance(fork, dict) and mode != "policy" and worker != original
+                and worker.rsplit("/", 1)[0] == original
                 and fork.get("task_name") == worker and fork.get("fork_turns") == "all",
                 "The supplement requires a hosted full-history fork of the original worker.")
     return original
