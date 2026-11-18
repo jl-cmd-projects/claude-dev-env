@@ -1,0 +1,79 @@
+{
+  "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+  "budget_seconds": 360,
+  "seed": 1869211,
+  "rows": [
+    {
+      "case": "independent",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "w84665",
+      "candidate": "w15233",
+      "order": [
+        "candidate",
+        "baseline"
+      ]
+    },
+    {
+      "case": "dependent",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "w21852",
+      "candidate": "w43994",
+      "order": [
+        "baseline",
+        "candidate"
+      ]
+    },
+    {
+      "case": "dependent",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "w64694",
+      "candidate": "w75473",
+      "order": [
+        "candidate",
+        "baseline"
+      ]
+    },
+    {
+      "case": "independent",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "w67281",
+      "candidate": "w69182",
+      "order": [
+        "baseline",
+        "candidate"
+      ]
+    },
+    {
+      "case": "restricted",
+      "cohort": "reserve",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "w36833",
+      "candidate": "w24335",
+      "order": [
+        "candidate",
+        "baseline"
+      ]
+    },
+    {
+      "case": "restricted",
+      "cohort": "reserve",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "w22728",
+      "candidate": "w97954",
+      "order": [
+        "candidate",
+        "baseline"
+      ]
+    }
+  ]
+}

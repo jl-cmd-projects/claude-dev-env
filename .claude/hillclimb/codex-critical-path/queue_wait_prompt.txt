@@ -1,0 +1,1 @@
+Python Automation had about 140 PRs open last I checked. Why have the merges stopped? Get them moving again and tell me where we stand. Use the normal queue process and keep the incident handoff current.
