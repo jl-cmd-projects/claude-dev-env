@@ -1,0 +1,193 @@
+{
+  "source_commit": "6086051cb6fcd21dc227e91711c8d54fd2a31eac",
+  "fixture_revision": "efdcb3f37260c5213d6b03e3dcaf651668d27f58",
+  "model_requested": "gpt-6.2-sol",
+  "reasoning_effort": "high",
+  "runner": "collaboration.spawn_agent",
+  "fork_turns": "none",
+  "fixture_files": {
+    ".claude/hillclimb/recorded-decision/stage.py": "e6202d77cd2c932b720f590b25bebb10af5ed28e582d02295c2cdb6996571285",
+    ".claude/hillclimb/recorded-decision/fixture.py": "bbb8f7a61773f9622753d703f2a38fd115cb012f8fecc530f04403d25103099f",
+    ".claude/hillclimb/recorded-decision/config/recorded_decision_constants.py": "d3b27c419a50ad7b95859e5dcff432bef65bb38dd409d9dc68d898d4b93a6495",
+    ".claude/hillclimb/recorded-decision/candidate.md": "d4ad636d657e4e499b622e2b1954ce5ba0d8b8e192ac0135d875bcc1fd67ff01",
+    ".claude/hillclimb/recorded-decision/cases.json": "39efa95eeab735823d744a2cdcfce7f13c4ceebce68578512d0d5d3a7618704c"
+  },
+  "launches": [
+    {
+      "case": "rd-2e71",
+      "arm": "baseline",
+      "endpoint": "http://127.0.0.1:28631",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/sable/AGENTS.md and complete the work order in /tmp/desk-inbox-418/sable/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "f8db2483fd510fd6a662d0e92dc528a253c6af237b2036425e5b160f82e1fa26",
+      "order_sha256": "131cc8f5535f246659095f4fc443de58de44266e5da6da8966b7b933031d30fb",
+      "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "handle": "/root/desk_31a",
+      "receipt_sha256": "030cf593a7cfaa8590f7acbc5a28fd481202b32c4e9df47a3c09386137abf65f"
+    },
+    {
+      "case": "rd-6c90",
+      "arm": "candidate",
+      "endpoint": "http://127.0.0.1:28632",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/flint/AGENTS.md and complete the work order in /tmp/desk-inbox-418/flint/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "d76dc80234026a7cec5f0d08093fe86ec5c18b9386b633c616d3ec1e0c4dd017",
+      "order_sha256": "6893473a348bbcd2b29addb33c6796de4b5f7ab1186d1c7439cecfe3aac52fe8",
+      "instructions_sha256": "ce4d197086282c8a96f22cfaf3e2a0fdf662460fd5256938d9f1381e655820ab",
+      "handle": "/root/desk_51k",
+      "receipt_sha256": "5ec11983a2a5b53e3900805b85d59f5177fc3b1a7e10fd4682169c6b7de9b692"
+    },
+    {
+      "case": "rd-8f20",
+      "arm": "candidate",
+      "endpoint": "http://127.0.0.1:28633",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/ivory/AGENTS.md and complete the work order in /tmp/desk-inbox-418/ivory/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "1d080b4696b0bbf6fe3da72c0c473b0f2d8df2c5417d162135adbcb83d6e7aba",
+      "order_sha256": "b77c1b63167956966abb25e2012f44645a967af105edf6825fc12ccfc303aabb",
+      "instructions_sha256": "ce4d197086282c8a96f22cfaf3e2a0fdf662460fd5256938d9f1381e655820ab",
+      "handle": "/root/desk_29f",
+      "receipt_sha256": "2a26bb2596553147460bb5c658e042921fd5c59bd490f7e26f54790a1534d317"
+    },
+    {
+      "case": "rd-7e42",
+      "arm": "baseline",
+      "endpoint": "http://127.0.0.1:28634",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/olive/AGENTS.md and complete the work order in /tmp/desk-inbox-418/olive/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "145255cca88589052506e2bf1761c5b38f0c39648812e63a9edd531b93476474",
+      "order_sha256": "7b4a72ffc55d254fd4beb114f030115a2baf1fdbb40c83822b9dbbb7635b42a6",
+      "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "handle": "/root/desk_92d",
+      "receipt_sha256": "e62aad9b57b1b8e709e8f689eeb2465ef9c3118e80ff460d226b1bef210b6e89"
+    },
+    {
+      "case": "rd-1b1d",
+      "arm": "candidate",
+      "endpoint": "http://127.0.0.1:28635",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/pearl/AGENTS.md and complete the work order in /tmp/desk-inbox-418/pearl/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "3bbbc3e659ce354a6e13092d17884c3b7a2d86f4a7a594611c3392a4ab61b1c0",
+      "order_sha256": "167fdf689242ad94ec67ac88f4bdcc6345463966829f524e7cf2d23da9605794",
+      "instructions_sha256": "ce4d197086282c8a96f22cfaf3e2a0fdf662460fd5256938d9f1381e655820ab",
+      "handle": "/root/desk_27t",
+      "receipt_sha256": "85e33429ca46a7bb920d4fbb386a0e769b749ed8fe40f17e1699584a299e985a"
+    },
+    {
+      "case": "rd-4a73",
+      "arm": "baseline",
+      "endpoint": "http://127.0.0.1:28636",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/umber/AGENTS.md and complete the work order in /tmp/desk-inbox-418/umber/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "0c71d7ca39fdb5eaf74fdf03bc56f84a658a82b33fba4442d05b15652de60ad4",
+      "order_sha256": "38fa7b29e31b9c085eb8af29ad365d32adcdae840bdcc9b871accd3076c0cb10",
+      "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "handle": "/root/desk_64p",
+      "receipt_sha256": "c2a117621176be460afa7b799f044de46ae26d0eee5d9ffd65530342bb08942c"
+    },
+    {
+      "case": "rd-9d55",
+      "arm": "candidate",
+      "endpoint": "http://127.0.0.1:28637",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/maple/AGENTS.md and complete the work order in /tmp/desk-inbox-418/maple/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "456e69a56e9e310a916e56c0e505cf3c66f793d91780b1cd6e455912043a0061",
+      "order_sha256": "d7c0e259af1863c038d1ab533f0b5cdb5ab7f187d63d1cff9c1b26380aa78cf7",
+      "instructions_sha256": "ce4d197086282c8a96f22cfaf3e2a0fdf662460fd5256938d9f1381e655820ab",
+      "handle": "/root/desk_76c",
+      "receipt_sha256": "a8a550975f366df08554cbb1945aca857cde4160bb3eb4c79240e965e4001130"
+    },
+    {
+      "case": "rd-5cf1",
+      "arm": "baseline",
+      "endpoint": "http://127.0.0.1:28638",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/jasper/AGENTS.md and complete the work order in /tmp/desk-inbox-418/jasper/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "6f95fb48bd1fb20de23c9ef4f6bd50371f8166121c5f02cbffb992727e40749a",
+      "order_sha256": "188851009fee318256c46c7d3b07073e5fcffbdc63a20cfa5970aed53e620c67",
+      "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "handle": "/root/desk_82m",
+      "receipt_sha256": "150074c317428266df072e8088fba78eece2c140095ded463f99a37afa728149"
+    },
+    {
+      "case": "rd-2e71",
+      "arm": "candidate",
+      "endpoint": "http://127.0.0.1:28631",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/sable/AGENTS.md and complete the work order in /tmp/desk-inbox-418/sable/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "f8db2483fd510fd6a662d0e92dc528a253c6af237b2036425e5b160f82e1fa26",
+      "order_sha256": "131cc8f5535f246659095f4fc443de58de44266e5da6da8966b7b933031d30fb",
+      "instructions_sha256": "ce4d197086282c8a96f22cfaf3e2a0fdf662460fd5256938d9f1381e655820ab",
+      "handle": "/root/desk_37s",
+      "receipt_sha256": "e8434896171f561d8d2a32cfd171154d4bf10212cff392fae3d9ad8b7e95a7b4"
+    },
+    {
+      "case": "rd-6c90",
+      "arm": "baseline",
+      "endpoint": "http://127.0.0.1:28632",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/flint/AGENTS.md and complete the work order in /tmp/desk-inbox-418/flint/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "d76dc80234026a7cec5f0d08093fe86ec5c18b9386b633c616d3ec1e0c4dd017",
+      "order_sha256": "6893473a348bbcd2b29addb33c6796de4b5f7ab1186d1c7439cecfe3aac52fe8",
+      "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "handle": "/root/desk_91h",
+      "receipt_sha256": "8202c2f1365fd1768aabce790974f78ac6d2f591e53fad6d44a37343bb2838e6"
+    },
+    {
+      "case": "rd-8f20",
+      "arm": "baseline",
+      "endpoint": "http://127.0.0.1:28633",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/ivory/AGENTS.md and complete the work order in /tmp/desk-inbox-418/ivory/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "1d080b4696b0bbf6fe3da72c0c473b0f2d8df2c5417d162135adbcb83d6e7aba",
+      "order_sha256": "b77c1b63167956966abb25e2012f44645a967af105edf6825fc12ccfc303aabb",
+      "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "handle": "/root/desk_06e",
+      "receipt_sha256": "0d9ca0bf99e27a6dc6b9bfced25d347416c65ea072c30ea83a9c857dc7c55ef4"
+    },
+    {
+      "case": "rd-7e42",
+      "arm": "candidate",
+      "endpoint": "http://127.0.0.1:28634",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/olive/AGENTS.md and complete the work order in /tmp/desk-inbox-418/olive/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "145255cca88589052506e2bf1761c5b38f0c39648812e63a9edd531b93476474",
+      "order_sha256": "7b4a72ffc55d254fd4beb114f030115a2baf1fdbb40c83822b9dbbb7635b42a6",
+      "instructions_sha256": "ce4d197086282c8a96f22cfaf3e2a0fdf662460fd5256938d9f1381e655820ab",
+      "handle": "/root/desk_14v",
+      "receipt_sha256": "263a7727d331fee0317f835b9c690283a79620114bdf9156475cb11f9a015f2f"
+    },
+    {
+      "case": "rd-1b1d",
+      "arm": "baseline",
+      "endpoint": "http://127.0.0.1:28635",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/pearl/AGENTS.md and complete the work order in /tmp/desk-inbox-418/pearl/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "3bbbc3e659ce354a6e13092d17884c3b7a2d86f4a7a594611c3392a4ab61b1c0",
+      "order_sha256": "167fdf689242ad94ec67ac88f4bdcc6345463966829f524e7cf2d23da9605794",
+      "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "handle": "/root/desk_25x",
+      "receipt_sha256": "db10d6616f68c4845c7812e312745c6a34f876682de4a22b0e1c53242522d795"
+    },
+    {
+      "case": "rd-4a73",
+      "arm": "candidate",
+      "endpoint": "http://127.0.0.1:28636",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/umber/AGENTS.md and complete the work order in /tmp/desk-inbox-418/umber/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "0c71d7ca39fdb5eaf74fdf03bc56f84a658a82b33fba4442d05b15652de60ad4",
+      "order_sha256": "38fa7b29e31b9c085eb8af29ad365d32adcdae840bdcc9b871accd3076c0cb10",
+      "instructions_sha256": "ce4d197086282c8a96f22cfaf3e2a0fdf662460fd5256938d9f1381e655820ab",
+      "handle": "/root/desk_62n",
+      "receipt_sha256": "de0723fdc70bf4ae30fb64606719e07823b9b7e342e7b240141de8045a733e31"
+    },
+    {
+      "case": "rd-9d55",
+      "arm": "baseline",
+      "endpoint": "http://127.0.0.1:28637",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/maple/AGENTS.md and complete the work order in /tmp/desk-inbox-418/maple/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "456e69a56e9e310a916e56c0e505cf3c66f793d91780b1cd6e455912043a0061",
+      "order_sha256": "d7c0e259af1863c038d1ab533f0b5cdb5ab7f187d63d1cff9c1b26380aa78cf7",
+      "instructions_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "handle": "/root/desk_81q",
+      "receipt_sha256": "7b1b9a9ce2c1a4be52f99386b8e6890816495a6ade1110940697ae29f38ba1d2"
+    },
+    {
+      "case": "rd-5cf1",
+      "arm": "candidate",
+      "endpoint": "http://127.0.0.1:28638",
+      "agent_prompt": "Use the project instructions in /tmp/desk-inbox-418/jasper/AGENTS.md and complete the work order in /tmp/desk-inbox-418/jasper/order.md. Keep work inside that order and use its service for the task. Return the outcome.",
+      "prompt_sha256": "6f95fb48bd1fb20de23c9ef4f6bd50371f8166121c5f02cbffb992727e40749a",
+      "order_sha256": "188851009fee318256c46c7d3b07073e5fcffbdc63a20cfa5970aed53e620c67",
+      "instructions_sha256": "ce4d197086282c8a96f22cfaf3e2a0fdf662460fd5256938d9f1381e655820ab",
+      "handle": "/root/desk_52w",
+      "receipt_sha256": "605c846e2d9ce8f66bc9b0ee6c0d24b8706359c724bf7581c824762d966819de"
+    }
+  ]
+}
