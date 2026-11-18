@@ -12,10 +12,11 @@
     relay message, the words only in the agent's <note>          -> not approved
 
 A sentence counts when it holds an approval or keep-whole phrase and a size
-subject, with no negation and no request to split. "Do not split" holds both
-parts on its own. A sentence that ends in a question mark never counts. A
-sentence that holds "if", "whether", "unless", "gate" or "rule" describes the
-rule, so it never counts either.
+subject, with no negation and no request to split. "Do not split it" holds
+both parts on its own, when it, this, that or the pull request ends the clause.
+A sentence that ends in a question mark never counts. A sentence that holds
+"if", "whether", "unless", "until", "gate", "rule", "but", "yet", "said" or
+"depends" states a condition or describes the rule, so it never counts either.
 """
 
 from __future__ import annotations
@@ -88,7 +89,7 @@ def is_size_approval(message_text: str) -> bool:
     ::
 
         "I approve this as one pull request"        -> True
-        "the size is fine, open it"                 -> True
+        "the size is fine for this pull request"   -> True
         "do not split this pull request"            -> True
         "not approved over the size bar"            -> False
         "is this one pull request?"                 -> False
@@ -106,11 +107,11 @@ def is_size_approval(message_text: str) -> bool:
 def _is_approving_sentence(sentence: str) -> bool:
     if not sentence or sentence.endswith(QUESTION_MARK):
         return False
+    if RULE_TALK_PATTERN.search(sentence):
+        return False
     if KEEP_WHOLE_PATTERN.search(sentence):
         return True
     if NEGATION_PATTERN.search(sentence) or SPLIT_WORD_PATTERN.search(sentence):
-        return False
-    if RULE_TALK_PATTERN.search(sentence):
         return False
     return bool(APPROVAL_PATTERN.search(sentence) and SIZE_SUBJECT_PATTERN.search(sentence))
 

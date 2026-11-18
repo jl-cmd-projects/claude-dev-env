@@ -22,7 +22,7 @@ TRANSCRIPT_PATH_FIELD = "transcript_path"
 WORKING_DIRECTORY_FIELD = "cwd"
 GH_MERGE_BASE_CONFIG_KEY = "branch.{branch_name}.gh-merge-base"
 HEAD_OWNER_SEPARATOR = ":"
-LINGUIST_GENERATED_ATTRIBUTE ="linguist-generated"
+LINGUIST_GENERATED_ATTRIBUTE = "linguist-generated"
 ALL_GENERATED_ATTRIBUTE_VALUES = frozenset({"set", "true"})
 CHECK_ATTR_FIELD_COUNT = 3
 ALL_LOCKFILE_NAMES = frozenset(
@@ -73,15 +73,19 @@ QUESTION_MARK = "?"
 CURLY_APOSTROPHE = "’"
 STRAIGHT_APOSTROPHE = "'"
 KEEP_WHOLE_PATTERN = re.compile(
-    r"\b(?:do not|don't|dont|no need to|never)\s+(?:need to\s+)?split\b"
+    r"\b(?:do not|don't|dont|no need to)\s+split\s+"
+    r"(?:it|(?:this|that|the)(?:\s+(?:one|pr|pull request))?)(?!\s+\w)"
 )
 SPLIT_WORD_PATTERN = re.compile(r"\bsplit")
 NEGATION_PATTERN = re.compile(r"n't\b|\b(?:not|no|never|dont|cannot)\b")
-RULE_TALK_PATTERN = re.compile(r"\b(?:if|whether|unless|gate|rule)\b")
+RULE_TALK_PATTERN = re.compile(
+    r"\b(?:if|whether|unless|until|gate|rule|but|yet|said|depends?)\b"
+)
 APPROVAL_PATTERN = re.compile(
     r"\b(?:approve[ds]?|approving|approval|fine|ok|okay|go ahead|open it|ship it"
     r"|(?:keep|leave|stays?)\s+(?:it\s+|this\s+|that\s+)?(?:as\s+)?(?:a\s+)?(?:one|single))\b"
 )
 SIZE_SUBJECT_PATTERN = re.compile(
-    r"\b(?:(?:one|single)\s+(?:pr|pull request)s?|size|oversized|line count)\b"
+    r"\b(?:(?:one|single)\s+(?:pr|pull request)|size bar|oversized"
+    r"|size\b.*\b(?:pr|pull request)|(?:pr|pull request)\b.*\bsize)\b"
 )
