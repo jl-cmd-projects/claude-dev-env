@@ -9,6 +9,7 @@ The gate holds the stop for these shapes, and only in a session it covers::
     allow: an Edit call, then "Done."               nothing in progress, no closing line owed
     hold:  an Edit call, then "Done."               task #28 in_progress: the footer is owed
     allow: an Edit call, then the footer naming task #28
+    allow: the footer naming #28, a later Bash call, then "Read it."   no typed prompt or card between
     hold:  the footer that names #28 and leaves out in-progress task #29
     hold:  "Open items: none." beside task #28 in_progress
 
@@ -33,7 +34,10 @@ is a non-empty list, object, or string.
   backticks stand where a code span sat.
 - A closing reply with no footer that ends with the old declaration ``Open
   items: none.`` beside an in-progress task holds the stop.
-- Work with work in progress and no footer holds the stop.
+- Work with work in progress and no footer holds the stop, unless a reply
+  since the later of the last typed prompt and the last question call that
+  reached the user already ended with a footer that names every in-progress
+  task. The user saw that footer, so it is not sent again.
 - A footer that leaves out an in-progress task holds the stop, as
   ``closing_question_round_footer.left_out_tasks`` matches the tasks.
 - Nothing in progress and no background work: the reply owes no closing line.
@@ -86,6 +90,7 @@ import sys
 import threading
 import time
 from pathlib import Path
+from typing import NamedTuple
 
 hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
@@ -239,9 +244,40 @@ def closing_round_reason(all_open_item_lines: list[str]) -> str:
     )
 
 
-def _covered_texts_and_records(
+class CoveredSession(NamedTuple):
+    """The parts of a session the gate reads.
+
+    Attributes:
+        all_payload_texts: The closing reply texts the payload adds.
+        all_stretch_records: The top-level records after the last question call that reached the user.
+        all_counted_records: The stretch records after the last typed prompt, where holds count.
+        all_last_footer_lines: The items of the newest footer among the counted records, or None.
+    """
+
+    all_payload_texts: list[str]
+    all_stretch_records: list[dict[str, object]]
+    all_counted_records: list[dict[str, object]]
+    all_last_footer_lines: tuple[str, ...] | None
+
+
+def newest_footer_items(all_records: list[dict[str, object]]) -> tuple[str, ...] | None:
+    """Return the items of the newest footer a reply among the records ended with, or None.
+
+    ::
+
+        "Done.\n\nIn progress:\n- I am shipping 8590." then "Nothing new."  -> ("I am shipping 8590.",)
+        "Nothing new." only                                                -> None
+    """
+    for each_text in reversed(assistant_texts(all_records)):
+        footer_items = split_footer(each_text).footer_items
+        if footer_items is not None:
+            return footer_items
+    return None
+
+
+def _covered_session(
     all_hook_input_fields: dict[str, object], deadline_at: float
-) -> tuple[list[str], list[dict[str, object]], list[dict[str, object]]] | None:
+) -> CoveredSession | None:
     all_lines = transcript_lines(all_hook_input_fields.get(TRANSCRIPT_PATH_KEY), deadline_at)
     prompt_position = last_typed_prompt_position(all_lines, deadline_at)
     if prompt_position is None:
@@ -254,7 +290,12 @@ def _covered_texts_and_records(
         *all_counted_records,
     ]
     all_payload_texts = closing_reply_texts(all_hook_input_fields, all_lines, deadline_at)
-    return all_payload_texts, all_stretch_records, all_counted_records
+    return CoveredSession(
+        all_payload_texts,
+        all_stretch_records,
+        all_counted_records,
+        newest_footer_items(all_counted_records),
+    )
 
 
 def _has_work_since_footer(all_stretch_records: list[dict[str, object]]) -> bool:
@@ -297,6 +338,7 @@ def footer_hold_reason(
     closing_reply: str,
     did_work: bool,
     deadline_at: float,
+    all_last_footer_lines: tuple[str, ...] | None = None,
 ) -> str | None:
     """Return the footer hold reason for the closing reply, or None when the reply may end.
 
@@ -308,6 +350,8 @@ def footer_hold_reason(
         a footer that leaves out in-progress task #29      -> the gap reason
         a footer that names every in-progress task         -> None
         no work, no footer                                 -> None, a chat-only turn
+        work, no footer, an earlier footer since the typed
+            prompt or answered card names every task       -> None, the footer is not sent again
 
     Args:
         all_hook_input_fields: The Stop payload, read for ``background_tasks``
@@ -316,6 +360,9 @@ def footer_hold_reason(
         did_work: Whether the stretch holds work after the last reply that
             ended with the footer.
         deadline_at: The monotonic time the declaration scan stops at.
+        all_last_footer_lines: The items of the newest footer sent since the later
+            of the last typed prompt and the last question call that reached
+            the user, or None when no reply since then ended with one.
 
     Returns:
         The reason, or None.
@@ -328,6 +375,12 @@ def footer_hold_reason(
     if not all_tasks.in_progress and not has_background_work(all_hook_input_fields):
         return None
     if footer_items is None:
+        if (
+            not is_declared
+            and all_last_footer_lines is not None
+            and not left_out_tasks(all_last_footer_lines, all_tasks.in_progress, all_tasks.still_open)
+        ):
+            return None
         reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work)
         if reason_lead is None:
             return None
@@ -352,10 +405,10 @@ def _scanned_text(reply_text: str) -> str:
 
 
 def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -> str | None:
-    covered_session = _covered_texts_and_records(all_hook_input_fields, deadline_at)
+    covered_session = _covered_session(all_hook_input_fields, deadline_at)
     if covered_session is None:
         return None
-    all_payload_texts, all_stretch_records, all_counted_records = covered_session
+    all_payload_texts, all_stretch_records, all_counted_records, all_last_footer_lines = covered_session
     if prior_hold_count(all_counted_records) >= MAXIMUM_HOLD_COUNT:
         return None
     all_closing_texts = _closing_reply_texts(all_stretch_records, all_payload_texts)
@@ -373,6 +426,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         closing_reply,
         _has_work_since_footer(all_stretch_records),
         deadline_at,
+        all_last_footer_lines,
     )
 
 

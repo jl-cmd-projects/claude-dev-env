@@ -1185,3 +1185,25 @@ def test_should_read_the_reply_from_the_transcript_when_the_payload_has_none(
     assert block_reason.startswith(PROMISE_REASON_START)
     [judge_call] = judge_stub.calls()
     assert json.dumps(JUDGE_ONLY_PROMISE_REPLY) in judge_call["stdin"]
+
+
+FOOTER_LEAD = "In progress:"
+FOOTER_REPLY = (
+    "The hold on pull request 8678 is off.\n\n"
+    f"{FOOTER_LEAD}\n"
+    "- I am shipping pull request 8590 once its automated tests pass.\n"
+    "- I am shipping pull request 8693 once its automated tests pass.\n"
+    "- I am shipping pull request 8678 once 8693 is in."
+)
+
+
+def test_should_send_the_judge_the_reply_without_its_in_progress_footer(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, judge_stub: JudgeStub
+) -> None:
+    judge_stub.answer(verdict=judge_answer(list_span=FOOTER_LEAD))
+    transcript_path = write_records(tmp_path / "s.jsonl", judged_turn("Lift the holds you need to"))
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=FOOTER_REPLY) == {}
+    all_judge_inputs = [str(each_call["stdin"]) for each_call in judge_stub.calls()]
+    assert len(all_judge_inputs) == 1
+    assert "The hold on pull request 8678 is off." in all_judge_inputs[0]
+    assert "pull request 8590" not in all_judge_inputs[0]

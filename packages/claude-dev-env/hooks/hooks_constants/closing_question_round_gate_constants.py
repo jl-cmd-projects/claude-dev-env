@@ -210,7 +210,9 @@ FOOTER_INSTRUCTION = (
     " Give the work that runs on its own one short clause that says what it gets the user, and do"
     " not list each job or each preparation step. Write the footer in your own words for this"
     " session. Do not end with the line Open items: none. When nothing is in progress and no"
-    " background work runs, end the reply with no closing line."
+    " background work runs, end the reply with no closing line. Send the footer once: a later"
+    " reply ends with it again only when a piece of work started, finished, or changed where it"
+    " stands, so a reply that says nothing is new ends with no footer."
 )
 REASON_PART_SEPARATOR = "\n"
 SCANNED_PARAGRAPH_SEPARATOR = "\n\n"

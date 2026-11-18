@@ -487,3 +487,48 @@ def test_should_hold_a_question_inside_the_footer(
     reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records))
     assert reason.startswith(CLOSING_ROUND_REASON_LEAD)
     assert question_item.removeprefix("- ") in reason
+
+
+@pytest.mark.parametrize("has_notification", [False, True])
+def test_should_allow_later_work_when_a_footer_since_the_typed_prompt_names_every_task(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    has_notification: bool,
+) -> None:
+    all_notification_records = (
+        [machine_prompt_record("task-notification", "<task-notification>The worker is waiting.</task-notification>")]
+        if has_notification
+        else []
+    )
+    all_records = [
+        typed_prompt_record(),
+        *edit_records(),
+        reply_record(f"The retry flag is in place.\n\n{FOOTER}"),
+        *all_notification_records,
+        *edit_records(),
+        reply_record("The task list now shows the retry flag as done."),
+    ]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None
+
+
+def test_should_hold_later_work_when_a_task_started_after_the_last_footer(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(
+        tmp_path,
+        [
+            {"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"},
+            {"id": "29", "subject": LEDGER_SUBJECT, "status": "in_progress"},
+        ],
+    )
+    all_records = [
+        typed_prompt_record(),
+        *edit_records(),
+        reply_record(f"The retry flag is in place.\n\n{FOOTER}"),
+        *edit_records(),
+        reply_record("I started on the ledger."),
+    ]
+    reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records))
+    assert reason.startswith(FOOTER_MISSING_REASON_LEAD)
+    assert f"- {LEDGER_SUBJECT} [discount ledger]" in reason
