@@ -2,10 +2,15 @@ import gzip
 import json
 import tempfile
 import unittest
+from http import HTTPStatus
 from pathlib import Path
 
+from config.recorded_decision_replay_constants import EVAL_DIR, REPO_DIR
+from discovery.adapter import DiscoveryFixture
 from discovery.config.discovery_constants import EVIDENCE_PATH, EXECUTED_ADAPTER_PATH, EXECUTED_ADAPTER_SHA256
+from discovery.config.route_replay_constants import ALL_ROUTE_FIXTURE_SHA256_BY_NAME, ROUTE_ADAPTER_SHA256, ROUTE_FIXTURE_REVISION
 from discovery.replay import replay
+from fixture import Fixture, _cases, _digest, _read_events
 from replay import ReplayRunFatal, receipt_sha256, sha256
 
 
@@ -13,11 +18,11 @@ class DiscoveryReplayTest(unittest.TestCase):
     def evidence(self) -> dict:
         return json.loads(EVIDENCE_PATH.read_text(encoding="utf-8"))
 
-    def replay_document(self, evidence: dict) -> list[dict]:
+    def replay_document(self, evidence: dict, *, is_route_bound: bool = False) -> list[dict]:
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "evidence.json"
             path.write_text(json.dumps(evidence), encoding="utf-8")
-            return replay(path)
+            return replay(path, is_route_bound=is_route_bound)
 
     def test_discovery_archive_and_adapter_snapshot_verify(self) -> None:
         self.assertEqual(sha256(gzip.decompress(EXECUTED_ADAPTER_PATH.read_bytes())), EXECUTED_ADAPTER_SHA256)
@@ -27,7 +32,8 @@ class DiscoveryReplayTest(unittest.TestCase):
         for each_score in all_scores:
             metrics = each_score["metrics"]
             self.assertTrue(metrics["current_proposal_exposed_in_order"])
-            self.assertLess(metrics["activity_read_seq"], metrics["first_disposition_seq"])
+            self.assertLess(metrics["decision_records_read_seq"], metrics["first_disposition_seq"])
+            self.assertIsNone(metrics["activity_route_read_seq"])
             if each_score["decision_reason"] == "material_change":
                 self.assertTrue(each_score["service_request_delivered"])
                 self.assertEqual(metrics["apply_attempts"], 0)
@@ -77,6 +83,67 @@ class DiscoveryReplayTest(unittest.TestCase):
         run["final_review"]["ask_scoped"] = False
         report = next(score for score in self.replay_document(evidence) if score["worker"] == run["worker"])
         self.assertEqual(report["status"], "fail")
+
+    def test_trailing_legacy_route_is_rejected_and_activity_response_is_bound(self) -> None:
+        case = _cases()["rd-2e71"]
+        legacy = "/v1/decision-records/?subject=pr-217"
+        activity = "/v1/records/pr-217/activity"
+        with tempfile.TemporaryDirectory() as folder:
+            backend = Fixture(case, Path(folder) / "backend")
+            subject = DiscoveryFixture(case, Path(folder) / "discovery")
+            self.assertEqual(backend.request("GET", legacy)[0], HTTPStatus.OK)
+            self.assertEqual(subject.request("GET", legacy)[0], HTTPStatus.NOT_FOUND)
+            self.assertEqual(subject.request("GET", legacy.replace("/?", "?"))[0], HTTPStatus.NOT_FOUND)
+            self.assertEqual(subject.request("GET", activity + "/")[0], HTTPStatus.NOT_FOUND)
+            status, full_response = subject.request("GET", activity)
+            self.assertEqual(status, HTTPStatus.OK)
+            reads = [event for event in _read_events(subject.journal) if event["operation"] == "read_decisions"]
+            receipt, = reads
+            self.assertEqual(receipt["request_path"], activity)
+            self.assertEqual(receipt["response_sha256"], _digest(full_response))
+            self.assertNotEqual(receipt["response_sha256"], receipt["records_sha256"])
+
+    def route_evidence(self) -> dict:
+        evidence = self.evidence()
+        run = next(entry for entry in evidence["runs"] if entry["case"] == "rd-2e71")
+        case = _cases()[run["case"]]
+        with tempfile.TemporaryDirectory() as folder:
+            subject = DiscoveryFixture(case, Path(folder) / "discovery")
+            subject.request("GET", "/v1/catalog")
+            _, work = subject.request("GET", "/v1/work-items/pr-217")
+            subject.request("GET", "/v1/records/pr-217/activity")
+            subject.request("GET", "/v1/proposals/pr-217/head-2fab")
+            subject.request("POST", "/v1/applications/pr-217", {"choice": "retain-24h", "revision": work["revision"],
+                                                                 "version": work["version"]})
+            subject.request("GET", "/v1/work-items/pr-217")
+            run["events"] = _read_events(subject.journal)
+            run["state"] = json.loads((subject.run_dir / "state.json").read_text(encoding="utf-8"))
+        run["worker"] = run["final"]["sender"] = "/root/path_bound_test"
+        run["service_sha256"] = receipt_sha256(dict(events=run["events"], state=run["state"]))
+        return {**evidence, "runs": [run], "fixture_revision": ROUTE_FIXTURE_REVISION, "adapter_sha256": ROUTE_ADAPTER_SHA256,
+                "fixture_sha256_by_path": {(EVAL_DIR / name).relative_to(REPO_DIR).as_posix(): digest
+                                           for name, digest in ALL_ROUTE_FIXTURE_SHA256_BY_NAME.items()}}
+
+    def test_path_bound_subset_replays_and_rejects_records_only_digest(self) -> None:
+        evidence = self.route_evidence()
+        report, = self.replay_document(evidence, is_route_bound=True)
+        self.assertEqual(report["status"], "pass")
+        self.assertEqual(report["metrics"]["activity_route_read_seq"], report["metrics"]["decision_records_read_seq"])
+        run, = evidence["runs"]
+        receipt = next(event for event in run["events"] if event["operation"] == "read_decisions")
+        receipt["response_sha256"] = receipt["records_sha256"]
+        run["service_sha256"] = receipt_sha256(dict(events=run["events"], state=run["state"]))
+        with self.assertRaisesRegex(ReplayRunFatal, "Unbound Activity path or full response"):
+            self.replay_document(evidence, is_route_bound=True)
+
+    def test_historical_capture_cannot_gain_a_path_by_rehashing(self) -> None:
+        evidence = self.evidence()
+        run = evidence["runs"][0]
+        receipt = next(event for event in run["events"] if event["operation"] == "read_decisions")
+        receipt["request_path"] = "/v1/records/pr-217/activity"
+        run["service_sha256"] = receipt_sha256(dict(events=run["events"], state=run["state"]))
+        with self.assertRaisesRegex(ReplayRunFatal, "Historical journal cannot establish an Activity request path"):
+            self.replay_document(evidence)
 
 
 if __name__ == "__main__":

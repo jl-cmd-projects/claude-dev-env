@@ -1,4 +1,4 @@
-"""Replay only the six hosted decision-discovery assignments."""
+"""Replay historical or path-bound decision-discovery assignments."""
 
 import argparse
 import gzip
@@ -26,6 +26,7 @@ from discovery.config.discovery_constants import (
     MISSING_MAILBOX,
     SOURCE_REVISION,
 )
+from discovery.config.route_replay_constants import ALL_ROUTE_FIXTURE_SHA256_BY_NAME, ROUTE_ADAPTER_SHA256, ROUTE_FIXTURE_REVISION
 from fixture import JsonRow, _cases
 from replay import ReplayRunFatal, _read_json, _verified_final_review, receipt_sha256, sha256
 from stage import instructions
@@ -36,7 +37,7 @@ def _require(condition: object, explanation: str) -> None:
         raise ReplayRunFatal(explanation)
 
 
-def _verify_runtime() -> None:
+def _verify_historical_runtime() -> None:
     adapter = gzip.decompress(EXECUTED_ADAPTER_PATH.read_bytes())
     _require(sha256(adapter) == EXECUTED_ADAPTER_SHA256, "Executed discovery adapter snapshot mismatch")
     for each_name, each_expected in ALL_FIXTURE_SHA256_BY_NAME.items():
@@ -45,15 +46,29 @@ def _verify_runtime() -> None:
             continue
         snapshot = EVIDENCE_DIR / "executed-fixture" / f"{source.relative_to(REPO_DIR).as_posix()}.gz"
         _require(sha256(gzip.decompress(snapshot.read_bytes())) == each_expected, f"Executed fixture snapshot mismatch: {each_name}")
+
+
+def _verify_runtime(is_route_bound: bool) -> None:
+    if is_route_bound:
+        for each_name, each_expected in ALL_ROUTE_FIXTURE_SHA256_BY_NAME.items():
+            _require(sha256((EVAL_DIR / each_name).read_bytes()) == each_expected, f"Path-bound fixture source mismatch: {each_name}")
+    else:
+        _verify_historical_runtime()
     for each_arm, each_expected in ALL_ARM_SHA256.items():
         _require(sha256(instructions(each_arm)) == each_expected, f"Rendered instruction digest mismatch: {each_arm}")
 
 
-def _verify_manifest(evidence: JsonRow) -> None:
-    _require(evidence["adapter_sha256"] == EXECUTED_ADAPTER_SHA256, "Execution adapter digest mismatch")
-    _require(evidence["fixture_revision"] == FIXTURE_REVISION and evidence["source_revision"] == SOURCE_REVISION,
+def _verify_manifest(evidence: JsonRow, is_route_bound: bool) -> None:
+    adapter = ROUTE_ADAPTER_SHA256 if is_route_bound else EXECUTED_ADAPTER_SHA256
+    revision = ROUTE_FIXTURE_REVISION if is_route_bound else FIXTURE_REVISION
+    _require(evidence["adapter_sha256"] == adapter, "Execution adapter digest mismatch")
+    _require(evidence["fixture_revision"] == revision and evidence["source_revision"] == SOURCE_REVISION,
              "Fixture or instruction source revision mismatch")
     _require(all(evidence[setting] == expected for setting, expected in ALL_LAUNCH_SETTINGS.items()), "Worker launch settings mismatch")
+    if is_route_bound:
+        all_pins = {(EVAL_DIR / name).relative_to(REPO_DIR).as_posix(): digest
+                    for name, digest in ALL_ROUTE_FIXTURE_SHA256_BY_NAME.items()}
+        _require(evidence["fixture_sha256_by_path"] == all_pins, "Path-bound runtime source manifest mismatch")
 
 
 def _verify_order(run: JsonRow, case: JsonRow, arm: str) -> tuple[str, str]:
@@ -68,11 +83,15 @@ def _verify_order(run: JsonRow, case: JsonRow, arm: str) -> tuple[str, str]:
     return endpoint, order
 
 
-def _score(run: JsonRow, case: JsonRow) -> JsonRow:
+def _score(run: JsonRow, case: JsonRow, is_route_bound: bool) -> JsonRow:
     final = run["final"]
     _require(final["type"] == HOSTED_FINAL_TYPE, "Missing hosted final completion receipt")
     flags = _verified_final_review(dict(handle=run["worker"], final_message=final, final_review=run["final_review"]))
-    report = grade(case, run["events"], run["state"], run["order"], run["endpoint"], run.get("review"))
+    if not is_route_bound:
+        _require(not any("request_path" in event or "response_sha256" in event for event in run["events"]),
+                 "Historical journal cannot establish an Activity request path")
+    report = grade(case, run["events"], run["state"], run["order"], run["endpoint"], run.get("review"),
+                   should_require_route_receipts=is_route_bound)
     _require(report["status"] in (PASS_STATUS, FAIL_STATUS) and not report["needs_review"], f"Ungradable discovery receipt: {report}")
     return _final_score(case, report, flags)
 
@@ -97,10 +116,14 @@ def _final_score(case: JsonRow, report: JsonRow, all_flags: dict[str, bool]) -> 
             "final_only_scope_report": final_only, "final_observations": all_flags, "decision_reason": reason}
 
 
-def _verify_runs(all_runs: list[JsonRow], all_cases: dict[str, JsonRow]) -> list[JsonRow]:
+def _verify_runs(all_runs: list[JsonRow], all_cases: dict[str, JsonRow], is_route_bound: bool) -> list[JsonRow]:
     remaining = {(case, arm) for case in ALL_SLOTS for arm in ALL_ARM_SHA256}
-    _require(isinstance(all_runs, list) and len(all_runs) == len(remaining), "Expected all six discovery assignments")
-    all_workers, all_captures, pair_inputs, all_scores = set(), set(), {}, []
+    _require(isinstance(all_runs, list) and 0 < len(all_runs) <= len(remaining), "Invalid discovery assignment count")
+    _require(is_route_bound or len(all_runs) == len(remaining), "Expected all six historical discovery assignments")
+    all_prior = _read_json(EVIDENCE_PATH)["runs"] if is_route_bound else []
+    all_workers = {run["worker"] for run in all_prior}
+    all_captures = {run["service_sha256"] for run in all_prior}
+    pair_inputs, all_scores = {}, []
     for each_run in all_runs:
         key, arm, worker = (each_run[field] for field in ("case", "arm", "worker"))
         assignment = (key, arm)
@@ -114,15 +137,16 @@ def _verify_runs(all_runs: list[JsonRow], all_cases: dict[str, JsonRow]) -> list
         digest = receipt_sha256(dict(events=each_run["events"], state=each_run["state"]))
         _require(digest == each_run["service_sha256"] and digest not in all_captures, "Invalid or repeated service capture")
         all_captures.add(digest)
-        all_scores.append({"case": key, "arm": arm, "worker": worker, **_score(each_run, case)})
+        all_scores.append({"case": key, "arm": arm, "worker": worker, **_score(each_run, case, is_route_bound)})
     return all_scores
 
 
-def replay(evidence_path: Path = EVIDENCE_PATH) -> list[JsonRow]:
+def replay(evidence_path: Path = EVIDENCE_PATH, *, is_route_bound: bool = False) -> list[JsonRow]:
     """Verify and score the separate discovery matrix.
 
     Args:
         evidence_path: Archive containing launch and service evidence.
+        is_route_bound: Validate fresh path and full-response receipts.
 
     Returns:
         One verified score per discovery run.
@@ -132,9 +156,9 @@ def replay(evidence_path: Path = EVIDENCE_PATH) -> list[JsonRow]:
     """
     try:
         evidence = _read_json(evidence_path)
-        _verify_manifest(evidence)
-        _verify_runtime()
-        return _verify_runs(evidence["runs"], _cases())
+        _verify_manifest(evidence, is_route_bound)
+        _verify_runtime(is_route_bound)
+        return _verify_runs(evidence["runs"], _cases(), is_route_bound)
     except ReplayRunFatal:
         raise
     except (AttributeError, KeyError, OSError, TypeError, ValueError, EOFError, zlib.error) as error:
@@ -143,9 +167,11 @@ def replay(evidence_path: Path = EVIDENCE_PATH) -> list[JsonRow]:
 
 def _main(stream: TextIO) -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--evidence", type=Path, default=EVIDENCE_PATH)
+    sources = parser.add_mutually_exclusive_group()
+    sources.add_argument("--evidence", type=Path, default=EVIDENCE_PATH)
+    sources.add_argument("--route-evidence", type=Path)
     args = parser.parse_args()
-    for each_score in replay(args.evidence):
+    for each_score in replay(args.route_evidence or args.evidence, is_route_bound=args.route_evidence is not None):
         stream.write(json.dumps(each_score, sort_keys=True) + "\n")
 
 
