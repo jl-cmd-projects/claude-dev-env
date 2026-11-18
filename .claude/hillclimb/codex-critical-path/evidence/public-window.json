@@ -1,0 +1,199 @@
+{
+  "reviewer": {
+    "agent_path": "/root/incident_sources",
+    "model_effort_receipt": "Parent launch receipt required. It is not accessible from this subthread."
+  },
+  "selection": {
+    "first_source": {
+      "repository": "https://github.com/SWE-bench/experiments",
+      "revision": "40f164d5b8f1d249bf95a6df8b74b577fd8e519d",
+      "listing_path": "evaluation/verified",
+      "listing_size": 182,
+      "codex_named_submissions": [
+        {
+          "folder": "20251124_mini-v1.16.0_gpt-5.1-codex",
+          "agent": "mini-SWE-agent",
+          "model": "gpt-5.1-codex"
+        },
+        {
+          "folder": "20260219_mini-v2.0.0_gpt-5-2-codex",
+          "agent": "mini-SWE-agent",
+          "model": "gpt-5-2-codex"
+        }
+      ],
+      "disposition": "No native Codex agent submission was found in the scoped listing. Both Codex-named entries identify a different driver. No SWE-bench trajectories were sampled."
+    },
+    "fallback": {
+      "repository": "https://huggingface.co/datasets/harborframework/terminal-bench-2-leaderboard",
+      "revision": "572b2614be2c0cb2527e14f5b1e4026f1072e6c1",
+      "submission_path": "submissions/terminal-bench/2.0/Simple-Codex__GPT-5.3-Codex/simple-codex-gpt-5.3-codex-5x-duplicate",
+      "driver": "Simple Codex 1.0, Python wrapper",
+      "model": "GPT-5.3-Codex",
+      "selection_rule": "From the aggregate result.json reward 0.0 bucket, keep exact task prefixes on the allowlist and require the trial directory to exist at the pinned revision. Sort folder names lexicographically and read the first six, without replacement.",
+      "allowlisted_task_prefixes": [
+        "build-pmars",
+        "financial-document-processor",
+        "gpt2-codegolf",
+        "headless-terminal",
+        "modernize-scientific-stack",
+        "optimize-voxels",
+        "path-tracing",
+        "pytorch-model-recovery",
+        "sqlite-db-truncate",
+        "torch-pipeline-parallelism"
+      ],
+      "explicit_exclusions": [
+        "fix-code-vulnerability",
+        "break-filter-js-from-html"
+      ],
+      "matching_existing_failed_folders": [
+        "gpt2-codegolf__DpHXhKU",
+        "gpt2-codegolf__JeeYa4P",
+        "gpt2-codegolf__JsmJT3J",
+        "gpt2-codegolf__RcVXNzd",
+        "gpt2-codegolf__yLvwb64",
+        "pytorch-model-recovery__GBkKRpd",
+        "torch-pipeline-parallelism__3F5QFRN",
+        "torch-pipeline-parallelism__4Jbz8XC",
+        "torch-pipeline-parallelism__4qiuahN",
+        "torch-pipeline-parallelism__pHGTxNm",
+        "torch-pipeline-parallelism__v8HkPMo"
+      ],
+      "aggregate_result_sha256": "dbe9232822ac593ccd184ac64e82bf48c23b2973fa7e3893410f1b489263aeb3",
+      "aggregate_result_url": "https://huggingface.co/datasets/harborframework/terminal-bench-2-leaderboard/resolve/572b2614be2c0cb2527e14f5b1e4026f1072e6c1/submissions/terminal-bench/2.0/Simple-Codex__GPT-5.3-Codex/simple-codex-gpt-5.3-codex-5x-duplicate/result.json",
+      "directory_listing_url": "https://huggingface.co/api/datasets/harborframework/terminal-bench-2-leaderboard/tree/572b2614be2c0cb2527e14f5b1e4026f1072e6c1/submissions/terminal-bench/2.0/Simple-Codex__GPT-5.3-Codex/simple-codex-gpt-5.3-codex-5x-duplicate",
+      "artifact_url_template": "https://huggingface.co/datasets/harborframework/terminal-bench-2-leaderboard/resolve/572b2614be2c0cb2527e14f5b1e4026f1072e6c1/submissions/terminal-bench/2.0/Simple-Codex__GPT-5.3-Codex/simple-codex-gpt-5.3-codex-5x-duplicate/{trial}/{artifact}"
+    }
+  },
+  "verification": {
+    "positive_cutoff": "Require the original goal, specific evidence that the side issue is irrelevant or avoidable, two or more subsequent investigative actions on that side issue that are neither cancellation nor cleanup, and an independently missing or flawed required artifact. A slow but material investigation, a poll returning fresh evidence, or failure without established irrelevance does not meet the cutoff.",
+    "trajectory_format": "agent/codex.txt is the driver stream. The selected timeout trials do not publish ATIF agent/trajectory.json. The driver stream can end before the final call response, and null hashes represent absent artifacts.",
+    "tool_call_parser": "In Python, use re.finditer(r\"^Calling function: ([^\\n]+)\\n([^\\n]*)\", text, re.M). Each match is one tool call. JSON-decode group 2 as inert arguments. The following span up to the next match contains the response, where recorded. Inspect side-issue evidence and artifact status independently.",
+    "did_execute_historical_commands": false,
+    "trials_read": 6,
+    "tool_calls_read": 243,
+    "strict_positives": 0
+  },
+  "trials": [
+    {
+      "trial": "gpt2-codegolf__DpHXhKU",
+      "agent_started_at": "2026-02-05T08:34:11.061394+00:00",
+      "agent_finished_at": "2026-02-05T08:49:11.061774+00:00",
+      "agent_duration_seconds": 900.00038,
+      "timeout_limit_seconds": 900,
+      "agent_exception_type": "AgentTimeoutError",
+      "verifier_reward": 0.0,
+      "tool_call_count": 45,
+      "verifier_finding": "/app/gpt2.c absent.",
+      "strict_detour_found": false,
+      "adjudication": "Repeated tests of checkpoint contents and tensor boundaries addressed decoding the weights, which correctness required. No pair of actions clearly pursued an unrelated issue after evidence of irrelevance.",
+      "artifact_sha256": {
+        "agent/codex.txt": "cfccd79478fdc0546c72bf83c82ef5cbfa5191f0cfc75a73e7fcac8389eb0aae",
+        "agent/trajectory.json": null,
+        "verifier/test-stdout.txt": "b56eb41feccb8f698d4e25b07af8b073cc4d1a6672f13970d0954c9c31942f5c",
+        "verifier/reward.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "result.json": "69ddd2971896bcfa31a99f4396d5d21b865cbdcb76451413d2b5c0e2355988e2"
+      }
+    },
+    {
+      "trial": "gpt2-codegolf__JeeYa4P",
+      "agent_started_at": "2026-02-05T06:07:02.760823+00:00",
+      "agent_finished_at": "2026-02-05T06:22:02.762534+00:00",
+      "agent_duration_seconds": 900.001711,
+      "timeout_limit_seconds": 900,
+      "agent_exception_type": "AgentTimeoutError",
+      "verifier_reward": 0.0,
+      "tool_call_count": 35,
+      "verifier_finding": "/app/gpt2.c was 5869 bytes. The prompt required strictly less than 5000 bytes.",
+      "strict_detour_found": false,
+      "adjudication": "The compiler invocation, link flags, repeated output, checkpoint alignment, and byte limit all bear on the requested executable or artifact. There was a duplicate command, but it was a direct check of the requested program.",
+      "artifact_sha256": {
+        "agent/codex.txt": "37f8e1b7faa55967cbf532772ad79f7a89b9c8cfe2a4504b1bd49672700fb48c",
+        "agent/trajectory.json": null,
+        "verifier/test-stdout.txt": "c66ed760d65f96b85bcb70b2ed940c8ecd674901d3dc907cb5c7a706ab931208",
+        "verifier/reward.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "result.json": "1ee4c63acad5d807be4243fd54b38374db24e94062e42f96e90af185250db130"
+      }
+    },
+    {
+      "trial": "gpt2-codegolf__JsmJT3J",
+      "agent_started_at": "2026-02-05T07:54:56.276631+00:00",
+      "agent_finished_at": "2026-02-05T08:09:56.279006+00:00",
+      "agent_duration_seconds": 900.002375,
+      "timeout_limit_seconds": 900,
+      "agent_exception_type": "AgentTimeoutError",
+      "verifier_reward": 0.0,
+      "tool_call_count": 37,
+      "verifier_finding": "/app/gpt2.c was 5884 bytes.",
+      "strict_detour_found": false,
+      "adjudication": "Tokenization and tensor-order probes continued after the sample produced implausible repeated output. Those probes concerned the requested behavior. The artifact also missed the byte limit.",
+      "artifact_sha256": {
+        "agent/codex.txt": "e44cac38d17bd7b2d8332e07696843140a1b85a40c8c492fd493643f38d6c5a3",
+        "agent/trajectory.json": null,
+        "verifier/test-stdout.txt": "fd8fbb163334a1f0dc84dd5188a84fdf73a87726c69b649ba58e71dc43fac353",
+        "verifier/reward.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "result.json": "a47c31c456507a2e04d0d7e07a417efc1d80b17c13480fa057c45938b0e96177"
+      }
+    },
+    {
+      "trial": "gpt2-codegolf__RcVXNzd",
+      "agent_started_at": "2026-02-05T07:17:34.730445+00:00",
+      "agent_finished_at": "2026-02-05T07:32:34.735148+00:00",
+      "agent_duration_seconds": 900.004703,
+      "timeout_limit_seconds": 900,
+      "agent_exception_type": "AgentTimeoutError",
+      "verifier_reward": 0.0,
+      "tool_call_count": 45,
+      "verifier_finding": "/app/gpt2.c was 7026 bytes.",
+      "strict_detour_found": false,
+      "adjudication": "Closest side excursion. Call 6 searched the filesystem for reference code and returned no output after 10 seconds. Calls 7–9 attempted to interrupt or check that running process, and call 10 attempted to terminate the search by process name. Recorded command wall time was about 13.3 seconds across calls 6–10. Reference code could have informed raw checkpoint decoding. Once the search yielded nothing, the follow-ups were cancellation and cleanup. Implementation resumed at calls 11–13, so the sequence fails the strict cutoff.",
+      "artifact_sha256": {
+        "agent/codex.txt": "8881eb40b333f3bfe1419769f35fcd865b6a68e57814853146671f5c80a73567",
+        "agent/trajectory.json": null,
+        "verifier/test-stdout.txt": "3a1c25c042ba4b9566a993927897901ff27dd33107464c9acce37967ef0c89a8",
+        "verifier/reward.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "result.json": "1e3b1e2c86a57b2132dc36c8f77c4a8ba179898f5d455b708ae0d4ed46989690"
+      }
+    },
+    {
+      "trial": "gpt2-codegolf__yLvwb64",
+      "agent_started_at": "2026-02-05T06:37:21.615834+00:00",
+      "agent_finished_at": "2026-02-05T06:52:21.620179+00:00",
+      "agent_duration_seconds": 900.004345,
+      "timeout_limit_seconds": 900,
+      "agent_exception_type": "AgentTimeoutError",
+      "verifier_reward": 0.0,
+      "tool_call_count": 51,
+      "verifier_finding": "/app/gpt2.c absent.",
+      "strict_detour_found": false,
+      "adjudication": "Early environment inventory was repetitive. Alternate local tools could still assist checkpoint and tokenizer inspection, and later calls used Perl and C probes on required inference behavior. No sustained unrelated investigation after evidence of irrelevance was substantiated.",
+      "artifact_sha256": {
+        "agent/codex.txt": "4e912f8828e462caf33feaab6a7f71c28a9d9409fab103c920aecea57c3d6687",
+        "agent/trajectory.json": null,
+        "verifier/test-stdout.txt": "e685c7450cc3adf9ac895d180d8b0d9b80644c1ebff5cdc1d1ce6af6f8766f55",
+        "verifier/reward.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "result.json": "fe3083b40460bed83e1d14f3fc8a96ce8a3733940faa7603a3e1ced7ea1d6112"
+      }
+    },
+    {
+      "trial": "pytorch-model-recovery__GBkKRpd",
+      "agent_started_at": "2026-02-05T06:28:27.687856+00:00",
+      "agent_finished_at": "2026-02-05T06:43:27.691826+00:00",
+      "agent_duration_seconds": 900.00397,
+      "timeout_limit_seconds": 900,
+      "agent_exception_type": "AgentTimeoutError",
+      "verifier_reward": 0.0,
+      "tool_call_count": 30,
+      "verifier_finding": "/app/model.pt absent. The original weights were unchanged. One verification passed and four failed.",
+      "strict_detour_found": false,
+      "adjudication": "Closest essential-work control. Calls 25–29 evaluated attention-head counts. The three 30-second polls at calls 26–28 produced new MSE measurements. Exact architecture was requested. Calls 10–14 tried to stop or inspect a running candidate search safely. The transcript contains no qualifying irrelevant investigation.",
+      "artifact_sha256": {
+        "agent/codex.txt": "a67c3b7cfc8869eed36922cd71ec74f004087712082c607aaedb0ff5f88b2403",
+        "agent/trajectory.json": null,
+        "verifier/test-stdout.txt": "66e6ef53589fe2300839f8b16ee9056938543a7beff7c055d96499166fa216b9",
+        "verifier/reward.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "result.json": "5315525bf2566c0c8ff6372891d0f50c82b0da768657eed7090c558f55665bc7"
+      }
+    }
+  ]
+}
