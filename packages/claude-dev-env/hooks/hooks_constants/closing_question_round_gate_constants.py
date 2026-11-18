@@ -212,6 +212,7 @@ FOOTER_INSTRUCTION = (
     " background work runs, end the reply with no closing line."
 )
 REASON_PART_SEPARATOR = "\n"
+SCANNED_PARAGRAPH_SEPARATOR = "\n\n"
 
 SESSION_ID_KEY = "session_id"
 BYPASS_KEYWORD = "--nocards"

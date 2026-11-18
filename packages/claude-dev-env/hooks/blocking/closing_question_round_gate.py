@@ -16,7 +16,8 @@ The stretch is every top-level record after the last question call that
 reached the user, then the payload's closing reply. The closing reply is the
 newest text after the last work call. Each reply's In progress footer, as
 ``closing_question_round_footer.split_footer`` reads it, is cut off first, so
-a marker word inside a footer counts for nothing. A marker line is a prose
+a marker word inside a footer counts for nothing; a footer item that ends with
+a question mark stays in the scan. A marker line is a prose
 line ``closing_question_round_open_items`` finds in the rest: a marker word or
 a line that ends with a question mark. Work is any tool call that is no
 question call and that sits in the stretch after the last record whose final
@@ -129,6 +130,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     OUTPUT_WATCHDOG_SECONDS,
     QUOTED_LINE_TEMPLATE,
     REASON_PART_SEPARATOR,
+    SCANNED_PARAGRAPH_SEPARATOR,
     REMAINING_LINES_TEMPLATE,
     SESSION_ATTENDED_ENVIRONMENT_VARIABLE,
     STDIN_WATCHDOG_SECONDS,
@@ -136,6 +138,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     SUBAGENT_ID_KEY,
     WATCHDOG_GRACE_SECONDS,
 )
+from hooks_constants.final_reply_gate_constants import QUESTION_MARK, TRAILING_MARKUP_CHARACTERS
 from hooks_constants.hook_block_logger import log_hook_block
 from hooks_constants.setup_project_paths_constants import UTF8_BYTE_ORDER_MARK
 from hooks_constants.open_tasks_stop_gate_constants import (
@@ -335,6 +338,18 @@ def footer_hold_reason(
     )
 
 
+def _scanned_text(reply_text: str) -> str:
+    split_reply = split_footer(reply_text)
+    if split_reply.footer_items is None:
+        return reply_text
+    all_question_items = [
+        each_item
+        for each_item in split_reply.footer_items
+        if each_item.rstrip(TRAILING_MARKUP_CHARACTERS).endswith(QUESTION_MARK)
+    ]
+    return SCANNED_PARAGRAPH_SEPARATOR.join([split_reply.body, *all_question_items])
+
+
 def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -> str | None:
     covered_session = _covered_texts_and_records(all_hook_input_fields, deadline_at)
     if covered_session is None:
@@ -345,7 +360,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     all_closing_texts = _closing_reply_texts(all_stretch_records, all_payload_texts)
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
     all_texts = [
-        split_footer(each_text).body
+        _scanned_text(each_text)
         for each_text in [*assistant_texts(all_stretch_records), *all_payload_texts]
     ]
     if not has_background_work(all_hook_input_fields):
