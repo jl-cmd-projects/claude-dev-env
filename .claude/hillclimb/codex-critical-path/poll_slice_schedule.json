@@ -1,0 +1,92 @@
+{
+  "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+  "budget_seconds": 360,
+  "seed": 70718692,
+  "source_commit": "f32981fb92887222fb9f54aa26fa52fa5cea40b4",
+  "rows": [
+    {
+      "case": "external",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "s30720",
+      "candidate": "s75399",
+      "parent": "s30720",
+      "fork": "s75399",
+      "order": [
+        "baseline",
+        "candidate"
+      ]
+    },
+    {
+      "case": "pending",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "s33468",
+      "candidate": "s93936",
+      "parent": "s33468",
+      "fork": "s93936",
+      "order": [
+        "baseline",
+        "candidate"
+      ]
+    },
+    {
+      "case": "independent",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "s87197",
+      "candidate": "s37335",
+      "parent": "s37335",
+      "fork": "s87197",
+      "order": [
+        "candidate",
+        "baseline"
+      ]
+    },
+    {
+      "case": "external",
+      "cohort": "development",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "s23233",
+      "candidate": "s18555",
+      "parent": "s18555",
+      "fork": "s23233",
+      "order": [
+        "candidate",
+        "baseline"
+      ]
+    },
+    {
+      "case": "nochange",
+      "cohort": "reserve",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "s12062",
+      "candidate": "s31008",
+      "parent": "s31008",
+      "fork": "s12062",
+      "order": [
+        "candidate",
+        "baseline"
+      ]
+    },
+    {
+      "case": "event",
+      "cohort": "reserve",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "s96858",
+      "candidate": "s48731",
+      "parent": "s96858",
+      "fork": "s48731",
+      "order": [
+        "baseline",
+        "candidate"
+      ]
+    }
+  ]
+}

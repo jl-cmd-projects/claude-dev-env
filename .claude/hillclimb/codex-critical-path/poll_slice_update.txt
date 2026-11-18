@@ -1,0 +1,1 @@
+Change of plan. Only move #8692. The maintainer is scheduled to check its thread at 17:10 desk time. Stay with it through that checkpoint. If it clears, get #8692 through the normal queue and verify the result. If it is still blocked then, hand it off. Keep the other PRs read-only and tell me where they stand.
