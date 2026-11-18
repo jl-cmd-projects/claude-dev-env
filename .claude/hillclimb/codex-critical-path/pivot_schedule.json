@@ -1,0 +1,73 @@
+{
+  "seed": "20261118-operator-pivot-v1",
+  "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+  "budget_seconds": 360,
+  "prefix_work_actions": 2,
+  "rows": [
+    {
+      "id": "u65409",
+      "case": "unbound",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "baseline": "e33241",
+      "candidate": "e67683",
+      "reviewer": "n21708",
+      "incumbent_arm": "baseline"
+    },
+    {
+      "id": "u76673",
+      "case": "unbound",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "e88491",
+      "candidate": "e80599",
+      "reviewer": "n91575",
+      "incumbent_arm": "candidate"
+    },
+    {
+      "id": "u86046",
+      "case": "bound",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "baseline": "e15689",
+      "candidate": "e48933",
+      "reviewer": "n13955",
+      "incumbent_arm": "baseline"
+    },
+    {
+      "id": "u79573",
+      "case": "bound",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "e13399",
+      "candidate": "e96437",
+      "reviewer": "n69291",
+      "incumbent_arm": "candidate"
+    },
+    {
+      "id": "u37106",
+      "case": "capture",
+      "model": "gpt-6.1-sol",
+      "reasoning_effort": "high",
+      "baseline": "e77911",
+      "candidate": "e97594",
+      "reviewer": "n65630",
+      "incumbent_arm": "candidate"
+    },
+    {
+      "id": "u73768",
+      "case": "capture",
+      "model": "gpt-6.2-sol",
+      "reasoning_effort": "high",
+      "baseline": "e42477",
+      "candidate": "e92152",
+      "reviewer": "n46311",
+      "incumbent_arm": "baseline"
+    }
+  ],
+  "case_sha256": {
+    "pivot_case.py": "2452078ea95f708582f65f094fa258c9a46588c5075fe0c5e65837cf865b7ed8",
+    "pivot_capture.py": "5a1ad1e13d00877e3908e543c8b6136a2470ca8a4120b87aaa8ff48593555663",
+    "pivot_reviewer.txt": "7a83fb8de999e1633a27e2db8c090fdd79791c887fe4c5c4ba4e7b384035a920"
+  }
+}
