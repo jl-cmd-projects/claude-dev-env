@@ -444,7 +444,7 @@
           "content": [
             {
               "type": "text",
-              "text": "The notes file has two lines about the export job.\n\nOpen items: none."
+              "text": "The notes file has two lines about the export job."
             }
           ]
         }
@@ -502,7 +502,7 @@
           "content": [
             {
               "type": "text",
-              "text": "The note is written.\n\nOpen items: none."
+              "text": "The note is written."
             }
           ]
         }
@@ -1838,9 +1838,137 @@
     ]
   },
   {
-    "id": "hold-work-with-no-card-or-declaration",
-    "group": "work",
+    "id": "hold-work-with-a-task-in-progress-and-no-footer",
+    "group": "footer",
     "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The retry flag is in place."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ]
+  },
+  {
+    "id": "hold-finished-after-an-agent-call-with-a-task-in-progress",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_a1",
+              "name": "Agent",
+              "input": {
+                "prompt": "Check the export job."
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_a1",
+              "content": "The export job is fine."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "finished"
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ]
+  },
+  {
+    "id": "allow-work-with-nothing-in-progress-and-no-closing-line",
+    "group": "footer",
+    "expected": "allow",
     "transcript": [
       {
         "type": "user",
@@ -1895,65 +2023,8 @@
     ]
   },
   {
-    "id": "hold-finished-after-an-agent-call",
-    "group": "work",
-    "expected": "hold",
-    "transcript": [
-      {
-        "type": "user",
-        "turnOrigin": "human",
-        "promptSource": "typed",
-        "message": {
-          "role": "user",
-          "content": "Add the retry flag to the export job."
-        }
-      },
-      {
-        "type": "assistant",
-        "message": {
-          "role": "assistant",
-          "content": [
-            {
-              "type": "tool_use",
-              "id": "toolu_a1",
-              "name": "Agent",
-              "input": {
-                "prompt": "Check the export job."
-              }
-            }
-          ]
-        }
-      },
-      {
-        "type": "user",
-        "message": {
-          "role": "user",
-          "content": [
-            {
-              "type": "tool_result",
-              "tool_use_id": "toolu_a1",
-              "content": "The export job is fine."
-            }
-          ]
-        }
-      },
-      {
-        "type": "assistant",
-        "message": {
-          "role": "assistant",
-          "content": [
-            {
-              "type": "text",
-              "text": "finished"
-            }
-          ]
-        }
-      }
-    ]
-  },
-  {
-    "id": "allow-work-with-the-declaration",
-    "group": "work",
+    "id": "allow-work-with-a-bold-footer-heading",
+    "group": "footer",
     "expected": "allow",
     "transcript": [
       {
@@ -2001,67 +2072,17 @@
           "content": [
             {
               "type": "text",
-              "text": "The retry flag is in place.\n\nOpen items: none."
+              "text": "The retry flag is in place.\n\n**In progress:**\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish."
             }
           ]
         }
       }
-    ]
-  },
-  {
-    "id": "allow-work-with-the-declaration-without-its-period",
-    "group": "work",
-    "expected": "allow",
-    "transcript": [
+    ],
+    "tasks": [
       {
-        "type": "user",
-        "turnOrigin": "human",
-        "promptSource": "typed",
-        "message": {
-          "role": "user",
-          "content": "Add the retry flag to the export job."
-        }
-      },
-      {
-        "type": "assistant",
-        "message": {
-          "role": "assistant",
-          "content": [
-            {
-              "type": "tool_use",
-              "id": "toolu_e1",
-              "name": "Edit",
-              "input": {
-                "file_path": "jobs/export.py"
-              }
-            }
-          ]
-        }
-      },
-      {
-        "type": "user",
-        "message": {
-          "role": "user",
-          "content": [
-            {
-              "type": "tool_result",
-              "tool_use_id": "toolu_e1",
-              "content": "The file was updated."
-            }
-          ]
-        }
-      },
-      {
-        "type": "assistant",
-        "message": {
-          "role": "assistant",
-          "content": [
-            {
-              "type": "text",
-              "text": "The retry flag is in place.\n\nOpen items: none"
-            }
-          ]
-        }
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
       }
     ]
   },
@@ -2115,7 +2136,7 @@
           "content": [
             {
               "type": "text",
-              "text": "I created todo.md with the line Ship the docs.\n\nOpen items: none."
+              "text": "I created todo.md with the line Ship the docs."
             }
           ]
         }
@@ -2123,8 +2144,8 @@
     ]
   },
   {
-    "id": "allow-work-with-a-bold-declaration-in-the-payload",
-    "group": "work",
+    "id": "allow-work-with-a-footer-in-the-payload",
+    "group": "footer",
     "expected": "allow",
     "transcript": [
       {
@@ -2167,69 +2188,19 @@
       }
     ],
     "payload": {
-      "last_assistant_message": "The retry flag is in place.\n\n**Open items: none.**"
-    }
-  },
-  {
-    "id": "hold-work-with-a-declaration-in-backticks",
-    "group": "work",
-    "expected": "hold",
-    "transcript": [
+      "last_assistant_message": "The retry flag is in place.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish."
+    },
+    "tasks": [
       {
-        "type": "user",
-        "turnOrigin": "human",
-        "promptSource": "typed",
-        "message": {
-          "role": "user",
-          "content": "Add the retry flag to the export job."
-        }
-      },
-      {
-        "type": "assistant",
-        "message": {
-          "role": "assistant",
-          "content": [
-            {
-              "type": "tool_use",
-              "id": "toolu_e1",
-              "name": "Edit",
-              "input": {
-                "file_path": "jobs/export.py"
-              }
-            }
-          ]
-        }
-      },
-      {
-        "type": "user",
-        "message": {
-          "role": "user",
-          "content": [
-            {
-              "type": "tool_result",
-              "tool_use_id": "toolu_e1",
-              "content": "The file was updated."
-            }
-          ]
-        }
-      },
-      {
-        "type": "assistant",
-        "message": {
-          "role": "assistant",
-          "content": [
-            {
-              "type": "text",
-              "text": "The retry flag is in place.\n\n`Open items: none.`"
-            }
-          ]
-        }
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
       }
     ]
   },
   {
-    "id": "hold-work-with-a-declaration-that-is-not-the-last-line",
-    "group": "work",
+    "id": "hold-work-with-the-footer-in-a-code-fence",
+    "group": "footer",
     "expected": "hold",
     "transcript": [
       {
@@ -2277,10 +2248,81 @@
           "content": [
             {
               "type": "text",
-              "text": "Open items: none.\n\nThe retry flag is in place."
+              "text": "The retry flag is in place.\n\n```\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish.\n```"
             }
           ]
         }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ]
+  },
+  {
+    "id": "hold-work-with-a-footer-that-is-not-at-the-end",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Add the retry flag to the export job."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_e1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_e1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "In progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish.\n\nThe retry flag is in place."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
       }
     ]
   },
@@ -2484,8 +2526,8 @@
     ]
   },
   {
-    "id": "hold-work-after-an-answered-card",
-    "group": "work",
+    "id": "hold-work-after-an-answered-card-with-a-task-in-progress",
+    "group": "footer",
     "expected": "hold",
     "transcript": [
       {
@@ -2594,6 +2636,13 @@
             }
           ]
         }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
       }
     ]
   },
@@ -2886,9 +2935,9 @@
     }
   },
   {
-    "id": "allow-work-with-background-tasks",
-    "group": "session the gate leaves alone",
-    "expected": "allow",
+    "id": "hold-work-with-background-work-and-no-footer",
+    "group": "footer",
+    "expected": "hold",
     "transcript": [
       {
         "type": "user",
@@ -3067,7 +3116,7 @@
     ]
   },
   {
-    "id": "allow-work-after-two-work-holds",
+    "id": "allow-work-after-two-footer-holds",
     "group": "hold cap",
     "expected": "allow",
     "transcript": [
@@ -3126,7 +3175,7 @@
         "isMeta": true,
         "message": {
           "role": "user",
-          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+          "content": "Stop hook feedback:\nThis session did work while work is still in progress and ended without the In progress footer.\nRead the task list."
         }
       },
       {
@@ -3146,7 +3195,7 @@
         "isMeta": true,
         "message": {
           "role": "user",
-          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+          "content": "Stop hook feedback:\nThis session did work while work is still in progress and ended without the In progress footer.\nRead the task list."
         }
       },
       {
@@ -3160,6 +3209,13 @@
             }
           ]
         }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
       }
     ]
   },
@@ -3223,7 +3279,7 @@
         "isMeta": true,
         "message": {
           "role": "user",
-          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+          "content": "Stop hook feedback:\nThis session did work while work is still in progress and ended without the In progress footer.\nRead the task list."
         }
       },
       {
@@ -3254,6 +3310,13 @@
             }
           ]
         }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
       }
     ]
   },
@@ -3305,7 +3368,7 @@
         "isMeta": true,
         "message": {
           "role": "user",
-          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+          "content": "Stop hook feedback:\nThis session did work while work is still in progress and ended without the In progress footer.\nRead the task list."
         }
       },
       {
@@ -3322,7 +3385,7 @@
         "isMeta": true,
         "message": {
           "role": "user",
-          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+          "content": "Stop hook feedback:\nThis session did work while work is still in progress and ended without the In progress footer.\nRead the task list."
         }
       },
       {
@@ -3337,11 +3400,18 @@
           ]
         }
       }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
     ]
   },
   {
-    "id": "hold-declaration-in-a-star-list-item",
-    "group": "work",
+    "id": "hold-footer-heading-inside-a-list-item",
+    "group": "footer",
     "expected": "hold",
     "transcript": [
       {
@@ -3389,10 +3459,17 @@
           "content": [
             {
               "type": "text",
-              "text": "Done.\n\n* Open items: none."
+              "text": "Done.\n\n* In progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish."
             }
           ]
         }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
       }
     ]
   },
@@ -3456,7 +3533,7 @@
         "isMeta": true,
         "message": {
           "role": "user",
-          "content": "Stop hook feedback:\nThis session did work and ended without a question card or the declaration line.\nRead the task list."
+          "content": "Stop hook feedback:\nThis session did work while work is still in progress and ended without the In progress footer.\nRead the task list."
         }
       },
       {
@@ -3464,7 +3541,7 @@
         "isMeta": true,
         "message": {
           "role": "user",
-          "content": "A worker reports. It quotes this: This session did work and ended without a question card or the declaration line."
+          "content": "A worker reports. It quotes this: This session did work while work is still in progress and ended without the In progress footer."
         }
       },
       {
@@ -3479,11 +3556,18 @@
           ]
         }
       }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
     ]
   },
   {
-    "id": "hold-work-after-an-earlier-declaration-with-no-closing-text",
-    "group": "work",
+    "id": "hold-work-after-an-earlier-footer-with-no-closing-text",
+    "group": "footer",
     "expected": "hold",
     "transcript": [
       {
@@ -3531,7 +3615,7 @@
           "content": [
             {
               "type": "text",
-              "text": "The retry flag is in place.\n\nOpen items: none."
+              "text": "The retry flag is in place.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish."
             }
           ]
         }
@@ -3574,11 +3658,18 @@
           ]
         }
       }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
     ]
   },
   {
-    "id": "pass-chat-only-turn-after-a-declared-work-turn",
-    "group": "work",
+    "id": "allow-chat-only-turn-after-a-work-turn-that-ended-with-the-footer",
+    "group": "footer",
     "expected": "allow",
     "transcript": [
       {
@@ -3626,7 +3717,7 @@
           "content": [
             {
               "type": "text",
-              "text": "The retry flag is in place.\n\nOpen items: none."
+              "text": "The retry flag is in place.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish."
             }
           ]
         }
@@ -3651,6 +3742,13 @@
             }
           ]
         }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
       }
     ]
   },
@@ -3796,7 +3894,7 @@
     ]
   },
   {
-    "id": "allow-declaration-after-the-task-completed",
+    "id": "allow-no-closing-line-after-the-task-completed",
     "group": "task in progress",
     "expected": "allow",
     "transcript": [
@@ -3929,10 +4027,1188 @@
           "content": [
             {
               "type": "text",
-              "text": "Nothing to add.\n\nOpen items: none."
+              "text": "Nothing to add."
             }
           ]
         }
+      }
+    ]
+  },
+  {
+    "id": "allow-footer-covers-every-task-in-progress",
+    "group": "footer",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish.\n- I am watching the discount ledger run. At 9:00 I will open its pull request if the run passes.\n- I am also getting the ledger pull request ready."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "27",
+        "subject": "Merge stale theme PR",
+        "status": "completed"
+      },
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      },
+      {
+        "id": "29",
+        "subject": "Watch discount ledger scheduled wake",
+        "status": "in_progress"
+      },
+      {
+        "id": "30",
+        "subject": "Open ledger PR",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "hold-footer-leaves-out-a-task-in-progress",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish.\n- I am also getting the ledger pull request ready."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      },
+      {
+        "id": "29",
+        "subject": "Watch discount ledger scheduled wake",
+        "status": "in_progress"
+      },
+      {
+        "id": "30",
+        "subject": "Open ledger PR",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "hold-footer-in-a-chat-only-turn-leaves-out-a-task-in-progress",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Where does the list reader fix stand?"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The fix is waiting for its last tests.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish.\n- I am also getting the ledger pull request ready."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      },
+      {
+        "id": "29",
+        "subject": "Watch discount ledger scheduled wake",
+        "status": "in_progress"
+      },
+      {
+        "id": "30",
+        "subject": "Open ledger PR",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "hold-footer-names-only-a-word-another-open-task-shares",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish.\n- I am watching the ledger run."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      },
+      {
+        "id": "29",
+        "subject": "Watch discount ledger scheduled wake",
+        "status": "in_progress"
+      },
+      {
+        "id": "30",
+        "subject": "Open ledger PR",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "allow-footer-matches-a-task-word-by-its-first-five-letters",
+    "group": "footer",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The fix is pushed.\n\nIn progress:\n- I am fixing how the readers load each item. The last tests run now.\n- I am watching the discount run. At 9:00 I check it."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      },
+      {
+        "id": "29",
+        "subject": "Watch discount ledger scheduled wake",
+        "status": "in_progress"
+      },
+      {
+        "id": "30",
+        "subject": "Open ledger PR",
+        "status": "pending"
+      }
+    ]
+  },
+  {
+    "id": "hold-declaration-beside-work-in-progress-while-background-work-runs",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed.\n\nOpen items: none."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ],
+    "payload": {
+      "background_tasks": [
+        {
+          "id": "a12",
+          "type": "subagent",
+          "status": "running",
+          "description": "lint fix follow-up"
+        }
+      ]
+    }
+  },
+  {
+    "id": "hold-declaration-beside-work-in-progress",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed.\n\nOpen items: none."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ]
+  },
+  {
+    "id": "allow-work-with-nothing-in-progress-and-no-footer",
+    "group": "footer",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed, and both tests pass."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "27",
+        "subject": "Merge stale theme PR",
+        "status": "completed"
+      }
+    ]
+  },
+  {
+    "id": "hold-background-work-and-a-task-in-progress-with-no-footer",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ],
+    "payload": {
+      "background_tasks": [
+        {
+          "id": "a12",
+          "type": "subagent",
+          "status": "running",
+          "description": "lint fix follow-up"
+        }
+      ]
+    }
+  },
+  {
+    "id": "allow-background-work-and-a-task-in-progress-with-a-footer",
+    "group": "footer",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish.\n- I am also getting the ledger pull request ready."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ],
+    "payload": {
+      "background_tasks": [
+        {
+          "id": "a12",
+          "type": "subagent",
+          "status": "running",
+          "description": "lint fix follow-up"
+        }
+      ]
+    }
+  },
+  {
+    "id": "hold-background-work-alone-with-no-footer",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed."
+            }
+          ]
+        }
+      }
+    ],
+    "payload": {
+      "background_tasks": [
+        {
+          "id": "a12",
+          "type": "subagent",
+          "status": "running",
+          "description": "lint fix follow-up"
+        }
+      ]
+    }
+  },
+  {
+    "id": "allow-background-work-alone-with-a-footer",
+    "group": "footer",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed.\n\nIn progress:\n- I am waiting for the last tests on the list reader fix."
+            }
+          ]
+        }
+      }
+    ],
+    "payload": {
+      "background_tasks": [
+        {
+          "id": "a12",
+          "type": "subagent",
+          "status": "running",
+          "description": "lint fix follow-up"
+        }
+      ]
+    }
+  },
+  {
+    "id": "allow-marker-words-inside-the-footer",
+    "group": "footer",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. The last tests are pending.\n- I am watching the discount ledger run. Its pull request is blocked on that run."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      },
+      {
+        "id": "29",
+        "subject": "Watch discount ledger scheduled wake",
+        "status": "in_progress"
+      }
+    ]
+  },
+  {
+    "id": "hold-marker-word-in-the-body-above-a-footer",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed. I deferred the docs change.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ]
+  },
+  {
+    "id": "allow-chat-only-turn-with-a-task-in-progress-and-no-footer",
+    "group": "footer",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Where does the list reader fix stand?"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is waiting for its last tests."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ]
+  },
+  {
+    "id": "allow-footer-for-tasks-the-transcript-records",
+    "group": "footer",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_t1",
+              "name": "TaskCreate",
+              "input": {
+                "subject": "Fix list reader lint finding"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_t1",
+              "content": "Task #1 created successfully"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_t2",
+              "name": "TaskUpdate",
+              "input": {
+                "taskId": "1",
+                "status": "in_progress"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_t2",
+              "content": "Updated task #1 status"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed.\n\nIn progress:\n- I am fixing the list reader in pull request 8801. I am waiting for the last tests to finish."
+            }
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "hold-footer-with-no-list-item",
+    "group": "footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Fix the list reader."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_f1",
+              "name": "Edit",
+              "input": {
+                "file_path": "jobs/export.py"
+              }
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_f1",
+              "content": "The file was updated."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The list reader fix is pushed.\n\nIn progress:"
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
       }
     ]
   }
