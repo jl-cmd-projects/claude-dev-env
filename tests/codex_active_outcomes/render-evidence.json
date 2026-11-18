@@ -1,0 +1,23 @@
+{
+  "revision": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+  "cli": "codex-cli 0.166.0-alpha.1",
+  "render_model": "gpt-6.1-sol",
+  "reasoning_effort": "high",
+  "arms": {
+    "baseline": {
+      "source_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "installed_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "normalized_developer_input_sha256": "96eb3ae096f29ceddbd32bd88aa6b42cb8cebf3f2e0f8783b77c2f2e027c579b"
+    },
+    "candidate": {
+      "source_sha256": "8c4a79834e77c58f595d1912dcd93b9b58c072c6c40752afe92459ad50408f82",
+      "installed_sha256": "8c4a79834e77c58f595d1912dcd93b9b58c072c6c40752afe92459ad50408f82",
+      "normalized_developer_input_sha256": "96eb3ae096f29ceddbd32bd88aa6b42cb8cebf3f2e0f8783b77c2f2e027c579b"
+    },
+    "restored_baseline": {
+      "source_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "installed_sha256": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+      "normalized_developer_input_sha256": "96eb3ae096f29ceddbd32bd88aa6b42cb8cebf3f2e0f8783b77c2f2e027c579b"
+    }
+  }
+}

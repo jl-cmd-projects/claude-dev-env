@@ -1,0 +1,113 @@
+{
+  "runner": "Codex collaboration.spawn_agent, fork_turns=none",
+  "model": "gpt-6.2-sol",
+  "effort": "high",
+  "source_revision": "3ab5949a8ea9c1ad11280e8e9a524bee2587bb8a",
+  "repeats": 2,
+  "prompts": {
+    "baseline": "891bdb4c8d3ac3b7771ba6f653279ccf299ddb2ca0c4fd8748e2e17b71e7a11f",
+    "candidate": "8c4a79834e77c58f595d1912dcd93b9b58c072c6c40752afe92459ad50408f82"
+  },
+  "case_sources_sha256": {
+    "cases.json": "e6225b921c6c0033529ba600608dd73a9e43b74d5afc188889547538d80f9550",
+    "sustained_case.json": "0383e34a717b6f58c9bbc0049b9ae78cb96e624d7efa987094f54787579943bc"
+  },
+  "workers": {
+    "station_a": {
+      "id": "40160354052b",
+      "arm": "baseline",
+      "case": "film",
+      "repeat": 1
+    },
+    "station_b": {
+      "id": "db156fcf84d5",
+      "arm": "candidate",
+      "case": "film",
+      "repeat": 1
+    },
+    "station_c": {
+      "id": "d121257436e6",
+      "arm": "candidate",
+      "case": "admissions",
+      "repeat": 1
+    },
+    "station_d": {
+      "id": "841ed6a2961e",
+      "arm": "baseline",
+      "case": "admissions",
+      "repeat": 1
+    },
+    "station_e": {
+      "id": "2ea0bc2b86ef",
+      "arm": "baseline",
+      "case": "specimens",
+      "repeat": 1
+    },
+    "station_f": {
+      "id": "3cddf7d8cf08",
+      "arm": "candidate",
+      "case": "specimens",
+      "repeat": 1
+    },
+    "station_g": {
+      "id": "897d21a98e89",
+      "arm": "candidate",
+      "case": "film",
+      "repeat": 2
+    },
+    "station_h": {
+      "id": "8b98a1eb7759",
+      "arm": "baseline",
+      "case": "film",
+      "repeat": 2
+    },
+    "station_i": {
+      "id": "c14c4ab1bec6",
+      "arm": "baseline",
+      "case": "admissions",
+      "repeat": 2
+    },
+    "station_j": {
+      "id": "86a660943238",
+      "arm": "candidate",
+      "case": "admissions",
+      "repeat": 2
+    },
+    "station_k": {
+      "id": "5221673819e1",
+      "arm": "candidate",
+      "case": "specimens",
+      "repeat": 2
+    },
+    "station_l": {
+      "id": "b2bd3af888ff",
+      "arm": "baseline",
+      "case": "specimens",
+      "repeat": 2
+    },
+    "station_m": {
+      "id": "f11c88c485f0",
+      "arm": "baseline",
+      "case": "broadcast",
+      "repeat": 1
+    },
+    "station_n": {
+      "id": "94119dc524d8",
+      "arm": "candidate",
+      "case": "broadcast",
+      "repeat": 1
+    },
+    "station_o": {
+      "id": "ec1ba4035f78",
+      "arm": "candidate",
+      "case": "broadcast",
+      "repeat": 2
+    },
+    "station_p": {
+      "id": "06a7751b72e9",
+      "arm": "baseline",
+      "case": "broadcast",
+      "repeat": 2
+    }
+  }
+}

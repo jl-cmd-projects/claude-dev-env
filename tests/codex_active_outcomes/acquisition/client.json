@@ -1,0 +1,5 @@
+{
+  "file": "console.py",
+  "encoding": "utf-8",
+  "source": "\"\"\"Send one operation to the local work-order desk.\"\"\"\n\nimport json\nimport sys\nimport time\nimport uuid\nfrom pathlib import Path\n\n\ndef main() -> None:\n    mailbox = Path(__file__).resolve().parent / \".desk\"\n    message = mailbox / uuid.uuid4().hex\n    pending = message.with_suffix(\".pending\")\n    pending.write_text(json.dumps(sys.argv[1:]), encoding=\"utf-8\")\n    pending.rename(message.with_suffix(\".request\"))\n    answer = message.with_suffix(\".reply\")\n    deadline = time.monotonic() + 10\n    while not answer.exists() and time.monotonic() < deadline:\n        time.sleep(0.05)\n    if not answer.exists():\n        raise SystemExit(\"The local desk did not respond.\")\n    print(answer.read_text(encoding=\"utf-8\"))\n\n\nif __name__ == \"__main__\":\n    main()\n"
+}
