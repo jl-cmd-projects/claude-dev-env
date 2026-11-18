@@ -1,0 +1,134 @@
+{
+  "inputs": {
+    "f32fd4f7f6": {
+      "case": "seaport",
+      "wave": "portable-smoke",
+      "arm": "baseline",
+      "hook_context_sha256": "11984d841323b3f477c73a4255e97a7eeb38bc6ca72afe0815934f05b3597fdb",
+      "startup_sha256": "c9285087687161bfc955d5444646a6e871118a8386845dc03d9e6389248abb18",
+      "all_original_turns_response_sha256": "45ddcd67c39dd3cc149e0dbab9d6fef1a3f11d55f988847059d5d52d002f2498"
+    },
+    "9d071cb70b": {
+      "case": "seaport",
+      "wave": "portable-smoke",
+      "arm": "candidate",
+      "hook_context_sha256": "764d9c0a4e6d4d5ceb0cf75fef86bca0ebce22afa090803255229af16c58cb0e",
+      "startup_sha256": "fe221ab9d7c304c1eab408e075615789a462e8220dcd7e9d98a93a8d70a19d94",
+      "all_original_turns_response_sha256": "45ddcd67c39dd3cc149e0dbab9d6fef1a3f11d55f988847059d5d52d002f2498"
+    },
+    "5c8f80939c": {
+      "case": "estuary",
+      "wave": "portable-smoke",
+      "arm": "candidate",
+      "hook_context_sha256": "38b8a07ed68de511abedfdd6a8ca756453f24c9d283d7c52185d85a2b233623b",
+      "startup_sha256": "7e3210097a96e77b2b7185ec05eaa195c3938fa2bc9d52df75e6db4d99a032d8",
+      "all_original_turns_response_sha256": "cabe8c0529085a9ae3e157de47b801d6e652fa53720a9fcbe6b28a154539a366"
+    },
+    "e5d8fbb7ec": {
+      "case": "estuary",
+      "wave": "portable-smoke",
+      "arm": "baseline",
+      "hook_context_sha256": "11984d841323b3f477c73a4255e97a7eeb38bc6ca72afe0815934f05b3597fdb",
+      "startup_sha256": "c9285087687161bfc955d5444646a6e871118a8386845dc03d9e6389248abb18",
+      "all_original_turns_response_sha256": "cabe8c0529085a9ae3e157de47b801d6e652fa53720a9fcbe6b28a154539a366"
+    },
+    "a7e07a0395": {
+      "case": "copper",
+      "wave": "portable-smoke",
+      "arm": "baseline",
+      "hook_context_sha256": "b40e2a370323c675d7c99f85cf9371eff70b7f5c42a5b19e983781b20e920f64",
+      "startup_sha256": "822db615a1183e91b0f79658dcadd751c581096e8dd3cfcd95d92fd15f800286",
+      "all_original_turns_response_sha256": "89bf90a3f77f9ed04ff5daf66e39dc048920ade1cf4b8a1bc45888c659785aee"
+    },
+    "1ec81bc64f": {
+      "case": "copper",
+      "wave": "portable-smoke",
+      "arm": "candidate",
+      "hook_context_sha256": "7c56cb4883e893d9867e0fe81ccd157bc0f2c3e93942a261bdff9f49bbec1bed",
+      "startup_sha256": "7232f27ba490c6133d6feaa402ad7e211b2e23e7e02e0efe0554364126bcd2a8",
+      "all_original_turns_response_sha256": "89bf90a3f77f9ed04ff5daf66e39dc048920ade1cf4b8a1bc45888c659785aee"
+    },
+    "b74b4c20d9": {
+      "case": "seaport",
+      "wave": "portable-smoke-final",
+      "arm": "baseline",
+      "hook_context_sha256": "11984d841323b3f477c73a4255e97a7eeb38bc6ca72afe0815934f05b3597fdb",
+      "startup_sha256": "c9285087687161bfc955d5444646a6e871118a8386845dc03d9e6389248abb18",
+      "all_original_turns_response_sha256": "45ddcd67c39dd3cc149e0dbab9d6fef1a3f11d55f988847059d5d52d002f2498"
+    },
+    "9ee8845200": {
+      "case": "seaport",
+      "wave": "portable-smoke-final",
+      "arm": "candidate",
+      "hook_context_sha256": "e0a962f4f698bf1722f720c5e99987f9b064ff9775145ba70fda1cf1b005e484",
+      "startup_sha256": "eaa961f2b200c78abc9519c052416f86ff949100d0ed3b174fef28eb034ac91f",
+      "all_original_turns_response_sha256": "45ddcd67c39dd3cc149e0dbab9d6fef1a3f11d55f988847059d5d52d002f2498"
+    },
+    "59e6bb2ee0": {
+      "case": "estuary",
+      "wave": "portable-smoke-final",
+      "arm": "candidate",
+      "hook_context_sha256": "acbed523c55cb65b81169324451cfc52b36b5dcab844742a6be2978f7e159bd0",
+      "startup_sha256": "8049757303a9254de5cffcaa7dcda36180c6ee64bfe3630d818b9e890a31fdc8",
+      "all_original_turns_response_sha256": "cabe8c0529085a9ae3e157de47b801d6e652fa53720a9fcbe6b28a154539a366"
+    },
+    "5bb76fcfd3": {
+      "case": "estuary",
+      "wave": "portable-smoke-final",
+      "arm": "baseline",
+      "hook_context_sha256": "11984d841323b3f477c73a4255e97a7eeb38bc6ca72afe0815934f05b3597fdb",
+      "startup_sha256": "c9285087687161bfc955d5444646a6e871118a8386845dc03d9e6389248abb18",
+      "all_original_turns_response_sha256": "cabe8c0529085a9ae3e157de47b801d6e652fa53720a9fcbe6b28a154539a366"
+    },
+    "6e96c6585d": {
+      "case": "copper",
+      "wave": "portable-smoke-final",
+      "arm": "baseline",
+      "hook_context_sha256": "b40e2a370323c675d7c99f85cf9371eff70b7f5c42a5b19e983781b20e920f64",
+      "startup_sha256": "822db615a1183e91b0f79658dcadd751c581096e8dd3cfcd95d92fd15f800286",
+      "all_original_turns_response_sha256": "89bf90a3f77f9ed04ff5daf66e39dc048920ade1cf4b8a1bc45888c659785aee"
+    },
+    "db2afcb58d": {
+      "case": "copper",
+      "wave": "portable-smoke-final",
+      "arm": "candidate",
+      "hook_context_sha256": "4e4e9db930df4f86395bb5ac4878c3fcb2324c263c2aef479a4825c257ecf3e8",
+      "startup_sha256": "2d4f97fdcc464624856132d0420df208e61389b0062482471f61c5785c1f38b1",
+      "all_original_turns_response_sha256": "89bf90a3f77f9ed04ff5daf66e39dc048920ade1cf4b8a1bc45888c659785aee"
+    }
+  },
+  "source": {
+    "b4ae9441f3aee6094ac0da5557ead2b96798dfd8": {
+      "handler": "a7dde013de01799ab2eeae0fe73e8c405ceea21c4ebf7201d7cf0fb04302e726",
+      "extractor": "1499bab77d007d3bd073a853e6adb73b70760ff00b2b22b4f755c2a96d52774d"
+    },
+    "f9763fed950961b55d68277234cf2211e55e6da7": {
+      "handler": "af399717b3f01805144d0bdb2ba8c37b5d9b57761fb7d5107ecca0aae8c3007d",
+      "extractor": "89adab7f0587289d073c81c9b71a0cea25c21799f0807ff9fc7bd785bcb00c33"
+    },
+    "b73880058d247a1c35e5fb9c327bce59909f7303": {
+      "handler": "af399717b3f01805144d0bdb2ba8c37b5d9b57761fb7d5107ecca0aae8c3007d",
+      "extractor": "a76754ffbfbe4cd4a75aeb586089cb14d1e97b2de2f82531f9362af5acf791f5"
+    }
+  },
+  "controls": {
+    "literal": {
+      "b4ae9441": "/compact",
+      "f9763fed": "  Keep the limit. Quote <command-name>/compact</command-name> literally.  ",
+      "b7388005": "  Keep the limit. Quote <command-name>/compact</command-name> literally.  ",
+      "installed": "  Keep the limit. Quote <command-name>/compact</command-name> literally.  "
+    },
+    "image_filtered": {
+      "b4ae9441": "[image]",
+      "f9763fed": "<system-reminder>fixture marker</system-reminder> [image]",
+      "b7388005": "[image]",
+      "installed": "[image]"
+    },
+    "image_command": {
+      "b4ae9441": "/compact [image]",
+      "f9763fed": "<system-reminder><command-name>/compact</command-name></system-reminder> [image]",
+      "b7388005": "/compact [image]",
+      "installed": "/compact [image]"
+    }
+  }
+}

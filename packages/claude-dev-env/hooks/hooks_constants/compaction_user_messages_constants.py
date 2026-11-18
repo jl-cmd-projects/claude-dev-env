@@ -164,6 +164,13 @@ HOOK_EVENT_NAME_INPUT_KEY = "hook_event_name"
 SOURCE_INPUT_KEY = "source"
 TRANSCRIPT_PATH_INPUT_KEY = "transcript_path"
 ADDITIONAL_CONTEXT_KEY = "additionalContext"
+CODEX_RECALL_FLAG = "--codex"
+READ_USER_TURNS_FLAG = "--read-user-turns"
+CODEX_READER_HINT = (
+    "\n\nIf a missing or shortened turn could affect the current task, check the original "
+    "user wording with the session reader. Run the following argument vector, replacing FIRST "
+    "with a turn number. Append a last turn number for an inclusive range.\n\n{arguments}"
+)
 RECALL_CONTEXT_TEMPLATE = (
     "The context was just compacted, so the user's own words are gone from it. "
     "These are the messages the user typed in this session, oldest first, trimmed "
