@@ -31,9 +31,10 @@ def test_should_find_no_repeat_in_replies_that_each_say_something_new() -> None:
     assert report.all_top_lines == []
 
 
-def test_should_read_a_footer_heading_only_on_a_line_of_its_own() -> None:
+def test_should_count_a_footer_only_where_it_closes_the_reply() -> None:
     assert has_footer("Done.\n\n**In progress:**\n- I am shipping it.")
     assert not has_footer("The In progress: list is below.")
+    assert not has_footer("In progress:\n- I am shipping it.\n\nPick one when you are back.")
 
 
 def test_should_read_each_assistant_text_block_of_a_transcript(tmp_path: Path) -> None:

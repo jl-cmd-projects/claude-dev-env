@@ -34,7 +34,7 @@ if flow_directory not in sys.path:
 from repeated_footer_eval_support.config.constants import (
     ASSISTANT_RECORD_TYPE,
     CONTENT_KEY,
-    FOOTER_HEADING_PATTERN,
+    HOOKS_DIRECTORY,
     IS_SIDECHAIN_KEY,
     LINE_BREAK,
     LINE_REPORT_TEMPLATE,
@@ -51,6 +51,12 @@ from repeated_footer_eval_support.config.constants import (
     TOP_LINE_ROW_TEMPLATE,
     UTF8_ENCODING,
 )
+
+blocking_directory = str(HOOKS_DIRECTORY / "blocking")
+if blocking_directory not in sys.path:
+    sys.path.insert(0, blocking_directory)
+
+from closing_question_round_footer import split_footer
 
 logger = logging.getLogger(__name__)
 
@@ -103,18 +109,20 @@ def counted_lines(reply_text: str) -> list[str]:
 
 
 def has_footer(reply_text: str) -> bool:
-    """Return True when a line of the reply holds only the In progress heading.
+    """Return True when the reply ends with an In progress footer, as the stop gate reads it.
+
+    ::
+
+        "Done.\n\nIn progress:\n- I am shipping it."                  -> True
+        "In progress:\n- I am shipping it.\n\nPick one when back."    -> False
 
     Args:
         reply_text: One reply as the user saw it.
 
     Returns:
-        Whether the reply carries the footer heading.
+        Whether the reply ends with the footer.
     """
-    return any(
-        FOOTER_HEADING_PATTERN.match(each_line)
-        for each_line in reply_text.split(LINE_BREAK)
-    )
+    return split_footer(reply_text).footer_items is not None
 
 
 def repeat_report(all_replies: list[str]) -> RepeatReport:

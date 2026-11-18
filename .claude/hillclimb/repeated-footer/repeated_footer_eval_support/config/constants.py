@@ -17,9 +17,6 @@ LIST_MARKER_PATTERN = re.compile(r"^\s*(?:[-*+]|\d+[.)])\s+")
 SPACE_RUN_PATTERN = re.compile(r"\s+")
 SINGLE_SPACE = " "
 MINIMUM_COUNTED_LINE_LENGTH = 16
-FOOTER_HEADING_PATTERN = re.compile(
-    r"^\s*(?:\*\*|__)?in progress:(?:\*\*|__)?\s*$", re.IGNORECASE
-)
 TOP_LINE_COUNT = 5
 
 RECORD_TYPE_KEY = "type"

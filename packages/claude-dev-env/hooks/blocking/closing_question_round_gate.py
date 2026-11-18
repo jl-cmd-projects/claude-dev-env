@@ -91,6 +91,7 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Sequence
 from pathlib import Path
 from typing import NamedTuple
 
@@ -339,39 +340,61 @@ def _job_identities(all_background_tasks: object) -> list[str]:
     return []
 
 
-def background_job_key(all_hook_input_fields: dict[str, object]) -> str:
-    """Return a short key that names the set of background jobs the payload lists, the same in any order.
+def background_job_key(all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str]) -> str:
+    """Return a short key that names one footer and the background jobs the payload lists.
 
     ::
 
-        [{"id": "b"}, {"id": "a", "status": "running"}]   -> "footer-jobs-<digest of ["a", "b"]>"
-        ["ab", "c"] and ["a", "bc"]                        -> two different keys
-        "ledger" and {"ledger": {...}}                     -> the same key
+        footer F, jobs [{"id": "b"}, {"id": "a"}]   -> "footer-jobs-<digest of F and ["a", "b"]>"
+        footer F, jobs ["ab", "c"] and ["a", "bc"]  -> two different keys
+        footer F and footer G, the same jobs        -> two different keys
+        footer F, jobs "ledger" and {"ledger": {}}  -> the same key
 
-    The key holds the first 32 hex digits of the SHA-256 of the sorted ids as
-    JSON, so it stays one short file name however many jobs run.
+    The key holds the first 32 hex digits of the SHA-256 of the footer lines
+    and the sorted job ids as JSON, so it stays one short file name however
+    many jobs run.
+
+    Args:
+        all_hook_input_fields: The Stop hook payload.
+        all_footer_lines: The items of the footer the jobs went out with.
+
+    Returns:
+        The marker key for that footer and job set.
     """
     all_identities = _job_identities(all_hook_input_fields.get(BACKGROUND_TASKS_KEY))
-    digest = hashlib.sha256(json.dumps(sorted(all_identities)).encode()).hexdigest()
+    snapshot = json.dumps([list(all_footer_lines), sorted(all_identities)])
+    digest = hashlib.sha256(snapshot.encode()).hexdigest()
     return FOOTER_JOBS_KEY_TEMPLATE.format(digest=digest[:FOOTER_JOBS_DIGEST_LENGTH])
 
 
-def record_footer_jobs(all_hook_input_fields: dict[str, object]) -> None:
-    """Record that a footer went out while the payload's jobs ran in the background."""
-    claim_turn_showing(FOOTER_JOBS_MARKER_NAME, all_hook_input_fields, background_job_key(all_hook_input_fields))
+def record_footer_jobs(all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str]) -> None:
+    """Record that this footer went out while the payload's jobs ran in the background."""
+    claim_turn_showing(
+        FOOTER_JOBS_MARKER_NAME, all_hook_input_fields, background_job_key(all_hook_input_fields, all_footer_lines)
+    )
 
 
-def were_jobs_shown(all_hook_input_fields: dict[str, object]) -> bool:
-    """Return True when a footer went out while exactly the payload's background jobs ran.
+def were_jobs_shown(all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str] | None) -> bool:
+    """Return True when this footer went out while exactly the payload's background jobs ran.
 
     ::
 
-        footer sent while job a ran, job a runs now             -> True
-        footer sent while job a ran, job b replaced it          -> False
-        no record kept for this session                         -> False
+        footer F sent while job a ran, F newest, job a runs now        -> True
+        footer F sent while job a ran, job b took its place            -> False
+        F with job a, then G with job b, G newest, job a back          -> False
+        no footer, or no record kept for this session                  -> False
+
+    Args:
+        all_hook_input_fields: The Stop hook payload.
+        all_footer_lines: The items of the newest footer the user saw, or None.
+
+    Returns:
+        Whether that footer went out with exactly these jobs.
     """
+    if all_footer_lines is None:
+        return False
     return is_turn_claimed(
-        FOOTER_JOBS_MARKER_NAME, all_hook_input_fields, background_job_key(all_hook_input_fields)
+        FOOTER_JOBS_MARKER_NAME, all_hook_input_fields, background_job_key(all_hook_input_fields, all_footer_lines)
     ) is True
 
 
@@ -446,23 +469,23 @@ def is_footer_still_current(
         footer names #28 and #29, both in progress                -> True
         footer names #28 and #29, #29 finished                    -> False, one line too many
         footer names #28, #29 started since                       -> False, #29 left out
-        footer names #28 and the one job running in the background -> True
-        footer names #28 only, a job started in the background    -> False, the job is left out
-        one job took another's place since, the count unchanged   -> False, the jobs changed
+        footer names #28 and the jobs it went out with, still running -> True
+        footer names #28, a job started in the background since    -> False, the jobs changed
+        one job took another's place since                         -> False, the jobs changed
         no footer since the typed prompt or answered card         -> False
 
     The footer has one line per piece of work. With no background work, a
     footer with more lines than tasks in progress shows work that is done.
-    With background work, the footer must hold one line per task in progress
-    and one per background job, and a footer must have gone out while exactly
-    these jobs ran, so a job that starts, ends, or takes another's place
-    makes it owed, while a notice that a job is still going does not.
+    With background work, this footer must have gone out while exactly
+    these jobs ran. A job that starts, ends, or takes another's place makes
+    it owed, while a notice that a job is still going does not. The footer
+    may sum up all the jobs in one line.
 
     Args:
         all_last_footer_lines: The lines of the newest footer sent, or None.
         all_tasks: The session's tasks.
         background_count: How many background jobs the payload names.
-        were_jobs_in_footer: Whether a footer went out while exactly these jobs ran.
+        were_jobs_in_footer: Whether this footer went out while exactly these jobs ran.
 
     Returns:
         Whether the footer can stand for the reply.
@@ -472,8 +495,7 @@ def is_footer_still_current(
     if left_out_tasks(all_last_footer_lines, all_tasks.in_progress, all_tasks.still_open):
         return False
     if background_count:
-        is_count_current = len(all_last_footer_lines) == len(all_tasks.in_progress) + background_count
-        return is_count_current and were_jobs_in_footer
+        return were_jobs_in_footer
     return len(all_last_footer_lines) <= len(all_tasks.in_progress)
 
 
@@ -523,7 +545,7 @@ def footer_hold_reason(
             all_last_footer_lines,
             all_tasks,
             background_job_count(all_hook_input_fields),
-            were_jobs_shown(all_hook_input_fields),
+            were_jobs_shown(all_hook_input_fields, all_last_footer_lines),
         ):
             return None
         reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work)
@@ -549,11 +571,12 @@ def _scanned_text(reply_text: str) -> str:
     return SCANNED_PARAGRAPH_SEPARATOR.join([split_reply.body, *all_scanned_items])
 
 
-def _is_new_footer_reply(all_hook_input_fields: dict[str, object], closing_reply: str) -> bool:
+def _new_footer_items(all_hook_input_fields: dict[str, object], closing_reply: str) -> tuple[str, ...] | None:
     payload_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(payload_reply, str) or payload_reply.strip() != closing_reply.strip():
-        return False
-    return split_footer(closing_reply).footer_items is not None
+        return None
+    all_footer_items = split_footer(closing_reply).footer_items
+    return None if all_footer_items is None else tuple(all_footer_items)
 
 
 def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -> str | None:
@@ -565,8 +588,9 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         return None
     all_closing_texts = _closing_reply_texts(all_stretch_records, all_payload_texts)
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
-    if has_background_work(all_hook_input_fields) and _is_new_footer_reply(all_hook_input_fields, closing_reply):
-        record_footer_jobs(all_hook_input_fields)
+    all_new_footer_items = _new_footer_items(all_hook_input_fields, closing_reply)
+    if has_background_work(all_hook_input_fields) and all_new_footer_items is not None:
+        record_footer_jobs(all_hook_input_fields, all_new_footer_items)
     all_texts = [
         _scanned_text(each_text)
         for each_text in [*assistant_texts(all_stretch_records), *all_payload_texts]

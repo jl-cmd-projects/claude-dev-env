@@ -647,6 +647,32 @@ def test_should_hold_later_work_when_a_textless_stop_came_after_a_job_took_anoth
     ).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
+def test_should_hold_later_work_when_the_jobs_of_an_older_footer_came_back(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    tests_footer_reply = f"The tests started.\n\n{FOOTER}\n- I am running the automated tests so you know it works."
+    all_ledger_records, _ = _footer_then_work()
+    all_tests_records = [*all_ledger_records, *edit_records(), reply_record(tests_footer_reply)]
+    all_records = [*all_tests_records, *edit_records(), reply_record("The flag reads well.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_ledger_records, footer_stop_fields([{"id": "ledger"}])) is None
+    tests_fields = {"background_tasks": [{"id": "tests"}], "last_assistant_message": tests_footer_reply}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_tests_records, tests_fields) is None
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
+def test_should_allow_later_work_after_a_footer_that_sums_up_two_jobs_in_one_line(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    two_jobs = [{"id": "ledger"}, {"id": "tests"}]
+    all_footer_records, all_records = _footer_then_work()
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields(two_jobs)) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": two_jobs}) is None
+
+
 def test_should_hold_later_work_when_the_footer_shared_its_record_with_a_question_call(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

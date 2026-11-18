@@ -26,6 +26,13 @@ FOOTER_JOBS_MARKER_NAME = "closing-question-round-footer-jobs"
 FOOTER_JOBS_KEY_TEMPLATE = "footer-jobs-{digest}"
 FOOTER_JOBS_DIGEST_LENGTH = 32
 FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’]m\b)")
+ASK_OF_USER_PATTERN = re.compile(
+    r"\b(?:once|when|after|until|if|unless)\s+you\b"
+    r"|\byou\s+(?:need|must|should|have)\s+to\b"
+    r"|\bneeds?\s+you\b"
+    r"|\b(?:waiting|wait)\s+(?:on|for)\s+you\b",
+    re.IGNORECASE,
+)
 ALL_BACKGROUND_JOB_ID_KEYS = ("id", "task_id", "taskId")
 HUMAN_TURN_ORIGIN = "human"
 IS_SIDECHAIN_KEY = "isSidechain"

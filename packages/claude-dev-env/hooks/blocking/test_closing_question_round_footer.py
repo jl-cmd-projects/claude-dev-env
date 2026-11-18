@@ -106,3 +106,13 @@ def test_should_keep_a_footer_of_asks_for_the_user_in_the_list_check_text() -> N
     assert list_check_text(mixed_reply) == mixed_reply
     assert list_check_text("Done.\n\nIn progress:\n- I\u2019m shipping 8590.").strip() == "Done."
 
+
+def test_should_keep_a_first_person_footer_that_waits_on_the_user_in_the_list_check_text() -> None:
+    approval_reply = (
+        "Done.\n\nIn progress:\n- I am shipping 8590.\n- I can proceed once you approve the release.\n"
+        "- I am watching the ledger."
+    )
+    status_reply = "Done.\n\nIn progress:\n- I am watching the discount ledger so you see its next update."
+    assert list_check_text(approval_reply) == approval_reply
+    assert list_check_text(status_reply).strip() == "Done."
+
