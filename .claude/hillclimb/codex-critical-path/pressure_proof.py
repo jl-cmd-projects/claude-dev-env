@@ -158,10 +158,17 @@ def study(root):
 
 
 def scrubber(root, runs):
-    replacements = {str(root): "<run-root>", text_file(INTERVENTION).strip(): "<masked instructions>"}
+    capture_location = root / "capture-location.json"
+    roots = {root}
+    if capture_location.exists():
+        roots.add(Path(read_json(capture_location)["root"]))
+    replacements = {str(location): "<run-root>" for location in roots}
+    replacements[text_file(INTERVENTION).strip()] = "<masked instructions>"
     for run_id, run in runs.items():
         directory = run["directory"]
-        replacements.update({str(directory / "work"): "<workspace>", str(directory): "<run>"})
+        for location in roots:
+            path = location / directory.relative_to(root)
+            replacements.update({str(path / "work"): "<workspace>", str(path): "<run>"})
         for field in ("session_id", "agent_id", "task_name"):
             value = run["launch"].get(field) or run["launch"]["receipt"].get(field)
             if isinstance(value, str) and len(value) >= 7:

@@ -1,5 +1,7 @@
 # Does Codex return to the user's task?
 
+The [operator-pressure replay](pressure_results.md) starts immediately before a documented field nudge. Five of six first replies delivered in each arm. An independent reader disputed both primary detour labels. In the [independent coding holdout](manifest_results.md), all eight client files passed and four repaired exporters passed new retry data. Neither arm diverted on the optional route. The study did not ship a production change.
+
 The [release-queue study](queue_results.md) followed six original workers through a changing check requirement, two installation windows and final handoff. It also audited a fixed sample of six published failed trials.
 
 The [follow-up study](long_results.md) compares a worker and its full-history fork on two hosted Codex models. Seven matched pairs completed correctly with and without a fresh reviewer. It also examines a public 46-minute failed run.
