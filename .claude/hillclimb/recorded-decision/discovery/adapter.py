@@ -9,6 +9,7 @@ from typing import TextIO
 from urllib.parse import urlsplit
 
 from discovery.config.discovery_constants import (
+    ACTIVITY_ROUTE,
     ALL_SEQUENCE_METRICS,
     ALL_SLOTS,
     ALL_SUPPORT_OPERATIONS,
@@ -21,7 +22,7 @@ from discovery.config.discovery_constants import (
     RECORD_ROUTE,
     WORK_ROUTE,
 )
-from fixture import Fixture, HttpReply, JsonRow, _cases, _DeskServer, _digest, grade as fixture_grade
+from fixture import Fixture, HttpReply, JsonRow, _cases, _decision_records, _DeskServer, _digest, grade as fixture_grade
 
 
 class DiscoveryCaptureRunFatal(ValueError):
@@ -39,12 +40,16 @@ def _versions(case: JsonRow) -> JsonRow:
                           for revision in case["proposals"]]}
 
 
+def _activity(case: JsonRow) -> JsonRow:
+    return {"records": _decision_records(case), "linked_proposals": _versions(case)["revisions"]}
+
+
 def _catalog(case: JsonRow) -> JsonRow:
     target = case["item"]["id"]
     return {"resources": [{"title": title, "href": href} for title, href in (
         ("Queue item", WORK_ROUTE.format(target=target)),
         ("Handoff notes", RECORD_ROUTE.format(target=target, resource="notes")),
-        ("Activity", RECORD_ROUTE.format(target=target, resource="activity")),
+        ("Activity", ACTIVITY_ROUTE.format(target=target)),
         ("Revision history", RECORD_ROUTE.format(target=target, resource="revisions")))],
         "actions": [{"title": "Apply queue change", "method": "POST", "href": APPLICATION_ROUTE.format(target=target),
                      "json_fields": {"revision": "string", "version": "integer", "choice": "listed on the queue item"}},
@@ -58,9 +63,8 @@ class DiscoveryFixture(Fixture):
     def _dispatch(self, method: str, path: str, body: object) -> HttpReply:
         target = self.case["item"]["id"]
         route = urlsplit(path).path
-        if method == "GET" and route == RECORD_ROUTE.format(target=target, resource="activity"):
-            status, records = self._decisions(target)
-            return status, {**records, "linked_proposals": _versions(self.case)["revisions"]}
+        if method == "GET" and path == ACTIVITY_ROUTE.format(target=target):
+            return self._read_activity(target, path)
         routes = {CATALOG_ROUTE: "catalog", RECORD_ROUTE.format(target=target, resource="notes"): "queue_notes",
                   RECORD_ROUTE.format(target=target, resource="revisions"): "revision_links"}
         if method == "GET" and route in routes:
@@ -68,9 +72,17 @@ class DiscoveryFixture(Fixture):
             payload = _support_payload(operation, self.case)
             self._record(operation, target, HTTPStatus.OK, resource_sha256=_digest(payload))
             return HTTPStatus.OK, payload
-        if route == HIDDEN_DECISIONS_ROUTE:
+        if route.strip("/") == HIDDEN_DECISIONS_ROUTE.strip("/"):
             return self._error("unsupported", path, HTTPStatus.NOT_FOUND, "unknown_route", method=method)
         return super()._dispatch(method, path, body)
+
+    def _read_activity(self, target: str, path: str) -> HttpReply:
+        payload = _activity(self.case)
+        all_records = payload["records"]
+        self._record("read_decisions", target, HTTPStatus.OK, records_sha256=_digest(all_records),
+                     record_ids=[record["id"] for record in all_records], request_path=path,
+                     response_sha256=_digest(payload))
+        return HTTPStatus.OK, payload
 
 
 def _support_payload(operation: str, case: JsonRow) -> JsonRow:
@@ -99,7 +111,8 @@ def render_order(case: JsonRow, endpoint: str) -> str:
             f"Workspace connector catalog: GET {endpoint.rstrip('/')}{CATALOG_ROUTE}\n")
 
 
-def _fixture_capture(case: JsonRow, all_events: list[JsonRow], state: JsonRow) -> tuple[list[JsonRow], JsonRow, dict[int, int]]:
+def _fixture_capture(case: JsonRow, all_events: list[JsonRow], state: JsonRow,
+                     should_require_route_receipts: bool) -> tuple[list[JsonRow], JsonRow, dict[int, int]]:
     all_fixture_events, original_by_fixture = [], {}
     previous_ms = 0
     for each_sequence, each_event in enumerate(all_events, 1):
@@ -111,6 +124,8 @@ def _fixture_capture(case: JsonRow, all_events: list[JsonRow], state: JsonRow) -
         if operation in ALL_SUPPORT_OPERATIONS:
             _verify_support(case, each_event, operation)
             continue
+        if operation == "read_decisions" and each_event["status"] == HTTPStatus.OK:
+            _verify_activity(case, each_event, should_require_route_receipts)
         fixture_sequence = len(all_fixture_events) + 1
         original_by_fixture[fixture_sequence] = each_sequence
         all_fixture_events.append({**each_event, "seq": fixture_sequence})
@@ -125,13 +140,22 @@ def _verify_support(case: JsonRow, event: JsonRow, operation: str) -> None:
         raise DiscoveryCaptureRunFatal("Unbound connector support receipt")
 
 
+def _verify_activity(case: JsonRow, event: JsonRow, should_require_route_receipts: bool) -> None:
+    if not should_require_route_receipts and "request_path" not in event and "response_sha256" not in event:
+        return
+    target = case["item"]["id"]
+    if (event.get("request_path") != ACTIVITY_ROUTE.format(target=target) or event["target"] != target
+            or event.get("response_sha256") != _digest(_activity(case))):
+        raise DiscoveryCaptureRunFatal("Unbound Activity path or full response receipt")
+
+
 def _first_sequence(all_events: list[JsonRow], operation: str, revision: str | None = None) -> int | None:
     return next((event["seq"] for event in all_events if event["operation"] == operation and event["status"] == HTTPStatus.OK
                  and (revision is None or event.get("revision") == revision)), None)
 
 
 def grade(case: JsonRow, all_events: list[JsonRow], state: JsonRow, launched_order: str,
-          endpoint: str, review: JsonRow | None = None) -> JsonRow:
+          endpoint: str, review: JsonRow | None = None, *, should_require_route_receipts: bool = False) -> JsonRow:
     """Score the frozen decision behavior after verifying catalog receipts.
 
     Args:
@@ -141,6 +165,7 @@ def grade(case: JsonRow, all_events: list[JsonRow], state: JsonRow, launched_ord
         launched_order: Exact full text sent to the worker.
         endpoint: Loopback origin for the work order.
         review: Blinded assessment of any delivered request.
+        should_require_route_receipts: Expect path and response proof for each decision read.
 
     Returns:
         The fixture score with original journal positions and discovery metrics.
@@ -148,7 +173,7 @@ def grade(case: JsonRow, all_events: list[JsonRow], state: JsonRow, launched_ord
     if launched_order != render_order(case, endpoint):
         return dict(status="invalid_evidence", evidence_error="Launch order did not contain the rendered current proposal")
     try:
-        all_fixture_events, fixture_state, original = _fixture_capture(case, all_events, state)
+        all_fixture_events, fixture_state, original = _fixture_capture(case, all_events, state, should_require_route_receipts)
         revision = case["item"]["revision"]
         expected = case["expected"]
         all_required = [key for key in expected["proposal_revisions"] if key != revision]
@@ -167,7 +192,10 @@ def _discovery_metrics(metrics: JsonRow, all_events: list[JsonRow], all_original
         sequence = metrics[each_metric]
         metrics[each_metric] = all_original_by_fixture[sequence] if sequence is not None else None
     metrics.update(current_proposal_exposed_in_order=True, order_sha256=hashlib.sha256(launched_order.encode()).hexdigest(),
-                   catalog_seq=_first_sequence(all_events, "catalog"), activity_read_seq=_first_sequence(all_events, "read_decisions"),
+                   catalog_seq=_first_sequence(all_events, "catalog"),
+                   decision_records_read_seq=_first_sequence(all_events, "read_decisions"),
+                   activity_route_read_seq=next((event["seq"] for event in all_events if event["operation"] == "read_decisions"
+                                                and event["status"] == HTTPStatus.OK and "request_path" in event), None),
                    current_proposal_get_seq=_first_sequence(all_events, "read_proposal", revision), service_events=len(all_events))
 
 

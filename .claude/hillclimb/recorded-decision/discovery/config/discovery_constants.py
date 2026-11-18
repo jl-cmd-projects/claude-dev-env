@@ -25,6 +25,7 @@ LAUNCH_PREFIX = (
 )
 CATALOG_ROUTE = "/v1/catalog"
 RECORD_ROUTE = "/v1/records/{target}/{resource}"
+ACTIVITY_ROUTE = "/v1/records/{target}/activity"
 PROPOSAL_ROUTE = "/v1/proposals/{target}/{revision}"
 WORK_ROUTE = "/v1/work-items/{target}"
 APPLICATION_ROUTE = "/v1/applications/{target}"
