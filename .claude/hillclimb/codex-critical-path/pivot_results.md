@@ -34,7 +34,7 @@ Both readers initially took “first consequential action” to mean the first m
 
 ## Replay
 
-Run from this directory with Python 3 and the pinned commit available in the Git checkout. The archive includes the launch ledger, actual command traces and checkout contents, reviewer receipts, both independent assessments and the sealed panel mapping. No credentials or live workstation access are needed.
+Run from this directory with Python 3 and the pinned commit available in the Git checkout. The archive includes the launch ledger, actual command traces and checkout contents, reviewer receipts, both independent assessments and the sealed panel mapping. The archive keeps the synthetic checkout Git directories because their bytes and modes are part of the recorded workspace digest. No credentials or live workstation access are needed.
 
 ```sh
 study_dir=$(mktemp -d)
