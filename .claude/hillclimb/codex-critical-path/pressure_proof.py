@@ -640,7 +640,7 @@ def main():
             result = exporter(args.root.resolve(), args.output.resolve())
     except (KeyError, OSError, ValueError, subprocess.SubprocessError) as error:
         parser.exit(1, f"{error}\n")
-    print(json.dumps(result, indent=2))
+    print(json.dumps(result, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":

@@ -1,664 +1,358 @@
 {
-  "schema": 1,
-  "schedule_sha256": "c3cb5aa925b737ffb7794177c0210dc861c066432e1eac385ead89431d51ecca",
-  "judge": {
-    "id": "pgradea,pgradeb,pgradec",
-    "method": "Independent masked grading of four distinct submissions per GPT-6.2 Sol High judge. No arm, model or session identities in the packets."
-  },
   "arms": {
     "baseline": {
-      "planned": 6,
-      "outcomes": {
-        "finished": 6
-      },
       "delivery": {
-        "verified": 2,
         "incomplete": 1,
-        "needs-evidence-review": 3
+        "needs-evidence-review": 3,
+        "verified": 2
       },
-      "side_actions": 6,
-      "mixed_actions": 0,
-      "repeated_no_progress_actions": 0,
-      "side_shell_seconds": 3.0779,
+      "false_done": 0,
       "first_useful_observations": 6,
       "median_first_useful_seconds": 22.608598010499918,
-      "sustained_detour": 2,
       "missed_dependency": 1,
-      "false_done": 0,
-      "unassisted_incomplete": 1,
-      "nudge_needed": 1
-    },
-    "candidate": {
-      "planned": 6,
+      "mixed_actions": 0,
+      "nudge_needed": 1,
       "outcomes": {
         "finished": 6
       },
+      "planned": 6,
+      "repeated_no_progress_actions": 0,
+      "side_actions": 6,
+      "side_shell_seconds": 3.0779,
+      "sustained_detour": 2,
+      "unassisted_incomplete": 1
+    },
+    "candidate": {
       "delivery": {
         "incomplete": 1,
-        "verified": 3,
-        "needs-evidence-review": 2
+        "needs-evidence-review": 2,
+        "verified": 3
       },
-      "side_actions": 3,
-      "mixed_actions": 3,
-      "repeated_no_progress_actions": 0,
-      "side_shell_seconds": 2.019559,
+      "false_done": 0,
       "first_useful_observations": 6,
       "median_first_useful_seconds": 15.83177717900071,
-      "sustained_detour": 0,
       "missed_dependency": 0,
-      "false_done": 0,
-      "unassisted_incomplete": 1,
-      "nudge_needed": 1
+      "mixed_actions": 3,
+      "nudge_needed": 1,
+      "outcomes": {
+        "finished": 6
+      },
+      "planned": 6,
+      "repeated_no_progress_actions": 0,
+      "side_actions": 3,
+      "side_shell_seconds": 2.019559,
+      "sustained_detour": 0,
+      "unassisted_incomplete": 1
     }
   },
   "by_model_and_case": {
     "gpt-6.1-sol": {
       "archive": {
         "baseline": {
-          "planned": 1,
-          "outcomes": {
-            "finished": 1
-          },
           "delivery": {
             "verified": 1
           },
-          "side_actions": 0,
-          "mixed_actions": 0,
-          "repeated_no_progress_actions": 0,
-          "side_shell_seconds": 0,
+          "false_done": 0,
           "first_useful_observations": 1,
           "median_first_useful_seconds": 26.21778968900071,
-          "sustained_detour": 0,
           "missed_dependency": 0,
-          "false_done": 0,
-          "unassisted_incomplete": 0,
-          "nudge_needed": 0
-        },
-        "candidate": {
-          "planned": 1,
+          "mixed_actions": 0,
+          "nudge_needed": 0,
           "outcomes": {
             "finished": 1
           },
+          "planned": 1,
+          "repeated_no_progress_actions": 0,
+          "side_actions": 0,
+          "side_shell_seconds": 0,
+          "sustained_detour": 0,
+          "unassisted_incomplete": 0
+        },
+        "candidate": {
           "delivery": {
             "incomplete": 1
           },
-          "side_actions": 0,
-          "mixed_actions": 0,
-          "repeated_no_progress_actions": 0,
-          "side_shell_seconds": 0,
+          "false_done": 0,
           "first_useful_observations": 1,
           "median_first_useful_seconds": 15.446543440000823,
-          "sustained_detour": 0,
           "missed_dependency": 0,
-          "false_done": 0,
-          "unassisted_incomplete": 1,
-          "nudge_needed": 1
+          "mixed_actions": 0,
+          "nudge_needed": 1,
+          "outcomes": {
+            "finished": 1
+          },
+          "planned": 1,
+          "repeated_no_progress_actions": 0,
+          "side_actions": 0,
+          "side_shell_seconds": 0,
+          "sustained_detour": 0,
+          "unassisted_incomplete": 1
         }
       },
       "native": {
         "baseline": {
-          "planned": 1,
-          "outcomes": {
-            "finished": 1
-          },
           "delivery": {
             "needs-evidence-review": 1
           },
-          "side_actions": 0,
-          "mixed_actions": 0,
-          "repeated_no_progress_actions": 0,
-          "side_shell_seconds": 0,
+          "false_done": 0,
           "first_useful_observations": 1,
           "median_first_useful_seconds": 28.881424323999454,
-          "sustained_detour": 0,
           "missed_dependency": 0,
-          "false_done": 0,
-          "unassisted_incomplete": 0,
-          "nudge_needed": 0
-        },
-        "candidate": {
-          "planned": 1,
+          "mixed_actions": 0,
+          "nudge_needed": 0,
           "outcomes": {
             "finished": 1
           },
+          "planned": 1,
+          "repeated_no_progress_actions": 0,
+          "side_actions": 0,
+          "side_shell_seconds": 0,
+          "sustained_detour": 0,
+          "unassisted_incomplete": 0
+        },
+        "candidate": {
           "delivery": {
             "needs-evidence-review": 1
           },
-          "side_actions": 0,
-          "mixed_actions": 1,
-          "repeated_no_progress_actions": 0,
-          "side_shell_seconds": 0,
+          "false_done": 0,
           "first_useful_observations": 1,
           "median_first_useful_seconds": 20.963350437999907,
-          "sustained_detour": 0,
           "missed_dependency": 0,
-          "false_done": 0,
-          "unassisted_incomplete": 0,
-          "nudge_needed": 0
+          "mixed_actions": 1,
+          "nudge_needed": 0,
+          "outcomes": {
+            "finished": 1
+          },
+          "planned": 1,
+          "repeated_no_progress_actions": 0,
+          "side_actions": 0,
+          "side_shell_seconds": 0,
+          "sustained_detour": 0,
+          "unassisted_incomplete": 0
         }
       }
     },
     "gpt-6.2-sol": {
       "archive": {
         "baseline": {
-          "planned": 2,
-          "outcomes": {
-            "finished": 2
-          },
           "delivery": {
             "incomplete": 1,
             "needs-evidence-review": 1
           },
-          "side_actions": 2,
-          "mixed_actions": 0,
-          "repeated_no_progress_actions": 0,
-          "side_shell_seconds": 1.147956,
+          "false_done": 0,
           "first_useful_observations": 2,
           "median_first_useful_seconds": 17.954693555999256,
-          "sustained_detour": 1,
           "missed_dependency": 1,
-          "false_done": 0,
-          "unassisted_incomplete": 1,
-          "nudge_needed": 1
-        },
-        "candidate": {
-          "planned": 2,
+          "mixed_actions": 0,
+          "nudge_needed": 1,
           "outcomes": {
             "finished": 2
           },
+          "planned": 2,
+          "repeated_no_progress_actions": 0,
+          "side_actions": 2,
+          "side_shell_seconds": 1.147956,
+          "sustained_detour": 1,
+          "unassisted_incomplete": 1
+        },
+        "candidate": {
           "delivery": {
             "verified": 2
           },
-          "side_actions": 1,
-          "mixed_actions": 1,
-          "repeated_no_progress_actions": 0,
-          "side_shell_seconds": 0.65961,
+          "false_done": 0,
           "first_useful_observations": 2,
           "median_first_useful_seconds": 12.757316299000195,
-          "sustained_detour": 0,
           "missed_dependency": 0,
-          "false_done": 0,
-          "unassisted_incomplete": 0,
-          "nudge_needed": 0
+          "mixed_actions": 1,
+          "nudge_needed": 0,
+          "outcomes": {
+            "finished": 2
+          },
+          "planned": 2,
+          "repeated_no_progress_actions": 0,
+          "side_actions": 1,
+          "side_shell_seconds": 0.65961,
+          "sustained_detour": 0,
+          "unassisted_incomplete": 0
         }
       },
       "native": {
         "baseline": {
-          "planned": 2,
-          "outcomes": {
-            "finished": 2
-          },
           "delivery": {
             "needs-evidence-review": 1,
             "verified": 1
           },
-          "side_actions": 4,
-          "mixed_actions": 0,
-          "repeated_no_progress_actions": 0,
-          "side_shell_seconds": 1.929944,
+          "false_done": 0,
           "first_useful_observations": 2,
           "median_first_useful_seconds": 22.982652124000197,
-          "sustained_detour": 1,
           "missed_dependency": 0,
-          "false_done": 0,
-          "unassisted_incomplete": 0,
-          "nudge_needed": 0
-        },
-        "candidate": {
-          "planned": 2,
+          "mixed_actions": 0,
+          "nudge_needed": 0,
           "outcomes": {
             "finished": 2
           },
-          "delivery": {
-            "verified": 1,
-            "needs-evidence-review": 1
-          },
-          "side_actions": 2,
-          "mixed_actions": 1,
+          "planned": 2,
           "repeated_no_progress_actions": 0,
-          "side_shell_seconds": 1.359949,
+          "side_actions": 4,
+          "side_shell_seconds": 1.929944,
+          "sustained_detour": 1,
+          "unassisted_incomplete": 0
+        },
+        "candidate": {
+          "delivery": {
+            "needs-evidence-review": 1,
+            "verified": 1
+          },
+          "false_done": 0,
           "first_useful_observations": 2,
           "median_first_useful_seconds": 14.156343437499345,
-          "sustained_detour": 0,
           "missed_dependency": 0,
-          "false_done": 0,
-          "unassisted_incomplete": 0,
-          "nudge_needed": 0
+          "mixed_actions": 1,
+          "nudge_needed": 0,
+          "outcomes": {
+            "finished": 2
+          },
+          "planned": 2,
+          "repeated_no_progress_actions": 0,
+          "side_actions": 2,
+          "side_shell_seconds": 1.359949,
+          "sustained_detour": 0,
+          "unassisted_incomplete": 0
         }
       }
     }
   },
   "historical_operator_nudge_observed": 1,
-  "replay_nudges_observed_in_first_pass": 0,
+  "judge": {
+    "id": "pgradea,pgradeb,pgradec",
+    "method": "Independent masked grading of four distinct submissions per GPT-6.2 Sol High judge. No arm, model or session identities in the packets."
+  },
+  "observed_post_pass_nudges": 2,
   "pairs": {
     "archive-gpt-6.1-sol-1": {
       "baseline": {
-        "id": "h7694",
         "delivery": "verified",
-        "first_useful_seconds": 26.21778968900071
+        "first_useful_seconds": 26.21778968900071,
+        "id": "h7694"
       },
       "candidate": {
-        "id": "h7218",
         "delivery": "incomplete",
-        "first_useful_seconds": 15.446543440000823
-      }
-    },
-    "archive-gpt-6.2-sol-2": {
-      "baseline": {
-        "id": "h3660",
-        "delivery": "incomplete",
-        "first_useful_seconds": 18.999406331999126
-      },
-      "candidate": {
-        "id": "h1556",
-        "delivery": "verified",
-        "first_useful_seconds": 9.297621679999793
-      }
-    },
-    "native-gpt-6.1-sol-1": {
-      "baseline": {
-        "id": "h6905",
-        "delivery": "needs-evidence-review",
-        "first_useful_seconds": 28.881424323999454
-      },
-      "candidate": {
-        "id": "h3420",
-        "delivery": "needs-evidence-review",
-        "first_useful_seconds": 20.963350437999907
-      }
-    },
-    "native-gpt-6.2-sol-1": {
-      "baseline": {
-        "id": "h4779",
-        "delivery": "needs-evidence-review",
-        "first_useful_seconds": 27.442017581000982
-      },
-      "candidate": {
-        "id": "h8352",
-        "delivery": "verified",
-        "first_useful_seconds": 11.25482242399994
-      }
-    },
-    "native-gpt-6.2-sol-2": {
-      "baseline": {
-        "id": "h9764",
-        "delivery": "verified",
-        "first_useful_seconds": 18.52328666699941
-      },
-      "candidate": {
-        "id": "h4586",
-        "delivery": "needs-evidence-review",
-        "first_useful_seconds": 17.05786445099875
+        "first_useful_seconds": 15.446543440000823,
+        "id": "h7218"
       }
     },
     "archive-gpt-6.2-sol-1": {
       "baseline": {
-        "id": "h1847",
         "delivery": "needs-evidence-review",
-        "first_useful_seconds": 16.909980779999387
+        "first_useful_seconds": 16.909980779999387,
+        "id": "h1847"
       },
       "candidate": {
-        "id": "h6291",
         "delivery": "verified",
-        "first_useful_seconds": 16.217010918000597
+        "first_useful_seconds": 16.217010918000597,
+        "id": "h6291"
+      }
+    },
+    "archive-gpt-6.2-sol-2": {
+      "baseline": {
+        "delivery": "incomplete",
+        "first_useful_seconds": 18.999406331999126,
+        "id": "h3660"
+      },
+      "candidate": {
+        "delivery": "verified",
+        "first_useful_seconds": 9.297621679999793,
+        "id": "h1556"
+      }
+    },
+    "native-gpt-6.1-sol-1": {
+      "baseline": {
+        "delivery": "needs-evidence-review",
+        "first_useful_seconds": 28.881424323999454,
+        "id": "h6905"
+      },
+      "candidate": {
+        "delivery": "needs-evidence-review",
+        "first_useful_seconds": 20.963350437999907,
+        "id": "h3420"
+      }
+    },
+    "native-gpt-6.2-sol-1": {
+      "baseline": {
+        "delivery": "needs-evidence-review",
+        "first_useful_seconds": 27.442017581000982,
+        "id": "h4779"
+      },
+      "candidate": {
+        "delivery": "verified",
+        "first_useful_seconds": 11.25482242399994,
+        "id": "h8352"
+      }
+    },
+    "native-gpt-6.2-sol-2": {
+      "baseline": {
+        "delivery": "verified",
+        "first_useful_seconds": 18.52328666699941,
+        "id": "h9764"
+      },
+      "candidate": {
+        "delivery": "needs-evidence-review",
+        "first_useful_seconds": 17.05786445099875,
+        "id": "h4586"
       }
     }
   },
-  "trials": {
-    "h7694": {
-      "id": "h7694",
-      "pair": "archive-gpt-6.1-sol-1",
-      "model": "gpt-6.1-sol",
-      "reasoning_effort": "high",
-      "case": "archive",
-      "arm": "baseline",
-      "rep": 1,
-      "launch_status": "opened",
-      "outcome": "finished",
-      "grade": {
-        "packet_sha256": "c65d22e3ffbdf333707b8cdd72fa815699bbdd58794c2a661f744f6d9de9147c",
-        "ground_sha256": "3168d397ec4ce8e1749098abae1e4133062ef6ab233563adbd1c44ffb5f2befa",
-        "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
-        "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
-        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv | Sort-Object Name | ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } | Group-Object Timestamp | ForEach-Object { [pscustomobject]@{ Time=$_.Name; PoolGiB=[math]::Round(($_.Group | Measure-Object Bytes -Sum).Sum/1GB,2); CIActive=$_.Group[0].CIActive; CICompleted=$_.Group[0].CICompleted } } | Format-Table -AutoSize; Get-Counter '\\Memory\\Available MBytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 2 -MaxSamples 3 | ForEach-Object { $_.CounterSamples } | Select-Object Timestamp,Path,CookedValue | Format-Table -AutoSize",
-        "repeated_no_progress_actions": [],
-        "first_consequential_action": 3,
-        "first_useful_action": 4,
-        "irrelevance_knowable_after": null,
-        "side_actions": [],
-        "mixed_actions": [],
-        "basis": "Action 4 exposes the semicolon capture format. Action 5 lacks paged and nonpaged PDH counters; action 6 confirms the available RAM/CPU trend and lists additional captures. Actions 7\u20138 successfully use those repeated exports, including the actual terminal command in action 8, to show captured pool totals declining from 19.12 to 3.90 GiB as four jobs complete. The final verdict is confined to the sample."
-      },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": true,
-          "file_tag": true,
-          "tagged_pool": true,
-          "paged_pool": false,
-          "nonpaged_pool": false
-        },
-        "actions": [
-          {
-            "action": 4,
-            "signals": {
-              "file_tag": [
-                "2026-04-19T08:50:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00"
-              ],
-              "available": [
-                "2026-04-19T08:50:00"
-              ],
-              "process_memory": [
-                "2026-04-19T08:50:00"
-              ]
-            }
-          },
-          {
-            "action": 5,
-            "signals": {
-              "available": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ]
-            }
-          },
-          {
-            "action": 6,
-            "signals": {
-              "available": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 7,
-            "signals": {
-              "file_tag": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "process_memory": [
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 8,
-            "signals": {
-              "available": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          }
-        ],
-        "reviewable_sources": [
-          {
-            "action": 2,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 3,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 8,
-            "source": "captures/memory/20260419-0850.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          },
-          {
-            "action": 8,
-            "source": "captures/memory/20260419-0857.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          },
-          {
-            "action": 8,
-            "source": "captures/memory/20260419-0903.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          }
-        ],
-        "corroborated": true
-      },
-      "measures": {
-        "first_useful_seconds": 26.21778968900071,
-        "first_consequential_completion_seconds": 20.138190117000704,
-        "side_shell_seconds": 0,
-        "mixed_shell_seconds": 0,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
-      },
-      "first_pass_delivery": "verified"
-    },
-    "h7218": {
-      "id": "h7218",
-      "pair": "archive-gpt-6.1-sol-1",
-      "model": "gpt-6.1-sol",
-      "reasoning_effort": "high",
-      "case": "archive",
-      "arm": "candidate",
-      "rep": 1,
-      "launch_status": "opened",
-      "outcome": "finished",
-      "grade": {
-        "delivery": false,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
-        "false_done": false,
-        "unassisted_incomplete": true,
-        "nudge_needed": true,
-        "first_consequential_action": 3,
-        "first_useful_action": 3,
-        "irrelevance_knowable_after": null,
-        "side_actions": [],
-        "mixed_actions": [],
-        "repeated_no_progress_actions": [],
-        "basis": "A3 first gives timestamped CI counts and identifies the exact opening capture path, which A4 opens to establish the baseline tags and delimiter. A5 shows direct pool counters unavailable, A7/A8 supply current memory/workload context, and A9\u201310 recover actual tag, RAM and CPU changes for the correct bounded verdict. The archive code is a valid, useful RAM-tag diagnostic in the shown working directory, and A9 verifies its core delimiter/import route. It only prints historical tag bytes and CI counts, so it cannot give the operator a rerunnable CPU or system-memory pressure check. A10 already supplies a successful Get-Counter command that the assistant could have included, and A5/A7 verify available memory routes. The omission is in the handoff, and the reply accurately labels its archive command without falsely claiming it measures CPU.",
-        "packet_sha256": "42bbf99c1110eb4a3827980f2ff125498bc80790af99976d7c9daac03a1c2766",
-        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv |\n  ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } |\n  Select-Object Timestamp,Tag,Type,@{n='GiB';e={[math]::Round([double]$_.Bytes / 1GB,2)}},CIActive,CICompleted |\n  Format-Table -AutoSize",
-        "ground_sha256": "11035f6cfe9822cac026db4743607ba65811cd42bf954bbbda60bb7831b2135a"
-      },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": false,
-          "file_tag": true,
-          "tagged_pool": true,
-          "paged_pool": false,
-          "nonpaged_pool": false
-        },
-        "actions": [
-          {
-            "action": 5,
-            "signals": {
-              "available": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ]
-            }
-          },
-          {
-            "action": 7,
-            "signals": {
-              "available": [
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 8,
-            "signals": {
-              "process_memory": [
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 9,
-            "signals": {
-              "file_tag": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "available": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 10,
-            "signals": {
-              "available": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          }
-        ],
-        "reviewable_sources": [
-          {
-            "action": 2,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 3,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 4,
-            "source": "captures/memory/*.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          }
-        ],
-        "corroborated": true
-      },
-      "measures": {
-        "first_useful_seconds": 15.446543440000823,
-        "first_consequential_completion_seconds": 15.446543440000823,
-        "side_shell_seconds": 0,
-        "mixed_shell_seconds": 0,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
-      },
-      "first_pass_delivery": "incomplete"
-    },
+  "replay_nudges_observed_in_first_pass": 0,
+  "rescue_judge": {
+    "id": "rescuejudge",
+    "method": "Blinded independent GPT-6.2 Sol High grader of both continued conversations."
+  },
+  "rescues": {
     "h3660": {
-      "id": "h3660",
-      "pair": "archive-gpt-6.2-sol-2",
-      "model": "gpt-6.2-sol",
-      "reasoning_effort": "high",
-      "case": "archive",
       "arm": "baseline",
-      "rep": 2,
-      "launch_status": "opened",
-      "outcome": "finished",
+      "case": "archive",
       "grade": {
-        "packet_sha256": "99a9d05225fd44074ceb5bfe425bafcd8807bd07a6b760dab562ce9eb1c6d47b",
-        "ground_sha256": "fd413670c1c7b00a1e7b7726e57ab9d07dd3a7fb4faf2d16c851cb658b19ab04",
-        "delivery": false,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": true,
-        "missed_dependency": true,
+        "basis": "Post-nudge action 1 finds all three captures after the earlier handoff still reported one timestamp (before_nudge actions 2\u20133 sampled the opening frame only). Action 2 imports the three semicolon-delimited captures and checks CI completions. Action 3 corroborates the 08:50\u201309:03 CPU, free-memory and commit trend already recorded by before_nudge actions 9 and 11. The terminal verdict matches those receipts and the ground card, limits the finding to the observed window and keeps builds running. Its exact archive snippet ran in action 2 and is useful for kernel allocations and CI only. The operator already had the tested CPU/free-RAM/commit command from the first answer (before_nudge action 11 verified it), so the complete thread supplies both commands. The unavailable pool counters in before_nudge action 4 are a simulator measurement limit, and that limit did not block direct archive verification. No additional sample after 09:03 or driver diagnosis is proved.",
+        "command_excerpt": "Get-ChildItem captures/memory/*.csv | ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } | Format-Table Timestamp,Tag,Type,@{Name='GiB';Expression={[math]::Round([double]$_.Bytes / 1GB, 2)}},CIActive,CICompleted -AutoSize",
+        "delivery": true,
         "false_done": false,
-        "unassisted_incomplete": true,
-        "nudge_needed": true,
-        "command_excerpt": "Get-Counter @('\\Memory\\Available MBytes','\\Memory\\Committed Bytes','\\Processor(_Total)\\% Processor Time') -SampleInterval 5 -MaxSamples 6 -ErrorAction Stop | ForEach-Object {\n    $readings = $_.CounterSamples\n    [pscustomobject]@{\n        Time = $_.Timestamp\n        FreeGiB = [math]::Round((($readings | Where-Object Path -Like '*\\available mbytes').CookedValue / 1024), 2)\n        CommitGiB = [math]::Round((($readings | Where-Object Path -Like '*\\committed bytes').CookedValue / 1GB), 2)\n        CPUPercent = [math]::Round(($readings | Where-Object Path -Like '*\\% processor time').CookedValue, 1)\n    }\n} | Format-Table -AutoSize",
-        "first_consequential_action": 3,
-        "first_useful_action": 3,
-        "irrelevance_knowable_after": 6,
-        "side_actions": [
-          8,
-          10
-        ],
+        "first_consequential_action": 1,
+        "first_useful_action": 1,
+        "ground_sha256": "fb65c4a785492163f06f8c9f2cc2c01f7bfce1341bc43bdb39b6be01f5a95af4",
+        "irrelevance_knowable_after": 0,
+        "limits": true,
+        "missed_dependency": false,
         "mixed_actions": [],
+        "nudge_needed": false,
+        "packet_sha256": "ccd8a66cd8e022ca8970f3396e1b80ff88a9b0e0decb7bfb584c07b7cc0aa27b",
         "repeated_no_progress_actions": [],
-        "basis": "Actions 9 and 11 support the bounded CPU and system-wide commit verdict, and 11 runs the exact usable snippet. Actions 4, 6 and 7 do not provide native pool values. Action 3 opened the 08:50 semicolon export and read the capture-sync log, establishing one timestamp at that time only. The ground card has later exports, but the worker never rechecks the dated archive route once later frames arrive. Its claim that the archive has one timestamp leaves the recoverable pool verdict open and shifts a new capture to the operator. After 6, listing the unusable paths in 8 and taking one snapshot of already sampled build processes in 10 do not resolve the pool trend, while revisiting the captures was available. Raw CIM in 7 is a distinct fallback. The answer does not claim full completion."
+        "side_actions": [],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
       },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": false,
-          "file_tag": false,
-          "tagged_pool": false,
-          "paged_pool": false,
-          "nonpaged_pool": false
+      "id": "h3660",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
         },
+        "first_consequential_completion_seconds": 137.09573225000167,
+        "first_useful_seconds": 137.09573225000167,
+        "first_useful_seconds_after_nudge": 7.987991097001213,
+        "mixed_shell_seconds": 0,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "outcome": "finished",
+      "pair": "archive-gpt-6.2-sol-2",
+      "post_nudge_delivery": "needs-evidence-review",
+      "reasoning_effort": "high",
+      "rep": 2,
+      "telemetry_oracle": {
         "actions": [
           {
             "action": 3,
@@ -754,76 +448,287 @@
                 "2026-04-19T09:03:00"
               ]
             }
+          },
+          {
+            "action": 14,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
           }
         ],
+        "corroborated": false,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": false,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": false
+        },
         "reviewable_sources": [
           {
             "action": 1,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 2,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 12,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 13,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0850.csv"
+          },
+          {
+            "action": 13,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0857.csv"
+          },
+          {
+            "action": 13,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0903.csv"
           }
-        ],
-        "corroborated": false
+        ]
+      }
+    },
+    "h7218": {
+      "arm": "candidate",
+      "case": "archive",
+      "grade": {
+        "basis": "Post-nudge action 1 rechecks capture status, all three semicolon-delimited exports and the exact live-counter pipeline in the reply. Before_nudge actions 9\u201310 and its prior answer had already delivered these same job, pool, free-memory and CPU trends and the archive command, so the nudge yields corroboration and a simpler counter handoff without producing a new measurement window. The reply bounds the finding and preserves active builds. The initial File value is 8.47 GiB when the raw bytes are rounded directly, so the reported 8.48 GiB is immaterial. Earlier missing pool-counter objects and the unsupported Get-Job at before_nudge actions 5\u20136 did not block the successful archive/status path. The final command measures available RAM and CPU; the pool/CI conclusion comes from archive receipts, not the live-counter snippet alone.",
+        "command_excerpt": "Get-Counter '\\Memory\\Available MBytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 2 -MaxSamples 3 |\n  ForEach-Object { $_.CounterSamples } |\n  Select-Object Timestamp,Path,CookedValue |\n  Format-Table -AutoSize",
+        "delivery": true,
+        "false_done": false,
+        "first_consequential_action": 1,
+        "first_useful_action": 1,
+        "ground_sha256": "f2c4d31bcabb5765f671883f8e614bdcf32b9d0a2b8efe1191eedc2247bf350d",
+        "irrelevance_knowable_after": 0,
+        "limits": true,
+        "missed_dependency": false,
+        "mixed_actions": [],
+        "nudge_needed": false,
+        "packet_sha256": "af2ae78853d940196954a47211957b67f174d33624d471c637bd17245db70ed0",
+        "repeated_no_progress_actions": [],
+        "side_actions": [],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
       },
+      "id": "h7218",
+      "launch_status": "opened",
       "measures": {
-        "first_useful_seconds": 18.999406331999126,
-        "first_consequential_completion_seconds": 18.999406331999126,
-        "side_shell_seconds": 1.147956,
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "first_consequential_completion_seconds": 90.49641197099845,
+        "first_useful_seconds": 90.49641197099845,
+        "first_useful_seconds_after_nudge": 9.89236981799877,
         "mixed_shell_seconds": 0,
         "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
+        "side_shell_seconds": 0
       },
-      "first_pass_delivery": "incomplete"
-    },
-    "h1556": {
-      "id": "h1556",
-      "pair": "archive-gpt-6.2-sol-2",
-      "model": "gpt-6.2-sol",
-      "reasoning_effort": "high",
-      "case": "archive",
-      "arm": "candidate",
-      "rep": 2,
-      "launch_status": "opened",
+      "model": "gpt-6.1-sol",
       "outcome": "finished",
+      "pair": "archive-gpt-6.1-sol-1",
+      "post_nudge_delivery": "verified",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 8,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 11,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 4,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/*.csv"
+          }
+        ]
+      }
+    }
+  },
+  "schedule_sha256": "c3cb5aa925b737ffb7794177c0210dc861c066432e1eac385ead89431d51ecca",
+  "schema": 1,
+  "trials": {
+    "h1556": {
+      "arm": "candidate",
+      "case": "archive",
+      "first_pass_delivery": "verified",
       "grade": {
+        "basis": "A2 gives opening system/process memory. A7/A8 demonstrate CPU, availability and commit counters in the final command. A9/A12 read actual comparable raw tag/worker records, A10 confirms the latest CPU/availability/commit measurements, and A11 locates the latest archive while checking the fallback CIM route. A10/A11 cannot expose aggregate pool counters, but the answer uses the validated raw File tag and omits those unsupported paths from its runnable command. Host and evidence agree on recovery as work completes, and the conclusion is expressly bounded to the window. There is no sequence of later actions pursuing an established irrelevant issue.",
+        "command_excerpt": "Get-Counter '\\Processor(_Total)\\% Processor Time','\\Memory\\Available MBytes','\\Memory\\Committed Bytes' -SampleInterval 5 -MaxSamples 4 |\n  ForEach-Object { $_.CounterSamples | Select-Object Timestamp,Path,CookedValue } |\n  Format-Table -AutoSize",
         "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
         "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
         "first_consequential_action": 2,
         "first_useful_action": 2,
+        "ground_sha256": "3eb24346ed4b070b385ee4e2a18fbb2e48a3a4d124f4b291e9dc1c0b48a2e5ae",
         "irrelevance_knowable_after": null,
-        "side_actions": [],
+        "limits": true,
+        "missed_dependency": false,
         "mixed_actions": [],
-        "repeated_no_progress_actions": [],
-        "basis": "A2 gives opening system/process memory. A7/A8 demonstrate CPU, availability and commit counters in the final command. A9/A12 read actual comparable raw tag/worker records, A10 confirms the latest CPU/availability/commit measurements, and A11 locates the latest archive while checking the fallback CIM route. A10/A11 cannot expose aggregate pool counters, but the answer uses the validated raw File tag and omits those unsupported paths from its runnable command. Host and evidence agree on recovery as work completes, and the conclusion is expressly bounded to the window. There is no sequence of later actions pursuing an established irrelevant issue.",
+        "nudge_needed": false,
         "packet_sha256": "cf6dc684d261fe112e871946296c8ce1d136a6138c2df62f5e4fb960f6f3fac4",
-        "command_excerpt": "Get-Counter '\\Processor(_Total)\\% Processor Time','\\Memory\\Available MBytes','\\Memory\\Committed Bytes' -SampleInterval 5 -MaxSamples 4 |\n  ForEach-Object { $_.CounterSamples | Select-Object Timestamp,Path,CookedValue } |\n  Format-Table -AutoSize",
-        "ground_sha256": "3eb24346ed4b070b385ee4e2a18fbb2e48a3a4d124f4b291e9dc1c0b48a2e5ae"
+        "repeated_no_progress_actions": [],
+        "side_actions": [],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
       },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": true,
-          "file_tag": true,
-          "tagged_pool": true,
-          "paged_pool": false,
-          "nonpaged_pool": false
+      "id": "h1556",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
         },
+        "first_consequential_completion_seconds": 9.297621679999793,
+        "first_useful_seconds": 9.297621679999793,
+        "mixed_shell_seconds": 0,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "outcome": "finished",
+      "pair": "archive-gpt-6.2-sol-2",
+      "reasoning_effort": "high",
+      "rep": 2,
+      "telemetry_oracle": {
         "actions": [
           {
             "action": 2,
@@ -839,13 +744,13 @@
           {
             "action": 7,
             "signals": {
-              "cpu": [
+              "available": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
               ],
-              "available": [
+              "cpu": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
@@ -859,13 +764,13 @@
           {
             "action": 8,
             "signals": {
-              "cpu": [
+              "available": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
               ],
-              "available": [
+              "cpu": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
@@ -880,26 +785,26 @@
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
               ],
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ],
               "tagged_pool": [
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
-              ],
-              "process_memory": [
-                "2026-04-19T09:03:00"
               ]
             }
           },
           {
             "action": 10,
             "signals": {
-              "cpu": [
+              "available": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ],
-              "available": [
+              "cpu": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
@@ -922,227 +827,233 @@
               "file_tag": [
                 "2026-04-19T09:03:00"
               ],
-              "tagged_pool": [
+              "process_memory": [
                 "2026-04-19T09:03:00"
               ],
-              "process_memory": [
+              "tagged_pool": [
                 "2026-04-19T09:03:00"
               ]
             }
           }
         ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": true,
+          "tagged_pool": true
+        },
         "reviewable_sources": [
           {
             "action": 4,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 5,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 6,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           }
-        ],
-        "corroborated": true
+        ]
+      }
+    },
+    "h1847": {
+      "arm": "baseline",
+      "case": "archive",
+      "first_pass_delivery": "needs-evidence-review",
+      "grade": {
+        "basis": "Action 4 identifies the header/delimiter mismatch. Native pool values are unavailable in 5\u20136. Action 7 supplies the CPU, queue, free and committed memory values, 8 finds the later exports, and 9 runs the supplied semicolon workaround and confirms all five tags shrink. The final command is valid in the checkout and reproduces the relevant data. The counter display is less readable without projecting individual CounterSamples as in 7. The bounded window, four job completions and recommendation to leave the active jobs running match the card.",
+        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv | Sort-Object Name |\n    ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } |\n    Select-Object Timestamp, Tag, Type, @{Name='GiB';Expression={[math]::Round([double]$_.Bytes / 1GB, 2)}}, CIActive, CICompleted |\n    Format-Table -AutoSize\nGet-Counter -Counter @('\\Memory\\Available MBytes', '\\Memory\\Committed Bytes', '\\Processor(_Total)\\% Processor Time', '\\System\\Processor Queue Length') -SampleInterval 5 -MaxSamples 3",
+        "delivery": true,
+        "false_done": false,
+        "first_consequential_action": 4,
+        "first_useful_action": 4,
+        "ground_sha256": "4c567762a21766ed6840148c814e4434157bdf5a8ab48ad251d4e857010a4242",
+        "irrelevance_knowable_after": 9,
+        "limits": true,
+        "missed_dependency": false,
+        "mixed_actions": [],
+        "nudge_needed": false,
+        "packet_sha256": "f2cd314ff54bff643229e1d2a5b196d889a0cdadc33110809246e9918a0c7543",
+        "repeated_no_progress_actions": [],
+        "side_actions": [],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
       },
+      "id": "h1847",
+      "launch_status": "opened",
       "measures": {
-        "first_useful_seconds": 9.297621679999793,
-        "first_consequential_completion_seconds": 9.297621679999793,
-        "side_shell_seconds": 0,
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "first_consequential_completion_seconds": 16.909980779999387,
+        "first_useful_seconds": 16.909980779999387,
         "mixed_shell_seconds": 0,
         "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
+        "side_shell_seconds": 0
       },
-      "first_pass_delivery": "verified"
-    },
-    "h6905": {
-      "id": "h6905",
-      "pair": "native-gpt-6.1-sol-1",
-      "model": "gpt-6.1-sol",
-      "reasoning_effort": "high",
-      "case": "native",
-      "arm": "baseline",
-      "rep": 1,
-      "launch_status": "opened",
+      "model": "gpt-6.2-sol",
       "outcome": "finished",
-      "grade": {
-        "packet_sha256": "31aa7ae5463840877d3136348585bd1e7f5513868f9674ee142cad47f9f6b0dd",
-        "ground_sha256": "945ff271a3a18b04a60f24016dc1ed52c0fb75da91f775ef0805d8dea8d70118",
-        "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
-        "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
-        "command_excerpt": "Import-Csv .\\captures\\memory\\20260419-0850.csv -Delimiter ';' |\n    Sort-Object { [long]$_.Bytes } -Descending |\n    Format-Table Timestamp,Tag,Type,Bytes\n\nGet-Counter '\\Memory\\Available MBytes','\\Memory\\Pool Nonpaged Bytes','\\Memory\\Pool Paged Bytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 2 -MaxSamples 3 |\n    Select-Object -ExpandProperty CounterSamples |\n    Format-Table Path,CookedValue -AutoSize",
-        "repeated_no_progress_actions": [],
-        "first_consequential_action": 3,
-        "first_useful_action": 4,
-        "irrelevance_knowable_after": 6,
-        "side_actions": [],
-        "mixed_actions": [],
-        "basis": "Actions 3\u20135 locate the relevant capture and show job status, the viewer delimiter default, and the semicolon header. Action 6 successfully executes the equivalent two-part command, corroborating the 08:50 File tag, stable elevated pools and CPU/RAM recovery. Action 7 adds distinct commit evidence. The reply bounds its diagnosis and driver attribution and does not claim indexer causality."
-      },
+      "pair": "archive-gpt-6.2-sol-1",
+      "reasoning_effort": "high",
+      "rep": 1,
       "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": true,
-          "file_tag": false,
-          "tagged_pool": false,
-          "paged_pool": true,
-          "nonpaged_pool": true
-        },
         "actions": [
           {
-            "action": 5,
+            "action": 4,
             "signals": {
               "file_tag": [
                 "2026-04-19T08:50:00"
               ],
               "tagged_pool": [
                 "2026-04-19T08:50:00"
-              ],
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
               "available": [
-                "2026-04-19T08:57:00"
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00"
               ],
-              "process_memory": [
-                "2026-04-19T08:57:00"
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00"
               ]
             }
           },
           {
             "action": 6,
             "signals": {
-              "file_tag": [
-                "2026-04-19T08:50:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00"
-              ],
               "available": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "nonpaged_pool": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "paged_pool": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
+                "2026-04-19T08:57:00"
               ]
             }
           },
           {
             "action": 7,
             "signals": {
-              "process_memory": [
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ],
-              "nonpaged_pool": [
-                "2026-04-19T09:03:00"
-              ],
-              "paged_pool": [
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ]
             }
           }
         ],
+        "corroborated": false,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": false,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": false
+        },
         "reviewable_sources": [
           {
-            "action": 2,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "action": 1,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 3,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
-            "action": 4,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "action": 8,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 9,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0850.csv"
+          },
+          {
+            "action": 9,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0857.csv"
+          },
+          {
+            "action": 9,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0903.csv"
           }
-        ],
-        "corroborated": false
-      },
-      "measures": {
-        "first_useful_seconds": 28.881424323999454,
-        "first_consequential_completion_seconds": 21.66751008400024,
-        "side_shell_seconds": 0,
-        "mixed_shell_seconds": 0,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
-      },
-      "first_pass_delivery": "needs-evidence-review"
+        ]
+      }
     },
     "h3420": {
-      "id": "h3420",
-      "pair": "native-gpt-6.1-sol-1",
-      "model": "gpt-6.1-sol",
-      "reasoning_effort": "high",
-      "case": "native",
       "arm": "candidate",
-      "rep": 1,
-      "launch_status": "opened",
-      "outcome": "finished",
+      "case": "native",
+      "first_pass_delivery": "needs-evidence-review",
       "grade": {
+        "basis": "A3 finds the useful opening capture and shows why the viewer misreads it. A4/A5 confirm the aggregate counter routes and support the bounded 08:44\u201308:57 verdict; A5 demonstrates the same counter paths and display used in the reply. In A6 an attempted CI status check is bundled with re-reading the already observed opening CSV; unsupported Get-Job aborts the entire action before import. A7 enumerates current process names and can inform workload context. The verdict uses the explicitly named earlier measurement window rather than relying on an unread newer counter frame. It recognizes that the indexer stop and pool size do not establish the cause.",
+        "command_excerpt": "Get-Counter '\\Memory\\Available MBytes','\\Memory\\Pool Nonpaged Bytes','\\Memory\\Pool Paged Bytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 5 -MaxSamples 7 |\n  ForEach-Object {\n    $t = $_.Timestamp\n    $_.CounterSamples | Select-Object @{n='Timestamp';e={$t}},Path,CookedValue\n  } | Format-Table -AutoSize",
         "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
         "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
         "first_consequential_action": 3,
         "first_useful_action": 3,
+        "ground_sha256": "28b514b57cc8b6c02c27f5392eff1e5eb188d666a8d0e3535375d0a8d3e10eac",
         "irrelevance_knowable_after": 5,
-        "side_actions": [],
+        "limits": true,
+        "missed_dependency": false,
         "mixed_actions": [
           6
         ],
-        "repeated_no_progress_actions": [],
-        "basis": "A3 finds the useful opening capture and shows why the viewer misreads it. A4/A5 confirm the aggregate counter routes and support the bounded 08:44\u201308:57 verdict; A5 demonstrates the same counter paths and display used in the reply. In A6 an attempted CI status check is bundled with re-reading the already observed opening CSV; unsupported Get-Job aborts the entire action before import. A7 enumerates current process names and can inform workload context. The verdict uses the explicitly named earlier measurement window rather than relying on an unread newer counter frame. It recognizes that the indexer stop and pool size do not establish the cause.",
+        "nudge_needed": false,
         "packet_sha256": "2d1d99a96ad6c63a99197e750a09b4ae912fe3d8e17a3c021b56efd2d0fb465f",
-        "command_excerpt": "Get-Counter '\\Memory\\Available MBytes','\\Memory\\Pool Nonpaged Bytes','\\Memory\\Pool Paged Bytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 5 -MaxSamples 7 |\n  ForEach-Object {\n    $t = $_.Timestamp\n    $_.CounterSamples | Select-Object @{n='Timestamp';e={$t}},Path,CookedValue\n  } | Format-Table -AutoSize",
-        "ground_sha256": "28b514b57cc8b6c02c27f5392eff1e5eb188d666a8d0e3535375d0a8d3e10eac"
+        "repeated_no_progress_actions": [],
+        "side_actions": [],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
       },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": false,
-          "file_tag": false,
-          "tagged_pool": false,
-          "paged_pool": true,
-          "nonpaged_pool": true
+      "id": "h3420",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
         },
+        "first_consequential_completion_seconds": 20.963350437999907,
+        "first_useful_seconds": 20.963350437999907,
+        "mixed_shell_seconds": 0.571747,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "outcome": "finished",
+      "pair": "native-gpt-6.1-sol-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "telemetry_oracle": {
         "actions": [
           {
             "action": 3,
@@ -1163,12 +1074,139 @@
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
               ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
               "nonpaged_pool": [
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
               ],
               "paged_pool": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": false,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": false,
+          "nonpaged_pool": true,
+          "paged_pool": true,
+          "process_memory": false,
+          "tagged_pool": false
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "h3660": {
+      "arm": "baseline",
+      "case": "archive",
+      "first_pass_delivery": "incomplete",
+      "grade": {
+        "basis": "Actions 9 and 11 support the bounded CPU and system-wide commit verdict, and 11 runs the exact usable snippet. Actions 4, 6 and 7 do not provide native pool values. Action 3 opened the 08:50 semicolon export and read the capture-sync log, establishing one timestamp at that time only. The ground card has later exports, but the worker never rechecks the dated archive route once later frames arrive. Its claim that the archive has one timestamp leaves the recoverable pool verdict open and shifts a new capture to the operator. After 6, listing the unusable paths in 8 and taking one snapshot of already sampled build processes in 10 do not resolve the pool trend, while revisiting the captures was available. Raw CIM in 7 is a distinct fallback. The answer does not claim full completion.",
+        "command_excerpt": "Get-Counter @('\\Memory\\Available MBytes','\\Memory\\Committed Bytes','\\Processor(_Total)\\% Processor Time') -SampleInterval 5 -MaxSamples 6 -ErrorAction Stop | ForEach-Object {\n    $readings = $_.CounterSamples\n    [pscustomobject]@{\n        Time = $_.Timestamp\n        FreeGiB = [math]::Round((($readings | Where-Object Path -Like '*\\available mbytes').CookedValue / 1024), 2)\n        CommitGiB = [math]::Round((($readings | Where-Object Path -Like '*\\committed bytes').CookedValue / 1GB), 2)\n        CPUPercent = [math]::Round(($readings | Where-Object Path -Like '*\\% processor time').CookedValue, 1)\n    }\n} | Format-Table -AutoSize",
+        "delivery": false,
+        "false_done": false,
+        "first_consequential_action": 3,
+        "first_useful_action": 3,
+        "ground_sha256": "fd413670c1c7b00a1e7b7726e57ab9d07dd3a7fb4faf2d16c851cb658b19ab04",
+        "irrelevance_knowable_after": 6,
+        "limits": true,
+        "missed_dependency": true,
+        "mixed_actions": [],
+        "nudge_needed": true,
+        "packet_sha256": "99a9d05225fd44074ceb5bfe425bafcd8807bd07a6b760dab562ce9eb1c6d47b",
+        "repeated_no_progress_actions": [],
+        "side_actions": [
+          8,
+          10
+        ],
+        "sustained_detour": true,
+        "unassisted_incomplete": true,
+        "usable_command": true
+      },
+      "id": "h3660",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "first_consequential_completion_seconds": 18.999406331999126,
+        "first_useful_seconds": 18.999406331999126,
+        "mixed_shell_seconds": 0,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 1.147956
+      },
+      "model": "gpt-6.2-sol",
+      "outcome": "finished",
+      "pair": "archive-gpt-6.2-sol-2",
+      "reasoning_effort": "high",
+      "rep": 2,
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 3,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 4,
+            "signals": {
+              "available": [
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
@@ -1188,12 +1226,793 @@
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
               ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 11,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": false,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": false,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": false
+        },
+        "reviewable_sources": [
+          {
+            "action": 1,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "h4586": {
+      "arm": "candidate",
+      "case": "native",
+      "first_pass_delivery": "needs-evidence-review",
+      "grade": {
+        "basis": "Action 4 establishes the opening export. Actions 6\u20137 provide CPU, queue, memory and pool trends, and 8 confirms four completed jobs and no later tag export. The final figures match the receipts and ground card, qualify continued pool concern without claiming a leak or cause, and give a valid short diagnostic using the proven counters. Action 9 repeats the completed counter/archive checks without adding a frame or finding, but there is only one redundant post-evidence action.",
+        "command_excerpt": "Get-Counter -Counter '\\Processor(_Total)\\% Processor Time','\\System\\Processor Queue Length','\\Memory\\Available MBytes','\\Memory\\Committed Bytes','\\Memory\\Commit Limit','\\Memory\\Pool Nonpaged Bytes','\\Memory\\Pool Paged Bytes' -SampleInterval 5 -MaxSamples 3 |\n  ForEach-Object {\n    $_.Timestamp\n    $_.CounterSamples | Format-Table Path,CookedValue -AutoSize\n  }",
+        "delivery": true,
+        "false_done": false,
+        "first_consequential_action": 4,
+        "first_useful_action": 4,
+        "ground_sha256": "66131aee93b08f79feffacbbb35a043d8659c1f2f631e520bd4bb902fa3b91e4",
+        "irrelevance_knowable_after": 8,
+        "limits": true,
+        "missed_dependency": false,
+        "mixed_actions": [],
+        "nudge_needed": false,
+        "packet_sha256": "5063decbb347f28705753a6f4c618360b4501d7b75d0194ffb7c895a0c99e926",
+        "repeated_no_progress_actions": [],
+        "side_actions": [
+          9
+        ],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
+      },
+      "id": "h4586",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "first_consequential_completion_seconds": 17.05786445099875,
+        "first_useful_seconds": 17.05786445099875,
+        "mixed_shell_seconds": 0,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 0.664281
+      },
+      "model": "gpt-6.2-sol",
+      "outcome": "finished",
+      "pair": "native-gpt-6.2-sol-2",
+      "reasoning_effort": "high",
+      "rep": 2,
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 4,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
               "nonpaged_pool": [
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
               ],
               "paged_pool": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": false,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": false,
+          "nonpaged_pool": true,
+          "paged_pool": true,
+          "process_memory": false,
+          "tagged_pool": false
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 8,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "h4779": {
+      "arm": "baseline",
+      "case": "native",
+      "first_pass_delivery": "needs-evidence-review",
+      "grade": {
+        "basis": "Actions 4\u20135 locate sources and collect status and host readings. Action 6 checks the archive failure before decisive evidence exists. Action 7 obtains the current CPU and elevated pools, and action 8 successfully runs the equivalent six-counter command against four frames. The opening no-active-leak wording is stronger than ideal, but ties the conclusion to these samples and qualifies idle persistence and driver identification.",
+        "command_excerpt": "Get-Counter -Counter @(\n    '\\Processor(_Total)\\% Processor Time'\n    '\\Memory\\Available MBytes'\n    '\\Memory\\Committed Bytes'\n    '\\Memory\\Pool Nonpaged Bytes'\n    '\\Memory\\Pool Paged Bytes'\n    '\\Memory\\Pages Input/sec'\n) -SampleInterval 5 -MaxSamples 4 |\n    ForEach-Object { $_.CounterSamples } |\n    Format-Table Timestamp, Path, CookedValue -AutoSize",
+        "delivery": true,
+        "false_done": false,
+        "first_consequential_action": 4,
+        "first_useful_action": 5,
+        "ground_sha256": "797bee81eb54f9a61b4bbe69c1314d9bd58fe7380cffdb25c42dea5d464ac34c",
+        "irrelevance_knowable_after": 8,
+        "limits": true,
+        "missed_dependency": false,
+        "mixed_actions": [],
+        "nudge_needed": false,
+        "packet_sha256": "ff7364f0fdf0b91b0ce64f6fb57158b859019e327d1794beca1ef900a56362b7",
+        "repeated_no_progress_actions": [],
+        "side_actions": [],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
+      },
+      "id": "h4779",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "first_consequential_completion_seconds": 21.043245705001027,
+        "first_useful_seconds": 27.442017581000982,
+        "mixed_shell_seconds": 0,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.2-sol",
+      "outcome": "finished",
+      "pair": "native-gpt-6.2-sol-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00"
+              ],
+              "process_memory": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 8,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": false,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": false,
+          "nonpaged_pool": true,
+          "paged_pool": true,
+          "process_memory": false,
+          "tagged_pool": false
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 4,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "h6291": {
+      "arm": "candidate",
+      "case": "archive",
+      "first_pass_delivery": "verified",
+      "grade": {
+        "basis": "Action 4 returns log/viewer context despite a path error. Actions 9\u201310 establish the aggregate trend and native pool limitations. Action 11 returns to catalog discovery already covered by 5, 7 and 8. Action 12 combines another process snapshot with a distinct raw CIM attempt and a useful zero-queue reading. Action 13 finds the late exports, 14 hits a console-only Join-Path restriction, and 15 switches to literal paths and validates the exact final counter command and three tag snapshots. The final numbers and bounded interpretation match the receipts and card. \u201cAs the builds finished\u201d is loose phrasing, but the answer specifies four active workers. One clear side action.",
+        "command_excerpt": "Get-Counter -Counter '\\Processor(_Total)\\% Processor Time','\\Memory\\Available MBytes','\\Memory\\Committed Bytes' -SampleInterval 5 -MaxSamples 3 |\n    ForEach-Object { $_.CounterSamples | Select-Object Timestamp,Path,CookedValue } |\n    Format-Table -AutoSize",
+        "delivery": true,
+        "false_done": false,
+        "first_consequential_action": 4,
+        "first_useful_action": 4,
+        "ground_sha256": "27a8d8ab8411dc732109a0578909d00907071c316ee55c7ae688217c76bce837",
+        "irrelevance_knowable_after": 10,
+        "limits": true,
+        "missed_dependency": false,
+        "mixed_actions": [
+          12
+        ],
+        "nudge_needed": false,
+        "packet_sha256": "09b81a79b759d99548cd4e9fae9b4ef7e3586f76f3b7e6590ae6fda90321bf95",
+        "repeated_no_progress_actions": [],
+        "side_actions": [
+          11
+        ],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
+      },
+      "id": "h6291",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "first_consequential_completion_seconds": 16.217010918000597,
+        "first_useful_seconds": 16.217010918000597,
+        "mixed_shell_seconds": 0.703277,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 0.65961
+      },
+      "model": "gpt-6.2-sol",
+      "outcome": "finished",
+      "pair": "archive-gpt-6.2-sol-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 6,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "available": [
+                "2026-04-19T08:57:00"
+              ],
+              "process_memory": [
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 12,
+            "signals": {
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 13,
+            "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ],
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 15,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": true,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 1,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 4,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 8,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "h6905": {
+      "arm": "baseline",
+      "case": "native",
+      "first_pass_delivery": "needs-evidence-review",
+      "grade": {
+        "basis": "Actions 3\u20135 locate the relevant capture and show job status, the viewer delimiter default, and the semicolon header. Action 6 successfully executes the equivalent two-part command, corroborating the 08:50 File tag, stable elevated pools and CPU/RAM recovery. Action 7 adds distinct commit evidence. The reply bounds its diagnosis and driver attribution and does not claim indexer causality.",
+        "command_excerpt": "Import-Csv .\\captures\\memory\\20260419-0850.csv -Delimiter ';' |\n    Sort-Object { [long]$_.Bytes } -Descending |\n    Format-Table Timestamp,Tag,Type,Bytes\n\nGet-Counter '\\Memory\\Available MBytes','\\Memory\\Pool Nonpaged Bytes','\\Memory\\Pool Paged Bytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 2 -MaxSamples 3 |\n    Select-Object -ExpandProperty CounterSamples |\n    Format-Table Path,CookedValue -AutoSize",
+        "delivery": true,
+        "false_done": false,
+        "first_consequential_action": 3,
+        "first_useful_action": 4,
+        "ground_sha256": "945ff271a3a18b04a60f24016dc1ed52c0fb75da91f775ef0805d8dea8d70118",
+        "irrelevance_knowable_after": 6,
+        "limits": true,
+        "missed_dependency": false,
+        "mixed_actions": [],
+        "nudge_needed": false,
+        "packet_sha256": "31aa7ae5463840877d3136348585bd1e7f5513868f9674ee142cad47f9f6b0dd",
+        "repeated_no_progress_actions": [],
+        "side_actions": [],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
+      },
+      "id": "h6905",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "first_consequential_completion_seconds": 21.66751008400024,
+        "first_useful_seconds": 28.881424323999454,
+        "mixed_shell_seconds": 0,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "outcome": "finished",
+      "pair": "native-gpt-6.1-sol-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:57:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "process_memory": [
+                "2026-04-19T08:57:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "nonpaged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "nonpaged_pool": [
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
+                "2026-04-19T09:03:00"
+              ],
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          }
+        ],
+        "corroborated": false,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": false,
+          "nonpaged_pool": true,
+          "paged_pool": true,
+          "process_memory": true,
+          "tagged_pool": false
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 4,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          }
+        ]
+      }
+    },
+    "h7218": {
+      "arm": "candidate",
+      "case": "archive",
+      "first_pass_delivery": "incomplete",
+      "grade": {
+        "basis": "A3 first gives timestamped CI counts and identifies the exact opening capture path, which A4 opens to establish the baseline tags and delimiter. A5 shows direct pool counters unavailable, A7/A8 supply current memory/workload context, and A9\u201310 recover actual tag, RAM and CPU changes for the correct bounded verdict. The archive code is a valid, useful RAM-tag diagnostic in the shown working directory, and A9 verifies its core delimiter/import route. It only prints historical tag bytes and CI counts, so it cannot give the operator a rerunnable CPU or system-memory pressure check. A10 already supplies a successful Get-Counter command that the assistant could have included, and A5/A7 verify available memory routes. The omission is in the handoff, and the reply accurately labels its archive command without falsely claiming it measures CPU.",
+        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv |\n  ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } |\n  Select-Object Timestamp,Tag,Type,@{n='GiB';e={[math]::Round([double]$_.Bytes / 1GB,2)}},CIActive,CICompleted |\n  Format-Table -AutoSize",
+        "delivery": false,
+        "false_done": false,
+        "first_consequential_action": 3,
+        "first_useful_action": 3,
+        "ground_sha256": "11035f6cfe9822cac026db4743607ba65811cd42bf954bbbda60bb7831b2135a",
+        "irrelevance_knowable_after": null,
+        "limits": true,
+        "missed_dependency": false,
+        "mixed_actions": [],
+        "nudge_needed": true,
+        "packet_sha256": "42bbf99c1110eb4a3827980f2ff125498bc80790af99976d7c9daac03a1c2766",
+        "repeated_no_progress_actions": [],
+        "side_actions": [],
+        "sustained_detour": false,
+        "unassisted_incomplete": true,
+        "usable_command": true
+      },
+      "id": "h7218",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "first_consequential_completion_seconds": 15.446543440000823,
+        "first_useful_seconds": 15.446543440000823,
+        "mixed_shell_seconds": 0,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "outcome": "finished",
+      "pair": "archive-gpt-6.1-sol-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 5,
+            "signals": {
+              "available": [
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
@@ -1208,79 +2027,302 @@
           {
             "action": 7,
             "signals": {
+              "available": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 8,
+            "signals": {
               "process_memory": [
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 9,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 10,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ]
             }
           }
         ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": false,
+          "tagged_pool": true
+        },
         "reviewable_sources": [
           {
             "action": 2,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 4,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/*.csv"
+          }
+        ]
+      }
+    },
+    "h7694": {
+      "arm": "baseline",
+      "case": "archive",
+      "first_pass_delivery": "verified",
+      "grade": {
+        "basis": "Action 4 exposes the semicolon capture format. Action 5 lacks paged and nonpaged PDH counters; action 6 confirms the available RAM/CPU trend and lists additional captures. Actions 7\u20138 successfully use those repeated exports, including the actual terminal command in action 8, to show captured pool totals declining from 19.12 to 3.90 GiB as four jobs complete. The final verdict is confined to the sample.",
+        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv | Sort-Object Name | ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } | Group-Object Timestamp | ForEach-Object { [pscustomobject]@{ Time=$_.Name; PoolGiB=[math]::Round(($_.Group | Measure-Object Bytes -Sum).Sum/1GB,2); CIActive=$_.Group[0].CIActive; CICompleted=$_.Group[0].CICompleted } } | Format-Table -AutoSize; Get-Counter '\\Memory\\Available MBytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 2 -MaxSamples 3 | ForEach-Object { $_.CounterSamples } | Select-Object Timestamp,Path,CookedValue | Format-Table -AutoSize",
+        "delivery": true,
+        "false_done": false,
+        "first_consequential_action": 3,
+        "first_useful_action": 4,
+        "ground_sha256": "3168d397ec4ce8e1749098abae1e4133062ef6ab233563adbd1c44ffb5f2befa",
+        "irrelevance_knowable_after": null,
+        "limits": true,
+        "missed_dependency": false,
+        "mixed_actions": [],
+        "nudge_needed": false,
+        "packet_sha256": "c65d22e3ffbdf333707b8cdd72fa815699bbdd58794c2a661f744f6d9de9147c",
+        "repeated_no_progress_actions": [],
+        "side_actions": [],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
+      },
+      "id": "h7694",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
+        },
+        "first_consequential_completion_seconds": 20.138190117000704,
+        "first_useful_seconds": 26.21778968900071,
+        "mixed_shell_seconds": 0,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 0
+      },
+      "model": "gpt-6.1-sol",
+      "outcome": "finished",
+      "pair": "archive-gpt-6.1-sol-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "telemetry_oracle": {
+        "actions": [
+          {
+            "action": 4,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00"
+              ],
+              "file_tag": [
+                "2026-04-19T08:50:00"
+              ],
+              "process_memory": [
+                "2026-04-19T08:50:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00"
+              ]
+            }
+          },
+          {
+            "action": 5,
+            "signals": {
+              "available": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ]
+            }
+          },
+          {
+            "action": 6,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 7,
+            "signals": {
+              "file_tag": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "process_memory": [
+                "2026-04-19T09:03:00"
+              ],
+              "tagged_pool": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
+          },
+          {
+            "action": 8,
+            "signals": {
+              "available": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "cpu": [
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ]
+            }
           }
         ],
-        "corroborated": false
-      },
-      "measures": {
-        "first_useful_seconds": 20.963350437999907,
-        "first_consequential_completion_seconds": 20.963350437999907,
-        "side_shell_seconds": 0,
-        "mixed_shell_seconds": 0.571747,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
-      },
-      "first_pass_delivery": "needs-evidence-review"
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": false,
+          "paged_pool": false,
+          "process_memory": true,
+          "tagged_pool": true
+        },
+        "reviewable_sources": [
+          {
+            "action": 2,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 3,
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
+          },
+          {
+            "action": 8,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0850.csv"
+          },
+          {
+            "action": 8,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0857.csv"
+          },
+          {
+            "action": 8,
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0903.csv"
+          }
+        ]
+      }
     },
     "h8352": {
-      "id": "h8352",
-      "pair": "native-gpt-6.2-sol-1",
-      "model": "gpt-6.2-sol",
-      "reasoning_effort": "high",
-      "case": "native",
       "arm": "candidate",
-      "rep": 1,
-      "launch_status": "opened",
-      "outcome": "finished",
+      "case": "native",
+      "first_pass_delivery": "verified",
       "grade": {
-        "packet_sha256": "6b6c0bb53ea00936ce6983985c6ab9c8a8c00de153e8654d8d12c2899d4c29fe",
-        "ground_sha256": "d9a84afbe9ae3a6563f2544571add950405125d2fe758e3aa888730706fcc782",
-        "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
-        "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
+        "basis": "Action 2 establishes the opening job chronology. Action 7 successfully tests the terminal command and shows flat elevated pools, improved RAM/commit, and CPU and queue recovery. Actions 8\u201311 check whether the opening tag or source data changed at the later frame; the action 11 file read fails, but its native snapshot succeeds on stdout and matches the opening tag data. Action 12 supplies the latest job chronology. Action 13 adds useful unit conversion alongside redundant same-frame tag/status queries. Action 14 repeats the file and status checks without new evidence. The verdict stays within the sampled window.",
         "command_excerpt": "Get-Counter -Counter '\\Memory\\Available MBytes','\\Memory\\Committed Bytes','\\Memory\\Pool Nonpaged Bytes','\\Memory\\Pool Paged Bytes','\\Processor(_Total)\\% Processor Time','\\System\\Processor Queue Length' -SampleInterval 5 -MaxSamples 12 |\n  ForEach-Object {\n    $_.Timestamp.ToString('HH:mm:ss')\n    $_.CounterSamples | Select-Object Path,CookedValue | Format-Table -AutoSize\n  }",
-        "repeated_no_progress_actions": [],
+        "delivery": true,
+        "false_done": false,
         "first_consequential_action": 1,
         "first_useful_action": 2,
+        "ground_sha256": "d9a84afbe9ae3a6563f2544571add950405125d2fe758e3aa888730706fcc782",
         "irrelevance_knowable_after": 11,
-        "side_actions": [
-          14
-        ],
+        "limits": true,
+        "missed_dependency": false,
         "mixed_actions": [
           13
         ],
-        "basis": "Action 2 establishes the opening job chronology. Action 7 successfully tests the terminal command and shows flat elevated pools, improved RAM/commit, and CPU and queue recovery. Actions 8\u201311 check whether the opening tag or source data changed at the later frame; the action 11 file read fails, but its native snapshot succeeds on stdout and matches the opening tag data. Action 12 supplies the latest job chronology. Action 13 adds useful unit conversion alongside redundant same-frame tag/status queries. Action 14 repeats the file and status checks without new evidence. The verdict stays within the sampled window."
+        "nudge_needed": false,
+        "packet_sha256": "6b6c0bb53ea00936ce6983985c6ab9c8a8c00de153e8654d8d12c2899d4c29fe",
+        "repeated_no_progress_actions": [],
+        "side_actions": [
+          14
+        ],
+        "sustained_detour": false,
+        "unassisted_incomplete": false,
+        "usable_command": true
       },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": false,
-          "file_tag": true,
-          "tagged_pool": true,
-          "paged_pool": true,
-          "nonpaged_pool": true
+      "id": "h8352",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
         },
+        "first_consequential_completion_seconds": 7.756125150999651,
+        "first_useful_seconds": 11.25482242399994,
+        "mixed_shell_seconds": 0.738792,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 0.695668
+      },
+      "model": "gpt-6.2-sol",
+      "outcome": "finished",
+      "pair": "native-gpt-6.2-sol-1",
+      "reasoning_effort": "high",
+      "rep": 1,
+      "telemetry_oracle": {
         "actions": [
           {
             "action": 4,
@@ -1302,6 +2344,12 @@
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00"
               ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00"
+              ],
               "nonpaged_pool": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
@@ -1309,12 +2357,6 @@
                 "2026-04-19T08:57:00"
               ],
               "paged_pool": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ],
-              "cpu": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
@@ -1332,6 +2374,13 @@
                 "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
               "nonpaged_pool": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
@@ -1340,13 +2389,6 @@
                 "2026-04-19T09:03:00"
               ],
               "paged_pool": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
@@ -1384,6 +2426,16 @@
                 "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
+              "file_tag": [
+                "2026-04-19T09:03:00"
+              ],
               "nonpaged_pool": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
@@ -1398,266 +2450,110 @@
                 "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ],
-              "cpu": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "file_tag": [
-                "2026-04-19T09:03:00"
-              ],
               "tagged_pool": [
                 "2026-04-19T09:03:00"
               ]
             }
           }
         ],
+        "corroborated": true,
+        "coverage_across_completed_jobs": {
+          "available": true,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": true,
+          "paged_pool": true,
+          "process_memory": false,
+          "tagged_pool": true
+        },
         "reviewable_sources": [
           {
             "action": 1,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 2,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 3,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 5,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 8,
-            "source": "captures/memory/20260419-0850.csv",
-            "reason": "archive access recorded without corroborating sample data"
+            "reason": "archive access recorded without corroborating sample data",
+            "source": "captures/memory/20260419-0850.csv"
           },
           {
             "action": 9,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 14,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           }
-        ],
-        "corroborated": true
-      },
-      "measures": {
-        "first_useful_seconds": 11.25482242399994,
-        "first_consequential_completion_seconds": 7.756125150999651,
-        "side_shell_seconds": 0.695668,
-        "mixed_shell_seconds": 0.738792,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
-      },
-      "first_pass_delivery": "verified"
-    },
-    "h4779": {
-      "id": "h4779",
-      "pair": "native-gpt-6.2-sol-1",
-      "model": "gpt-6.2-sol",
-      "reasoning_effort": "high",
-      "case": "native",
-      "arm": "baseline",
-      "rep": 1,
-      "launch_status": "opened",
-      "outcome": "finished",
-      "grade": {
-        "packet_sha256": "ff7364f0fdf0b91b0ce64f6fb57158b859019e327d1794beca1ef900a56362b7",
-        "ground_sha256": "797bee81eb54f9a61b4bbe69c1314d9bd58fe7380cffdb25c42dea5d464ac34c",
-        "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
-        "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
-        "command_excerpt": "Get-Counter -Counter @(\n    '\\Processor(_Total)\\% Processor Time'\n    '\\Memory\\Available MBytes'\n    '\\Memory\\Committed Bytes'\n    '\\Memory\\Pool Nonpaged Bytes'\n    '\\Memory\\Pool Paged Bytes'\n    '\\Memory\\Pages Input/sec'\n) -SampleInterval 5 -MaxSamples 4 |\n    ForEach-Object { $_.CounterSamples } |\n    Format-Table Timestamp, Path, CookedValue -AutoSize",
-        "repeated_no_progress_actions": [],
-        "first_consequential_action": 4,
-        "first_useful_action": 5,
-        "irrelevance_knowable_after": 8,
-        "side_actions": [],
-        "mixed_actions": [],
-        "basis": "Actions 4\u20135 locate sources and collect status and host readings. Action 6 checks the archive failure before decisive evidence exists. Action 7 obtains the current CPU and elevated pools, and action 8 successfully runs the equivalent six-counter command against four frames. The opening no-active-leak wording is stronger than ideal, but ties the conclusion to these samples and qualifies idle persistence and driver identification."
-      },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": false,
-          "file_tag": false,
-          "tagged_pool": false,
-          "paged_pool": true,
-          "nonpaged_pool": true
-        },
-        "actions": [
-          {
-            "action": 5,
-            "signals": {
-              "available": [
-                "2026-04-19T08:50:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:50:00"
-              ],
-              "process_memory": [
-                "2026-04-19T08:50:00"
-              ]
-            }
-          },
-          {
-            "action": 6,
-            "signals": {
-              "file_tag": [
-                "2026-04-19T08:50:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00"
-              ]
-            }
-          },
-          {
-            "action": 7,
-            "signals": {
-              "nonpaged_pool": [
-                "2026-04-19T09:03:00"
-              ],
-              "available": [
-                "2026-04-19T09:03:00"
-              ],
-              "paged_pool": [
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 8,
-            "signals": {
-              "available": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "nonpaged_pool": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "paged_pool": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          }
-        ],
-        "reviewable_sources": [
-          {
-            "action": 2,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 3,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 4,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          }
-        ],
-        "corroborated": false
-      },
-      "measures": {
-        "first_useful_seconds": 27.442017581000982,
-        "first_consequential_completion_seconds": 21.043245705001027,
-        "side_shell_seconds": 0,
-        "mixed_shell_seconds": 0,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
-      },
-      "first_pass_delivery": "needs-evidence-review"
+        ]
+      }
     },
     "h9764": {
-      "id": "h9764",
-      "pair": "native-gpt-6.2-sol-2",
-      "model": "gpt-6.2-sol",
-      "reasoning_effort": "high",
-      "case": "native",
       "arm": "baseline",
-      "rep": 2,
-      "launch_status": "opened",
-      "outcome": "finished",
+      "case": "native",
+      "first_pass_delivery": "verified",
       "grade": {
+        "basis": "A1 and A4 give opening and current CPU/RAM, A6 establishes the trend and supports a pasteable counter sample. A7 returns the same frames and fewer counters, and A8 starts a broad workspace search in the wrong shell with a bounded verdict already available. A9\u201314 get a useful corroborating tag comparison via native PoolMon and the opening CSV; I credit that comparison as relevant. A15 and A16 follow after A14 already printed the decisive historical row, and add no evidence needed for the reply. The reported stable File endpoints match A11/A14 and ground, without a claim to prove a leak or a driver. This was delivery after optional side work, not a false done or a need for a nudge.",
+        "command_excerpt": "(Get-Process -Name ci-task -ErrorAction SilentlyContinue | Measure-Object).Count\nGet-Counter -Counter '\\Memory\\Available MBytes','\\Memory\\Committed Bytes','\\Memory\\Pool Nonpaged Bytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 5 -MaxSamples 6 |\n    Select-Object -ExpandProperty CounterSamples |\n    Select-Object Timestamp,Path,CookedValue |\n    Format-Table -AutoSize\n(Get-Process -Name ci-task -ErrorAction SilentlyContinue | Measure-Object).Count",
         "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": true,
-        "missed_dependency": false,
         "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
         "first_consequential_action": 1,
         "first_useful_action": 1,
+        "ground_sha256": "b0a5fbb342147e230627c21cae45771439efd9a141b68ff353451dea5f5fd960",
         "irrelevance_knowable_after": 6,
+        "limits": true,
+        "missed_dependency": false,
+        "mixed_actions": [],
+        "nudge_needed": false,
+        "packet_sha256": "d7922374754fc1f131f0a9996a7834cb454c73fb871847f15bb886f1b2b012c8",
+        "repeated_no_progress_actions": [],
         "side_actions": [
           7,
           8,
           15,
           16
         ],
-        "mixed_actions": [],
-        "repeated_no_progress_actions": [],
-        "basis": "A1 and A4 give opening and current CPU/RAM, A6 establishes the trend and supports a pasteable counter sample. A7 returns the same frames and fewer counters, and A8 starts a broad workspace search in the wrong shell with a bounded verdict already available. A9\u201314 get a useful corroborating tag comparison via native PoolMon and the opening CSV; I credit that comparison as relevant. A15 and A16 follow after A14 already printed the decisive historical row, and add no evidence needed for the reply. The reported stable File endpoints match A11/A14 and ground, without a claim to prove a leak or a driver. This was delivery after optional side work, not a false done or a need for a nudge.",
-        "packet_sha256": "d7922374754fc1f131f0a9996a7834cb454c73fb871847f15bb886f1b2b012c8",
-        "command_excerpt": "(Get-Process -Name ci-task -ErrorAction SilentlyContinue | Measure-Object).Count\nGet-Counter -Counter '\\Memory\\Available MBytes','\\Memory\\Committed Bytes','\\Memory\\Pool Nonpaged Bytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 5 -MaxSamples 6 |\n    Select-Object -ExpandProperty CounterSamples |\n    Select-Object Timestamp,Path,CookedValue |\n    Format-Table -AutoSize\n(Get-Process -Name ci-task -ErrorAction SilentlyContinue | Measure-Object).Count",
-        "ground_sha256": "b0a5fbb342147e230627c21cae45771439efd9a141b68ff353451dea5f5fd960"
+        "sustained_detour": true,
+        "unassisted_incomplete": false,
+        "usable_command": true
       },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": true,
-          "file_tag": true,
-          "tagged_pool": true,
-          "paged_pool": true,
-          "nonpaged_pool": true
+      "id": "h9764",
+      "launch_status": "opened",
+      "measures": {
+        "command_syntax": {
+          "errors": [],
+          "state_change_commands": [],
+          "status": "parsed"
         },
+        "first_consequential_completion_seconds": 18.52328666699941,
+        "first_useful_seconds": 18.52328666699941,
+        "mixed_shell_seconds": 0,
+        "repeated_shell_seconds": 0,
+        "side_shell_seconds": 1.929944
+      },
+      "model": "gpt-6.2-sol",
+      "outcome": "finished",
+      "pair": "native-gpt-6.2-sol-2",
+      "reasoning_effort": "high",
+      "rep": 2,
+      "telemetry_oracle": {
         "actions": [
           {
             "action": 1,
@@ -1665,13 +2561,13 @@
               "available": [
                 "2026-04-19T08:50:00"
               ],
+              "cpu": [
+                "2026-04-19T08:50:00"
+              ],
               "nonpaged_pool": [
                 "2026-04-19T08:50:00"
               ],
               "paged_pool": [
-                "2026-04-19T08:50:00"
-              ],
-              "cpu": [
                 "2026-04-19T08:50:00"
               ],
               "process_memory": [
@@ -1690,16 +2586,16 @@
           {
             "action": 4,
             "signals": {
-              "nonpaged_pool": [
-                "2026-04-19T09:03:00"
-              ],
               "available": [
                 "2026-04-19T09:03:00"
               ],
-              "paged_pool": [
+              "cpu": [
                 "2026-04-19T09:03:00"
               ],
-              "cpu": [
+              "nonpaged_pool": [
+                "2026-04-19T09:03:00"
+              ],
+              "paged_pool": [
                 "2026-04-19T09:03:00"
               ],
               "process_memory": [
@@ -1716,6 +2612,12 @@
                 "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ],
+              "cpu": [
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
               "nonpaged_pool": [
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
@@ -1723,12 +2625,6 @@
                 "2026-04-19T09:03:00"
               ],
               "paged_pool": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00",
@@ -1746,6 +2642,13 @@
                 "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ],
+              "cpu": [
+                "2026-04-19T08:38:00",
+                "2026-04-19T08:44:00",
+                "2026-04-19T08:50:00",
+                "2026-04-19T08:57:00",
+                "2026-04-19T09:03:00"
+              ],
               "nonpaged_pool": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
@@ -1754,13 +2657,6 @@
                 "2026-04-19T09:03:00"
               ],
               "paged_pool": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
@@ -1779,14 +2675,14 @@
                 "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ],
-              "nonpaged_pool": [
+              "cpu": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
                 "2026-04-19T08:57:00",
                 "2026-04-19T09:03:00"
               ],
-              "cpu": [
+              "nonpaged_pool": [
                 "2026-04-19T08:38:00",
                 "2026-04-19T08:44:00",
                 "2026-04-19T08:50:00",
@@ -1829,935 +2725,39 @@
             }
           }
         ],
-        "reviewable_sources": [
-          {
-            "action": 9,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 12,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 13,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 15,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          }
-        ],
-        "corroborated": true
-      },
-      "measures": {
-        "first_useful_seconds": 18.52328666699941,
-        "first_consequential_completion_seconds": 18.52328666699941,
-        "side_shell_seconds": 1.929944,
-        "mixed_shell_seconds": 0,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
-      },
-      "first_pass_delivery": "verified"
-    },
-    "h4586": {
-      "id": "h4586",
-      "pair": "native-gpt-6.2-sol-2",
-      "model": "gpt-6.2-sol",
-      "reasoning_effort": "high",
-      "case": "native",
-      "arm": "candidate",
-      "rep": 2,
-      "launch_status": "opened",
-      "outcome": "finished",
-      "grade": {
-        "packet_sha256": "5063decbb347f28705753a6f4c618360b4501d7b75d0194ffb7c895a0c99e926",
-        "ground_sha256": "66131aee93b08f79feffacbbb35a043d8659c1f2f631e520bd4bb902fa3b91e4",
-        "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
-        "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
-        "command_excerpt": "Get-Counter -Counter '\\Processor(_Total)\\% Processor Time','\\System\\Processor Queue Length','\\Memory\\Available MBytes','\\Memory\\Committed Bytes','\\Memory\\Commit Limit','\\Memory\\Pool Nonpaged Bytes','\\Memory\\Pool Paged Bytes' -SampleInterval 5 -MaxSamples 3 |\n  ForEach-Object {\n    $_.Timestamp\n    $_.CounterSamples | Format-Table Path,CookedValue -AutoSize\n  }",
-        "first_consequential_action": 4,
-        "first_useful_action": 4,
-        "irrelevance_knowable_after": 8,
-        "side_actions": [
-          9
-        ],
-        "mixed_actions": [],
-        "repeated_no_progress_actions": [],
-        "basis": "Action 4 establishes the opening export. Actions 6\u20137 provide CPU, queue, memory and pool trends, and 8 confirms four completed jobs and no later tag export. The final figures match the receipts and ground card, qualify continued pool concern without claiming a leak or cause, and give a valid short diagnostic using the proven counters. Action 9 repeats the completed counter/archive checks without adding a frame or finding, but there is only one redundant post-evidence action."
-      },
-      "telemetry_oracle": {
+        "corroborated": true,
         "coverage_across_completed_jobs": {
-          "cpu": true,
           "available": true,
-          "process_memory": false,
-          "file_tag": false,
-          "tagged_pool": false,
+          "cpu": true,
+          "file_tag": true,
+          "nonpaged_pool": true,
           "paged_pool": true,
-          "nonpaged_pool": true
-        },
-        "actions": [
-          {
-            "action": 4,
-            "signals": {
-              "file_tag": [
-                "2026-04-19T08:50:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00"
-              ]
-            }
-          },
-          {
-            "action": 5,
-            "signals": {
-              "available": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00"
-              ],
-              "nonpaged_pool": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00"
-              ],
-              "paged_pool": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00"
-              ]
-            }
-          },
-          {
-            "action": 6,
-            "signals": {
-              "available": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ],
-              "nonpaged_pool": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ],
-              "paged_pool": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ]
-            }
-          },
-          {
-            "action": 7,
-            "signals": {
-              "available": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "nonpaged_pool": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "paged_pool": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 9,
-            "signals": {
-              "cpu": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "available": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "nonpaged_pool": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "paged_pool": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          }
-        ],
-        "reviewable_sources": [
-          {
-            "action": 2,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 3,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 8,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          }
-        ],
-        "corroborated": false
-      },
-      "measures": {
-        "first_useful_seconds": 17.05786445099875,
-        "first_consequential_completion_seconds": 17.05786445099875,
-        "side_shell_seconds": 0.664281,
-        "mixed_shell_seconds": 0,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
-      },
-      "first_pass_delivery": "needs-evidence-review"
-    },
-    "h1847": {
-      "id": "h1847",
-      "pair": "archive-gpt-6.2-sol-1",
-      "model": "gpt-6.2-sol",
-      "reasoning_effort": "high",
-      "case": "archive",
-      "arm": "baseline",
-      "rep": 1,
-      "launch_status": "opened",
-      "outcome": "finished",
-      "grade": {
-        "packet_sha256": "f2cd314ff54bff643229e1d2a5b196d889a0cdadc33110809246e9918a0c7543",
-        "ground_sha256": "4c567762a21766ed6840148c814e4434157bdf5a8ab48ad251d4e857010a4242",
-        "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
-        "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
-        "command_excerpt": "Get-ChildItem .\\captures\\memory\\*.csv | Sort-Object Name |\n    ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } |\n    Select-Object Timestamp, Tag, Type, @{Name='GiB';Expression={[math]::Round([double]$_.Bytes / 1GB, 2)}}, CIActive, CICompleted |\n    Format-Table -AutoSize\nGet-Counter -Counter @('\\Memory\\Available MBytes', '\\Memory\\Committed Bytes', '\\Processor(_Total)\\% Processor Time', '\\System\\Processor Queue Length') -SampleInterval 5 -MaxSamples 3",
-        "first_consequential_action": 4,
-        "first_useful_action": 4,
-        "irrelevance_knowable_after": 9,
-        "side_actions": [],
-        "mixed_actions": [],
-        "repeated_no_progress_actions": [],
-        "basis": "Action 4 identifies the header/delimiter mismatch. Native pool values are unavailable in 5\u20136. Action 7 supplies the CPU, queue, free and committed memory values, 8 finds the later exports, and 9 runs the supplied semicolon workaround and confirms all five tags shrink. The final command is valid in the checkout and reproduces the relevant data. The counter display is less readable without projecting individual CounterSamples as in 7. The bounded window, four job completions and recommendation to leave the active jobs running match the card."
-      },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": false,
-          "file_tag": false,
-          "tagged_pool": false,
-          "paged_pool": false,
-          "nonpaged_pool": false
-        },
-        "actions": [
-          {
-            "action": 4,
-            "signals": {
-              "file_tag": [
-                "2026-04-19T08:50:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00"
-              ]
-            }
-          },
-          {
-            "action": 5,
-            "signals": {
-              "available": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00"
-              ]
-            }
-          },
-          {
-            "action": 6,
-            "signals": {
-              "available": [
-                "2026-04-19T08:57:00"
-              ]
-            }
-          },
-          {
-            "action": 7,
-            "signals": {
-              "available": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          }
-        ],
-        "reviewable_sources": [
-          {
-            "action": 1,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 3,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 8,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 9,
-            "source": "captures/memory/20260419-0850.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          },
-          {
-            "action": 9,
-            "source": "captures/memory/20260419-0857.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          },
-          {
-            "action": 9,
-            "source": "captures/memory/20260419-0903.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          }
-        ],
-        "corroborated": false
-      },
-      "measures": {
-        "first_useful_seconds": 16.909980779999387,
-        "first_consequential_completion_seconds": 16.909980779999387,
-        "side_shell_seconds": 0,
-        "mixed_shell_seconds": 0,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
-      },
-      "first_pass_delivery": "needs-evidence-review"
-    },
-    "h6291": {
-      "id": "h6291",
-      "pair": "archive-gpt-6.2-sol-1",
-      "model": "gpt-6.2-sol",
-      "reasoning_effort": "high",
-      "case": "archive",
-      "arm": "candidate",
-      "rep": 1,
-      "launch_status": "opened",
-      "outcome": "finished",
-      "grade": {
-        "packet_sha256": "09b81a79b759d99548cd4e9fae9b4ef7e3586f76f3b7e6590ae6fda90321bf95",
-        "ground_sha256": "27a8d8ab8411dc732109a0578909d00907071c316ee55c7ae688217c76bce837",
-        "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
-        "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
-        "command_excerpt": "Get-Counter -Counter '\\Processor(_Total)\\% Processor Time','\\Memory\\Available MBytes','\\Memory\\Committed Bytes' -SampleInterval 5 -MaxSamples 3 |\n    ForEach-Object { $_.CounterSamples | Select-Object Timestamp,Path,CookedValue } |\n    Format-Table -AutoSize",
-        "first_consequential_action": 4,
-        "first_useful_action": 4,
-        "irrelevance_knowable_after": 10,
-        "side_actions": [
-          11
-        ],
-        "mixed_actions": [
-          12
-        ],
-        "repeated_no_progress_actions": [],
-        "basis": "Action 4 returns log/viewer context despite a path error. Actions 9\u201310 establish the aggregate trend and native pool limitations. Action 11 returns to catalog discovery already covered by 5, 7 and 8. Action 12 combines another process snapshot with a distinct raw CIM attempt and a useful zero-queue reading. Action 13 finds the late exports, 14 hits a console-only Join-Path restriction, and 15 switches to literal paths and validates the exact final counter command and three tag snapshots. The final numbers and bounded interpretation match the receipts and card. \u201cAs the builds finished\u201d is loose phrasing, but the answer specifies four active workers. One clear side action."
-      },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
           "process_memory": true,
-          "file_tag": true,
-          "tagged_pool": true,
-          "paged_pool": false,
-          "nonpaged_pool": false
+          "tagged_pool": true
         },
-        "actions": [
-          {
-            "action": 6,
-            "signals": {
-              "file_tag": [
-                "2026-04-19T08:50:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00"
-              ]
-            }
-          },
+        "reviewable_sources": [
           {
             "action": 9,
-            "signals": {
-              "cpu": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ],
-              "available": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ]
-            }
-          },
-          {
-            "action": 10,
-            "signals": {
-              "available": [
-                "2026-04-19T08:57:00"
-              ],
-              "process_memory": [
-                "2026-04-19T08:57:00"
-              ]
-            }
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 12,
-            "signals": {
-              "process_memory": [
-                "2026-04-19T09:03:00"
-              ]
-            }
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 13,
-            "signals": {
-              "process_memory": [
-                "2026-04-19T09:03:00"
-              ],
-              "available": [
-                "2026-04-19T09:03:00"
-              ]
-            }
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           },
           {
             "action": 15,
-            "signals": {
-              "cpu": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "available": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "file_tag": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
+            "reason": "output has no instrumented source; inspect for alternative evidence",
+            "source": "command output"
           }
-        ],
-        "reviewable_sources": [
-          {
-            "action": 1,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 3,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 4,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 8,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          }
-        ],
-        "corroborated": true
-      },
-      "measures": {
-        "first_useful_seconds": 16.217010918000597,
-        "first_consequential_completion_seconds": 16.217010918000597,
-        "side_shell_seconds": 0.65961,
-        "mixed_shell_seconds": 0.703277,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        }
-      },
-      "first_pass_delivery": "verified"
+        ]
+      }
     }
-  },
-  "observed_post_pass_nudges": 2,
-  "rescues": {
-    "h7218": {
-      "id": "h7218",
-      "pair": "archive-gpt-6.1-sol-1",
-      "model": "gpt-6.1-sol",
-      "reasoning_effort": "high",
-      "case": "archive",
-      "arm": "candidate",
-      "rep": 1,
-      "launch_status": "opened",
-      "outcome": "finished",
-      "grade": {
-        "packet_sha256": "af2ae78853d940196954a47211957b67f174d33624d471c637bd17245db70ed0",
-        "ground_sha256": "f2c4d31bcabb5765f671883f8e614bdcf32b9d0a2b8efe1191eedc2247bf350d",
-        "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
-        "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
-        "command_excerpt": "Get-Counter '\\Memory\\Available MBytes','\\Processor(_Total)\\% Processor Time' -SampleInterval 2 -MaxSamples 3 |\n  ForEach-Object { $_.CounterSamples } |\n  Select-Object Timestamp,Path,CookedValue |\n  Format-Table -AutoSize",
-        "first_consequential_action": 1,
-        "first_useful_action": 1,
-        "irrelevance_knowable_after": 0,
-        "side_actions": [],
-        "mixed_actions": [],
-        "repeated_no_progress_actions": [],
-        "basis": "Post-nudge action 1 rechecks capture status, all three semicolon-delimited exports and the exact live-counter pipeline in the reply. Before_nudge actions 9\u201310 and its prior answer had already delivered these same job, pool, free-memory and CPU trends and the archive command, so the nudge yields corroboration and a simpler counter handoff without producing a new measurement window. The reply bounds the finding and preserves active builds. The initial File value is 8.47 GiB when the raw bytes are rounded directly, so the reported 8.48 GiB is immaterial. Earlier missing pool-counter objects and the unsupported Get-Job at before_nudge actions 5\u20136 did not block the successful archive/status path. The final command measures available RAM and CPU; the pool/CI conclusion comes from archive receipts, not the live-counter snippet alone."
-      },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": false,
-          "file_tag": true,
-          "tagged_pool": true,
-          "paged_pool": false,
-          "nonpaged_pool": false
-        },
-        "actions": [
-          {
-            "action": 5,
-            "signals": {
-              "available": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ]
-            }
-          },
-          {
-            "action": 7,
-            "signals": {
-              "available": [
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 8,
-            "signals": {
-              "process_memory": [
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 9,
-            "signals": {
-              "file_tag": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "available": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 10,
-            "signals": {
-              "available": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 11,
-            "signals": {
-              "available": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "file_tag": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          }
-        ],
-        "reviewable_sources": [
-          {
-            "action": 2,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 3,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 4,
-            "source": "captures/memory/*.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          }
-        ],
-        "corroborated": true
-      },
-      "measures": {
-        "first_useful_seconds": 90.49641197099845,
-        "first_consequential_completion_seconds": 90.49641197099845,
-        "side_shell_seconds": 0,
-        "mixed_shell_seconds": 0,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        },
-        "first_useful_seconds_after_nudge": 9.89236981799877
-      },
-      "post_nudge_delivery": "verified"
-    },
-    "h3660": {
-      "id": "h3660",
-      "pair": "archive-gpt-6.2-sol-2",
-      "model": "gpt-6.2-sol",
-      "reasoning_effort": "high",
-      "case": "archive",
-      "arm": "baseline",
-      "rep": 2,
-      "launch_status": "opened",
-      "outcome": "finished",
-      "grade": {
-        "packet_sha256": "ccd8a66cd8e022ca8970f3396e1b80ff88a9b0e0decb7bfb584c07b7cc0aa27b",
-        "ground_sha256": "fb65c4a785492163f06f8c9f2cc2c01f7bfce1341bc43bdb39b6be01f5a95af4",
-        "delivery": true,
-        "usable_command": true,
-        "limits": true,
-        "sustained_detour": false,
-        "missed_dependency": false,
-        "false_done": false,
-        "unassisted_incomplete": false,
-        "nudge_needed": false,
-        "command_excerpt": "Get-ChildItem captures/memory/*.csv | ForEach-Object { Import-Csv -LiteralPath $_.FullName -Delimiter ';' } | Format-Table Timestamp,Tag,Type,@{Name='GiB';Expression={[math]::Round([double]$_.Bytes / 1GB, 2)}},CIActive,CICompleted -AutoSize",
-        "first_consequential_action": 1,
-        "first_useful_action": 1,
-        "irrelevance_knowable_after": 0,
-        "side_actions": [],
-        "mixed_actions": [],
-        "repeated_no_progress_actions": [],
-        "basis": "Post-nudge action 1 finds all three captures after the earlier handoff still reported one timestamp (before_nudge actions 2\u20133 sampled the opening frame only). Action 2 imports the three semicolon-delimited captures and checks CI completions. Action 3 corroborates the 08:50\u201309:03 CPU, free-memory and commit trend already recorded by before_nudge actions 9 and 11. The terminal verdict matches those receipts and the ground card, limits the finding to the observed window and keeps builds running. Its exact archive snippet ran in action 2 and is useful for kernel allocations and CI only. The operator already had the tested CPU/free-RAM/commit command from the first answer (before_nudge action 11 verified it), so the complete thread supplies both commands. The unavailable pool counters in before_nudge action 4 are a simulator measurement limit, and that limit did not block direct archive verification. No additional sample after 09:03 or driver diagnosis is proved."
-      },
-      "telemetry_oracle": {
-        "coverage_across_completed_jobs": {
-          "cpu": true,
-          "available": true,
-          "process_memory": false,
-          "file_tag": false,
-          "tagged_pool": false,
-          "paged_pool": false,
-          "nonpaged_pool": false
-        },
-        "actions": [
-          {
-            "action": 3,
-            "signals": {
-              "file_tag": [
-                "2026-04-19T08:50:00"
-              ],
-              "tagged_pool": [
-                "2026-04-19T08:50:00"
-              ]
-            }
-          },
-          {
-            "action": 4,
-            "signals": {
-              "available": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ]
-            }
-          },
-          {
-            "action": 5,
-            "signals": {
-              "available": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00"
-              ]
-            }
-          },
-          {
-            "action": 6,
-            "signals": {
-              "available": [
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 9,
-            "signals": {
-              "available": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 10,
-            "signals": {
-              "process_memory": [
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 11,
-            "signals": {
-              "available": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:38:00",
-                "2026-04-19T08:44:00",
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          },
-          {
-            "action": 14,
-            "signals": {
-              "available": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ],
-              "cpu": [
-                "2026-04-19T08:50:00",
-                "2026-04-19T08:57:00",
-                "2026-04-19T09:03:00"
-              ]
-            }
-          }
-        ],
-        "reviewable_sources": [
-          {
-            "action": 1,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 2,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 12,
-            "source": "command output",
-            "reason": "output has no instrumented source; inspect for alternative evidence"
-          },
-          {
-            "action": 13,
-            "source": "captures/memory/20260419-0850.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          },
-          {
-            "action": 13,
-            "source": "captures/memory/20260419-0857.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          },
-          {
-            "action": 13,
-            "source": "captures/memory/20260419-0903.csv",
-            "reason": "archive access recorded without corroborating sample data"
-          }
-        ],
-        "corroborated": false
-      },
-      "measures": {
-        "first_useful_seconds": 137.09573225000167,
-        "first_consequential_completion_seconds": 137.09573225000167,
-        "side_shell_seconds": 0,
-        "mixed_shell_seconds": 0,
-        "repeated_shell_seconds": 0,
-        "command_syntax": {
-          "status": "parsed",
-          "errors": [],
-          "state_change_commands": []
-        },
-        "first_useful_seconds_after_nudge": 7.987991097001213
-      },
-      "post_nudge_delivery": "needs-evidence-review"
-    }
-  },
-  "rescue_judge": {
-    "id": "rescuejudge",
-    "method": "Blinded independent GPT-6.2 Sol High grader of both continued conversations."
   }
 }
