@@ -11,6 +11,7 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from statistics import median
+from types import ModuleType
 
 import pivot_run
 from long_run import workspace_tree
@@ -21,6 +22,7 @@ from trial import HERE, digest, write_json
 SCHEDULE = "pivot_schedule.json"
 SCHEDULE_SHA256 = "826cd0541bab13ba20a2761a4c1b6a35c7de58762b23b17ab2e778e373bb9675"
 STEADY = "pivot_steady_schedule.json"
+RUNNER_REVISION = "7019e04d459b3145ff7ae198ae9649535a21ba8d"
 RUNNER_SHA256 = "ed7fb254ab0e8d18b70daff1a33cb6777bffe055c1dd6a9394b77e50b2829441"
 STEADY_SHA256 = "009ac541f333588d658162970e8488fe5efc455f68726ccb771365505dedff06"
 MANIFEST = "pivot_blind_manifest.json"
@@ -60,19 +62,28 @@ def frozen_json(root, name, expected):
     return read_json(path)
 
 
+def historical_runner():
+    source = f"{RUNNER_REVISION}:.claude/hillclimb/codex-critical-path/pivot_run.py"
+    runner_bytes = subprocess.check_output(["git", "show", source], cwd=HERE, timeout=10)
+    require(digest(runner_bytes) == RUNNER_SHA256, f"The recorded runner differs from its pin: {source}.")
+    module = ModuleType("historical_pivot_runner")
+    exec(compile(runner_bytes, source, "exec"), module.__dict__)
+    return module
+
+
 def schedule_for(root):
     schedule = frozen_json(root, SCHEDULE, SCHEDULE_SHA256)
     steady = frozen_json(root, STEADY, STEADY_SHA256)
-    hashes = {**schedule["case_sha256"], "pivot_steady.py": steady["steady_history_sha256"],
-              "pivot_run.py": RUNNER_SHA256}
+    hashes = {**schedule["case_sha256"], "pivot_steady.py": steady["steady_history_sha256"]}
     for name, expected in hashes.items():
         require(digest((HERE / name).read_bytes()) == expected, f"The frozen input changed: {name}.")
     rows = [{"mode": "operator-update", **row} for row in (*schedule["rows"], *steady["rows"])]
     ids = [directory_name(row[key]) for row in rows for key in ("id", *ARMS, "reviewer")]
     require(len(ids) == len(set(ids)), "The frozen allocation shares directory IDs.")
-    require(schedule["pin"] == pivot_run.PIN and schedule["budget_seconds"] == pivot_run.BUDGET_SECONDS,
+    runner = historical_runner()
+    require(schedule["pin"] == runner.PIN and schedule["budget_seconds"] == runner.BUDGET_SECONDS,
             "The runner differs from the frozen baseline or budget.")
-    return {**schedule, "rows": rows}
+    return {**schedule, "rows": rows, "historical_review_trigger": runner.review_trigger}
 
 
 def optional_json(path):
@@ -215,7 +226,8 @@ def prefix_record(directory, row, schedule, baseline):
         step = checked_clock(clock, 0, 0, manifest["budget_seconds"], "prefix")
         path = directory / "review-input.json"
         pending = read_json(path)["pending_reply"]
-        trigger = pivot_run.review_trigger(directory, manifest, events, tree)
+        review_trigger = schedule.get("historical_review_trigger", pivot_run.review_trigger)
+        trigger = review_trigger(directory, manifest, events, tree)
         fixed = schedule["prefix_work_actions"]
         reason_rules = {
             "attempted-finish": row["mode"] == "operator-update" and pending is not None and len(events) < fixed,

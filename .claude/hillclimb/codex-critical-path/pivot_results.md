@@ -2,6 +2,14 @@
 
 Eight matched cloud continuations tested whether a fresh reviewer helped an already-working Codex agent deliver the requested result. Six pairs received the same simulated change in priorities; two continued with the original request and no operator intervention. A ninth worker finished the unchanged-goal held-out task before a review was eligible. All 17 produced the requested files. In each pair both arms agreed on the independent artifact checks.
 
+## Runner correction and historical impact
+
+The original runner consulted the hidden correctness oracle when all expected artifact paths existed, and accepted a review receipt whose checkpoint digest was missing. Those were faults in the evaluation machinery. The corrected runner nominates from information visible to the worker and rejects missing or mismatched digests before displaying advice or starting the continuation. Historical replay still uses the byte-pinned original trigger.
+
+On the downloaded original archive, 13 decisions across all nine prefixes were eligible for examination. The original code consulted the oracle twice, both in the unpaired reserve. Forcing either hidden answer changed zero nominations. The corrected visible-only policy matched all 13 archived decisions. All eight consumed receipts carried the correct checkpoint digest, the source request matched the role plus the checkpoint bytes, and the consumed advice matched the reviewer response. The behavioral totals above therefore stand, while the original runner was unsuitable for reuse. [Per-decision and receipt audit](evidence/pivot-impact.json)
+
+Run `python -B pivot_impact_audit.py "$study_dir"` on the extracted original archive to reproduce the audit.
+
 ## Why this case
 
 In the November 18 supervision transcript the operator asked for named merges and resource-efficient CI. During the shift the supervisor proposed investigating watcher frequency. At 12:44 UTC the operator intervened and asked it to pick up ended turns with unfinished work. The next messages identified an undelivered PR fix and a missing Windows CI profile and reported both leads resumed. Another exchange at 14:54 shows the operator had to continue a pressure investigation after an interim memory improvement. These are observed nudges. The available messages establish neither a count of off-goal tool calls nor a successful final deployment in the field.

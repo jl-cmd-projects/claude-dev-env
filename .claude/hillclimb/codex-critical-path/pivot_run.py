@@ -26,6 +26,7 @@ CASES = (*pivot_case.CASES, "capture")
 UPDATE = "\n[Operator update]\n"
 CHECKPOINT = "CHECKPOINT: pause for operator update"
 STEADY_CHECKPOINT = "CHECKPOINT: pause for continuation"
+REVIEW_POLICY = "checkpoint-visible-v1"
 UNRESOLVED = re.compile(
     r"\b(?:pending|in[ -]progress|running|time[ -]?out|timed out|unavailable|detached|"
     r"(?:a)?waiting|collecting|unknown|failed|unresolved)\b",
@@ -171,13 +172,13 @@ def inspection_evidence(event, known_logs):
     output_only = all(Path(segment[0]).name in {"cd", "echo", "false", "printf", "sleep", "true"}
                       for segment in segments)
     substantive = (bool(event["stdout"].strip() or event["stderr"].strip()) and not listing
-                   and not output_only and changes <= known_logs and not event["artifact_changes"])
+                   and not output_only and changes <= known_logs)
     return {
         "action": event["action"], "eligible": substantive and bool(matches),
         "substantive_inquiry": substantive, "listing_only": listing, "output_only": output_only,
         "read_only_by_workspace_diff": not changes, "mixed_with_diagnostic_logs": bool(logs),
         "diagnostic_log_changes": logs, "other_workspace_changes": sorted(changes - known_logs),
-        "artifact_changes": event["artifact_changes"], "unresolved_output": matches[:16],
+        "unresolved_output": matches[:16],
         "unresolved_output_count": len(matches),
     }
 
@@ -189,24 +190,22 @@ def artifact_grade(directory, case):
         return module(case).grade(work, case)
 
 
-def review_trigger(directory, manifest, events, tree):
+def review_trigger(directory, manifest, events, _tree):
     opening = read_json(directory / "initial-workspace.json")
     known_logs = {path for path, record in opening.items() if path.endswith(".log") and "sha256" in record}
     inspections = [inspection_evidence(event, known_logs) for event in events]
     changed_before = max((event["action"] for event in events if event["changes"]), default=0)
     current_inquiries = [row for row in inspections
                          if row["action"] > changed_before and row["substantive_inquiry"]]
-    case = manifest["case"]
     update = bool((directory / "operator-update.txt").read_text(encoding="utf-8").strip())
     update_mode = manifest["mode"] == "operator-update"
     observation_gate = (update and any(row["eligible"] for row in inspections)) if update_mode else (
         len(current_inquiries) >= 2 and any(row["eligible"] for row in current_inquiries)
     )
-    complete = all(path in tree for path in artifact_paths(case)) and artifact_grade(directory, case)["pass"]
     return {
-        "eligible": observation_gate and not complete,
+        "eligible": observation_gate,
         "user_update_present": update, "user_goal_unchanged": not update_mode,
-        "goal_open": not complete, "observations": inspections, "last_workspace_change_action": changed_before,
+        "observations": inspections, "last_workspace_change_action": changed_before,
         "inquiries_since_workspace_change": [row["action"] for row in current_inquiries],
     }
 
@@ -249,6 +248,7 @@ def freeze(directory, manifest, reason, stamp, pending_reply=None, trigger=None)
         "reason": reason, "action_count": len(events), "clock": clock(directory, manifest, stamp),
         "workspace_sha256": json_digest(tree), "trace_sha256": digest(trace),
         "review_input_sha256": digest((directory / "review-input.json").read_bytes()),
+        "review_policy": REVIEW_POLICY,
         "review_trigger": trigger if trigger is not None else review_trigger(directory, manifest, events, tree),
     }
     write_json(directory / "checkpoint.json", fields)
@@ -352,24 +352,32 @@ def resume(directory, manifest):
         raise ValueError("the checkpoint metadata changed")
     fields = read_json(saved)
     verify_checkpoint(directory, manifest, fields, directory / "prefix-events.jsonl")
-    review = directory / "review.json"
+    review_path = directory / "review.json"
     advice_path = directory / "advice.txt"
-    seconds, advice = 0, ""
-    if review.exists() or advice_path.exists():
+    seconds, advice, receipt_sha256, advice_sha256 = 0, "", None, None
+    if review_path.exists() or advice_path.exists():
+        if fields.get("review_policy") != REVIEW_POLICY:
+            raise ValueError("the checkpoint does not use the visible review policy")
         if not fields["review_trigger"]["eligible"]:
             raise ValueError("the checkpoint did not trigger independent review")
-        receipt = read_json(review)
-        seconds = receipt["elapsed_seconds"]
-        advice = advice_path.read_text(encoding="utf-8") if advice_path.exists() else ""
+        if not review_path.is_file():
+            raise ValueError("advice requires a review receipt")
+        review_bytes = review_path.read_bytes()
+        receipt = json.loads(review_bytes)
+        if not isinstance(receipt, dict) or receipt.get("request_sha256") != fields["review_input_sha256"]:
+            raise ValueError("the review receipt lacks the matching checkpoint digest")
+        seconds = receipt.get("elapsed_seconds")
         if type(seconds) not in (int, float) or not math.isfinite(seconds) or seconds < 0:
             raise ValueError("the review receipt elapsed time is invalid")
-        if receipt.get("request_sha256", fields["review_input_sha256"]) != fields["review_input_sha256"]:
-            raise ValueError("the review receipt is for a different checkpoint")
+        receipt_sha256 = digest(review_bytes)
+        if advice_path.exists():
+            advice_bytes = advice_path.read_bytes()
+            advice = advice_bytes.decode("utf-8")
+            advice_sha256 = digest(advice_bytes)
     began = time.monotonic()
     write_json(directory / "started.json", {
         "monotonic": began, "utc": utc_now(), "reviewer_seconds": seconds,
-        "receipt_sha256": digest(review.read_bytes()) if review.exists() else None,
-        "advice_sha256": digest(advice_path.read_bytes()) if advice_path.exists() else None,
+        "receipt_sha256": receipt_sha256, "advice_sha256": advice_sha256,
     })
     if manifest["mode"] == "steady":
         print("Continuation accepted.")

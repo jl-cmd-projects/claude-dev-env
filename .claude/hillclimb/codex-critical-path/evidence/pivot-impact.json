@@ -1,0 +1,432 @@
+{
+  "changed_decisions_under_either_hidden_answer": 0,
+  "changed_decisions_with_visible_only_policy": 0,
+  "evaluations_consulting_hidden_oracle": 2,
+  "nomination_evaluations": 13,
+  "prefixes": 9,
+  "published_archive_sha256": "c4c26a5ab45791f4e1e559900d55621688a67319412dcde2112eefe012cca00c",
+  "review_receipts": 8,
+  "runner_commit": "7019e04d459b3145ff7ae198ae9649535a21ba8d",
+  "trials": {
+    "p54800": {
+      "nominations": [
+        {
+          "action": 2,
+          "both_match": true,
+          "corrected_visible_eligible": false,
+          "counterfactuals": [
+            {
+              "eligible": false,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": false,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": false,
+          "recorded_eligible": false,
+          "visible_matches": true
+        },
+        {
+          "action": 3,
+          "both_match": true,
+          "corrected_visible_eligible": true,
+          "counterfactuals": [
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": true,
+          "recorded_eligible": true,
+          "visible_matches": true
+        }
+      ],
+      "receipt": {
+        "advice_matches": true,
+        "checkpoint_binds_packet": true,
+        "checkpoint_digest_present_and_correct": true,
+        "checkpoint_sha256": "8d29daccd6566e99395c92525ca867f65f84ab589c8ba032334c74035acf5868",
+        "consumed_packet_matches_prefix": true,
+        "copied_request_digest_present_and_correct": true,
+        "original_request_digest_present_and_correct": true,
+        "request_sha256": "86d5b8093ef197cde373ba6dce19fd79decfacc31f2195760c70d08d78688a72",
+        "started_with_receipt": true,
+        "submitted_request_matches_role_and_packet": true
+      }
+    },
+    "p63374": {
+      "nominations": [
+        {
+          "action": 2,
+          "both_match": true,
+          "corrected_visible_eligible": false,
+          "counterfactuals": [
+            {
+              "eligible": false,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": false,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": false,
+          "recorded_eligible": false,
+          "visible_matches": true
+        },
+        {
+          "action": 3,
+          "both_match": true,
+          "corrected_visible_eligible": true,
+          "counterfactuals": [
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": true,
+          "recorded_eligible": true,
+          "visible_matches": true
+        }
+      ],
+      "receipt": {
+        "advice_matches": true,
+        "checkpoint_binds_packet": true,
+        "checkpoint_digest_present_and_correct": true,
+        "checkpoint_sha256": "e10145a58ed8c4f4f62e69f392d9b81c66958403cdaa3de72d1e633aa6f7d976",
+        "consumed_packet_matches_prefix": true,
+        "copied_request_digest_present_and_correct": true,
+        "original_request_digest_present_and_correct": true,
+        "request_sha256": "6cafa9115eb5c1161608838cbd666e388fe737bd0056031b7cda8284cf0d94a7",
+        "started_with_receipt": true,
+        "submitted_request_matches_role_and_packet": true
+      }
+    },
+    "p71809": {
+      "nominations": [
+        {
+          "action": 2,
+          "both_match": true,
+          "corrected_visible_eligible": false,
+          "counterfactuals": [
+            {
+              "eligible": false,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": false,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": false,
+          "recorded_eligible": false,
+          "visible_matches": true
+        },
+        {
+          "action": 3,
+          "both_match": true,
+          "corrected_visible_eligible": false,
+          "counterfactuals": [
+            {
+              "eligible": false,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": true
+            },
+            {
+              "eligible": false,
+              "goal_open": false,
+              "hidden_pass": true,
+              "oracle_called": true
+            }
+          ],
+          "frozen_checkpoint": false,
+          "recorded_eligible": false,
+          "visible_matches": true
+        },
+        {
+          "action": 4,
+          "both_match": true,
+          "corrected_visible_eligible": false,
+          "counterfactuals": [
+            {
+              "eligible": false,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": true
+            },
+            {
+              "eligible": false,
+              "goal_open": false,
+              "hidden_pass": true,
+              "oracle_called": true
+            }
+          ],
+          "frozen_checkpoint": false,
+          "recorded_eligible": false,
+          "visible_matches": true
+        }
+      ],
+      "receipt": null
+    },
+    "u37106": {
+      "nominations": [
+        {
+          "action": 2,
+          "both_match": true,
+          "corrected_visible_eligible": true,
+          "counterfactuals": [
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": true,
+          "recorded_eligible": true,
+          "visible_matches": true
+        }
+      ],
+      "receipt": {
+        "advice_matches": true,
+        "checkpoint_binds_packet": true,
+        "checkpoint_digest_present_and_correct": true,
+        "checkpoint_sha256": "6e1d91ebd9f977777feb8d6e883033055334f66bf84cfe8c07c9ec2bec039eb0",
+        "consumed_packet_matches_prefix": true,
+        "copied_request_digest_present_and_correct": true,
+        "original_request_digest_present_and_correct": true,
+        "request_sha256": "0dae17bb1e39c6251bb9aff91012455ac8b3490683687ec7fcaf4b9f7dee7631",
+        "started_with_receipt": true,
+        "submitted_request_matches_role_and_packet": true
+      }
+    },
+    "u65409": {
+      "nominations": [
+        {
+          "action": 2,
+          "both_match": true,
+          "corrected_visible_eligible": true,
+          "counterfactuals": [
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": true,
+          "recorded_eligible": true,
+          "visible_matches": true
+        }
+      ],
+      "receipt": {
+        "advice_matches": true,
+        "checkpoint_binds_packet": true,
+        "checkpoint_digest_present_and_correct": true,
+        "checkpoint_sha256": "31c38a82ccc225559349117d7d492c83cbc099c2680c858c953e93626c37399d",
+        "consumed_packet_matches_prefix": true,
+        "copied_request_digest_present_and_correct": true,
+        "original_request_digest_present_and_correct": true,
+        "request_sha256": "a130254fbdfc7a5534b53db2c024876f1fb7abc27853962e6fa1002b45f455fc",
+        "started_with_receipt": true,
+        "submitted_request_matches_role_and_packet": true
+      }
+    },
+    "u73768": {
+      "nominations": [
+        {
+          "action": 2,
+          "both_match": true,
+          "corrected_visible_eligible": true,
+          "counterfactuals": [
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": true,
+          "recorded_eligible": true,
+          "visible_matches": true
+        }
+      ],
+      "receipt": {
+        "advice_matches": true,
+        "checkpoint_binds_packet": true,
+        "checkpoint_digest_present_and_correct": true,
+        "checkpoint_sha256": "9c214287b44731bc16f509f30e48655af1e89c693256a095728df1ac1a512933",
+        "consumed_packet_matches_prefix": true,
+        "copied_request_digest_present_and_correct": true,
+        "original_request_digest_present_and_correct": true,
+        "request_sha256": "6c0cbccc2c2c97b1be29e458007c605446b9120b50280dc4b923acf9d5ba41f8",
+        "started_with_receipt": true,
+        "submitted_request_matches_role_and_packet": true
+      }
+    },
+    "u76673": {
+      "nominations": [
+        {
+          "action": 2,
+          "both_match": true,
+          "corrected_visible_eligible": true,
+          "counterfactuals": [
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": true,
+          "recorded_eligible": true,
+          "visible_matches": true
+        }
+      ],
+      "receipt": {
+        "advice_matches": true,
+        "checkpoint_binds_packet": true,
+        "checkpoint_digest_present_and_correct": true,
+        "checkpoint_sha256": "d1f535da36259333a480bbcf6105b82b471a1f84b44944ee8c9c32602bbf5f7b",
+        "consumed_packet_matches_prefix": true,
+        "copied_request_digest_present_and_correct": true,
+        "original_request_digest_present_and_correct": true,
+        "request_sha256": "71ab30749015d4c5c37593b47ada254c0ceee15d7788578640aab48e58a6e7c0",
+        "started_with_receipt": true,
+        "submitted_request_matches_role_and_packet": true
+      }
+    },
+    "u79573": {
+      "nominations": [
+        {
+          "action": 2,
+          "both_match": true,
+          "corrected_visible_eligible": true,
+          "counterfactuals": [
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": true,
+          "recorded_eligible": true,
+          "visible_matches": true
+        }
+      ],
+      "receipt": {
+        "advice_matches": true,
+        "checkpoint_binds_packet": true,
+        "checkpoint_digest_present_and_correct": true,
+        "checkpoint_sha256": "a15fc813eb9970187b2afd6b91bcedc51db85e8692f5a0623411ee47c486494a",
+        "consumed_packet_matches_prefix": true,
+        "copied_request_digest_present_and_correct": true,
+        "original_request_digest_present_and_correct": true,
+        "request_sha256": "b3d6f8a661f2962a89d7c6d2fa4a31c0eb48d02eaf309fe6d4f2e2b2cb0bb655",
+        "started_with_receipt": true,
+        "submitted_request_matches_role_and_packet": true
+      }
+    },
+    "u86046": {
+      "nominations": [
+        {
+          "action": 2,
+          "both_match": true,
+          "corrected_visible_eligible": true,
+          "counterfactuals": [
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": false,
+              "oracle_called": false
+            },
+            {
+              "eligible": true,
+              "goal_open": true,
+              "hidden_pass": true,
+              "oracle_called": false
+            }
+          ],
+          "frozen_checkpoint": true,
+          "recorded_eligible": true,
+          "visible_matches": true
+        }
+      ],
+      "receipt": {
+        "advice_matches": true,
+        "checkpoint_binds_packet": true,
+        "checkpoint_digest_present_and_correct": true,
+        "checkpoint_sha256": "602ddfb39657eb003f765b0f7a9cb4ac2af7035bd5a38d804d394d32b21bc424",
+        "consumed_packet_matches_prefix": true,
+        "copied_request_digest_present_and_correct": true,
+        "original_request_digest_present_and_correct": true,
+        "request_sha256": "a5d6540f9f8d777e75e1e1cfd179dd70ab59648378f0ae6aa4790329abac1a45",
+        "started_with_receipt": true,
+        "submitted_request_matches_role_and_packet": true
+      }
+    }
+  },
+  "unbound_or_mismatched_receipts": 0
+}
