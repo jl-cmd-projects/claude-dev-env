@@ -24,12 +24,15 @@ HEADLESS_SESSION_ATTENDED_TEXT = "0"
 TURN_ORIGIN_KEY = "turnOrigin"
 FOOTER_JOBS_MARKER_NAME = "closing-question-round-footer-jobs"
 FOOTER_JOBS_KEY_TEMPLATE = "footer-jobs-{digest}"
+FOOTER_JOBS_FILE_TEMPLATE = "claude-{marker}-{session}.txt"
 FOOTER_JOBS_DIGEST_LENGTH = 32
 FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’]m\b)")
 ASK_OF_USER_PATTERN = re.compile(
     r"\b(?:once|when|after|until|if|unless)\s+you\b"
     r"|\byou\s+(?:need|must|should|have)\s+to\b"
     r"|\bneeds?\s+you\b"
+    r"|\b(?:asking|ask|need|needs|want|wants)\s+you\s+to\b"
+    r"|\bneeds?\s+your\b"
     r"|\b(?:waiting|wait)\s+(?:on|for)\s+you\b",
     re.IGNORECASE,
 )

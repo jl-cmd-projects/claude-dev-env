@@ -113,6 +113,10 @@ def test_should_keep_a_first_person_footer_that_waits_on_the_user_in_the_list_ch
         "- I am watching the ledger."
     )
     status_reply = "Done.\n\nIn progress:\n- I am watching the discount ledger so you see its next update."
+    asking_reply = "Done.\n\nIn progress:\n- I am shipping 8590.\n- I am asking you to approve the release."
+    waiting_reply = "Done.\n\nIn progress:\n- I am merging 8790 once it has your approval."
     assert list_check_text(approval_reply) == approval_reply
+    assert list_check_text(asking_reply) == asking_reply
+    assert list_check_text(waiting_reply).strip() == "Done."
     assert list_check_text(status_reply).strip() == "Done."
 

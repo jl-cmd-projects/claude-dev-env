@@ -89,6 +89,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from collections.abc import Sequence
@@ -103,7 +104,6 @@ if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
 from closing_question_gate_flag import is_bypass_on
-from once_per_session import claim_turn_showing, is_turn_claimed
 from closing_question_round_footer import footer_reason, left_out_tasks, split_footer
 from closing_question_round_lines import transcript_lines
 from closing_question_round_open_items import declares_no_open_items, marked_open_lines
@@ -148,14 +148,17 @@ from hooks_constants.closing_question_round_gate_constants import (
     STDIN_WATCHDOG_SECONDS,
     ALL_BACKGROUND_JOB_ID_KEYS,
     FOOTER_JOBS_DIGEST_LENGTH,
+    FOOTER_JOBS_FILE_TEMPLATE,
     FOOTER_JOBS_KEY_TEMPLATE,
     LAST_ASSISTANT_MESSAGE_KEY,
     FOOTER_JOBS_MARKER_NAME,
+    SESSION_ID_KEY,
     STOP_DEADLINE_SECONDS,
     SUBAGENT_ID_KEY,
     WATCHDOG_GRACE_SECONDS,
 )
 from hooks_constants.hook_block_logger import log_hook_block
+from hooks_constants.session_file_id import session_file_id
 from hooks_constants.setup_project_paths_constants import UTF8_BYTE_ORDER_MARK
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALLOW_EXIT_CODE,
@@ -340,62 +343,93 @@ def _job_identities(all_background_tasks: object) -> list[str]:
     return []
 
 
-def background_job_key(all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str]) -> str:
-    """Return a short key that names one footer and the background jobs the payload lists.
+def background_job_key(
+    all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str], all_tasks: SessionTasks
+) -> str:
+    """Return a short key that names one footer, the tasks in progress, and the background jobs.
 
     ::
 
-        footer F, jobs [{"id": "b"}, {"id": "a"}]   -> "footer-jobs-<digest of F and ["a", "b"]>"
-        footer F, jobs ["ab", "c"] and ["a", "bc"]  -> two different keys
-        footer F and footer G, the same jobs        -> two different keys
-        footer F, jobs "ledger" and {"ledger": {}}  -> the same key
+        footer F, tasks #28, jobs [{"id": "b"}, {"id": "a"}]  -> "footer-jobs-<digest>"
+        footer F, jobs ["ab", "c"] and ["a", "bc"]             -> two different keys
+        footer F and footer G, the same tasks and jobs         -> two different keys
+        tasks #28 and #29, then #28 alone                      -> two different keys
+        footer F, jobs "ledger" and {"ledger": {}}             -> the same key
 
-    The key holds the first 32 hex digits of the SHA-256 of the footer lines
-    and the sorted job ids as JSON, so it stays one short file name however
-    many jobs run.
+    The key holds the first 32 hex digits of the SHA-256 of the footer lines,
+    the sorted task ids, and the sorted job ids as JSON.
 
     Args:
         all_hook_input_fields: The Stop hook payload.
         all_footer_lines: The items of the footer the jobs went out with.
+        all_tasks: The session's tasks.
 
     Returns:
-        The marker key for that footer and job set.
+        The key for that footer, task set, and job set.
     """
     all_identities = _job_identities(all_hook_input_fields.get(BACKGROUND_TASKS_KEY))
-    snapshot = json.dumps([list(all_footer_lines), sorted(all_identities)])
+    all_task_ids = sorted(each_task.item_id for each_task in all_tasks.in_progress)
+    snapshot = json.dumps([list(all_footer_lines), all_task_ids, sorted(all_identities)])
     digest = hashlib.sha256(snapshot.encode()).hexdigest()
     return FOOTER_JOBS_KEY_TEMPLATE.format(digest=digest[:FOOTER_JOBS_DIGEST_LENGTH])
 
 
-def record_footer_jobs(all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str]) -> None:
-    """Record that this footer went out while the payload's jobs ran in the background."""
-    claim_turn_showing(
-        FOOTER_JOBS_MARKER_NAME, all_hook_input_fields, background_job_key(all_hook_input_fields, all_footer_lines)
-    )
+def _snapshot_path(all_hook_input_fields: dict[str, object]) -> Path | None:
+    session_id = all_hook_input_fields.get(SESSION_ID_KEY)
+    if not isinstance(session_id, str) or not session_id:
+        return None
+    file_name = FOOTER_JOBS_FILE_TEMPLATE.format(marker=FOOTER_JOBS_MARKER_NAME, session=session_file_id(session_id))
+    return Path(tempfile.gettempdir()) / file_name
 
 
-def were_jobs_shown(all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str] | None) -> bool:
-    """Return True when this footer went out while exactly the payload's background jobs ran.
+def record_footer_jobs(
+    all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str], all_tasks: SessionTasks
+) -> None:
+    """Keep this footer, its tasks, and its jobs as the session's one snapshot, in place of the last one.
+
+    ::
+
+        footer F with job a, then F with jobs a and b   -> the snapshot is F with a and b
+        payload with no session id                      -> nothing kept
+    """
+    snapshot_path = _snapshot_path(all_hook_input_fields)
+    if snapshot_path is None:
+        return
+    try:
+        snapshot_path.write_text(background_job_key(all_hook_input_fields, all_footer_lines, all_tasks))
+    except OSError:
+        return
+
+
+def were_jobs_shown(
+    all_hook_input_fields: dict[str, object], all_footer_lines: Sequence[str] | None, all_tasks: SessionTasks
+) -> bool:
+    """Return True when the newest footer snapshot is this footer with exactly these tasks and jobs.
 
     ::
 
         footer F sent while job a ran, F newest, job a runs now        -> True
         footer F sent while job a ran, job b took its place            -> False
-        F with job a, then G with job b, G newest, job a back          -> False
-        no footer, or no record kept for this session                  -> False
+        F with job a, then F with jobs a and b, then job a alone       -> False
+        F with tasks #28 and #29 and job a, #29 finished               -> False
+        no footer, or no snapshot kept for this session                -> False
 
     Args:
         all_hook_input_fields: The Stop hook payload.
         all_footer_lines: The items of the newest footer the user saw, or None.
+        all_tasks: The session's tasks.
 
     Returns:
-        Whether that footer went out with exactly these jobs.
+        Whether the snapshot names that footer with exactly these tasks and jobs.
     """
-    if all_footer_lines is None:
+    snapshot_path = _snapshot_path(all_hook_input_fields)
+    if all_footer_lines is None or snapshot_path is None:
         return False
-    return is_turn_claimed(
-        FOOTER_JOBS_MARKER_NAME, all_hook_input_fields, background_job_key(all_hook_input_fields, all_footer_lines)
-    ) is True
+    try:
+        kept_key = snapshot_path.read_text()
+    except OSError:
+        return False
+    return kept_key == background_job_key(all_hook_input_fields, all_footer_lines, all_tasks)
 
 
 def _covered_session(
@@ -545,7 +579,7 @@ def footer_hold_reason(
             all_last_footer_lines,
             all_tasks,
             background_job_count(all_hook_input_fields),
-            were_jobs_shown(all_hook_input_fields, all_last_footer_lines),
+            were_jobs_shown(all_hook_input_fields, all_last_footer_lines, all_tasks),
         ):
             return None
         reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work)
@@ -590,7 +624,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
     all_new_footer_items = _new_footer_items(all_hook_input_fields, closing_reply)
     if has_background_work(all_hook_input_fields) and all_new_footer_items is not None:
-        record_footer_jobs(all_hook_input_fields, all_new_footer_items)
+        record_footer_jobs(all_hook_input_fields, all_new_footer_items, session_tasks(all_hook_input_fields))
     all_texts = [
         _scanned_text(each_text)
         for each_text in [*assistant_texts(all_stretch_records), *all_payload_texts]

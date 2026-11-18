@@ -10,6 +10,8 @@ from pathlib import Path
 import pytest
 
 import closing_question_round_gate
+from closing_question_round_tasks import SessionTasks
+from open_tasks_transcript import TaskItem
 from hooks_constants.closing_question_round_gate_constants import (
     CLOSING_ROUND_REASON_LEAD,
     FOOTER_GAP_REASON_LEAD,
@@ -1068,40 +1070,46 @@ def test_should_hold_a_declaration_beside_an_in_progress_task_in_the_store(
     assert "- Ship the export [ship export]" in reason
 
 
-def test_should_name_the_footer_and_background_job_set_the_same_in_any_order() -> None:
+NO_TASKS = SessionTasks((), ())
+
+
+def test_should_name_the_footer_tasks_and_background_jobs_the_same_in_any_order() -> None:
     footer = ("I am watching the ledger.",)
+    two_tasks = SessionTasks(
+        (TaskItem("28", "Fix the list reader", "in_progress"), TaskItem("29", "Watch the ledger", "in_progress")), ()
+    )
     first_key = closing_question_round_gate.background_job_key(
-        {"background_tasks": [{"id": "b"}, {"id": "a", "status": "running"}]}, footer
+        {"background_tasks": [{"id": "b"}, {"id": "a", "status": "running"}]}, footer, NO_TASKS
     )
     assert first_key == closing_question_round_gate.background_job_key(
-        {"background_tasks": [{"id": "a"}, {"id": "b"}]}, footer
+        {"background_tasks": [{"id": "a"}, {"id": "b"}]}, footer, NO_TASKS
     )
     assert first_key != closing_question_round_gate.background_job_key(
-        {"background_tasks": [{"id": "a"}, {"id": "c"}]}, footer
+        {"background_tasks": [{"id": "a"}, {"id": "c"}]}, footer, NO_TASKS
     )
     assert first_key != closing_question_round_gate.background_job_key(
-        {"background_tasks": [{"id": "a"}, {"id": "b"}]}, ("I am running the tests.",)
+        {"background_tasks": [{"id": "a"}, {"id": "b"}]}, ("I am running the tests.",), NO_TASKS
     )
-    assert closing_question_round_gate.background_job_key({"background_tasks": "ledger"}, footer) == (
-        closing_question_round_gate.background_job_key({"background_tasks": {"ledger": {}}}, footer)
+    assert first_key != closing_question_round_gate.background_job_key(
+        {"background_tasks": [{"id": "a"}, {"id": "b"}]}, footer, two_tasks
+    )
+    assert closing_question_round_gate.background_job_key({"background_tasks": "ledger"}, footer, NO_TASKS) == (
+        closing_question_round_gate.background_job_key({"background_tasks": {"ledger": {}}}, footer, NO_TASKS)
     )
 
 
-def test_should_know_a_job_set_only_with_the_footer_it_went_out_with(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
+def test_should_know_only_the_newest_footer_snapshot(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
-    ledger_footer = ("I am watching the ledger.",)
-    tests_footer = ("I am running the tests.",)
+    footer = ("I am watching the ledger.",)
     ledger_fields = {"session_id": SESSION_ID, "background_tasks": [{"id": "ledger"}]}
-    tests_fields = {**ledger_fields, "background_tasks": [{"id": "tests"}]}
-    assert not closing_question_round_gate.were_jobs_shown(ledger_fields, ledger_footer)
-    closing_question_round_gate.record_footer_jobs(ledger_fields, ledger_footer)
-    closing_question_round_gate.record_footer_jobs(tests_fields, tests_footer)
-    assert closing_question_round_gate.were_jobs_shown(ledger_fields, ledger_footer)
-    assert closing_question_round_gate.were_jobs_shown(tests_fields, tests_footer)
-    assert not closing_question_round_gate.were_jobs_shown(ledger_fields, tests_footer)
-    assert not closing_question_round_gate.were_jobs_shown(ledger_fields, None)
+    both_fields = {**ledger_fields, "background_tasks": [{"id": "ledger"}, {"id": "tests"}]}
+    assert not closing_question_round_gate.were_jobs_shown(ledger_fields, footer, NO_TASKS)
+    closing_question_round_gate.record_footer_jobs(ledger_fields, footer, NO_TASKS)
+    assert closing_question_round_gate.were_jobs_shown(ledger_fields, footer, NO_TASKS)
+    closing_question_round_gate.record_footer_jobs(both_fields, footer, NO_TASKS)
+    assert closing_question_round_gate.were_jobs_shown(both_fields, footer, NO_TASKS)
+    assert not closing_question_round_gate.were_jobs_shown(ledger_fields, footer, NO_TASKS)
+    assert not closing_question_round_gate.were_jobs_shown(ledger_fields, None, NO_TASKS)
 
 
 def test_should_record_and_read_back_a_long_background_job_set(
@@ -1111,8 +1119,8 @@ def test_should_record_and_read_back_a_long_background_job_set(
     footer = ("I am running the long jobs.",)
     all_long_jobs = [{"id": f"background-job-{each_index:07d}"} for each_index in range(10)]
     job_fields = {"session_id": SESSION_ID, "background_tasks": all_long_jobs}
-    closing_question_round_gate.record_footer_jobs(job_fields, footer)
-    assert closing_question_round_gate.were_jobs_shown(job_fields, footer)
+    closing_question_round_gate.record_footer_jobs(job_fields, footer, NO_TASKS)
+    assert closing_question_round_gate.were_jobs_shown(job_fields, footer, NO_TASKS)
     assert not closing_question_round_gate.were_jobs_shown(
-        {**job_fields, "background_tasks": all_long_jobs[:9]}, footer
+        {**job_fields, "background_tasks": all_long_jobs[:9]}, footer, NO_TASKS
     )

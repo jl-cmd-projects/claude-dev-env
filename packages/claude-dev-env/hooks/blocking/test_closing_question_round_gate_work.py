@@ -663,6 +663,37 @@ def test_should_hold_later_work_when_the_jobs_of_an_older_footer_came_back(
     ).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
+def test_should_hold_later_work_when_the_same_footer_went_out_with_more_jobs_since(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_first_records, _ = _footer_then_work()
+    all_second_records = [*all_first_records, *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_records = [*all_second_records, *edit_records(), reply_record("The flag reads well.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_first_records, footer_stop_fields([{"id": "ledger"}])) is None
+    both_jobs = [{"id": "ledger"}, {"id": "tests"}]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_second_records, footer_stop_fields(both_jobs)) is None
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
+def test_should_hold_later_work_when_a_footer_task_finished_while_a_job_runs(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_two_tasks = [
+        {"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"},
+        {"id": "29", "subject": LEDGER_SUBJECT, "status": "in_progress"},
+    ]
+    write_tasks(tmp_path, all_two_tasks)
+    all_footer_records, all_records = _footer_then_work()
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([{"id": "tests"}])) is None
+    write_tasks(tmp_path, [all_two_tasks[0], {**all_two_tasks[1], "status": "completed"}])
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "tests"}]})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
 def test_should_allow_later_work_after_a_footer_that_sums_up_two_jobs_in_one_line(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
