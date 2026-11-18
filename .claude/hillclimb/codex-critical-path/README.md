@@ -1,5 +1,7 @@
 # Does Codex return to the user's task?
 
+The [multi-step trajectory comparison](pivot_results.md) preserved eight workers' histories across matched cloud continuations and kept one early-finishing reserve. All 17 produced the requested files. Two independent readers found zero sustained diversions or needed follow-up nudges. Review added 8.15 seconds to median paired completion time.
+
 The [pre-nudge handoff comparison](pre_nudge_results.md) tested 50 fresh first-dispatch decisions. A case-specific warning improved pressure handoffs from 2/6 to 5/6 and an additional reviewer to 6/6. The portable wording did not reproduce the gain on either the development or independent case.
 
 The [operator-pressure replay](pressure_results.md) starts immediately before a documented field nudge. Five of six first replies delivered in each arm. An independent reader disputed both primary detour labels. In the [independent coding holdout](manifest_results.md), all eight client files passed and four repaired exporters passed new retry data. Neither arm diverted on the optional route. The study did not ship a production change.

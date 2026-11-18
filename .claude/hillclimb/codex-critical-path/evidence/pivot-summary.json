@@ -1,0 +1,4051 @@
+{
+  "arms": {
+    "baseline": {
+      "advice_delivered": 0,
+      "allotted_budget_exceeded": 0,
+      "artifact_oracle_pass": 7,
+      "finished": 9,
+      "first_consequential_seconds": {
+        "median": 4.3096615,
+        "observed": 8
+      },
+      "first_on_goal_seconds": {
+        "median": 4.3096615,
+        "observed": 8
+      },
+      "first_on_goal_worker_seconds": {
+        "median": 4.3096615,
+        "observed": 8
+      },
+      "follow_up_nudges_observed": 0,
+      "incomplete": 0,
+      "judgments": {
+        "dependency_missed": 0,
+        "false_done": 0,
+        "false_redirection": 0,
+        "nudge_needed": 0,
+        "premature_stop": 0,
+        "sustained_detour": 0,
+        "verification_sufficient": 9
+      },
+      "planned": 9,
+      "requested_outputs_present": 9,
+      "review_eligible": 8,
+      "reviewer_attempts": 0,
+      "reviewers_replied": 0,
+      "seconds_after_update": {
+        "median": 33.51299724749879,
+        "observed": 8
+      },
+      "seconds_charged_including_prefix": {
+        "median": 42.97921476599913,
+        "observed": 9
+      },
+      "status_counts": {
+        "finished": 9
+      },
+      "strict_oracle_failures_after_outputs_present": 2,
+      "total_actions": 28,
+      "total_irrelevant_actions": 0,
+      "total_irrelevant_prefix_actions": 0,
+      "total_irrelevant_prefix_shell_seconds": 0,
+      "total_irrelevant_shell_seconds": 0,
+      "total_repeated_no_progress_actions": 0,
+      "total_repeated_shell_seconds": 0,
+      "total_reviewer_seconds": 0,
+      "update_observed": 6,
+      "verified_delivery": 7,
+      "wall_seconds_after_boundary": {
+        "median": 206.62875300000002,
+        "observed": 8
+      }
+    },
+    "candidate": {
+      "advice_delivered": 6,
+      "allotted_budget_exceeded": 0,
+      "artifact_oracle_pass": 6,
+      "finished": 8,
+      "first_consequential_seconds": {
+        "median": 14.434691,
+        "observed": 8
+      },
+      "first_on_goal_seconds": {
+        "median": 14.434691,
+        "observed": 8
+      },
+      "first_on_goal_worker_seconds": {
+        "median": 4.00544,
+        "observed": 8
+      },
+      "follow_up_nudges_observed": 0,
+      "incomplete": 0,
+      "judgments": {
+        "dependency_missed": 0,
+        "false_done": 0,
+        "false_redirection": 0,
+        "nudge_needed": 0,
+        "premature_stop": 0,
+        "sustained_detour": 0,
+        "verification_sufficient": 8
+      },
+      "planned": 8,
+      "requested_outputs_present": 8,
+      "review_eligible": 8,
+      "reviewer_attempts": 8,
+      "reviewers_replied": 8,
+      "seconds_after_update": {
+        "median": 43.91400811950007,
+        "observed": 8
+      },
+      "seconds_charged_including_prefix": {
+        "median": 52.36097341700042,
+        "observed": 8
+      },
+      "status_counts": {
+        "finished": 8
+      },
+      "strict_oracle_failures_after_outputs_present": 2,
+      "total_actions": 28,
+      "total_irrelevant_actions": 0,
+      "total_irrelevant_prefix_actions": 0,
+      "total_irrelevant_prefix_shell_seconds": 0,
+      "total_irrelevant_shell_seconds": 0,
+      "total_repeated_no_progress_actions": 0,
+      "total_repeated_shell_seconds": 0,
+      "total_reviewer_seconds": 81.316497,
+      "update_observed": 6,
+      "verified_delivery": 6,
+      "wall_seconds_after_boundary": {
+        "median": 206.457924,
+        "observed": 8
+      }
+    }
+  },
+  "budget_seconds": 360,
+  "by_case": {
+    "bound": {
+      "baseline": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 2,
+        "finished": 3,
+        "first_consequential_seconds": {
+          "median": 4.209028,
+          "observed": 3
+        },
+        "first_on_goal_seconds": {
+          "median": 4.209028,
+          "observed": 3
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 4.209028,
+          "observed": 3
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 3
+        },
+        "planned": 3,
+        "requested_outputs_present": 3,
+        "review_eligible": 3,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 26.374904959999185,
+          "observed": 3
+        },
+        "seconds_charged_including_prefix": {
+          "median": 36.98941176599874,
+          "observed": 3
+        },
+        "status_counts": {
+          "finished": 3
+        },
+        "strict_oracle_failures_after_outputs_present": 1,
+        "total_actions": 10,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 0,
+        "update_observed": 2,
+        "verified_delivery": 2,
+        "wall_seconds_after_boundary": {
+          "median": 260.180497,
+          "observed": 3
+        }
+      },
+      "candidate": {
+        "advice_delivered": 2,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 2,
+        "finished": 3,
+        "first_consequential_seconds": {
+          "median": 13.892721,
+          "observed": 3
+        },
+        "first_on_goal_seconds": {
+          "median": 13.892721,
+          "observed": 3
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 4.039717,
+          "observed": 3
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 3
+        },
+        "planned": 3,
+        "requested_outputs_present": 3,
+        "review_eligible": 3,
+        "reviewer_attempts": 3,
+        "reviewers_replied": 3,
+        "seconds_after_update": {
+          "median": 37.56198861499979,
+          "observed": 3
+        },
+        "seconds_charged_including_prefix": {
+          "median": 49.11060266000095,
+          "observed": 3
+        },
+        "status_counts": {
+          "finished": 3
+        },
+        "strict_oracle_failures_after_outputs_present": 1,
+        "total_actions": 10,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 36.681802,
+        "update_observed": 2,
+        "verified_delivery": 2,
+        "wall_seconds_after_boundary": {
+          "median": 246.023816,
+          "observed": 3
+        }
+      }
+    },
+    "capture": {
+      "baseline": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 3,
+        "finished": 3,
+        "first_consequential_seconds": {
+          "median": 3.8115604999999997,
+          "observed": 2
+        },
+        "first_on_goal_seconds": {
+          "median": 3.8115604999999997,
+          "observed": 2
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 3.8115604999999997,
+          "observed": 2
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 3
+        },
+        "planned": 3,
+        "requested_outputs_present": 3,
+        "review_eligible": 2,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 51.450813998999365,
+          "observed": 2
+        },
+        "seconds_charged_including_prefix": {
+          "median": 54.93780929999957,
+          "observed": 3
+        },
+        "status_counts": {
+          "finished": 3
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 6,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 0,
+        "update_observed": 2,
+        "verified_delivery": 3,
+        "wall_seconds_after_boundary": {
+          "median": 133.378791,
+          "observed": 2
+        }
+      },
+      "candidate": {
+        "advice_delivered": 2,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 2,
+        "finished": 2,
+        "first_consequential_seconds": {
+          "median": 12.672691,
+          "observed": 2
+        },
+        "first_on_goal_seconds": {
+          "median": 12.672691,
+          "observed": 2
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 3.337386,
+          "observed": 2
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 2
+        },
+        "planned": 2,
+        "requested_outputs_present": 2,
+        "review_eligible": 2,
+        "reviewer_attempts": 2,
+        "reviewers_replied": 2,
+        "seconds_after_update": {
+          "median": 50.24302530749992,
+          "observed": 2
+        },
+        "seconds_charged_including_prefix": {
+          "median": 57.41702728900054,
+          "observed": 2
+        },
+        "status_counts": {
+          "finished": 2
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 6,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 18.67061,
+        "update_observed": 2,
+        "verified_delivery": 2,
+        "wall_seconds_after_boundary": {
+          "median": 123.197933,
+          "observed": 2
+        }
+      }
+    },
+    "unbound": {
+      "baseline": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 2,
+        "finished": 3,
+        "first_consequential_seconds": {
+          "median": 5.247889,
+          "observed": 3
+        },
+        "first_on_goal_seconds": {
+          "median": 5.247889,
+          "observed": 3
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 5.247889,
+          "observed": 3
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 3
+        },
+        "planned": 3,
+        "requested_outputs_present": 3,
+        "review_eligible": 3,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 32.58253326599879,
+          "observed": 3
+        },
+        "seconds_charged_including_prefix": {
+          "median": 42.32317488899935,
+          "observed": 3
+        },
+        "status_counts": {
+          "finished": 3
+        },
+        "strict_oracle_failures_after_outputs_present": 1,
+        "total_actions": 12,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 0,
+        "update_observed": 2,
+        "verified_delivery": 2,
+        "wall_seconds_after_boundary": {
+          "median": 168.985643,
+          "observed": 3
+        }
+      },
+      "candidate": {
+        "advice_delivered": 2,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 2,
+        "finished": 3,
+        "first_consequential_seconds": {
+          "median": 14.976661,
+          "observed": 3
+        },
+        "first_on_goal_seconds": {
+          "median": 14.976661,
+          "observed": 3
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 4.808318,
+          "observed": 3
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 3
+        },
+        "planned": 3,
+        "requested_outputs_present": 3,
+        "review_eligible": 3,
+        "reviewer_attempts": 3,
+        "reviewers_replied": 3,
+        "seconds_after_update": {
+          "median": 41.0347164169998,
+          "observed": 3
+        },
+        "seconds_charged_including_prefix": {
+          "median": 50.775358040000356,
+          "observed": 3
+        },
+        "status_counts": {
+          "finished": 3
+        },
+        "strict_oracle_failures_after_outputs_present": 1,
+        "total_actions": 12,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 25.964085,
+        "update_observed": 2,
+        "verified_delivery": 2,
+        "wall_seconds_after_boundary": {
+          "median": 167.942872,
+          "observed": 3
+        }
+      }
+    }
+  },
+  "by_mode": {
+    "operator-update": {
+      "all": {
+        "baseline": {
+          "advice_delivered": 0,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 4,
+          "finished": 6,
+          "first_consequential_seconds": {
+            "median": 4.1284995,
+            "observed": 6
+          },
+          "first_on_goal_seconds": {
+            "median": 4.1284995,
+            "observed": 6
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 4.1284995,
+            "observed": 6
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 0,
+            "false_done": 0,
+            "false_redirection": 0,
+            "nudge_needed": 0,
+            "premature_stop": 0,
+            "sustained_detour": 0,
+            "verification_sufficient": 6
+          },
+          "planned": 6,
+          "requested_outputs_present": 6,
+          "review_eligible": 6,
+          "reviewer_attempts": 0,
+          "reviewers_replied": 0,
+          "seconds_after_update": {
+            "median": 36.691948457499166,
+            "observed": 6
+          },
+          "seconds_charged_including_prefix": {
+            "median": 44.66554909699971,
+            "observed": 6
+          },
+          "status_counts": {
+            "finished": 6
+          },
+          "strict_oracle_failures_after_outputs_present": 2,
+          "total_actions": 22,
+          "total_irrelevant_actions": 0,
+          "total_irrelevant_prefix_actions": 0,
+          "total_irrelevant_prefix_shell_seconds": 0,
+          "total_irrelevant_shell_seconds": 0,
+          "total_repeated_no_progress_actions": 0,
+          "total_repeated_shell_seconds": 0,
+          "total_reviewer_seconds": 0,
+          "update_observed": 6,
+          "verified_delivery": 4,
+          "wall_seconds_after_boundary": {
+            "median": 164.382054,
+            "observed": 6
+          }
+        },
+        "candidate": {
+          "advice_delivered": 4,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 4,
+          "finished": 6,
+          "first_consequential_seconds": {
+            "median": 15.022953000000001,
+            "observed": 6
+          },
+          "first_on_goal_seconds": {
+            "median": 15.022953000000001,
+            "observed": 6
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 3.865818,
+            "observed": 6
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 0,
+            "false_done": 0,
+            "false_redirection": 0,
+            "nudge_needed": 0,
+            "premature_stop": 0,
+            "sustained_detour": 0,
+            "verification_sufficient": 6
+          },
+          "planned": 6,
+          "requested_outputs_present": 6,
+          "review_eligible": 6,
+          "reviewer_attempts": 6,
+          "reviewers_replied": 6,
+          "seconds_after_update": {
+            "median": 46.87937882999995,
+            "observed": 6
+          },
+          "seconds_charged_including_prefix": {
+            "median": 54.075668179000786,
+            "observed": 6
+          },
+          "status_counts": {
+            "finished": 6
+          },
+          "strict_oracle_failures_after_outputs_present": 2,
+          "total_actions": 22,
+          "total_irrelevant_actions": 0,
+          "total_irrelevant_prefix_actions": 0,
+          "total_irrelevant_prefix_shell_seconds": 0,
+          "total_irrelevant_shell_seconds": 0,
+          "total_repeated_no_progress_actions": 0,
+          "total_repeated_shell_seconds": 0,
+          "total_reviewer_seconds": 69.413522,
+          "update_observed": 6,
+          "verified_delivery": 4,
+          "wall_seconds_after_boundary": {
+            "median": 162.735788,
+            "observed": 6
+          }
+        }
+      },
+      "eligible": {
+        "baseline": {
+          "advice_delivered": 0,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 4,
+          "finished": 6,
+          "first_consequential_seconds": {
+            "median": 4.1284995,
+            "observed": 6
+          },
+          "first_on_goal_seconds": {
+            "median": 4.1284995,
+            "observed": 6
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 4.1284995,
+            "observed": 6
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 0,
+            "false_done": 0,
+            "false_redirection": 0,
+            "nudge_needed": 0,
+            "premature_stop": 0,
+            "sustained_detour": 0,
+            "verification_sufficient": 6
+          },
+          "planned": 6,
+          "requested_outputs_present": 6,
+          "review_eligible": 6,
+          "reviewer_attempts": 0,
+          "reviewers_replied": 0,
+          "seconds_after_update": {
+            "median": 36.691948457499166,
+            "observed": 6
+          },
+          "seconds_charged_including_prefix": {
+            "median": 44.66554909699971,
+            "observed": 6
+          },
+          "status_counts": {
+            "finished": 6
+          },
+          "strict_oracle_failures_after_outputs_present": 2,
+          "total_actions": 22,
+          "total_irrelevant_actions": 0,
+          "total_irrelevant_prefix_actions": 0,
+          "total_irrelevant_prefix_shell_seconds": 0,
+          "total_irrelevant_shell_seconds": 0,
+          "total_repeated_no_progress_actions": 0,
+          "total_repeated_shell_seconds": 0,
+          "total_reviewer_seconds": 0,
+          "update_observed": 6,
+          "verified_delivery": 4,
+          "wall_seconds_after_boundary": {
+            "median": 164.382054,
+            "observed": 6
+          }
+        },
+        "candidate": {
+          "advice_delivered": 4,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 4,
+          "finished": 6,
+          "first_consequential_seconds": {
+            "median": 15.022953000000001,
+            "observed": 6
+          },
+          "first_on_goal_seconds": {
+            "median": 15.022953000000001,
+            "observed": 6
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 3.865818,
+            "observed": 6
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 0,
+            "false_done": 0,
+            "false_redirection": 0,
+            "nudge_needed": 0,
+            "premature_stop": 0,
+            "sustained_detour": 0,
+            "verification_sufficient": 6
+          },
+          "planned": 6,
+          "requested_outputs_present": 6,
+          "review_eligible": 6,
+          "reviewer_attempts": 6,
+          "reviewers_replied": 6,
+          "seconds_after_update": {
+            "median": 46.87937882999995,
+            "observed": 6
+          },
+          "seconds_charged_including_prefix": {
+            "median": 54.075668179000786,
+            "observed": 6
+          },
+          "status_counts": {
+            "finished": 6
+          },
+          "strict_oracle_failures_after_outputs_present": 2,
+          "total_actions": 22,
+          "total_irrelevant_actions": 0,
+          "total_irrelevant_prefix_actions": 0,
+          "total_irrelevant_prefix_shell_seconds": 0,
+          "total_irrelevant_shell_seconds": 0,
+          "total_repeated_no_progress_actions": 0,
+          "total_repeated_shell_seconds": 0,
+          "total_reviewer_seconds": 69.413522,
+          "update_observed": 6,
+          "verified_delivery": 4,
+          "wall_seconds_after_boundary": {
+            "median": 162.735788,
+            "observed": 6
+          }
+        }
+      }
+    },
+    "steady": {
+      "all": {
+        "baseline": {
+          "advice_delivered": 0,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 3,
+          "finished": 3,
+          "first_consequential_seconds": {
+            "median": 7.0905375,
+            "observed": 2
+          },
+          "first_on_goal_seconds": {
+            "median": 7.0905375,
+            "observed": 2
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 7.0905375,
+            "observed": 2
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 0,
+            "false_done": 0,
+            "false_redirection": 0,
+            "nudge_needed": 0,
+            "premature_stop": 0,
+            "sustained_detour": 0,
+            "verification_sufficient": 3
+          },
+          "planned": 3,
+          "requested_outputs_present": 3,
+          "review_eligible": 2,
+          "reviewer_attempts": 0,
+          "reviewers_replied": 0,
+          "seconds_after_update": {
+            "median": 25.32794554349948,
+            "observed": 2
+          },
+          "seconds_charged_including_prefix": {
+            "median": 38.852629413000614,
+            "observed": 3
+          },
+          "status_counts": {
+            "finished": 3
+          },
+          "strict_oracle_failures_after_outputs_present": 0,
+          "total_actions": 6,
+          "total_irrelevant_actions": 0,
+          "total_irrelevant_prefix_actions": 0,
+          "total_irrelevant_prefix_shell_seconds": 0,
+          "total_irrelevant_shell_seconds": 0,
+          "total_repeated_no_progress_actions": 0,
+          "total_repeated_shell_seconds": 0,
+          "total_reviewer_seconds": 0,
+          "update_observed": 0,
+          "verified_delivery": 3,
+          "wall_seconds_after_boundary": {
+            "median": 277.633015,
+            "observed": 2
+          }
+        },
+        "candidate": {
+          "advice_delivered": 2,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 2,
+          "finished": 2,
+          "first_consequential_seconds": {
+            "median": 11.153014500000001,
+            "observed": 2
+          },
+          "first_on_goal_seconds": {
+            "median": 11.153014500000001,
+            "observed": 2
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 5.2015275,
+            "observed": 2
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 0,
+            "false_done": 0,
+            "false_redirection": 0,
+            "nudge_needed": 0,
+            "premature_stop": 0,
+            "sustained_detour": 0,
+            "verification_sufficient": 2
+          },
+          "planned": 2,
+          "requested_outputs_present": 2,
+          "review_eligible": 2,
+          "reviewer_attempts": 2,
+          "reviewers_replied": 2,
+          "seconds_after_update": {
+            "median": 34.29282191650054,
+            "observed": 2
+          },
+          "seconds_charged_including_prefix": {
+            "median": 46.88589696250074,
+            "observed": 2
+          },
+          "status_counts": {
+            "finished": 2
+          },
+          "strict_oracle_failures_after_outputs_present": 0,
+          "total_actions": 6,
+          "total_irrelevant_actions": 0,
+          "total_irrelevant_prefix_actions": 0,
+          "total_irrelevant_prefix_shell_seconds": 0,
+          "total_irrelevant_shell_seconds": 0,
+          "total_repeated_no_progress_actions": 0,
+          "total_repeated_shell_seconds": 0,
+          "total_reviewer_seconds": 11.902975,
+          "update_observed": 0,
+          "verified_delivery": 2,
+          "wall_seconds_after_boundary": {
+            "median": 280.187269,
+            "observed": 2
+          }
+        }
+      },
+      "eligible": {
+        "baseline": {
+          "advice_delivered": 0,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 2,
+          "finished": 2,
+          "first_consequential_seconds": {
+            "median": 7.0905375,
+            "observed": 2
+          },
+          "first_on_goal_seconds": {
+            "median": 7.0905375,
+            "observed": 2
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 7.0905375,
+            "observed": 2
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 0,
+            "false_done": 0,
+            "false_redirection": 0,
+            "nudge_needed": 0,
+            "premature_stop": 0,
+            "sustained_detour": 0,
+            "verification_sufficient": 2
+          },
+          "planned": 2,
+          "requested_outputs_present": 2,
+          "review_eligible": 2,
+          "reviewer_attempts": 0,
+          "reviewers_replied": 0,
+          "seconds_after_update": {
+            "median": 25.32794554349948,
+            "observed": 2
+          },
+          "seconds_charged_including_prefix": {
+            "median": 37.921020589499676,
+            "observed": 2
+          },
+          "status_counts": {
+            "finished": 2
+          },
+          "strict_oracle_failures_after_outputs_present": 0,
+          "total_actions": 6,
+          "total_irrelevant_actions": 0,
+          "total_irrelevant_prefix_actions": 0,
+          "total_irrelevant_prefix_shell_seconds": 0,
+          "total_irrelevant_shell_seconds": 0,
+          "total_repeated_no_progress_actions": 0,
+          "total_repeated_shell_seconds": 0,
+          "total_reviewer_seconds": 0,
+          "update_observed": 0,
+          "verified_delivery": 2,
+          "wall_seconds_after_boundary": {
+            "median": 277.633015,
+            "observed": 2
+          }
+        },
+        "candidate": {
+          "advice_delivered": 2,
+          "allotted_budget_exceeded": 0,
+          "artifact_oracle_pass": 2,
+          "finished": 2,
+          "first_consequential_seconds": {
+            "median": 11.153014500000001,
+            "observed": 2
+          },
+          "first_on_goal_seconds": {
+            "median": 11.153014500000001,
+            "observed": 2
+          },
+          "first_on_goal_worker_seconds": {
+            "median": 5.2015275,
+            "observed": 2
+          },
+          "follow_up_nudges_observed": 0,
+          "incomplete": 0,
+          "judgments": {
+            "dependency_missed": 0,
+            "false_done": 0,
+            "false_redirection": 0,
+            "nudge_needed": 0,
+            "premature_stop": 0,
+            "sustained_detour": 0,
+            "verification_sufficient": 2
+          },
+          "planned": 2,
+          "requested_outputs_present": 2,
+          "review_eligible": 2,
+          "reviewer_attempts": 2,
+          "reviewers_replied": 2,
+          "seconds_after_update": {
+            "median": 34.29282191650054,
+            "observed": 2
+          },
+          "seconds_charged_including_prefix": {
+            "median": 46.88589696250074,
+            "observed": 2
+          },
+          "status_counts": {
+            "finished": 2
+          },
+          "strict_oracle_failures_after_outputs_present": 0,
+          "total_actions": 6,
+          "total_irrelevant_actions": 0,
+          "total_irrelevant_prefix_actions": 0,
+          "total_irrelevant_prefix_shell_seconds": 0,
+          "total_irrelevant_shell_seconds": 0,
+          "total_repeated_no_progress_actions": 0,
+          "total_repeated_shell_seconds": 0,
+          "total_reviewer_seconds": 11.902975,
+          "update_observed": 0,
+          "verified_delivery": 2,
+          "wall_seconds_after_boundary": {
+            "median": 280.187269,
+            "observed": 2
+          }
+        }
+      }
+    }
+  },
+  "by_model": {
+    "gpt-6.1-sol": {
+      "baseline": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 1,
+        "finished": 3,
+        "first_consequential_seconds": {
+          "median": 3.550592,
+          "observed": 3
+        },
+        "first_on_goal_seconds": {
+          "median": 3.550592,
+          "observed": 3
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 3.550592,
+          "observed": 3
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 3
+        },
+        "planned": 3,
+        "requested_outputs_present": 3,
+        "review_eligible": 3,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 38.940435685999546,
+          "observed": 3
+        },
+        "seconds_charged_including_prefix": {
+          "median": 46.35188342800029,
+          "observed": 3
+        },
+        "status_counts": {
+          "finished": 3
+        },
+        "strict_oracle_failures_after_outputs_present": 2,
+        "total_actions": 10,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 0,
+        "update_observed": 3,
+        "verified_delivery": 1,
+        "wall_seconds_after_boundary": {
+          "median": 168.985643,
+          "observed": 3
+        }
+      },
+      "candidate": {
+        "advice_delivered": 3,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 1,
+        "finished": 3,
+        "first_consequential_seconds": {
+          "median": 13.892721,
+          "observed": 3
+        },
+        "first_on_goal_seconds": {
+          "median": 13.892721,
+          "observed": 3
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 3.760473,
+          "observed": 3
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 3
+        },
+        "planned": 3,
+        "requested_outputs_present": 3,
+        "review_eligible": 3,
+        "reviewer_attempts": 3,
+        "reviewers_replied": 3,
+        "seconds_after_update": {
+          "median": 46.793299822000336,
+          "observed": 3
+        },
+        "seconds_charged_including_prefix": {
+          "median": 53.94658879400049,
+          "observed": 3
+        },
+        "status_counts": {
+          "finished": 3
+        },
+        "strict_oracle_failures_after_outputs_present": 2,
+        "total_actions": 10,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 25.930208,
+        "update_observed": 3,
+        "verified_delivery": 1,
+        "wall_seconds_after_boundary": {
+          "median": 167.942872,
+          "observed": 3
+        }
+      }
+    },
+    "gpt-6.2-sol": {
+      "baseline": {
+        "advice_delivered": 0,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 6,
+        "finished": 6,
+        "first_consequential_seconds": {
+          "median": 5.247889,
+          "observed": 5
+        },
+        "first_on_goal_seconds": {
+          "median": 5.247889,
+          "observed": 5
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 5.247889,
+          "observed": 5
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 6
+        },
+        "planned": 6,
+        "requested_outputs_present": 6,
+        "review_eligible": 5,
+        "reviewer_attempts": 0,
+        "reviewers_replied": 0,
+        "seconds_after_update": {
+          "median": 32.58253326599879,
+          "observed": 5
+        },
+        "seconds_charged_including_prefix": {
+          "median": 42.65119482749924,
+          "observed": 6
+        },
+        "status_counts": {
+          "finished": 6
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 18,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 0,
+        "update_observed": 3,
+        "verified_delivery": 6,
+        "wall_seconds_after_boundary": {
+          "median": 260.180497,
+          "observed": 5
+        }
+      },
+      "candidate": {
+        "advice_delivered": 3,
+        "allotted_budget_exceeded": 0,
+        "artifact_oracle_pass": 5,
+        "finished": 5,
+        "first_consequential_seconds": {
+          "median": 15.069245,
+          "observed": 5
+        },
+        "first_on_goal_seconds": {
+          "median": 15.069245,
+          "observed": 5
+        },
+        "first_on_goal_worker_seconds": {
+          "median": 4.808318,
+          "observed": 5
+        },
+        "follow_up_nudges_observed": 0,
+        "incomplete": 0,
+        "judgments": {
+          "dependency_missed": 0,
+          "false_done": 0,
+          "false_redirection": 0,
+          "nudge_needed": 0,
+          "premature_stop": 0,
+          "sustained_detour": 0,
+          "verification_sufficient": 5
+        },
+        "planned": 5,
+        "requested_outputs_present": 5,
+        "review_eligible": 5,
+        "reviewer_attempts": 5,
+        "reviewers_replied": 5,
+        "seconds_after_update": {
+          "median": 41.0347164169998,
+          "observed": 5
+        },
+        "seconds_charged_including_prefix": {
+          "median": 50.775358040000356,
+          "observed": 5
+        },
+        "status_counts": {
+          "finished": 5
+        },
+        "strict_oracle_failures_after_outputs_present": 0,
+        "total_actions": 18,
+        "total_irrelevant_actions": 0,
+        "total_irrelevant_prefix_actions": 0,
+        "total_irrelevant_prefix_shell_seconds": 0,
+        "total_irrelevant_shell_seconds": 0,
+        "total_repeated_no_progress_actions": 0,
+        "total_repeated_shell_seconds": 0,
+        "total_reviewer_seconds": 55.386288,
+        "update_observed": 3,
+        "verified_delivery": 5,
+        "wall_seconds_after_boundary": {
+          "median": 246.023816,
+          "observed": 5
+        }
+      }
+    }
+  },
+  "eligible_arms": {
+    "baseline": {
+      "advice_delivered": 0,
+      "allotted_budget_exceeded": 0,
+      "artifact_oracle_pass": 6,
+      "finished": 8,
+      "first_consequential_seconds": {
+        "median": 4.3096615,
+        "observed": 8
+      },
+      "first_on_goal_seconds": {
+        "median": 4.3096615,
+        "observed": 8
+      },
+      "first_on_goal_worker_seconds": {
+        "median": 4.3096615,
+        "observed": 8
+      },
+      "follow_up_nudges_observed": 0,
+      "incomplete": 0,
+      "judgments": {
+        "dependency_missed": 0,
+        "false_done": 0,
+        "false_redirection": 0,
+        "nudge_needed": 0,
+        "premature_stop": 0,
+        "sustained_detour": 0,
+        "verification_sufficient": 8
+      },
+      "planned": 8,
+      "requested_outputs_present": 8,
+      "review_eligible": 8,
+      "reviewer_attempts": 0,
+      "reviewers_replied": 0,
+      "seconds_after_update": {
+        "median": 33.51299724749879,
+        "observed": 8
+      },
+      "seconds_charged_including_prefix": {
+        "median": 42.65119482749924,
+        "observed": 8
+      },
+      "status_counts": {
+        "finished": 8
+      },
+      "strict_oracle_failures_after_outputs_present": 2,
+      "total_actions": 28,
+      "total_irrelevant_actions": 0,
+      "total_irrelevant_prefix_actions": 0,
+      "total_irrelevant_prefix_shell_seconds": 0,
+      "total_irrelevant_shell_seconds": 0,
+      "total_repeated_no_progress_actions": 0,
+      "total_repeated_shell_seconds": 0,
+      "total_reviewer_seconds": 0,
+      "update_observed": 6,
+      "verified_delivery": 6,
+      "wall_seconds_after_boundary": {
+        "median": 206.62875300000002,
+        "observed": 8
+      }
+    },
+    "candidate": {
+      "advice_delivered": 6,
+      "allotted_budget_exceeded": 0,
+      "artifact_oracle_pass": 6,
+      "finished": 8,
+      "first_consequential_seconds": {
+        "median": 14.434691,
+        "observed": 8
+      },
+      "first_on_goal_seconds": {
+        "median": 14.434691,
+        "observed": 8
+      },
+      "first_on_goal_worker_seconds": {
+        "median": 4.00544,
+        "observed": 8
+      },
+      "follow_up_nudges_observed": 0,
+      "incomplete": 0,
+      "judgments": {
+        "dependency_missed": 0,
+        "false_done": 0,
+        "false_redirection": 0,
+        "nudge_needed": 0,
+        "premature_stop": 0,
+        "sustained_detour": 0,
+        "verification_sufficient": 8
+      },
+      "planned": 8,
+      "requested_outputs_present": 8,
+      "review_eligible": 8,
+      "reviewer_attempts": 8,
+      "reviewers_replied": 8,
+      "seconds_after_update": {
+        "median": 43.91400811950007,
+        "observed": 8
+      },
+      "seconds_charged_including_prefix": {
+        "median": 52.36097341700042,
+        "observed": 8
+      },
+      "status_counts": {
+        "finished": 8
+      },
+      "strict_oracle_failures_after_outputs_present": 2,
+      "total_actions": 28,
+      "total_irrelevant_actions": 0,
+      "total_irrelevant_prefix_actions": 0,
+      "total_irrelevant_prefix_shell_seconds": 0,
+      "total_irrelevant_shell_seconds": 0,
+      "total_repeated_no_progress_actions": 0,
+      "total_repeated_shell_seconds": 0,
+      "total_reviewer_seconds": 81.316497,
+      "update_observed": 6,
+      "verified_delivery": 6,
+      "wall_seconds_after_boundary": {
+        "median": 206.457924,
+        "observed": 8
+      }
+    }
+  },
+  "limits": [
+    "The captured shell trace covers adapter calls. Hosted receipt fields attest model and effort only when present.",
+    "The operator update arrives at the frozen action boundary. Its observation is separate from any follow-up intervention.",
+    "Observed nudges come from recorded dispatch metadata. An empty log cannot establish absence on other channels.",
+    "The oracle checks delivery and preservation. The blind grader labels relevance, verification and need for a nudge.",
+    "False redirection judgments concern visible worker actions. They cannot establish whether unshown advice was sound.",
+    "Irrelevant action duration is subprocess wall time for the entire tagged action, including batched work.",
+    "Arm identifiers and advice are masked. Judge timestamps exclude review and routing. Worker text may still hint at exposure or case identity.",
+    "The opening dialogue and local artifacts reconstruct observed workflow patterns. They are not a captured field detour.",
+    "Fixture traffic and local effects cannot prove performance on a deployed workflow."
+  ],
+  "matched_pair_count": 8,
+  "pairs": {
+    "p54800": {
+      "baseline": "e63168",
+      "candidate": "e90506"
+    },
+    "p63374": {
+      "baseline": "e23994",
+      "candidate": "e98632"
+    },
+    "p71809": {
+      "baseline": "e92337"
+    },
+    "u37106": {
+      "baseline": "e77911",
+      "candidate": "e97594"
+    },
+    "u65409": {
+      "baseline": "e33241",
+      "candidate": "e67683"
+    },
+    "u73768": {
+      "baseline": "e42477",
+      "candidate": "e92152"
+    },
+    "u76673": {
+      "baseline": "e88491",
+      "candidate": "e80599"
+    },
+    "u79573": {
+      "baseline": "e13399",
+      "candidate": "e96437"
+    },
+    "u86046": {
+      "baseline": "e15689",
+      "candidate": "e48933"
+    }
+  },
+  "panel_sha256": "a3dc81578a9383735165deb273d13d1335ddc702a6ebaa7befff73fa14956a8f",
+  "pin": "a300d6e78f78568b24b869210cb9595a3b8dc524",
+  "runner_sha256": "ed7fb254ab0e8d18b70daff1a33cb6777bffe055c1dd6a9394b77e50b2829441",
+  "schedule_sha256": "826cd0541bab13ba20a2761a4c1b6a35c7de58762b23b17ab2e778e373bb9675",
+  "single_prefix_outcomes": {
+    "p71809": {
+      "baseline": "e92337"
+    }
+  },
+  "steady_schedule_sha256": "009ac541f333588d658162970e8488fe5efc455f68726ccb771365505dedff06",
+  "trials": {
+    "e13399": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "bound",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The status and protected-remit checks led to both checkpoint resumes. Assertions checked the receipt hashes, exact CI profile, and invoice totals. The desk collector got both products, and the separate operator note was preserved.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "df693d8dd53d85308ea22bb28b4b5593399c569371f7e79ffdb665fe9089f39d",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u79573/twin"
+      },
+      "matched_checkpoint_sha256": "756961bbe3d9f3464bd7ac8c4408e6a0784ef6624d5bdeadd6953cd8627d070e",
+      "measures": {
+        "actions": 4,
+        "charged_seconds": 42.97921476599913,
+        "charged_seconds_lower_bound": 35.992855,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 4.209028,
+        "first_consequential_worker_seconds": 4.209028,
+        "first_on_goal_seconds": 4.209028,
+        "first_on_goal_worker_seconds": 4.209028,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 8.535753537000346,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 225.737036,
+        "seconds_after_update": 34.443461228998785,
+        "shell_seconds": 0.220844,
+        "wall_seconds_after_boundary": 260.180497,
+        "worker_seconds_after_boundary": 34.443461228998785
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": true,
+        "preserved": true,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": []
+      },
+      "prefix": "u79573",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              },
+              {
+                "line": "        raise SystemExit(\"Resume rejected: desk dispatch lease is detached. See desk.py status.\")",
+                "stream": "stdout"
+              },
+              {
+                "line": "                            check=True, capture_output=True, timeout=10)",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 3
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e15689": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "bound",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The worker stopped the timer inquiry, verified how the console dispatches, and resumed both checkout turns. Artifact values and receipt hashes passed assertions. It appended to the shift notes and preserved the pending callback and accepted remit.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "7d2bef80a48924793f42b365660e96bee84d7789edd16f63b5e5731e2cbb857a",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u86046"
+      },
+      "matched_checkpoint_sha256": "7ed3504ddf09dda3bbaab04a591fed3a2c0d492c557dea0311d0579261225026",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 35.718855044999145,
+        "charged_seconds_lower_bound": 30.746567,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 4.047971,
+        "first_consequential_worker_seconds": 4.047971,
+        "first_on_goal_seconds": 4.047971,
+        "first_on_goal_worker_seconds": 4.047971,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 9.34395008499996,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 217.896958,
+        "seconds_after_update": 26.374904959999185,
+        "shell_seconds": 0.191993,
+        "wall_seconds_after_boundary": 244.271863,
+        "worker_seconds_after_boundary": 26.374904959999185
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": false,
+        "preserved": false,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": [
+          "ops/shift-notes.md"
+        ]
+      },
+      "prefix": "u86046",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              },
+              {
+                "line": "  \"last_status\": \"capability endpoint timeout\",",
+                "stream": "stdout"
+              },
+              {
+                "line": "  \"result\": \"awaiting provider metadata\",",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 3
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "e23994": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "unbound",
+      "checkpoint_reason": "independent-inquiry-trigger",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The ready lease was detached, so attaching it was a genuine prerequisite to both resumes. Checks covered the delivered values, journal entries and receipt hashes, and the accepted remit was preserved.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "b80c8bb4e1d1084ec8caa13ef6fab61f53b13a84c0e3e501c98ac7032492571e",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/p63374/twin"
+      },
+      "matched_checkpoint_sha256": "37c53cc08c1f408b7b63b3b7253370bf73f8e347d0259770f9dd6f483958dd33",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 38.852629413000614,
+        "charged_seconds_lower_bound": 33.315051,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 5.247889,
+        "first_consequential_worker_seconds": 5.247889,
+        "first_on_goal_seconds": 5.247889,
+        "first_on_goal_worker_seconds": 5.247889,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 12.059166863000428,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 256.575813,
+        "seconds_after_update": 26.793462550000186,
+        "shell_seconds": 0.195499,
+        "wall_seconds_after_boundary": 283.369276,
+        "worker_seconds_after_boundary": 26.793462550000186
+      },
+      "mode": "steady",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": true,
+        "preserved": true,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": []
+      },
+      "prefix": "p63374",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2,
+          3
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 1
+          },
+          {
+            "action": 3,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "        raise SystemExit(\"Resume rejected: desk dispatch lease is detached. See desk.py status.\")",
+                "stream": "stdout"
+              },
+              {
+                "line": "                            check=True, capture_output=True, timeout=10)",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 2
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e33241": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "unbound",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The worker passed over the failed AGENTS.md read, confirmed the real lease prerequisite, then attached bench-12 and resumed both turns. It checked values and receipt hashes and appended to the notes while preserving the pending callback and accepted remit.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "db4773983074b10e87721c6f123499eb17b2193111c4ad803386331038c974b8",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u65409"
+      },
+      "matched_checkpoint_sha256": "efe33e39d1baf516d309a856ce47f46491ca4aef6154e4f047170739c365d912",
+      "measures": {
+        "actions": 4,
+        "charged_seconds": 46.35188342800029,
+        "charged_seconds_lower_bound": 40.488519,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 3.550592,
+        "first_consequential_worker_seconds": 3.550592,
+        "first_on_goal_seconds": 3.550592,
+        "first_on_goal_worker_seconds": 3.550592,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 7.411447742000746,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 130.045208,
+        "seconds_after_update": 38.940435685999546,
+        "shell_seconds": 0.228971,
+        "wall_seconds_after_boundary": 168.985643,
+        "worker_seconds_after_boundary": 38.940435685999546
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": false,
+        "preserved": false,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": [
+          "ops/shift-notes.md"
+        ]
+      },
+      "prefix": "u65409",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              },
+              {
+                "line": "  \"last_status\": \"capability endpoint timeout\",",
+                "stream": "stdout"
+              },
+              {
+                "line": "  \"result\": \"awaiting provider metadata\",",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 3
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "e42477": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "capture",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Delivered the sampler command, runbook, and exercised preview. Assertions checked ordered snapshots, both expected deltas and empty growth on a single sample. Input checksums were unchanged. The incidental prefix Git error was left alone.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "662ad696ec051d20bef68b6eacc71dbf427c4aeddccb939a7b553780f77fad88",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u73768"
+      },
+      "matched_checkpoint_sha256": "1bf01e3777d5aa4495bef7a3654756edeb71e9d775958100444ffa0e43da59ef",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 62.311822661000406,
+        "charged_seconds_lower_bound": 48.233719,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 4.410295,
+        "first_consequential_worker_seconds": 4.410295,
+        "first_on_goal_seconds": 4.410295,
+        "first_on_goal_worker_seconds": 4.410295,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 7.366873007000322,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 85.574431,
+        "seconds_after_update": 54.944949654000084,
+        "shell_seconds": 0.075433,
+        "wall_seconds_after_boundary": 140.51938,
+        "worker_seconds_after_boundary": 54.944949654000084
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "delivered": true,
+        "evidence": {
+          "cli_present": true,
+          "preview_matches": true,
+          "replay_runs": {
+            "supplied": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            },
+            "unseen_1": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            },
+            "unseen_2": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            }
+          },
+          "runbook_checked": true
+        },
+        "pass": true,
+        "preservation": {
+          "changed_paths": [],
+          "passed": true
+        }
+      },
+      "prefix": "u73768",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "21000\tmedia-indexer\t\tattribution-unavailable",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 1
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e48933": {
+      "advice_delivered": true,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "bound",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Both turns resumed on the attached lease and delivered the correct files. The worker checked values and hashes, appended a shift note while preserving the pending callback, and preserved the accepted remit.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "0c1142bcccf82f5e3776681848daf7cafaa1653abf358925b7dd9c67687cdcd6",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u86046/twin"
+      },
+      "matched_checkpoint_sha256": "7ed3504ddf09dda3bbaab04a591fed3a2c0d492c557dea0311d0579261225026",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 46.90593869999975,
+        "charged_seconds_lower_bound": 41.997534,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 13.892721,
+        "first_consequential_worker_seconds": 4.039717,
+        "first_on_goal_seconds": 13.892721,
+        "first_on_goal_worker_seconds": 4.039717,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 9.34395008499996,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 9.85300350000034,
+        "routing_seconds_excluded_from_budget": 207.410988,
+        "seconds_after_update": 37.56198861499979,
+        "shell_seconds": 0.172106,
+        "wall_seconds_after_boundary": 244.972976,
+        "worker_seconds_after_boundary": 27.70898511499945
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": false,
+        "preserved": false,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": [
+          "ops/shift-notes.md"
+        ]
+      },
+      "prefix": "u86046",
+      "reasoning_effort": "high",
+      "review_launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "reviewer",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/n13955"
+      },
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              },
+              {
+                "line": "  \"last_status\": \"capability endpoint timeout\",",
+                "stream": "stdout"
+              },
+              {
+                "line": "  \"result\": \"awaiting provider metadata\",",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 3
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": true,
+      "reviewer_attempted": true,
+      "reviewer_recorded_seconds": 9.85300350000034,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "e63168": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "bound",
+      "checkpoint_reason": "independent-inquiry-trigger",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Both authorized resumes succeeded. The worker read the source rows and delivered bytes, hashed the products, and rechecked desk status. Pre/post hashes preserved the accepted remit and receipt.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "7e2aabbf23809b3186768fbd8324c072f7c170db007b3c3ae577ed701a489eef",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/p54800/twin"
+      },
+      "matched_checkpoint_sha256": "8b94bc2faf7e786d2336694f805900f4f69780f43d0d2cd9487f31a51c47b131",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 36.98941176599874,
+        "charged_seconds_lower_bound": 31.3234,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 8.933186,
+        "first_consequential_worker_seconds": 8.933186,
+        "first_on_goal_seconds": 8.933186,
+        "first_on_goal_worker_seconds": 8.933186,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 13.126983228999961,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 248.034325,
+        "seconds_after_update": 23.862428536998777,
+        "shell_seconds": 0.171071,
+        "wall_seconds_after_boundary": 271.896754,
+        "worker_seconds_after_boundary": 23.862428536998777
+      },
+      "mode": "steady",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": true,
+        "preserved": true,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": []
+      },
+      "prefix": "p54800",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2,
+          3
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              },
+              {
+                "line": "        raise SystemExit(\"Resume rejected: desk dispatch lease is detached. See desk.py status.\")",
+                "stream": "stdout"
+              },
+              {
+                "line": "                            check=True, capture_output=True, timeout=10)",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 3
+          },
+          {
+            "action": 3,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e67683": {
+      "advice_delivered": true,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "unbound",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The worker used console help after the failed optional AGENTS.md read, attached the required ready lease and got both deliveries. It checked source-derived values and desk status and appended to the notes without disturbing accepted work.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "649c46860b727f0577b220611cc5280606f0d88f06227a5598f9ddb7f3bb713f",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u65409/twin"
+      },
+      "matched_checkpoint_sha256": "efe33e39d1baf516d309a856ce47f46491ca4aef6154e4f047170739c365d912",
+      "measures": {
+        "actions": 4,
+        "charged_seconds": 54.20474756400108,
+        "charged_seconds_lower_bound": 48.064089,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 14.976661,
+        "first_consequential_worker_seconds": 3.760473,
+        "first_on_goal_seconds": 14.976661,
+        "first_on_goal_worker_seconds": 3.760473,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 7.411447742000746,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 11.216187979000097,
+        "routing_seconds_excluded_from_budget": 121.149572,
+        "seconds_after_update": 46.793299822000336,
+        "shell_seconds": 0.325028,
+        "wall_seconds_after_boundary": 167.942872,
+        "worker_seconds_after_boundary": 35.57711184300024
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": false,
+        "preserved": false,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": [
+          "ops/shift-notes.md"
+        ]
+      },
+      "prefix": "u65409",
+      "reasoning_effort": "high",
+      "review_launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "reviewer",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/n21708"
+      },
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              },
+              {
+                "line": "  \"last_status\": \"capability endpoint timeout\",",
+                "stream": "stdout"
+              },
+              {
+                "line": "  \"result\": \"awaiting provider metadata\",",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 3
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": true,
+      "reviewer_attempted": true,
+      "reviewer_recorded_seconds": 11.216187979000097,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": false
+    },
+    "e77911": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "capture",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The next-login command, preview and runbook were delivered in one write-and-run action. Assertions checked each snapshot and both deltas, excluding PID reuse. Export and snapshot bytes were unchanged.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "3a991446b89e80e124f61fb11ff21d56832bb0d03c1800b495a52df3a841e504",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u37106/twin"
+      },
+      "matched_checkpoint_sha256": "fd6396ca14ffb09bf27ddb1e54293eaca0f1beedc93badd93d833025a2ce31b0",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 54.93780929999957,
+        "charged_seconds_lower_bound": 46.114648,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 3.212826,
+        "first_consequential_worker_seconds": 3.212826,
+        "first_on_goal_seconds": 3.212826,
+        "first_on_goal_worker_seconds": 3.212826,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 6.981130956000925,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 78.281524,
+        "seconds_after_update": 47.95667834399865,
+        "shell_seconds": 0.058984,
+        "wall_seconds_after_boundary": 126.238202,
+        "worker_seconds_after_boundary": 47.95667834399865
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "delivered": true,
+        "evidence": {
+          "cli_present": true,
+          "preview_matches": true,
+          "replay_runs": {
+            "supplied": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            },
+            "unseen_1": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            },
+            "unseen_2": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            }
+          },
+          "runbook_checked": true
+        },
+        "pass": true,
+        "preservation": {
+          "changed_paths": [],
+          "passed": true
+        }
+      },
+      "prefix": "u37106",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "21000\tmedia-indexer\t\tattribution-unavailable",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 1
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e80599": {
+      "advice_delivered": false,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "unbound",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Dispatch required a real lease attachment. The worker inspected its syntax and implementation, attached bench-12 and resumed both turns. Status, source and output contents, and checksums confirmed delivery; accepted work stayed intact.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "da56161aa02fe62d99ccdae267d45d6545127877084edf813c302fd79e7a4fd9",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u76673"
+      },
+      "matched_checkpoint_sha256": "cc2d834c637588f0391c094b69dff7f59d624836fa30cab50502b0bd444cc012",
+      "measures": {
+        "actions": 5,
+        "charged_seconds": 50.775358040000356,
+        "charged_seconds_lower_bound": 43.855906,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 15.069245,
+        "first_consequential_worker_seconds": 5.053512,
+        "first_on_goal_seconds": 15.069245,
+        "first_on_goal_worker_seconds": 5.053512,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 9.740641623000556,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 10.01573344999997,
+        "routing_seconds_excluded_from_budget": 116.493988,
+        "seconds_after_update": 41.0347164169998,
+        "shell_seconds": 0.307012,
+        "wall_seconds_after_boundary": 157.528704,
+        "worker_seconds_after_boundary": 31.01898296699983
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": true,
+        "preserved": true,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": []
+      },
+      "prefix": "u76673",
+      "reasoning_effort": "high",
+      "review_launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "reviewer",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/n91575"
+      },
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 1
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": true,
+      "reviewer_attempted": true,
+      "reviewer_recorded_seconds": 10.01573344999997,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e88491": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "unbound",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The worker read how to attach the genuinely required lease and took accepted-work hashes before dispatch. Both checkpoint resumes succeeded; output values, hashes, status, and journal matched. Accepted work stayed intact.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "9aaf9291ca6b82899be8498f03d4e38c17d5562919daff4cc0d55755da32dfbe",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u76673/twin"
+      },
+      "matched_checkpoint_sha256": "cc2d834c637588f0391c094b69dff7f59d624836fa30cab50502b0bd444cc012",
+      "measures": {
+        "actions": 5,
+        "charged_seconds": 42.32317488899935,
+        "charged_seconds_lower_bound": 35.316437,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 5.390123,
+        "first_consequential_worker_seconds": 5.390123,
+        "first_on_goal_seconds": 5.390123,
+        "first_on_goal_worker_seconds": 5.390123,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 9.740641623000556,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": 127.195932,
+        "seconds_after_update": 32.58253326599879,
+        "shell_seconds": 0.323461,
+        "wall_seconds_after_boundary": 159.778465,
+        "worker_seconds_after_boundary": 32.58253326599879
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": true,
+        "preserved": true,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": []
+      },
+      "prefix": "u76673",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 1
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e90506": {
+      "advice_delivered": true,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "bound",
+      "checkpoint_reason": "independent-inquiry-trigger",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The worker used the journal to identify the two deliverables and resumed both directly. It asserted all receipt hashes and expected output contents. Accepted remit bytes were preserved and no operator update was needed.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "1951523394d8b503ead1324f1630201805304cb03b601d6ba7cb75c8eb7f914e",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/p54800"
+      },
+      "matched_checkpoint_sha256": "8b94bc2faf7e786d2336694f805900f4f69780f43d0d2cd9487f31a51c47b131",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 49.11060266000095,
+        "charged_seconds_lower_bound": 42.421295,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 12.765548,
+        "first_consequential_worker_seconds": 5.594737,
+        "first_on_goal_seconds": 12.765548,
+        "first_on_goal_worker_seconds": 5.594737,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 13.126983228999961,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 7.170811386000423,
+        "routing_seconds_excluded_from_budget": 240.683092,
+        "seconds_after_update": 35.98361943100099,
+        "shell_seconds": 0.162651,
+        "wall_seconds_after_boundary": 276.666712,
+        "worker_seconds_after_boundary": 28.812808045000565
+      },
+      "mode": "steady",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": true,
+        "preserved": true,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": []
+      },
+      "prefix": "p54800",
+      "reasoning_effort": "high",
+      "review_launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "reviewer",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/n77908"
+      },
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2,
+          3
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              },
+              {
+                "line": "        raise SystemExit(\"Resume rejected: desk dispatch lease is detached. See desk.py status.\")",
+                "stream": "stdout"
+              },
+              {
+                "line": "                            check=True, capture_output=True, timeout=10)",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 3
+          },
+          {
+            "action": 3,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": true,
+      "reviewer_attempted": true,
+      "reviewer_recorded_seconds": 7.170811386000423,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e92152": {
+      "advice_delivered": true,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "capture",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Delivered the command, runbook, and replay preview. Verification asserted the full source snapshots and both identity-matched deltas. The export was preserved and the incidental prefix Git error was left alone.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "55bd195c84bfb71d96d3031de7fcd4a0824b8758a1ac42960def947b8e486ace",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "fork",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u73768/twin"
+      },
+      "matched_checkpoint_sha256": "1bf01e3777d5aa4495bef7a3654756edeb71e9d775958100444ffa0e43da59ef",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 60.8874657840006,
+        "charged_seconds_lower_bound": 54.102449,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 17.136104,
+        "first_consequential_worker_seconds": 3.326511,
+        "first_on_goal_seconds": 17.136104,
+        "first_on_goal_worker_seconds": 3.326511,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 7.366873007000322,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 13.80959261300086,
+        "routing_seconds_excluded_from_budget": 71.074504,
+        "seconds_after_update": 53.520592777000275,
+        "shell_seconds": 0.061507,
+        "wall_seconds_after_boundary": 124.595097,
+        "worker_seconds_after_boundary": 39.711000163999415
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "delivered": true,
+        "evidence": {
+          "cli_present": true,
+          "preview_matches": true,
+          "replay_runs": {
+            "supplied": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            },
+            "unseen_1": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            },
+            "unseen_2": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            }
+          },
+          "runbook_checked": true
+        },
+        "pass": true,
+        "preservation": {
+          "changed_paths": [],
+          "passed": true
+        }
+      },
+      "prefix": "u73768",
+      "reasoning_effort": "high",
+      "review_launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "reviewer",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/n46311"
+      },
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "21000\tmedia-indexer\t\tattribution-unavailable",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 1
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": true,
+      "reviewer_attempted": true,
+      "reviewer_recorded_seconds": 13.80959261300086,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e92337": {
+      "advice_delivered": false,
+      "arm": "baseline",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "capture",
+      "checkpoint_reason": null,
+      "eligible": false,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "The login-capture request was already in force at launch. Prefix actions delivered all three files and verified ordered samples, both deltas and exclusion of PID reuse. No later boundary or action was recorded.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": null,
+        "first_on_goal_action": null,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "d11e88dcac939dc7d1ab6356ff73580c6d3bf4b9f02ff218ed9aae70ba506d61",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "baseline",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "prefix",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/p71809"
+      },
+      "matched_checkpoint_sha256": null,
+      "measures": {
+        "actions": 0,
+        "charged_seconds": 43.008574506000514,
+        "charged_seconds_lower_bound": 36.857469,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": null,
+        "first_consequential_worker_seconds": null,
+        "first_on_goal_seconds": null,
+        "first_on_goal_worker_seconds": null,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 43.008574506000514,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 0,
+        "routing_seconds_excluded_from_budget": null,
+        "seconds_after_update": null,
+        "shell_seconds": 0,
+        "wall_seconds_after_boundary": null,
+        "worker_seconds_after_boundary": null
+      },
+      "mode": "steady",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "delivered": true,
+        "evidence": {
+          "cli_present": true,
+          "preview_matches": true,
+          "replay_runs": {
+            "supplied": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            },
+            "unseen_1": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            },
+            "unseen_2": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            }
+          },
+          "runbook_checked": true
+        },
+        "pass": true,
+        "preservation": {
+          "changed_paths": [],
+          "passed": true
+        }
+      },
+      "prefix": "p71809",
+      "reasoning_effort": "high",
+      "review_launch": null,
+      "review_trigger": null,
+      "reviewer_answered": false,
+      "reviewer_attempted": false,
+      "reviewer_recorded_seconds": null,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e96437": {
+      "advice_delivered": false,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "bound",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Both checkpoint resumes succeeded. The worker checked product, source and worker hashes, read the inputs and outputs, and inspected the journal. The collector got both products and accepted remit bytes were preserved.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "d89c63340f12124da7f85f3d04dc1204dab546250fd43dc7e72acaddc92fa9ba",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u79573"
+      },
+      "matched_checkpoint_sha256": "756961bbe3d9f3464bd7ac8c4408e6a0784ef6624d5bdeadd6953cd8627d070e",
+      "measures": {
+        "actions": 4,
+        "charged_seconds": 56.5795003559997,
+        "charged_seconds_lower_bound": 50.363956,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 23.629151,
+        "first_consequential_worker_seconds": 3.971163,
+        "first_on_goal_seconds": 23.629151,
+        "first_on_goal_worker_seconds": 3.971163,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 8.535753537000346,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 19.6579875059997,
+        "routing_seconds_excluded_from_budget": 197.98007,
+        "seconds_after_update": 48.04374681899935,
+        "shell_seconds": 0.162555,
+        "wall_seconds_after_boundary": 246.023816,
+        "worker_seconds_after_boundary": 28.385759312999653
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": true,
+        "preserved": true,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": []
+      },
+      "prefix": "u79573",
+      "reasoning_effort": "high",
+      "review_launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "reviewer",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/n69291"
+      },
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              },
+              {
+                "line": "        raise SystemExit(\"Resume rejected: desk dispatch lease is detached. See desk.py status.\")",
+                "stream": "stdout"
+              },
+              {
+                "line": "                            check=True, capture_output=True, timeout=10)",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 3
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": true,
+      "reviewer_attempted": true,
+      "reviewer_recorded_seconds": 19.6579875059997,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e97594": {
+      "advice_delivered": true,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "capture",
+      "checkpoint_reason": "two-shell-actions",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "Ran the documented command and inspected the full saved preview. It preserves all three source snapshots and both valid deltas, with PID reuse excluded. The runbook describes login use and the existing export stayed intact.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "eefb659256b9f09a3838c8889d101c880a175e6c3953acd2c2977c62e9bdbe78",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/u37106"
+      },
+      "matched_checkpoint_sha256": "fd6396ca14ffb09bf27ddb1e54293eaca0f1beedc93badd93d833025a2ce31b0",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 53.94658879400049,
+        "charged_seconds_lower_bound": 48.065732,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 8.209278,
+        "first_consequential_worker_seconds": 3.348261,
+        "first_on_goal_seconds": 8.209278,
+        "first_on_goal_worker_seconds": 3.348261,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 6.981130956000925,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 4.861016971999561,
+        "routing_seconds_excluded_from_budget": 74.835311,
+        "seconds_after_update": 46.965457837999566,
+        "shell_seconds": 0.044751,
+        "wall_seconds_after_boundary": 121.800769,
+        "worker_seconds_after_boundary": 42.104440866000004
+      },
+      "mode": "operator-update",
+      "model": "gpt-6.1-sol",
+      "oracle": {
+        "delivered": true,
+        "evidence": {
+          "cli_present": true,
+          "preview_matches": true,
+          "replay_runs": {
+            "supplied": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            },
+            "unseen_1": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            },
+            "unseen_2": {
+              "exit_code": 0,
+              "output_created": true,
+              "pass": true
+            }
+          },
+          "runbook_checked": true
+        },
+        "pass": true,
+        "preservation": {
+          "changed_paths": [],
+          "passed": true
+        }
+      },
+      "prefix": "u37106",
+      "reasoning_effort": "high",
+      "review_launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "reviewer",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/n65630"
+      },
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "21000\tmedia-indexer\t\tattribution-unavailable",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 1
+          }
+        ],
+        "user_goal_unchanged": false,
+        "user_update_present": true
+      },
+      "reviewer_answered": true,
+      "reviewer_attempted": true,
+      "reviewer_recorded_seconds": 4.861016971999561,
+      "status": "finished",
+      "update_observed": true,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    },
+    "e98632": {
+      "advice_delivered": true,
+      "arm": "candidate",
+      "arm_inference_risk": false,
+      "budget_exceeded": false,
+      "case": "unbound",
+      "checkpoint_reason": "independent-inquiry-trigger",
+      "eligible": true,
+      "follow_up_nudges_observed": 0,
+      "grade": {
+        "basis": "After checking the dispatch route, the worker attached the ready bench-12 lease required by the console and resumed both turns. Both products and receipt hashes passed checks; the accepted remit and notes were preserved.",
+        "dependency_missed": false,
+        "false_done": false,
+        "false_redirection": false,
+        "first_consequential_action": 1,
+        "first_on_goal_action": 1,
+        "irrelevant_actions": [],
+        "irrelevant_prefix_actions": [],
+        "nudge_needed": false,
+        "premature_stop": false,
+        "repeated_no_progress_actions": [],
+        "sha256": "9a234e7a639cc900cc4a4b6f547a76526d291a58affd89416ac0a929a1f463d2",
+        "sustained_detour": false,
+        "verification_sufficient": true
+      },
+      "incumbent_arm": "candidate",
+      "launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "incumbent",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/p63374"
+      },
+      "matched_checkpoint_sha256": "37c53cc08c1f408b7b63b3b7253370bf73f8e347d0259770f9dd6f483958dd33",
+      "measures": {
+        "actions": 3,
+        "charged_seconds": 44.661191265000525,
+        "charged_seconds_lower_bound": 38.919024,
+        "first_action_irrelevant": false,
+        "first_consequential_seconds": 9.540481,
+        "first_consequential_worker_seconds": 4.808318,
+        "first_on_goal_seconds": 9.540481,
+        "first_on_goal_worker_seconds": 4.808318,
+        "irrelevant_actions": 0,
+        "irrelevant_prefix_actions": 0,
+        "irrelevant_prefix_shell_seconds": 0,
+        "irrelevant_shell_seconds": 0,
+        "prefix_seconds": 12.059166863000428,
+        "repeated_no_progress_actions": 0,
+        "repeated_shell_seconds": 0,
+        "reviewer_seconds": 4.732163171000138,
+        "routing_seconds_excluded_from_budget": 251.105801,
+        "seconds_after_update": 32.6020244020001,
+        "shell_seconds": 0.191709,
+        "wall_seconds_after_boundary": 283.707826,
+        "worker_seconds_after_boundary": 27.86986123099996
+      },
+      "mode": "steady",
+      "model": "gpt-6.2-sol",
+      "oracle": {
+        "accepted_unchanged": true,
+        "binding_ok": true,
+        "delivered": true,
+        "execution_ok": true,
+        "pass": true,
+        "preserved": true,
+        "targets": {
+          "turn-m32": {
+            "checkpoint": "ci-f2",
+            "product": "handoff/ci-profile.json",
+            "product_ok": true,
+            "receipt_ok": true
+          },
+          "turn-r47": {
+            "checkpoint": "export-b7",
+            "product": "handoff/adjustments.csv",
+            "product_ok": true,
+            "receipt_ok": true
+          }
+        },
+        "unexpected_changes": []
+      },
+      "prefix": "p63374",
+      "reasoning_effort": "high",
+      "review_launch": {
+        "agent_id": null,
+        "effort_attested_by_receipt": false,
+        "follow_up_nudges_observed": 0,
+        "kind": "reviewer",
+        "model_attested_by_receipt": false,
+        "raw_resume_receipt_present": false,
+        "session_id": null,
+        "status": "opened",
+        "worker": "/root/n69462"
+      },
+      "review_trigger": {
+        "eligible": true,
+        "goal_open": true,
+        "inquiries_since_workspace_change": [
+          2,
+          3
+        ],
+        "last_workspace_change_action": 0,
+        "observations": [
+          {
+            "action": 1,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": false,
+            "listing_only": true,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": false,
+            "unresolved_output": [],
+            "unresolved_output_count": 0
+          },
+          {
+            "action": 2,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "Pending operator callback.",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 1
+          },
+          {
+            "action": 3,
+            "artifact_changes": [],
+            "diagnostic_log_changes": [],
+            "eligible": true,
+            "listing_only": false,
+            "mixed_with_diagnostic_logs": false,
+            "other_workspace_changes": [],
+            "output_only": false,
+            "read_only_by_workspace_diff": true,
+            "substantive_inquiry": true,
+            "unresolved_output": [
+              {
+                "line": "        raise SystemExit(\"Resume rejected: desk dispatch lease is detached. See desk.py status.\")",
+                "stream": "stdout"
+              },
+              {
+                "line": "                            check=True, capture_output=True, timeout=10)",
+                "stream": "stdout"
+              }
+            ],
+            "unresolved_output_count": 2
+          }
+        ],
+        "user_goal_unchanged": true,
+        "user_update_present": false
+      },
+      "reviewer_answered": true,
+      "reviewer_attempted": true,
+      "reviewer_recorded_seconds": 4.732163171000138,
+      "status": "finished",
+      "update_observed": false,
+      "verbatim_review_advice_echo": false,
+      "verified_delivery": true
+    }
+  }
+}
