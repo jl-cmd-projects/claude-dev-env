@@ -14,6 +14,10 @@ A desktop plan call either lists items or moves the current list::
     {"done": [2], "start": 3}                    -> 1-based positions in the tool's own items
     {"advance": true}                            -> complete the in_progress item, start the next pending
 
+The user sees only the newest list. ``shown_items`` leaves the carried items
+out, and ``carried_items`` returns them. A later list closes a carried item
+when it holds the same subject, in any letter case, with status ``completed``.
+
 Only ``assistant`` records count for a desktop plan call, because Claude Code
 also copies each call into ``api-request-blob`` records.
 
@@ -413,10 +417,22 @@ class TranscriptReplay:
         self.created_by_id[created_id] = TaskItem(created_id, created_subject, PENDING_STATUS)
 
     def items(self) -> list[TaskItem] | None:
+        return self._joined_items(self.plan_items)
+
+    def shown_items(self) -> list[TaskItem] | None:
+        """Return the items as ``items`` does, without the carried desktop plan items the user no longer sees."""
+        all_own_plan_items = None if self.plan_items is None else self.plan_items[: self.own_plan_count]
+        return self._joined_items(all_own_plan_items)
+
+    def carried_items(self) -> list[TaskItem]:
+        """Return the unfinished desktop plan items that a later list left out, in the order they were carried."""
+        return (self.plan_items or [])[self.own_plan_count :]
+
+    def _joined_items(self, all_plan_items: list[TaskItem] | None) -> list[TaskItem] | None:
         all_sources = [
             list(self.created_by_id.values()) if self.created_by_id else None,
             self.latest_items,
-            self.plan_items,
+            all_plan_items,
         ]
         all_present_sources = [each_source for each_source in all_sources if each_source is not None]
         if not all_present_sources:

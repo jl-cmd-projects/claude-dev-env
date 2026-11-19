@@ -4,7 +4,7 @@ Groups: the payload and transcript fields that mark a stop the gate leaves
 alone, the transcript text each cheap scan looks for, the time and size
 budget, the wording that marks an open item, the masking of indented code,
 the old declaration line, the In progress footer and the words its coverage
-check skips, the hold cap, the four hold reasons, and the keyword
+check skips, the hold cap, the five hold reasons, and the keyword
 and flag file that turn the gate off for one session.
 """
 
@@ -139,11 +139,25 @@ FOOTER_MISSING_REASON_LEAD = (
 FOOTER_GAP_REASON_LEAD = (
     "This session's In progress footer leaves out work that is still in progress."
 )
+CARRIED_TASKS_REASON_LEAD = (
+    "This session's task list dropped work that was still in progress, so the user no longer sees it."
+)
 ALL_REASON_LEADS = (
     CLOSING_ROUND_REASON_LEAD,
     IN_PROGRESS_TASKS_REASON_LEAD,
     FOOTER_MISSING_REASON_LEAD,
     FOOTER_GAP_REASON_LEAD,
+    CARRIED_TASKS_REASON_LEAD,
+)
+CARRIED_TASKS_LABEL = "Dropped from the list while in progress:"
+CARRIED_TASK_LINE_TEMPLATE = "- {subject}"
+CARRIED_TASKS_INSTRUCTION = (
+    "The user sees only the newest list, so the In progress footer names only work on that list."
+    " Send one mcp__ccd_turn__update_plan items call that holds the whole list. When the work is"
+    " still open, put the item back on the list with its status. When the work is done or no"
+    " longer wanted, put the item on the list once with status completed, then send the list again"
+    " without it. Copy each subject exactly as written above, because the list matches an item by"
+    " its words. Do not name a done item in the In progress footer."
 )
 OPEN_ITEM_LINES_LABEL = "The lines:"
 QUOTED_LINE_TEMPLATE = '"{line}"'
