@@ -1483,6 +1483,18 @@ def test_should_find_a_short_open_item_in_a_message_too_large_to_scan_whole(
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {})).startswith(CLOSING_ROUND_REASON_LEAD)
 
 
+def test_should_scan_a_question_line_inside_a_split_footer_item(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    first_part = f"Done.\n\nIn progress:\n{LIST_READER_ITEM}"
+    second_part = "  Would Friday work?\n  The build is ready."
+    all_records = [typed_prompt_record(), *edit_records(), *split_reply_records(first_part, second_part)]
+    split_fields = {"last_assistant_message": f"{first_part}\n{second_part}"}
+    reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records, split_fields))
+    assert reason.startswith(CLOSING_ROUND_REASON_LEAD)
+    assert "Would Friday work?" in reason
+
+
 def test_should_scan_an_indented_code_block_written_as_its_own_record_as_code(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

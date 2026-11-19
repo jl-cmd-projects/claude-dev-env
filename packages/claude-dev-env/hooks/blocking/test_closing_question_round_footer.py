@@ -255,6 +255,16 @@ def test_should_keep_every_option_when_the_lead_leaves_the_choice_to_the_user() 
     assert list_check_text(status_reply).strip() == "The release is set."
 
 
+def test_should_keep_the_options_under_a_request_in_an_earlier_paragraph() -> None:
+    option_reply = (
+        "Pick a release date.\n\nAll three dates are available.\n\nIn progress:\n"
+        "- I can release on Monday.\n- I can release on Wednesday.\n- I can release on Friday."
+    )
+    assert list_check_text(option_reply) == option_reply
+    status_reply = "The release is ready.\n\nAll three dates are available.\n\nIn progress:\n- I can release on Monday."
+    assert list_check_text(status_reply).strip() == "The release is ready.\n\nAll three dates are available."
+
+
 def test_should_keep_a_status_item_whose_nested_lines_ask() -> None:
     nested_reply = (
         "Done.\n\nIn progress:\n- I am preparing the release\n"

@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -333,6 +334,12 @@ def test_reply_lines_reads_a_footer_heading_after_a_blank_line_as_after_a_line_b
     assert reply_lines("Done.\n\nIn progress:\n- I am fixing it.") == reply_lines("Done.\nIn progress:\n- I am fixing it.")
     assert reply_lines("Done.\n\nNext:\n- I am fixing it.") != reply_lines("Done.\nNext:\n- I am fixing it.")
     assert reply_lines("Done.\n\n    In progress:") != reply_lines("Done.\n    In progress:")
+
+
+def test_reply_lines_skips_a_long_blank_prefix_in_linear_time() -> None:
+    started_at = time.monotonic()
+    assert reply_lines("\n" * 350000 + "Would Friday work?") == ["Would Friday work?"]
+    assert time.monotonic() - started_at < 2.0
 
 
 def test_reply_lines_keeps_the_indent_of_the_first_line() -> None:

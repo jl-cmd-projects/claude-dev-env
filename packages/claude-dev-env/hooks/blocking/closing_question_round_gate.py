@@ -147,6 +147,8 @@ from hooks_constants.closing_question_round_gate_constants import (
     QUOTED_LINE_TEMPLATE,
     REASON_PART_SEPARATOR,
     SCANNED_PARAGRAPH_SEPARATOR,
+    FOOTER_HEADING_PATTERN,
+    FOOTER_ITEM_LINE_PATTERN,
     FOOTER_STATUS_MARKER_PATTERN,
     FOOTER_STATUS_STAND_IN,
     REMAINING_LINES_TEMPLATE,
@@ -193,7 +195,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
 )
 from hooks_constants.stop_hook_hold import hold_stop
 from hooks_constants.stop_hook_hold_constants import BLOCK_EXIT_CODE
-from hooks_constants.user_step_wording_constants import CODE_SPAN_STAND_IN
+from hooks_constants.user_step_wording_constants import CODE_SPAN_STAND_IN, LINE_BREAK
 
 
 def is_exempt_stop(all_hook_input_fields: dict[str, object]) -> bool:
@@ -899,11 +901,24 @@ def _scanned_text(reply_text: str) -> str:
     split_reply = split_footer(reply_text)
     if split_reply.footer_items is None:
         return reply_text
-    all_scanned_items = [
-        FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, each_item)
-        for each_item in split_reply.footer_items
-    ]
-    return SCANNED_PARAGRAPH_SEPARATOR.join([split_reply.body, *all_scanned_items])
+    all_lines = reply_text.rstrip().split(LINE_BREAK)
+    heading_position = max(
+        each_position
+        for each_position, each_line in enumerate(all_lines)
+        if FOOTER_HEADING_PATTERN.fullmatch(each_line.strip()) is not None
+    )
+    all_scanned_items: list[list[str]] = []
+    for each_line in all_lines[heading_position + 1 :]:
+        if not each_line.strip():
+            continue
+        scanned_line = FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, each_line)
+        if FOOTER_ITEM_LINE_PATTERN.match(each_line) is not None or not all_scanned_items:
+            all_scanned_items.append([scanned_line])
+        else:
+            all_scanned_items[-1].append(scanned_line)
+    return SCANNED_PARAGRAPH_SEPARATOR.join(
+        [split_reply.body, *(LINE_BREAK.join(each_item_lines) for each_item_lines in all_scanned_items)]
+    )
 
 
 def _new_footer(

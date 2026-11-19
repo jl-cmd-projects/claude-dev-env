@@ -506,9 +506,12 @@ def reply_lines(reply_text: str) -> list[str]:
     a footer whose heading or list is its own record of one message gives
     the lines the payload's copy gives.
     """
-    all_lines = [each_line.rstrip() for each_line in reply_text.rstrip().splitlines()]
-    while all_lines and not all_lines[0]:
-        all_lines.pop(0)
+    all_written_lines = [each_line.rstrip() for each_line in reply_text.rstrip().splitlines()]
+    first_filled_position = next(
+        (each_position for each_position, each_line in enumerate(all_written_lines) if each_line),
+        len(all_written_lines),
+    )
+    all_lines = all_written_lines[first_filled_position:]
     if all_lines and INDENTED_CODE_LINE_PATTERN.match(all_lines[0]) is None:
         all_lines[0] = all_lines[0].lstrip()
     all_kept_lines: list[str] = []

@@ -282,8 +282,9 @@ def list_check_text(closing_reply: str) -> str:
     whole reply is read. A body that leaves a choice to the user, as "The
     date is yours to choose." or "Please choose a date." do in any
     paragraph, keeps a footer of two or more items whole too, and so does
-    a question in any paragraph above an item that opens with "I can" or
-    another option opener.
+    a question or a sentence that opens with a request word, as "Pick a
+    release date." does, in any paragraph above an item that opens with
+    "I can" or another option opener.
 
     Args:
         closing_reply: The reply the turn ends with.
@@ -337,6 +338,11 @@ def _is_user_choice(all_body_lines: list[str], all_item_lines: list[list[str]]) 
     if len(all_item_lines) > 1 and USER_CHOICE_LEAD_PATTERN.search(body_text) is not None:
         return True
     if has_option_item and any(each_line.strip().endswith(QUESTION_MARK) for each_line in all_body_lines):
+        return True
+    if has_option_item and any(
+        REQUEST_OPENER_PATTERN.match(each_sentence) is not None
+        for each_sentence in SENTENCE_BREAK_PATTERN.split(body_text)
+    ):
         return True
     return has_option_item and USER_MENTION_PATTERN.search(lead_paragraph) is not None
 
