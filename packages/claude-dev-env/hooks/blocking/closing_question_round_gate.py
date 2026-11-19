@@ -716,6 +716,7 @@ def is_footer_still_current(
         footer names #28, #29 started since                       -> False, #29 left out
         footer kept with #28, #30 took its place since            -> False, the tasks changed
         footer names #28 and the jobs it went out with, still running -> True
+        footer names only #28, sent while a job ran                  -> False, the job is left out
         footer names #28, a job started in the background since    -> False, the jobs changed
         one job took another's place since                         -> False, the jobs changed
         the footer went out with a job that has ended since        -> False, the job ended
@@ -725,8 +726,8 @@ def is_footer_still_current(
     footer with more lines than tasks in progress shows work that is done,
     and a footer the gate kept a snapshot of must have gone out with exactly
     these tasks in progress and no jobs. With background work, this footer
-    must have gone out while exactly
-    these jobs ran. A job that starts, ends, or takes another's place makes
+    must have gone out while exactly these jobs ran, and must hold a line
+    beyond one per task in progress, so it told the user about the jobs. A job that starts, ends, or takes another's place makes
     it owed, while a notice that a job is still going does not. The footer
     may sum up all the jobs in one line.
 
@@ -745,7 +746,7 @@ def is_footer_still_current(
     if left_out_tasks(all_last_footer_lines, all_tasks.in_progress, all_tasks.still_open):
         return False
     if background_count:
-        return were_jobs_in_footer
+        return were_jobs_in_footer and len(all_last_footer_lines) > len(all_tasks.in_progress)
     if len(all_last_footer_lines) > len(all_tasks.in_progress):
         return False
     return were_jobs_in_footer or not is_recorded

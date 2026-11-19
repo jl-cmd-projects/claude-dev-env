@@ -71,11 +71,17 @@ COORDINATED_REQUEST_PATTERN = re.compile(
     + rf"[^.!?;]{{0,80}}?\b(?:and|or|then)\s+(?:then\s+)?(?:{REQUEST_WORD_ALTERNATIVES})\b",
     re.IGNORECASE,
 )
+DECISION_WORD_ALTERNATIVES = (
+    r"approv\w*|authori[sz]\w*|decid\w*|decision\w*|sign-?off|go-ahead|green[\s-]?light\w*"
+    r"|clearance|permission|consent|answers?|input|choices?|confirmation|options?"
+)
+DECISION_WORD_PATTERN = re.compile(rf"\b(?:{DECISION_WORD_ALTERNATIVES})\b", re.IGNORECASE)
 DECISION_DEPENDENCY_PATTERN = re.compile(
     r"\b(?:wait\w*|need\w*|until|once|after|pending|hold\w*|without|requir\w*|block\w*)\b[^.!?;]{0,40}?"
-    r"\b(?:approv\w*|authori[sz]\w*|decid\w*|decision\w*|sign-?off|go-ahead|green[\s-]?light\w*|clearance|permission|consent|answers?|input|choices?|confirmation)\b",
+    rf"\b(?:{DECISION_WORD_ALTERNATIVES})\b",
     re.IGNORECASE,
 )
+LEAD_LABEL_END = ":"
 ALL_BACKGROUND_JOB_ID_KEYS = ("id", "task_id", "taskId")
 HUMAN_TURN_ORIGIN = "human"
 IS_SIDECHAIN_KEY = "isSidechain"

@@ -133,6 +133,10 @@ def test_should_read_the_whole_reply_when_the_line_above_the_footer_asks_to_pick
     assert list_check_text(asked_reply) == asked_reply
     status_reply = "Done.\n\nIn progress:\n- I am shipping 8590."
     assert list_check_text(status_reply) == "Done.\n"
+    decision_reply = "Pending your decision:\n\nIn progress:\n- I can ship the export first."
+    assert list_check_text(decision_reply) == decision_reply
+    label_reply = "Shipped so far:\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(label_reply) == "Shipped so far:\n"
 
 
 def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_check_text() -> None:

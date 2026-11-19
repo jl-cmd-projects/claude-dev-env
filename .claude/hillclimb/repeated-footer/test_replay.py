@@ -69,7 +69,9 @@ TRANSCRIPT_ORDER_GATE_SOURCE = """import json, pathlib, sys
 payload = json.loads(sys.stdin.read())
 all_lines = pathlib.Path(payload["transcript_path"]).read_text(encoding="utf-8").splitlines()
 last_record = json.loads(all_lines[-1]) if all_lines else {}
-if last_record.get("type") == "assistant" and payload["last_assistant_message"] in json.dumps(last_record):
+all_blocks = last_record.get("message", {}).get("content", []) if last_record.get("type") == "assistant" else []
+all_texts = [each_block.get("text") for each_block in all_blocks if isinstance(each_block, dict)]
+if payload["last_assistant_message"] in all_texts:
     print(json.dumps({"decision": "block", "reason": "The reply was written before the Stop hooks ran."}))
     sys.exit(2)
 """

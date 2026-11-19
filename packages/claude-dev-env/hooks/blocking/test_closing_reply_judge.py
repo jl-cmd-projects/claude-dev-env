@@ -121,6 +121,8 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
         "- I am holding the plan until the owner picks a tier."
     )
     assert parsed_verdict(verdict_text, choice_reply) == JudgeVerdict("", "In progress:")
+    decision_lead_reply = choice_reply.replace("Pick which option I should ship.", "Pending your decision:")
+    assert parsed_verdict(verdict_text, decision_lead_reply) == JudgeVerdict("", "In progress:")
     semicolon_reply = (
         "Shipped.\n\nIn progress:\n- I am preparing the launch; please pick a date.\n"
         "- I am drafting the notice; please pick a sender.\n- I am pricing the plan; please pick a tier."

@@ -36,6 +36,8 @@ from open_tasks_transcript import TaskItem
 from hooks_constants.closing_question_round_gate_constants import (
     ALL_SUBJECT_SKIP_WORDS,
     DECISION_DEPENDENCY_PATTERN,
+    DECISION_WORD_PATTERN,
+    LEAD_LABEL_END,
     FOOTER_CONTINUATION_LINE_PATTERN,
     FOOTER_GAP_LABEL,
     FOOTER_HEADING_PATTERN,
@@ -219,6 +221,7 @@ def list_check_text(closing_reply: str) -> str:
         "Done.\n\nIn progress:\n- Pick a price.\n- Confirm the date."  -> the whole reply
         "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price." -> "Done.\n\nIn progress:\n- Pick a price."
         "Pick which option I should ship.\n\nIn progress:\n- I can ship A." -> the whole reply
+        "Pending your decision:\n\nIn progress:\n- I can ship A."         -> the whole reply
         "Done."                                                       -> "Done."
 
     A footer line that only says where work stands is required status, so
@@ -226,8 +229,9 @@ def list_check_text(closing_reply: str) -> str:
     the user something, as ``is_footer_ask`` finds them. The heading and
     each kept line stay as the reply wrote them, so a span the judge quotes
     from them is still found in the reply. When the last body line above
-    the footer opens a sentence with a request word or ends with a
-    question mark, it gives the lines under it their meaning, so the
+    the footer opens a sentence with a request word, ends with a
+    question mark, or ends with a colon after a decision word or a word
+    for the user, it gives the lines under it their meaning, so the
     whole reply is read.
 
     Args:
@@ -260,9 +264,16 @@ def _is_asking_lead(all_body_lines: list[str]) -> bool:
     if not all_filled_lines:
         return False
     lead_line = MARKDOWN_EMPHASIS_PATTERN.sub("", all_filled_lines[-1])
-    return lead_line.endswith(QUESTION_MARK) or any(
-        REQUEST_OPENER_PATTERN.match(each_sentence) is not None
-        for each_sentence in SENTENCE_BREAK_PATTERN.split(lead_line)
+    is_decision_label = lead_line.endswith(LEAD_LABEL_END) and (
+        DECISION_WORD_PATTERN.search(lead_line) is not None or USER_MENTION_PATTERN.search(lead_line) is not None
+    )
+    return (
+        is_decision_label
+        or lead_line.endswith(QUESTION_MARK)
+        or any(
+            REQUEST_OPENER_PATTERN.match(each_sentence) is not None
+            for each_sentence in SENTENCE_BREAK_PATTERN.split(lead_line)
+        )
     )
 
 

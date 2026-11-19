@@ -1030,6 +1030,20 @@ def test_should_check_the_footer_of_a_reply_a_thinking_only_record_follows(
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_GAP_REASON_LEAD)
 
 
+def test_should_owe_a_footer_again_when_the_last_one_left_out_the_background_job(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    task_only_reply = f"The retry flag is in place.\n\n{FOOTER}"
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(task_only_reply)]
+    all_records = [*all_footer_records, *edit_records(), reply_record("The flag reads well.")]
+    job_fields = {"background_tasks": [{"id": "ledger"}], "last_assistant_message": task_only_reply}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, job_fields) is None
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
 def test_should_allow_the_third_stop_after_two_changed_work_holds(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
