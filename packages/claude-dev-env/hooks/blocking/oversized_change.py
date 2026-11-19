@@ -114,14 +114,18 @@ def _pull_request_key(create_call: CreateCall, working_directory: str) -> list[s
     base_branch = (
         create_call.base
         or _configured_merge_base(working_directory, create_call.head)
-        or _default_base_branch(working_directory)
+        or _checkout_default_base(create_call, working_directory)
     )
     return [repository or working_directory, head_branch or "", base_branch or ""]
 
 
-def _default_base_branch(working_directory: str) -> str | None:
-    origin_head = _first_git_line(working_directory, "symbolic-ref", "--short", ORIGIN_HEAD_REFERENCE)
-    return origin_head.removeprefix(ORIGIN_REFERENCE_PREFIX) if origin_head else None
+def _checkout_default_base(create_call: CreateCall, working_directory: str) -> str | None:
+    if create_call.repository is not None:
+        return None
+    origin_head = _first_git_line(working_directory, "symbolic-ref", ORIGIN_HEAD_REFERENCE)
+    if origin_head is None or not origin_head.startswith(ORIGIN_REFERENCE_PREFIX):
+        return None
+    return origin_head.removeprefix(ORIGIN_REFERENCE_PREFIX)
 
 
 def _first_git_line(working_directory: str, *all_git_arguments: str) -> str | None:
