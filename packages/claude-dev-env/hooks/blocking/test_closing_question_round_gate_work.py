@@ -1501,3 +1501,20 @@ def test_should_scan_only_the_oversized_message_block_by_block(
     ]
     footer_reply = f"Done.\n\nIn progress:\n{pending_item}"
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": footer_reply}) is None
+
+
+def test_should_keep_the_jobs_of_a_footer_whose_item_goes_on_in_another_record(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    continuation = "  The ledger job checks in each hour."
+    footer_reply = f"The retry flag is in place.\n\n{FOOTER}\n{continuation}"
+    all_before_footer = [typed_prompt_record(), *edit_records()]
+    all_footer_records = [*all_before_footer, *split_reply_records(f"The retry flag is in place.\n\n{FOOTER}", continuation)]
+    all_records = [*all_footer_records, notice_record("Ledger job ended"), reply_record("Still waiting.")]
+    ledger_fields = {"last_assistant_message": footer_reply, "background_tasks": [{"id": "ledger"}]}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, ledger_fields) is None
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": [{"id": "tests"}]}
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields)).startswith(
+        FOOTER_CHANGED_REASON_LEAD
+    )

@@ -113,6 +113,7 @@ from closing_question_round_transcript import (
     block_texts,
     has_work_call,
     is_same_reply,
+    joined_reply_parts,
     last_typed_prompt_position,
     reply_lines,
     last_written_reply,
@@ -158,7 +159,6 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_SNAPSHOT_LINE_SEPARATOR,
     FOOTER_SNAPSHOT_PART_COUNT,
     NO_REPLY_KEY,
-    REPLY_PART_JOINER,
     FOOTER_SNAPSHOT_PENDING_MARK,
     FOOTER_SNAPSHOT_SENT_MARK,
     FOOTER_SNAPSHOT_SEPARATOR,
@@ -341,7 +341,7 @@ def _assistant_messages(all_records: list[dict[str, object]]) -> list[tuple[int,
     return sorted(
         (
             last_text_positions[each_key],
-            REPLY_PART_JOINER.join(all_parts),
+            joined_reply_parts(all_parts),
             each_key in all_tool_message_keys,
         )
         for each_key, all_parts in all_parts_by_message.items()
@@ -523,8 +523,8 @@ def record_footer_jobs(
         )
         if each_snapshot.footer_key != snapshot.footer_key
     ]
-    all_kept_snapshots = [snapshot, *all_other_snapshots][:FOOTER_SNAPSHOT_KEPT_COUNT]
-    snapshot_text = FOOTER_SNAPSHOT_LINE_SEPARATOR.join(_snapshot_line(each) for each in all_kept_snapshots)
+    all_written_snapshots = [snapshot, *all_other_snapshots][:FOOTER_SNAPSHOT_KEPT_COUNT]
+    snapshot_text = FOOTER_SNAPSHOT_LINE_SEPARATOR.join(_snapshot_line(each) for each in all_written_snapshots)
     try:
         file_descriptor, temporary_name = tempfile.mkstemp(
             prefix=snapshot_path.name, suffix=FOOTER_JOBS_TEMP_SUFFIX, dir=snapshot_path.parent
@@ -1045,7 +1045,7 @@ def _open_item_texts(all_stretch_records: list[dict[str, object]]) -> list[str]:
         all_parts_by_message.setdefault(message_key, []).extend(all_record_texts)
     all_texts: list[str] = []
     for each_message_parts in all_parts_by_message.values():
-        message_text = REPLY_PART_JOINER.join(each_message_parts)
+        message_text = joined_reply_parts(each_message_parts)
         all_texts.extend([message_text] if is_within_scan_cap(message_text) else each_message_parts)
     return all_texts
 

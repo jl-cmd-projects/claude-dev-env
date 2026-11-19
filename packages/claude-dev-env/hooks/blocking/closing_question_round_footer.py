@@ -243,8 +243,9 @@ def list_check_text(closing_reply: str) -> str:
     A footer line that only says where work stands is required status, so
     the check leaves it out and reads the body with the footer lines that ask
     the user something, as ``is_footer_ask`` finds them. When one line asks,
-    the lines that open with "I can", "I could", "I would", "I might", or
-    "I may" stay too, so the options
+    the lines that open with "I can", "I could", "I would", "I might",
+    "I may", "I recommend", "I suggest", "I propose", "I prefer", or
+    "I favor" stay too, so the options
     beside the ask still reach the judge. The heading and
     each kept line stay as the reply wrote them, so a span the judge quotes
     from them is still found in the reply. When the last body paragraph

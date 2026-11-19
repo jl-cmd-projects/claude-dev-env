@@ -94,7 +94,9 @@ DECISION_DEPENDENCY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 LEAD_LABEL_END = ":"
-OPTION_ITEM_PATTERN = re.compile(r"^\W*I\s+(?:can|could|would|might|may)\b", re.IGNORECASE)
+OPTION_ITEM_PATTERN = re.compile(
+    r"^\W*I\s+(?:can|could|would|might|may|recommend|suggest|propose|prefer|favou?r)\b", re.IGNORECASE
+)
 LEAD_PARAGRAPH_JOINER = " "
 ALL_BACKGROUND_JOB_ID_KEYS = ("id", "task_id", "taskId")
 HUMAN_TURN_ORIGIN = "human"

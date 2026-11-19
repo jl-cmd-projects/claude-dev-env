@@ -70,6 +70,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TOOL_USE_ID_KEY,
 )
 from closing_question_round_lines import before_deadline
+from hooks_constants.user_step_wording_constants import LINE_BREAK
 from hooks_constants.background_silence_prompt_constants import BACKGROUND_EVENT_PATTERN
 from session.tracking_nudge import is_event_wake
 from open_tasks_transcript_records import (
@@ -382,10 +383,32 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
             for each_block in all_answer_blocks
             if each_block.get(RECORD_TYPE_KEY) == TEXT_KEY and isinstance(each_block.get(TEXT_KEY), str)
         ]
-        return REPLY_PART_JOINER.join(
+        return joined_reply_parts(
             [*_earlier_message_texts(all_lines[:each_position], _message_id(each_record), deadline_at), *all_record_texts]
         )
     return None
+
+
+def joined_reply_parts(all_parts: list[str]) -> str:
+    """Return the text blocks of one message as one reply, a blank line between blocks.
+
+    ::
+
+        ["Done.", "In progress:\n- I am fixing it."] -> "Done.\n\nIn progress:\n- I am fixing it."
+        ["- I am fixing it.", "  The tests run."]   -> "- I am fixing it.\n  The tests run."
+
+    A block that opens indented goes on the next line with no blank line,
+    since it goes on the item above it, and a blank line there would make
+    it a code block.
+    """
+    joined_text = ""
+    for each_part in all_parts:
+        if not joined_text:
+            joined_text = each_part
+            continue
+        part_joiner = LINE_BREAK if each_part[:1].isspace() else REPLY_PART_JOINER
+        joined_text = f"{joined_text.rstrip()}{part_joiner}{each_part}"
+    return joined_text
 
 
 def is_same_reply(first_reply: str, second_reply: str) -> bool:

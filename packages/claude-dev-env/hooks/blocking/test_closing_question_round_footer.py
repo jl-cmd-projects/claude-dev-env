@@ -276,3 +276,13 @@ def test_should_build_the_lead_paragraph_of_a_long_reply_in_linear_time() -> Non
     assert checked_text.strip() == long_body
     ordered_reply = "The tests pass.\nWhich day should I ship it?\n\nIn progress:\n- I am shipping 8590."
     assert list_check_text(ordered_reply) == ordered_reply
+
+
+def test_should_keep_recommended_alternatives_beside_an_ask_in_the_footer() -> None:
+    choice_reply = (
+        "Done.\n\nIn progress:\n- Pick the cache plan.\n"
+        "- I recommend keeping the cache.\n- I suggest dropping it.\n- I am shipping 8590."
+    )
+    assert list_check_text(choice_reply) == (
+        "Done.\n\nIn progress:\n- Pick the cache plan.\n- I recommend keeping the cache.\n- I suggest dropping it."
+    )
