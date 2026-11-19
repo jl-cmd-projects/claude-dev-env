@@ -249,3 +249,11 @@ def test_should_keep_every_option_when_the_lead_leaves_the_choice_to_the_user() 
     assert list_check_text(choice_reply) == choice_reply
     status_reply = "The release is set.\n\nIn progress:\n- I will ship Friday.\n- I will ship the notes Monday."
     assert list_check_text(status_reply).strip() == "The release is set."
+
+
+def test_should_keep_every_option_when_an_earlier_paragraph_asks_the_user_to_choose() -> None:
+    choice_reply = (
+        "Please choose a release date.\n\nThe build is ready.\n\nIn progress:\n"
+        "- I will ship on Monday.\n- I will ship on Wednesday.\n- I will ship on Friday."
+    )
+    assert list_check_text(choice_reply) == choice_reply

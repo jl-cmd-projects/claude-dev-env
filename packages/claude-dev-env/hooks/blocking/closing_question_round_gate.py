@@ -113,6 +113,7 @@ from closing_question_round_transcript import (
     assistant_texts,
     block_texts,
     has_work_call,
+    is_same_reply,
     last_typed_prompt_position,
     last_written_reply,
     payload_closing_texts,
@@ -745,7 +746,7 @@ def is_footer_still_current(
         footer names #28, #29 started since                       -> False, #29 left out
         footer kept with #28, #30 took its place since            -> False, the tasks changed
         footer names #28 and the jobs it went out with, still running -> True
-        footer names only #28, sent while a job ran                  -> False, the job is left out
+        footer names only #28, its line says the tests still run     -> True, the jobs it went out with still run
         footer names #28, a job started in the background since    -> False, the jobs changed
         one job took another's place since                         -> False, the jobs changed
         the footer went out with a job that has ended since        -> False, the job ended
@@ -755,10 +756,11 @@ def is_footer_still_current(
     footer with more lines than tasks in progress shows work that is done,
     and a footer the gate kept a snapshot of must have gone out with exactly
     these tasks in progress and no jobs. With background work, this footer
-    must have gone out while exactly these jobs ran, and must hold a line
-    beyond one per task in progress, so it told the user about the jobs. A job that starts, ends, or takes another's place makes
-    it owed, while a notice that a job is still going does not. The footer
-    may sum up all the jobs in one line.
+    must have gone out while exactly these jobs ran. The footer may tell
+    the user about the jobs in a line of their own or in the line of the
+    task they serve, as the first stop accepts it. A job that starts, ends,
+    or takes another's place makes it owed, while a notice that a job is
+    still going does not.
 
     Args:
         all_last_footer_lines: The lines of the newest footer sent, or None.
@@ -775,7 +777,7 @@ def is_footer_still_current(
     if left_out_tasks(all_last_footer_lines, all_tasks.in_progress, all_tasks.still_open):
         return False
     if background_count:
-        return were_jobs_in_footer and len(all_last_footer_lines) > len(all_tasks.in_progress)
+        return were_jobs_in_footer
     if len(all_last_footer_lines) > len(all_tasks.in_progress):
         return False
     return were_jobs_in_footer or not is_recorded
@@ -882,10 +884,10 @@ def _new_footer(
     all_footer_items = split_footer(closing_reply).footer_items
     if not isinstance(payload_reply, str) or not payload_reply.strip():
         return _closing_transcript_footer(all_footer_items, covered_session)
-    if payload_reply.split() != closing_reply.split() or all_footer_items is None:
+    if not is_same_reply(payload_reply, closing_reply) or all_footer_items is None:
         return None
     is_unwritten = any(
-        each_text.split() == closing_reply.split() for each_text in covered_session.all_payload_texts
+        is_same_reply(each_text, closing_reply) for each_text in covered_session.all_payload_texts
     )
     if not is_unwritten:
         return _closing_transcript_footer(all_footer_items, covered_session)

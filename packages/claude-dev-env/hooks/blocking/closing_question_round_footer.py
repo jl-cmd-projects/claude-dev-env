@@ -253,7 +253,9 @@ def list_check_text(closing_reply: str) -> str:
     does, or ends with a colon after a decision word or a word for the
     user, or names the user above an item that opens with "I can", "I
     could", "I would", "I might", or "I may", it gives the lines under it their meaning, so the
-    whole reply is read.
+    whole reply is read. A body that leaves a choice to the user, as "The
+    date is yours to choose." or "Please choose a date." do in any
+    paragraph, keeps a footer of two or more items whole too.
 
     Args:
         closing_reply: The reply the turn ends with.
@@ -302,7 +304,8 @@ def _is_user_choice(all_body_lines: list[str], all_item_lines: list[list[str]]) 
         for each_item_lines in all_item_lines
     )
     lead_paragraph = _lead_paragraph(all_body_lines)
-    if len(all_item_lines) > 1 and USER_CHOICE_LEAD_PATTERN.search(lead_paragraph) is not None:
+    body_text = MARKDOWN_EMPHASIS_PATTERN.sub("", LEAD_PARAGRAPH_JOINER.join(all_body_lines))
+    if len(all_item_lines) > 1 and USER_CHOICE_LEAD_PATTERN.search(body_text) is not None:
         return True
     return has_option_item and USER_MENTION_PATTERN.search(lead_paragraph) is not None
 

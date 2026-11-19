@@ -1199,18 +1199,20 @@ def test_should_ask_for_a_new_footer_when_a_task_description_changes(
     )
 
 
-def test_should_owe_a_footer_again_when_the_last_one_left_out_the_background_job(
+def test_should_reuse_a_footer_that_tells_of_the_job_in_the_task_line(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
-    task_only_reply = f"The retry flag is in place.\n\n{FOOTER}"
-    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(task_only_reply)]
+    task_line_reply = f"The retry flag is in place.\n\n{FOOTER}"
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(task_line_reply)]
     all_records = [*all_footer_records, *edit_records(), reply_record("The flag reads well.")]
-    job_fields = {"background_tasks": [{"id": "ledger"}], "last_assistant_message": task_only_reply}
+    job_fields = {"background_tasks": [{"id": "tests"}], "last_assistant_message": task_line_reply}
     assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, job_fields) is None
-    assert str(
-        held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]})
-    ).startswith(FOOTER_MISSING_REASON_LEAD)
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "tests"}]}) is None
+    two_jobs = [{"id": "tests"}, {"id": "ledger"}]
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": two_jobs})).startswith(
+        FOOTER_MISSING_REASON_LEAD
+    )
 
 
 @pytest.mark.parametrize(
@@ -1429,3 +1431,25 @@ def test_should_record_a_split_footer_the_payload_repeats_from_the_transcript(
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields)).startswith(
         FOOTER_CHANGED_REASON_LEAD
     )
+
+
+def test_should_keep_the_jobs_of_a_footer_written_as_two_text_blocks_of_one_record(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_blocks = [{"type": "text", "text": "The retry flag is in place."}, {"type": "text", "text": LEDGER_FOOTER}]
+    footer_record = {"type": "assistant", "message": {"role": "assistant", "content": all_blocks}}
+    all_footer_records = [typed_prompt_record(), *edit_records(), footer_record]
+    all_records = [*all_footer_records, *edit_records(), reply_record("The flag reads well.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]}) is None
+
+
+def test_should_read_a_payload_that_moves_the_footer_heading_to_its_own_line(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    inline_reply = f"The retry flag is in place.\n\nIn progress: {LIST_READER_ITEM}"
+    footer_reply = f"The retry flag is in place.\n\n{FOOTER}"
+    all_records = [typed_prompt_record(), *edit_records(), reply_record(inline_reply)]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": footer_reply}) is None

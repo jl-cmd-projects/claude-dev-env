@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from closing_question_round_transcript import (
+    is_same_reply,
     assistant_texts,
     block_texts,
     closing_reply_texts,
@@ -303,3 +304,15 @@ def test_last_written_reply_joins_the_records_of_one_message() -> None:
     ]
     all_lines = json_lines([typed_prompt_record(), reply_record("Earlier."), *all_records])
     assert last_written_reply(all_lines, NO_DEADLINE) == "Done.\nIn progress:\n- I am shipping 8590."
+
+
+def test_last_written_reply_joins_the_text_blocks_of_its_last_record() -> None:
+    all_blocks = [{"type": "text", "text": "Done."}, {"type": "text", "text": "In progress:\n- I am shipping 8590."}]
+    footer_record = {"type": "assistant", "message": {"role": "assistant", "content": all_blocks}}
+    all_lines = json_lines([typed_prompt_record(), footer_record])
+    assert last_written_reply(all_lines, NO_DEADLINE) == "Done.\nIn progress:\n- I am shipping 8590."
+
+
+def test_is_same_reply_reads_lines_and_sets_blank_lines_aside() -> None:
+    assert is_same_reply("Done.\n\nIn progress:\n- I am fixing it.", "Done.\nIn progress:\n- I am fixing it.")
+    assert not is_same_reply("In progress: - I am fixing it.", "In progress:\n- I am fixing it.")

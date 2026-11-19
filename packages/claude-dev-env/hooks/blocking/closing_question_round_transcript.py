@@ -335,6 +335,8 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
         prompt, reply "Done."                     -> "Done."
         "Done." and "In progress:" as two records of one message
                                                   -> "Done.\nIn progress:"
+        "Done." and "In progress:" as two text blocks of one record
+                                                  -> "Done.\nIn progress:"
         prompt, reply "Done.", a later prompt     -> None, a new turn started
         prompt, reply "Done.", an Edit call       -> None, the record ends with work
         a question call after "Done." in a record -> "Done.", the call is set aside
@@ -374,10 +376,34 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
         last_text = last_block.get(TEXT_KEY) if last_block.get(RECORD_TYPE_KEY) == TEXT_KEY else None
         if not isinstance(last_text, str):
             return None
+        all_record_texts = [
+            each_block[TEXT_KEY]
+            for each_block in all_answer_blocks
+            if each_block.get(RECORD_TYPE_KEY) == TEXT_KEY and isinstance(each_block.get(TEXT_KEY), str)
+        ]
         return REPLY_PART_JOINER.join(
-            [*_earlier_message_texts(all_lines[:each_position], _message_id(each_record), deadline_at), last_text]
+            [*_earlier_message_texts(all_lines[:each_position], _message_id(each_record), deadline_at), *all_record_texts]
         )
     return None
+
+
+def is_same_reply(first_reply: str, second_reply: str) -> bool:
+    """Return True when two replies hold the same lines, blank lines and outer spaces aside.
+
+    ::
+
+        "Done.\n\nIn progress:\n- I am fixing it." and "Done.\nIn progress:\n- I am fixing it." -> True
+        "In progress: - I am fixing it." and "In progress:\n- I am fixing it."              -> False
+        "Done." and "Done.\n"                                                            -> True
+
+    A footer is read line by line, so a reply whose heading and item share
+    one line is another reply than one that puts them on two lines.
+    """
+    return _reply_lines(first_reply) == _reply_lines(second_reply)
+
+
+def _reply_lines(reply_text: str) -> list[str]:
+    return [each_line.strip() for each_line in reply_text.splitlines() if each_line.strip()]
 
 
 def _earlier_message_texts(all_lines: list[str], message_id: str | None, deadline_at: float) -> list[str]:
@@ -435,7 +461,7 @@ def payload_closing_texts(all_hook_input_fields: dict[str, object], written_repl
 
         "Both tests pass." and written reply "Done."              -> ["Both tests pass."]
         "Both tests pass." and written reply "Both tests pass.\n" -> []
-        "Done.\n\nIn progress:" and written reply "Done.\nIn progress:" -> [], the words match
+        "Done.\n\nIn progress:" and written reply "Done.\nIn progress:" -> [], the lines match
         "" or no string                                           -> []
 
     Args:
@@ -448,6 +474,6 @@ def payload_closing_texts(all_hook_input_fields: dict[str, object], written_repl
     closing_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(closing_reply, str) or not closing_reply.strip():
         return []
-    if written_reply is not None and written_reply.split() == closing_reply.split():
+    if written_reply is not None and is_same_reply(written_reply, closing_reply):
         return []
     return [closing_reply]
