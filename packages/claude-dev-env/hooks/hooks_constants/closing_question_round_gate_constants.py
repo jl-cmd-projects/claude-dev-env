@@ -231,7 +231,7 @@ FOOTER_GAP_REASON_LEAD = (
     "This session's In progress footer leaves out work that is still in progress."
 )
 CARRIED_TASKS_REASON_LEAD = (
-    "This session's task list dropped work that was still in progress, so the user no longer sees it."
+    "This session's task list dropped work that was still in progress, and the user's list does not show it."
 )
 ALL_REASON_LEADS = (
     CLOSING_ROUND_REASON_LEAD,
@@ -242,7 +242,7 @@ ALL_REASON_LEADS = (
     CARRIED_TASKS_REASON_LEAD,
 )
 CARRIED_TASKS_LABEL = "Dropped from the list while in progress:"
-CARRIED_TASK_LINE_TEMPLATE = "- {subject}"
+CARRIED_TASKS_REASON_LINE_TEMPLATE = "- {subject}"
 CARRIED_TASKS_INSTRUCTION = (
     "The user sees only the newest list, so the In progress footer names only work on that list."
     " Send one mcp__ccd_turn__update_plan items call that holds the whole list. When the work is"

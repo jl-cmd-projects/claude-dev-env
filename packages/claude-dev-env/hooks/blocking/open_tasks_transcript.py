@@ -442,7 +442,7 @@ class TranscriptReplay:
         return self._joined_items(self.plan_items)
 
     def shown_items(self) -> list[TaskItem] | None:
-        """Return the items as ``items`` does, without the carried desktop plan items the user no longer sees."""
+        """Return the items as ``items`` does, without the carried desktop plan items the newest list leaves out."""
         all_own_plan_items = None if self.plan_items is None else self.plan_items[: self.own_plan_count]
         return self._joined_items(all_own_plan_items)
 

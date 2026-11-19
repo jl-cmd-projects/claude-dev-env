@@ -20,7 +20,7 @@ from test_closing_question_round_gate_work import (
     edit_records,
 )
 
-CARRIED_REASON_LEAD = "This session's task list dropped work that was still in progress, so the user no longer sees it."
+CARRIED_REASON_LEAD = "This session's task list dropped work that was still in progress, and the user's list does not show it."
 RERUN_SUBJECT = "Run Codex rerun 2 on Sol (ends 11:05 PM ET)"
 JUDGE_SUBJECT = "Judge rerun 2 against GitHub"
 SUMMARY_SUBJECT = "Write the audit summary"

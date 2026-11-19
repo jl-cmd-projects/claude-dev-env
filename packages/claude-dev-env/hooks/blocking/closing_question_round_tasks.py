@@ -40,7 +40,7 @@ from open_tasks_stop_gate import task_store_items
 from open_tasks_transcript import TaskItem, TranscriptReplay, replayed_transcript
 
 from hooks_constants.closing_question_round_gate_constants import (
-    CARRIED_TASK_LINE_TEMPLATE,
+    CARRIED_TASKS_REASON_LINE_TEMPLATE,
     CARRIED_TASKS_INSTRUCTION,
     CARRIED_TASKS_LABEL,
     CARRIED_TASKS_REASON_LEAD,
@@ -62,7 +62,7 @@ class SessionTasks(NamedTuple):
         in_progress: The tasks the user sees with status ``in_progress``, in task list order.
         still_open: The tasks the user sees with status ``in_progress`` or ``pending``, in task list order.
         carried_in_progress: The desktop plan tasks with status ``in_progress`` that a later list
-            left out, which the user no longer sees. Empty by default.
+            left out, which the user's list does not show. Empty by default.
     """
 
     in_progress: tuple[TaskItem, ...]
@@ -112,7 +112,7 @@ def carried_tasks_reason(all_carried_items: Sequence[TaskItem]) -> str:
 
     ::
 
-        This session's task list dropped work that was still in progress, so the user no longer sees it.
+        This session's task list dropped work that was still in progress, and the user's list does not show it.
         Dropped from the list while in progress:
         - Run the nightly export rerun
         The user sees only the newest list, ... put the item on the list once with status
@@ -128,7 +128,7 @@ def carried_tasks_reason(all_carried_items: Sequence[TaskItem]) -> str:
         [
             CARRIED_TASKS_REASON_LEAD,
             CARRIED_TASKS_LABEL,
-            *(CARRIED_TASK_LINE_TEMPLATE.format(subject=each_item.subject) for each_item in all_carried_items),
+            *(CARRIED_TASKS_REASON_LINE_TEMPLATE.format(subject=each_item.subject) for each_item in all_carried_items),
             CARRIED_TASKS_INSTRUCTION,
         ]
     )
