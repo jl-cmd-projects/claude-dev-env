@@ -1200,6 +1200,10 @@ def test_should_read_a_snapshot_kept_before_the_footer_task_verdict(
     assert kept_snapshot.is_covering is None
     assert shown(ledger_fields, LEDGER_SEEN, NO_TASKS)
     assert not shown({**ledger_fields, "background_tasks": [{"id": "tests"}]}, LEDGER_SEEN, NO_TASKS)
+    closing_question_round_gate.record_footer_jobs(ledger_fields, LEDGER_SEEN._replace(occurrence=2), NO_TASKS)
+    reread_snapshot = closing_question_round_gate.kept_footer_snapshot(ledger_fields, LEDGER_SEEN)
+    assert reread_snapshot is not None
+    assert reread_snapshot.is_covering is None
 
 
 def test_should_compare_a_kept_footer_with_many_tasks_in_linear_time(

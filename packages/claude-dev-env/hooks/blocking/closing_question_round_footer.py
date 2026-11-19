@@ -31,6 +31,7 @@ if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
 from closing_question_round_open_items import marked_open_lines
+from final_reply_gate import code_spans_masked
 from open_tasks_transcript import TaskItem
 
 from hooks_constants.closing_question_round_gate_constants import (
@@ -69,7 +70,6 @@ from hooks_constants.closing_question_round_gate_constants import (
     REASON_PART_SEPARATOR,
     TASK_KEY_WORD_SEPARATOR,
 )
-from hooks_constants.ask_user_question_shape_constants import INLINE_CODE_SPAN_PATTERN
 from hooks_constants.final_reply_gate_constants import QUESTION_MARK
 from hooks_constants.user_step_wording_constants import CODE_SPAN_STAND_IN, LINE_BREAK
 
@@ -339,7 +339,7 @@ def _has_question(item_text: str) -> bool:
     return any(
         each_sentence.rstrip().endswith(QUESTION_MARK)
         for each_sentence in SENTENCE_BREAK_PATTERN.split(
-            MARKDOWN_EMPHASIS_PATTERN.sub("", INLINE_CODE_SPAN_PATTERN.sub(CODE_SPAN_STAND_IN, item_text))
+            MARKDOWN_EMPHASIS_PATTERN.sub("", code_spans_masked(item_text, CODE_SPAN_STAND_IN))
         )
     )
 

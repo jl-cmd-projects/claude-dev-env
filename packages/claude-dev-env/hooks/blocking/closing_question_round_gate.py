@@ -492,9 +492,15 @@ def _snapshot_line(snapshot: FooterSnapshot) -> str:
             str(snapshot.record_count),
             snapshot.reply_key,
             str(snapshot.wake_count),
-            FOOTER_SNAPSHOT_COVERING_MARK if snapshot.is_covering else FOOTER_SNAPSHOT_GAP_MARK,
+            _covering_mark(snapshot.is_covering),
         ]
     )
+
+
+def _covering_mark(is_covering: bool | None) -> str:
+    if is_covering is None:
+        return FOOTER_SNAPSHOT_UNKNOWN_MARK
+    return FOOTER_SNAPSHOT_COVERING_MARK if is_covering else FOOTER_SNAPSHOT_GAP_MARK
 
 
 def record_footer_jobs(

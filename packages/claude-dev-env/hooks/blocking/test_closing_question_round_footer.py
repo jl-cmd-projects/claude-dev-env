@@ -320,6 +320,13 @@ def test_should_keep_the_choices_that_follow_a_question_in_the_footer() -> None:
     assert list_check_text(bold_reply) == bold_reply
     code_reply = "Done.\n\nIn progress:\n- Please check the `ready?` flag.\n- I am running tests."
     assert list_check_text(code_reply) == "Done.\n\nIn progress:\n- Please check the `ready?` flag."
+    escaped_reply = (
+        "Done.\n\nIn progress:\n- I have two slots, \\` Which one works better? \\` for you.\n"
+        "- I have a Friday slot.\n- I have a Monday slot."
+    )
+    assert list_check_text(escaped_reply) == escaped_reply
+    double_reply = "Done.\n\nIn progress:\n- Please check the ``ready`now?`` flag.\n- I am running tests."
+    assert list_check_text(double_reply) == "Done.\n\nIn progress:\n- Please check the ``ready`now?`` flag."
 
 
 def test_should_filter_a_long_mixed_footer_in_linear_time() -> None:
