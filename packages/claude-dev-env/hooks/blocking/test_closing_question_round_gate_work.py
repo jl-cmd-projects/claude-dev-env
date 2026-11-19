@@ -814,6 +814,35 @@ def test_should_count_a_footer_only_when_it_ends_the_last_text_of_its_message(
     assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None
 
 
+def test_should_still_read_open_items_beside_an_assistant_record_with_no_text(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    thinking_record = {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "id": "message-think",
+            "content": [{"type": "thinking", "thinking": "The flag goes in the export job."}],
+        },
+    }
+    all_records = [
+        typed_prompt_record(),
+        thinking_record,
+        *edit_records(),
+        reply_record("I deferred the backoff setting to a later change."),
+    ]
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(CLOSING_ROUND_REASON_LEAD)
+
+
+def test_should_keep_a_snapshot_of_a_footer_the_transcript_already_ends_with(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_footer_records, all_records = _footer_then_work()
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, {"background_tasks": [{"id": "ledger"}]}) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]}) is None
+
+
 def test_should_count_the_same_footer_sent_again_after_a_new_notification(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

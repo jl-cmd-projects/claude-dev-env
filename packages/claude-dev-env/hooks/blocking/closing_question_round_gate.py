@@ -332,13 +332,15 @@ def _footer_positions(all_records: list[dict[str, object]]) -> list[int]:
     for each_position, each_record in enumerate(all_records):
         if not is_assistant_record(each_record) or _has_tool_call(each_record):
             continue
+        all_record_texts = block_texts(each_record)
+        if not all_record_texts:
+            continue
         message_id = _message_id(each_record)
         if message_id in all_tool_message_ids:
             continue
         if message_id is not None and last_text_positions[message_id] != each_position:
             continue
-        all_record_texts = block_texts(each_record)
-        if all_record_texts and split_footer(all_record_texts[-1]).footer_items is not None:
+        if split_footer(all_record_texts[-1]).footer_items is not None:
             all_positions.append(each_position)
     return all_positions
 
@@ -747,9 +749,14 @@ def _new_footer(
     all_hook_input_fields: dict[str, object], closing_reply: str, covered_session: CoveredSession
 ) -> FooterSeen | None:
     payload_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
+    all_footer_items = split_footer(closing_reply).footer_items
+    if payload_reply is None:
+        newest_footer = covered_session.newest_footer
+        if newest_footer is None or _has_work_since_footer(covered_session.all_stretch_records):
+            return None
+        return newest_footer if all_footer_items == newest_footer.lines else None
     if not isinstance(payload_reply, str) or payload_reply.strip() != closing_reply.strip():
         return None
-    all_footer_items = split_footer(closing_reply).footer_items
     if all_footer_items is None:
         return None
     footer_count = len(_footer_positions(covered_session.all_counted_records))

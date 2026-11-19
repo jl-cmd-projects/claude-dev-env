@@ -49,6 +49,8 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_TASK_LINE_TEMPLATE,
     PURPOSE_CLAUSE_PATTERN,
     PURPOSE_CLAUSE_STAND_IN,
+    REQUEST_OPENER_PATTERN,
+    SENTENCE_BREAK_PATTERN,
     USER_MENTION_PATTERN,
     FOOTER_TASKS_LABEL,
     FOOTER_WORD_PATTERN,
@@ -145,6 +147,8 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am holding it until the owner approves."    -> True, it waits on a decision
         "I need an answer on the price."               -> True, it waits on an answer
         "Approve the release."                         -> True, not first person
+        "I am preparing it. Pick a release date."      -> True, its second sentence is a request
+        "I am shipping 8590. Its tests are pending."   -> False
         "Should I merge 8590?"                         -> True, a question
 
     The rule writes each footer item in first person and says what the work
@@ -156,11 +160,17 @@ def is_footer_ask(footer_item: str) -> bool:
     approval, a decision, a sign-off, a go-ahead, permission, consent, an
     answer, input, a choice, or a confirmation from anyone, or that holds an open-item line other than the status markers
     "pending", "blocked", "not done", and "not run" may ask the user
-    something, so it counts as an ask.
+    something, so it counts as an ask. A later sentence that opens with a
+    request word such as please, pick, choose, approve, or confirm counts as
+    an ask too, so a request after a status sentence is kept.
     """
     status_item = FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, footer_item)
     return (
         FIRST_PERSON_ITEM_PATTERN.match(footer_item) is None
+        or any(
+            REQUEST_OPENER_PATTERN.match(each_sentence) is not None
+            for each_sentence in SENTENCE_BREAK_PATTERN.split(footer_item.strip())
+        )
         or USER_MENTION_PATTERN.search(PURPOSE_CLAUSE_PATTERN.sub(PURPOSE_CLAUSE_STAND_IN, footer_item)) is not None
         or DECISION_DEPENDENCY_PATTERN.search(footer_item) is not None
         or bool(marked_open_lines([status_item], math.inf))

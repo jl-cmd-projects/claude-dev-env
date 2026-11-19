@@ -36,6 +36,11 @@ FOOTER_JOBS_READ_LIMIT = 256
 FOOTER_JOBS_TEXT_ENCODING = "ascii"
 FOOTER_JOBS_DIGEST_LENGTH = 32
 FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’]m\b)")
+SENTENCE_BREAK_PATTERN = re.compile(r"(?<=[.!?])\s+")
+REQUEST_OPENER_PATTERN = re.compile(
+    r"^\W*(?:please|pick|choose|select|approve|confirm|decide|reply|answer|tell|send|review|let|give|share|sign|say|name)\b",
+    re.IGNORECASE,
+)
 USER_MENTION_PATTERN = re.compile(r"\byou(?:r|rs|rself)?\b", re.IGNORECASE)
 PURPOSE_CLAUSE_PATTERN = re.compile(
     r"\bso(?:\s+that)?\s+you(?:\s+can)?\s+(?:see|know|get|read|follow|have|hear|learn|find|watch|track)\b",
