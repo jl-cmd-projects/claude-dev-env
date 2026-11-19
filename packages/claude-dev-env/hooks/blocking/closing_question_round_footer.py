@@ -269,7 +269,8 @@ def list_check_text(closing_reply: str) -> str:
     the lines that open with "I can", "I could", "I would", "I might",
     "I may", "I recommend", "I suggest", "I propose", "I prefer", or
     "I favor" stay too, so the options
-    beside the ask still reach the judge. An ask that leaves a choice to
+    beside the ask still reach the judge. Every item after an ask that
+    ends with a question mark stays too, since those items answer it. An ask that leaves a choice to
     the user, as "I need you to pick a date." and "I am leaving the date to
     you." do, keeps the whole reply,
     so the choices under it reach the judge whatever they open with. The heading and
@@ -303,7 +304,9 @@ def list_check_text(closing_reply: str) -> str:
         return closing_reply
     all_is_ask = [_is_ask_item(each_item_lines) for each_item_lines in all_item_lines]
     all_ask_lines = [
-        each_item_lines for each_item_lines, is_ask in zip(all_item_lines, all_is_ask, strict=True) if is_ask
+        each_item_lines
+        for each_item_lines, each_is_ask in zip(all_item_lines, all_is_ask, strict=True)
+        if each_is_ask
     ]
     if len(all_ask_lines) == len(all_item_lines) or any(
         USER_CHOICE_LEAD_PATTERN.search(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines))) is not None
@@ -313,14 +316,21 @@ def list_check_text(closing_reply: str) -> str:
     all_body_lines = all_lines[:heading_position]
     if not all_ask_lines:
         return LINE_BREAK.join(all_body_lines)
-    all_kept_items = [
-        each_item_lines
-        for each_item_lines, is_ask in zip(all_item_lines, all_is_ask, strict=True)
-        if is_ask
-        or OPTION_ITEM_PATTERN.match(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines)))
+    all_kept_lines = [
+        each_line for each_item_lines in _kept_items(all_item_lines, all_is_ask) for each_line in each_item_lines
     ]
-    all_kept_lines = [each_line for each_item_lines in all_kept_items for each_line in each_item_lines]
     return LINE_BREAK.join([*all_body_lines, all_lines[heading_position], *all_kept_lines])
+
+
+def _kept_items(all_item_lines: list[list[str]], all_is_ask: list[bool]) -> list[list[str]]:
+    all_kept_items: list[list[str]] = []
+    is_after_question = False
+    for each_item_lines, each_is_ask in zip(all_item_lines, all_is_ask, strict=True):
+        item_text = _item_text(each_item_lines)
+        if each_is_ask or is_after_question or OPTION_ITEM_PATTERN.match(MARKDOWN_EMPHASIS_PATTERN.sub("", item_text)):
+            all_kept_items.append(each_item_lines)
+        is_after_question = is_after_question or (each_is_ask and item_text.endswith(QUESTION_MARK))
+    return all_kept_items
 
 
 def _lead_paragraph(all_body_lines: list[str]) -> str:

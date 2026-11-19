@@ -349,6 +349,21 @@ def test_reply_lines_keeps_the_indent_of_the_first_line() -> None:
     assert is_same_reply("  TODO: add the flag.", "TODO: add the flag.")
 
 
+def test_joined_reply_parts_joins_many_fragments_in_linear_time() -> None:
+    all_fragments = [f"Fragment {each_index} of the reply." for each_index in range(60000)]
+    started_at = time.process_time()
+    joined_text = joined_reply_parts(all_fragments)
+    assert time.process_time() - started_at < 3.0
+    assert joined_text == "\n\n".join(all_fragments)
+
+
+def test_joined_reply_parts_trims_blank_fragments_before_a_joiner() -> None:
+    assert joined_reply_parts(["Done.  ", "   ", "In progress:"]) == "Done.\n\nIn progress:"
+    assert joined_reply_parts(["", "Done."]) == "Done."
+    assert joined_reply_parts(["  ", "Done."]) == "\n\nDone."
+    assert joined_reply_parts(["Done.", "Next.  "]) == "Done.\n\nNext.  "
+
+
 def test_joined_reply_parts_puts_an_indented_block_on_the_next_line() -> None:
     assert joined_reply_parts(["Done.", "In progress:\n- I am fixing it."]) == "Done.\n\nIn progress:\n- I am fixing it."
     assert joined_reply_parts(["- I am fixing it.", "  The tests run."]) == "- I am fixing it.\n  The tests run."

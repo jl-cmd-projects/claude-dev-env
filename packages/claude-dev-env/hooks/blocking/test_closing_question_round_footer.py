@@ -303,6 +303,16 @@ def test_should_keep_every_choice_under_a_footer_item_that_leaves_a_choice_to_th
     assert list_check_text(up_to_you_reply) == up_to_you_reply
 
 
+def test_should_keep_the_choices_that_follow_a_question_in_the_footer() -> None:
+    question_reply = (
+        "Done.\n\nIn progress:\n- I am shipping 8590.\n- Which date works for you?\n"
+        "- I have Monday free.\n- I have Friday free."
+    )
+    assert list_check_text(question_reply) == (
+        "Done.\n\nIn progress:\n- Which date works for you?\n- I have Monday free.\n- I have Friday free."
+    )
+
+
 def test_should_filter_a_long_mixed_footer_in_linear_time() -> None:
     all_items = [
         each_line

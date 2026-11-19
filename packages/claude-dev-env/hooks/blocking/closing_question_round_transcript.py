@@ -454,16 +454,27 @@ def joined_reply_parts(all_parts: list[str]) -> str:
     block. Any other indented block keeps its blank line, so it stays a
     code block.
     """
-    joined_text = ""
+    all_pieces: list[str] = []
     is_list_context = False
     for each_part in all_parts:
-        if joined_text:
+        if any(all_pieces):
             part_joiner = LINE_BREAK if each_part[:1].isspace() and is_list_context else REPLY_PART_JOINER
-            joined_text = f"{joined_text.rstrip()}{part_joiner}{each_part}"
+            _trim_piece_ends(all_pieces)
+            all_pieces.append(part_joiner)
         else:
-            joined_text = each_part
+            all_pieces.clear()
+        all_pieces.append(each_part)
         is_list_context = _ends_in_list_item(each_part.rstrip(), is_list_context)
-    return joined_text
+    return "".join(all_pieces)
+
+
+def _trim_piece_ends(all_pieces: list[str]) -> None:
+    while all_pieces:
+        trimmed_piece = all_pieces[-1].rstrip()
+        if trimmed_piece:
+            all_pieces[-1] = trimmed_piece
+            return
+        all_pieces.pop()
 
 
 def _ends_in_list_item(part_text: str, is_list_context: bool) -> bool:
