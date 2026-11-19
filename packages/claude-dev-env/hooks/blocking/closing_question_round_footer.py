@@ -148,6 +148,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am merging 8590 once it has your approval." -> True, it names the user
         "I will release it only with an OK from you."  -> True
         "I am holding it until the owner approves."    -> True, it waits on a decision
+        "I am waiting for Jon to authorize the release." -> True, it waits on an authorization
         "I need an answer on the price."               -> True, it waits on an answer
         "I need the owner to pick the release date."   -> True, it asks someone to pick
         "I am holding it until the owner picks a date." -> True, it waits on a choice
@@ -172,7 +173,7 @@ def is_footer_ask(footer_item: str) -> bool:
     check reads the item with its asterisks, underscores, tildes, and
     backticks left out, so "**pick**" reads as pick. An item that is not
     first person, that names the user in any other way, that waits on an
-    approval, a decision, a sign-off, a go-ahead, permission, consent, an
+    approval, an authorization, a green light, a clearance, a decision, a sign-off, a go-ahead, permission, consent, an
     answer, input, a choice, or a confirmation from anyone, or that holds an open-item line other than the status markers
     "pending", "blocked", "not done", and "not run" may ask the user
     something, so it counts as an ask. A later sentence or clause after a

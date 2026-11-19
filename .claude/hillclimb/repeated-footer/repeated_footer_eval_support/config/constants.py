@@ -65,6 +65,7 @@ LIST_HOLD_TEXT = "The closing reply lists"
 ALL_FOOTER_HOLD_TEXTS = (
     "ended without the In progress footer",
     "footer leaves out work",
+    "changed since its last In progress footer",
     "declared no open items",
 )
 MAXIMUM_HOLDS_PER_STOP = 4

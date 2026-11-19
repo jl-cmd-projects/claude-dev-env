@@ -70,7 +70,7 @@ COORDINATED_REQUEST_PATTERN = re.compile(
     re.IGNORECASE,
 )
 DECISION_DEPENDENCY_PATTERN = re.compile(
-    r"\b(?:approv\w*|decid\w*|decision\w*|sign-?off|go-ahead|permission|consent|answers?|input|choices?|confirmation)\b",
+    r"\b(?:approv\w*|authori[sz]\w*|decid\w*|decision\w*|sign-?off|go-ahead|green[\s-]?light\w*|clearance|permission|consent|answers?|input|choices?|confirmation)\b",
     re.IGNORECASE,
 )
 ALL_BACKGROUND_JOB_ID_KEYS = ("id", "task_id", "taskId")

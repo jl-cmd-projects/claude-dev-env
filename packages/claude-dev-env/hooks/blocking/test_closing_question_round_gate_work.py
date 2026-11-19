@@ -1063,6 +1063,26 @@ def test_should_read_the_footer_snapshot_once_when_later_work_has_no_footer(
     assert len(all_snapshot_reads) == 1
 
 
+def test_should_read_the_snapshot_file_once_when_a_stop_keeps_a_new_footer(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_first_footer = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_after_notice = [*all_first_footer, notice_record("Ledger job ended")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_first_footer, footer_stop_fields([{"id": "ledger"}])) is None
+    all_snapshot_reads: list[object] = []
+    original_read = closing_question_round_gate.kept_footer_snapshots
+
+    def counted_read(all_hook_input_fields: dict[str, object]) -> object:
+        all_snapshot_reads.append(all_hook_input_fields)
+        return original_read(all_hook_input_fields)
+
+    monkeypatch.setattr(closing_question_round_gate, "kept_footer_snapshots", counted_read)
+    assert held_reason(monkeypatch, capsys, tmp_path, all_after_notice, footer_stop_fields([{"id": "tests"}])) is None
+    assert len(all_snapshot_reads) == 1
+    assert len(original_read({"session_id": SESSION_ID})) == 2
+
+
 def test_should_allow_later_work_after_a_footer_that_sums_up_two_jobs_in_one_line(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

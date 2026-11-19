@@ -146,6 +146,11 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
         "select", "`select`"
     )
     assert parsed_verdict(verdict_text, emphasized_reply) == JudgeVerdict("", "In progress:")
+    release_wait_reply = (
+        "Shipped.\n\nIn progress:\n- I am waiting for Jon to authorize the release.\n"
+        "- I need a price from the owner.\n- I am holding the launch until the owner picks a date."
+    )
+    assert parsed_verdict(verdict_text, release_wait_reply) == JudgeVerdict("", "In progress:")
     benefit_reply = (
         "Shipped.\n\nIn progress:\n- I am updating the discount ledger so your prices stay current.\n"
         "- I am watching the export so your files arrive on time.\n"

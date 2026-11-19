@@ -447,7 +447,10 @@ def _snapshot_line(snapshot: FooterSnapshot) -> str:
 
 
 def record_footer_jobs(
-    all_hook_input_fields: dict[str, object], footer: FooterSeen, all_tasks: SessionTasks
+    all_hook_input_fields: dict[str, object],
+    footer: FooterSeen,
+    all_tasks: SessionTasks,
+    all_kept_snapshots: tuple[FooterSnapshot, ...] | None = None,
 ) -> None:
     """Keep this footer, its tasks, and its jobs as the session's snapshot of that footer.
 
@@ -464,7 +467,9 @@ def record_footer_jobs(
     then moved onto the snapshot name. A move takes the name, link or not,
     and never follows a link, on Windows too. The file keeps the newest
     three footers, so a footer read from the payload before the transcript
-    holds it leaves the snapshot of the footer the transcript shows.
+    holds it leaves the snapshot of the footer the transcript shows. A
+    caller that already read the kept snapshots passes them, so the file
+    is read once.
     """
     snapshot_path = _snapshot_path(all_hook_input_fields)
     if snapshot_path is None:
@@ -472,7 +477,9 @@ def record_footer_jobs(
     snapshot = footer_snapshot(all_hook_input_fields, footer, all_tasks)
     all_other_snapshots = [
         each_snapshot
-        for each_snapshot in kept_footer_snapshots(all_hook_input_fields)
+        for each_snapshot in (
+            kept_footer_snapshots(all_hook_input_fields) if all_kept_snapshots is None else all_kept_snapshots
+        )
         if each_snapshot.footer_key != snapshot.footer_key
     ]
     all_kept_snapshots = [snapshot, *all_other_snapshots][:FOOTER_SNAPSHOT_KEPT_COUNT]
@@ -852,8 +859,9 @@ def _is_newest_footer_last_text(all_counted_records: list[dict[str, object]]) ->
     return all_text_positions[-1] == _footer_positions(all_counted_records)[-1]
 
 
-def _is_unrecorded(all_hook_input_fields: dict[str, object], new_footer: FooterSeen) -> bool:
-    return kept_footer_snapshot(all_hook_input_fields, new_footer) is None
+def _is_unrecorded(all_kept_snapshots: tuple[FooterSnapshot, ...], new_footer: FooterSeen) -> bool:
+    new_footer_key = footer_key(new_footer)
+    return all(each_snapshot.footer_key != new_footer_key for each_snapshot in all_kept_snapshots)
 
 
 def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -> str | None:
@@ -867,9 +875,10 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
     new_footer = _new_footer(all_hook_input_fields, closing_reply, covered_session)
     all_known_tasks = None
-    if new_footer is not None and _is_unrecorded(all_hook_input_fields, new_footer):
+    all_kept_snapshots = () if new_footer is None else kept_footer_snapshots(all_hook_input_fields)
+    if new_footer is not None and _is_unrecorded(all_kept_snapshots, new_footer):
         all_known_tasks = session_tasks(all_hook_input_fields)
-        record_footer_jobs(all_hook_input_fields, new_footer, all_known_tasks)
+        record_footer_jobs(all_hook_input_fields, new_footer, all_known_tasks, all_kept_snapshots)
     all_texts = [
         _scanned_text(each_text)
         for each_text in [*assistant_texts(all_stretch_records), *all_payload_texts]

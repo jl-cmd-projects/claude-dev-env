@@ -33,6 +33,13 @@ def test_should_answer_each_hold_the_way_the_session_did() -> None:
         [],
         with_footer("Done.", ALL_FOOTER_ITEMS),
     )
+    changed_hold = (
+        "This session's work changed since its last In progress footer, and the reply ended without a new one."
+    )
+    assert held_reply([changed_hold], TURN_FIELDS, "Done.", ALL_FOOTER_ITEMS) == (
+        [],
+        with_footer("Done.", ALL_FOOTER_ITEMS),
+    )
 
 
 def test_should_send_the_footer_once_per_change_through_this_checkout_gates() -> None:
