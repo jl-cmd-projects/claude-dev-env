@@ -1489,6 +1489,31 @@ def test_should_scan_an_indented_code_block_written_as_its_own_record_as_code(
     all_records = [typed_prompt_record(), *edit_records(), *split_reply_records("Run this:", "    echo TODO: write docs")]
     code_fields = {"last_assistant_message": "Run this:\n\n    echo TODO: write docs"}
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, code_fields)).startswith(FOOTER_MISSING_REASON_LEAD)
+    all_prose_records = [
+        typed_prompt_record(),
+        *edit_records(),
+        *split_reply_records("Notes:\n  a wrapped line", "    echo TODO: write docs"),
+    ]
+    prose_fields = {"last_assistant_message": "Notes:\n  a wrapped line\n\n    echo TODO: write docs"}
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_prose_records, prose_fields)).startswith(
+        FOOTER_MISSING_REASON_LEAD
+    )
+
+
+def test_should_keep_the_jobs_of_a_footer_whose_heading_is_its_own_record(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    footer_reply = f"The retry flag is in place.\n{FOOTER}"
+    all_before_footer = [typed_prompt_record(), *edit_records()]
+    all_footer_records = [*all_before_footer, *split_reply_records("The retry flag is in place.", FOOTER)]
+    all_records = [*all_footer_records, notice_record("Ledger job ended"), reply_record("Still waiting.")]
+    ledger_fields = {"last_assistant_message": footer_reply, "background_tasks": [{"id": "ledger"}]}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, ledger_fields) is None
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": [{"id": "tests"}]}
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields)).startswith(
+        FOOTER_CHANGED_REASON_LEAD
+    )
 
 
 def test_should_not_bind_a_pending_snapshot_to_a_copy_of_its_reply_written_after_a_wake(

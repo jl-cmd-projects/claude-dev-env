@@ -280,7 +280,8 @@ def list_check_text(closing_reply: str) -> str:
         each_item_lines for each_item_lines in all_item_lines if is_footer_ask(_item_text(each_item_lines))
     ]
     if len(all_ask_lines) == len(all_item_lines) or any(
-        USER_CHOICE_LEAD_PATTERN.search(_item_text(each_item_lines)) is not None for each_item_lines in all_ask_lines
+        USER_CHOICE_LEAD_PATTERN.search(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines))) is not None
+        for each_item_lines in all_ask_lines
     ):
         return closing_reply
     all_body_lines = all_lines[:heading_position]

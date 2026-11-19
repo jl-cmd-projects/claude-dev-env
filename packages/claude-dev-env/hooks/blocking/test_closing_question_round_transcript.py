@@ -325,8 +325,13 @@ def test_is_same_reply_reads_lines_and_sets_blank_lines_aside() -> None:
 
 
 def test_reply_lines_keeps_one_blank_line_per_paragraph_break() -> None:
-    assert reply_lines("Done.\n\n\nIn progress:\n\n- I am fixing it.") == ["Done.", "", "In progress:", "- I am fixing it."]
+    assert reply_lines("Done.\n\n\nMore.\n\n- I am fixing it.") == ["Done.", "", "More.", "- I am fixing it."]
     assert reply_lines("Done.\n\n    TODO: add the flag.") == ["Done.", "", "    TODO: add the flag."]
+
+
+def test_reply_lines_reads_a_footer_heading_after_a_blank_line_as_after_a_line_break() -> None:
+    assert reply_lines("Done.\n\nIn progress:\n- I am fixing it.") == reply_lines("Done.\nIn progress:\n- I am fixing it.")
+    assert reply_lines("Done.\n\nNext:\n- I am fixing it.") != reply_lines("Done.\nNext:\n- I am fixing it.")
 
 
 def test_joined_reply_parts_puts_an_indented_block_on_the_next_line() -> None:
@@ -337,6 +342,8 @@ def test_joined_reply_parts_puts_an_indented_block_on_the_next_line() -> None:
 def test_joined_reply_parts_keeps_the_blank_line_before_an_indented_code_block() -> None:
     assert joined_reply_parts(["Run this:", "    echo done"]) == "Run this:\n\n    echo done"
     assert joined_reply_parts(["- Item", "  more", "  and more"]) == "- Item\n  more\n  and more"
+    assert joined_reply_parts(["Notes:\n  a wrapped line", "    echo done"]) == "Notes:\n  a wrapped line\n\n    echo done"
+    assert joined_reply_parts(["- Item\n\nDone.", "    echo done"]) == "- Item\n\nDone.\n\n    echo done"
 
 
 def test_wake_counts_counts_the_prompts_before_each_kept_record() -> None:

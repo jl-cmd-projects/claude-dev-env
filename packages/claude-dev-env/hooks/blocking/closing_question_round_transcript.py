@@ -44,6 +44,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     ALL_REASON_LEADS,
     ASSISTANT_SCAN_TEXT,
     ATTENDED_SESSION_TEXT,
+    FOOTER_HEADING_PATTERN,
     HUMAN_TURN_ORIGIN,
     IS_ERROR_KEY,
     IS_SIDECHAIN_KEY,
@@ -431,22 +432,33 @@ def joined_reply_parts(all_parts: list[str]) -> str:
         ["Done.", "In progress:\n- I am fixing it."] -> "Done.\n\nIn progress:\n- I am fixing it."
         ["- I am fixing it.", "  The tests run."]   -> "- I am fixing it.\n  The tests run."
         ["Run this:", "    echo done"]             -> "Run this:\n\n    echo done"
+        ["Notes:\n  a wrapped line", "    echo done"] -> "Notes:\n  a wrapped line\n\n    echo done"
 
-    A block that opens indented right after a list item, or after a line
-    that goes on one, goes on the next line with no blank line, since it
-    goes on that item, and a blank line there would make it a code block.
-    Any other indented block keeps its blank line, so it stays a code block.
+    A block that opens indented right after a list item, or after indented
+    lines that go on one, goes on the next line with no blank line, since
+    it goes on that item, and a blank line there would make it a code
+    block. Any other indented block keeps its blank line, so it stays a
+    code block.
     """
     joined_text = ""
+    is_list_context = False
     for each_part in all_parts:
-        if not joined_text:
+        if joined_text:
+            part_joiner = LINE_BREAK if each_part[:1].isspace() and is_list_context else REPLY_PART_JOINER
+            joined_text = f"{joined_text.rstrip()}{part_joiner}{each_part}"
+        else:
             joined_text = each_part
-            continue
-        last_line = joined_text.rstrip().rsplit(LINE_BREAK, 1)[-1]
-        is_item_line = last_line[:1].isspace() or LIST_ITEM_LINE_PATTERN.match(last_line) is not None
-        part_joiner = LINE_BREAK if each_part[:1].isspace() and is_item_line else REPLY_PART_JOINER
-        joined_text = f"{joined_text.rstrip()}{part_joiner}{each_part}"
+        is_list_context = _ends_in_list_item(each_part.rstrip(), is_list_context)
     return joined_text
+
+
+def _ends_in_list_item(part_text: str, is_list_context: bool) -> bool:
+    for each_line in part_text.split(LINE_BREAK):
+        if LIST_ITEM_LINE_PATTERN.match(each_line.lstrip()) is not None:
+            is_list_context = True
+        elif not each_line.strip() or not each_line[:1].isspace():
+            is_list_context = False
+    return is_list_context
 
 
 def is_same_reply(first_reply: str, second_reply: str) -> bool:
@@ -472,16 +484,19 @@ def reply_lines(reply_text: str) -> list[str]:
 
     ::
 
-        "Done.\n\nIn progress:\n- I am fixing it." -> ["Done.", "", "In progress:", "- I am fixing it."]
+        "Done.\n\nMore.\n- I am fixing it."       -> ["Done.", "", "More.", "- I am fixing it."]
         "In progress:\n\n- I am fixing it."        -> ["In progress:", "- I am fixing it."]
         "This is out of\n\n\nscope."               -> ["This is out of", "", "scope."]
         "Done.\n\n    TODO: add the flag."        -> ["Done.", "", "    TODO: add the flag."]
+        "Done.\nIn progress:\n- I am fixing it."   -> ["Done.", "In progress:", "- I am fixing it."]
 
     A run of blank lines stays as one blank line, since it ends a paragraph
     and the open-item scan reads paragraphs. A blank line above a list item
     stays out unless that item is indented, since it changes neither the
-    list nor the paragraph above it. So a footer whose heading and list are
-    two records of one message gives the lines the payload's copy gives.
+    list nor the paragraph above it, and so does a blank line above the
+    footer heading, which the footer reads on its own line either way. So
+    a footer whose heading or list is its own record of one message gives
+    the lines the payload's copy gives.
     """
     all_lines = [each_line.rstrip() for each_line in reply_text.strip().splitlines()]
     all_kept_lines: list[str] = []
@@ -491,7 +506,8 @@ def reply_lines(reply_text: str) -> list[str]:
             continue
         next_line = all_lines[each_position + 1] if each_position + 1 < len(all_lines) else ""
         is_before_list_item = LIST_ITEM_LINE_PATTERN.match(next_line) is not None
-        if next_line and not is_before_list_item and all_kept_lines and all_kept_lines[-1]:
+        is_before_heading = FOOTER_HEADING_PATTERN.fullmatch(next_line.strip()) is not None
+        if next_line and not is_before_list_item and not is_before_heading and all_kept_lines and all_kept_lines[-1]:
             all_kept_lines.append(each_line)
     return all_kept_lines
 
