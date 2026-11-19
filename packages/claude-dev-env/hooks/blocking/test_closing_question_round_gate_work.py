@@ -1481,3 +1481,23 @@ def test_should_find_a_short_open_item_in_a_message_too_large_to_scan_whole(
     large_record = {"type": "assistant", "message": {"role": "assistant", "content": all_blocks}}
     all_records = [typed_prompt_record(), *edit_records(), large_record]
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {})).startswith(CLOSING_ROUND_REASON_LEAD)
+
+
+def test_should_scan_only_the_oversized_message_block_by_block(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    large_block = "word " * (1024 * 1024 // 4)
+    large_record = {
+        "type": "assistant",
+        "message": {"id": "m-large", "role": "assistant", "content": [{"type": "text", "text": large_block}, {"type": "text", "text": large_block}]},
+    }
+    pending_item = "- I am fixing the list reader in pull request 8801. Its tests are pending."
+    all_records = [
+        typed_prompt_record(),
+        large_record,
+        *edit_records(),
+        *split_reply_records("Done.\n\nIn progress:", pending_item),
+    ]
+    footer_reply = f"Done.\n\nIn progress:\n{pending_item}"
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": footer_reply}) is None

@@ -431,3 +431,14 @@ def test_should_keep_a_decision_list_that_ends_the_reply_under_in_progress() -> 
     )
     assert parsed_verdict(verdict_text, decisions_reply) == JudgeVerdict("", "In progress:")
 
+
+
+def test_should_keep_a_list_verdict_on_numbered_choices_under_one_footer_item() -> None:
+    choices_reply = (
+        "Shipped.\n\nIn progress:\n- I need you to pick a release date:\n"
+        "  1. Monday.\n  2. Wednesday.\n  3. Friday."
+    )
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert parsed_verdict(verdict_text, choices_reply) == JudgeVerdict("", "In progress:")

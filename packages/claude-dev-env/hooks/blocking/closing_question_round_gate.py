@@ -1035,18 +1035,19 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
 
 
 def _open_item_texts(all_stretch_records: list[dict[str, object]]) -> list[str]:
-    all_message_texts = [each_text for _, each_text, _ in _assistant_messages(all_stretch_records)]
-    if all(is_within_scan_cap(each_text) for each_text in all_message_texts):
-        return all_message_texts
-    return [
-        *(each_text for each_text in all_message_texts if is_within_scan_cap(each_text)),
-        *(
-            each_block_text
-            for each_record in all_stretch_records
-            if is_assistant_record(each_record)
-            for each_block_text in block_texts(each_record)
-        ),
-    ]
+    all_parts_by_message: dict[object, list[str]] = {}
+    for each_position, each_record in enumerate(all_stretch_records):
+        all_record_texts = block_texts(each_record) if is_assistant_record(each_record) else []
+        if not all_record_texts:
+            continue
+        message_id = _message_id(each_record)
+        message_key = each_position if message_id is None else message_id
+        all_parts_by_message.setdefault(message_key, []).extend(all_record_texts)
+    all_texts: list[str] = []
+    for each_message_parts in all_parts_by_message.values():
+        message_text = REPLY_PART_JOINER.join(each_message_parts)
+        all_texts.extend([message_text] if is_within_scan_cap(message_text) else each_message_parts)
+    return all_texts
 
 
 def _newest_footer_reply(all_counted_records: list[dict[str, object]]) -> str | None:
