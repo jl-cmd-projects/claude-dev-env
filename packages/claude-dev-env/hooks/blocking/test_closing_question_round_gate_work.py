@@ -1463,3 +1463,21 @@ def test_should_read_a_status_marker_in_a_split_footer_as_status(
     all_records = [typed_prompt_record(), *edit_records(), *split_reply_records("Done.\n\nIn progress:", pending_item)]
     footer_reply = f"Done.\n\nIn progress:\n{pending_item}"
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": footer_reply}) is None
+
+
+def test_should_read_a_payload_that_joins_two_paragraphs_into_an_open_item(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_records = [typed_prompt_record(), *edit_records(), reply_record("The rename is done. This is out of\n\nscope.")]
+    joined_fields = {"last_assistant_message": "The rename is done. This is out of\nscope."}
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, joined_fields)).startswith(CLOSING_ROUND_REASON_LEAD)
+
+
+def test_should_find_a_short_open_item_in_a_message_too_large_to_scan_whole(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    large_block = "word " * (1024 * 1024 // 5)
+    all_blocks = [{"type": "text", "text": large_block}, {"type": "text", "text": large_block}, {"type": "text", "text": "TODO: write docs"}]
+    large_record = {"type": "assistant", "message": {"role": "assistant", "content": all_blocks}}
+    all_records = [typed_prompt_record(), *edit_records(), large_record]
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {})).startswith(CLOSING_ROUND_REASON_LEAD)

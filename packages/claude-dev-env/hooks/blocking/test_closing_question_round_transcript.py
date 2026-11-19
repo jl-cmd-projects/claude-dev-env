@@ -304,23 +304,24 @@ def test_last_written_reply_joins_the_records_of_one_message() -> None:
         for each_text in ("Done.", "In progress:\n- I am shipping 8590.")
     ]
     all_lines = json_lines([typed_prompt_record(), reply_record("Earlier."), *all_records])
-    assert last_written_reply(all_lines, NO_DEADLINE) == "Done.\nIn progress:\n- I am shipping 8590."
+    assert last_written_reply(all_lines, NO_DEADLINE) == "Done.\n\nIn progress:\n- I am shipping 8590."
 
 
 def test_last_written_reply_joins_the_text_blocks_of_its_last_record() -> None:
     all_blocks = [{"type": "text", "text": "Done."}, {"type": "text", "text": "In progress:\n- I am shipping 8590."}]
     footer_record = {"type": "assistant", "message": {"role": "assistant", "content": all_blocks}}
     all_lines = json_lines([typed_prompt_record(), footer_record])
-    assert last_written_reply(all_lines, NO_DEADLINE) == "Done.\nIn progress:\n- I am shipping 8590."
+    assert last_written_reply(all_lines, NO_DEADLINE) == "Done.\n\nIn progress:\n- I am shipping 8590."
 
 
 def test_is_same_reply_reads_lines_and_sets_blank_lines_aside() -> None:
-    assert is_same_reply("Done.\n\nIn progress:\n- I am fixing it.", "Done.\nIn progress:\n- I am fixing it.")
+    assert is_same_reply("Done.\n\nIn progress:\n- I am fixing it.", "Done.\n\nIn progress:\n\n- I am fixing it.")
+    assert not is_same_reply("This is out of\n\nscope.", "This is out of\nscope.")
     assert not is_same_reply("In progress: - I am fixing it.", "In progress:\n- I am fixing it.")
     assert not is_same_reply("In progress:\n- I am fixing it.\nThe tests run.", "In progress:\n- I am fixing it.\n  The tests run.")
     assert not is_same_reply("Done.\n\n    TODO: add the flag.", "Done.\n    TODO: add the flag.")
 
 
-def test_reply_lines_keeps_a_blank_line_only_above_an_indented_line() -> None:
-    assert reply_lines("Done.\n\nIn progress:\n- I am fixing it.") == ["Done.", "In progress:", "- I am fixing it."]
-    assert reply_lines("Done.\n\n\n    TODO: add the flag.") == ["Done.", "", "    TODO: add the flag."]
+def test_reply_lines_keeps_one_blank_line_per_paragraph_break() -> None:
+    assert reply_lines("Done.\n\n\nIn progress:\n\n- I am fixing it.") == ["Done.", "", "In progress:", "- I am fixing it."]
+    assert reply_lines("Done.\n\n    TODO: add the flag.") == ["Done.", "", "    TODO: add the flag."]

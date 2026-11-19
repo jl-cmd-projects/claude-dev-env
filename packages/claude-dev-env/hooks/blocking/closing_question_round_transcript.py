@@ -48,6 +48,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     IS_ERROR_KEY,
     IS_SIDECHAIN_KEY,
     LAST_ASSISTANT_MESSAGE_KEY,
+    LIST_ITEM_LINE_PATTERN,
     MESSAGE_ID_KEY,
     REPLY_PART_JOINER,
     SESSION_ATTENDED_ENVIRONMENT_VARIABLE,
@@ -334,9 +335,9 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
 
         prompt, reply "Done."                     -> "Done."
         "Done." and "In progress:" as two records of one message
-                                                  -> "Done.\nIn progress:"
+                                                  -> "Done.\n\nIn progress:"
         "Done." and "In progress:" as two text blocks of one record
-                                                  -> "Done.\nIn progress:"
+                                                  -> "Done.\n\nIn progress:"
         prompt, reply "Done.", a later prompt     -> None, a new turn started
         prompt, reply "Done.", an Edit call       -> None, the record ends with work
         a question call after "Done." in a record -> "Done.", the call is set aside
@@ -392,7 +393,8 @@ def is_same_reply(first_reply: str, second_reply: str) -> bool:
 
     ::
 
-        "Done.\n\nIn progress:\n- I am fixing it." and "Done.\nIn progress:\n- I am fixing it." -> True
+        "Done.\n\nIn progress:\n- I am fixing it." and "Done.\n\nIn progress:\n\n- I am fixing it." -> True
+        "This is out of\n\nscope." and "This is out of\nscope."                          -> False
         "In progress: - I am fixing it." and "In progress:\n- I am fixing it."              -> False
         "Done." and "Done.\n"                                                            -> True
 
@@ -409,14 +411,16 @@ def reply_lines(reply_text: str) -> list[str]:
 
     ::
 
-        "Done.\n\nIn progress:\n- I am fixing it." -> ["Done.", "In progress:", "- I am fixing it."]
+        "Done.\n\nIn progress:\n- I am fixing it." -> ["Done.", "", "In progress:", "- I am fixing it."]
+        "In progress:\n\n- I am fixing it."        -> ["In progress:", "- I am fixing it."]
+        "This is out of\n\n\nscope."               -> ["This is out of", "", "scope."]
         "Done.\n\n    TODO: add the flag."        -> ["Done.", "", "    TODO: add the flag."]
-        "Done.\n    TODO: add the flag."          -> ["Done.", "    TODO: add the flag."]
 
-    A blank line stays only above an indented line, where it makes the
-    indented text a code block. Elsewhere blank lines do not change how
-    the reply reads, so a reply written as two records of one message
-    gives the lines the payload's copy gives.
+    A run of blank lines stays as one blank line, since it ends a paragraph
+    and the open-item scan reads paragraphs. A blank line above a list item
+    stays out unless that item is indented, since it changes neither the
+    list nor the paragraph above it. So a footer whose heading and list are
+    two records of one message gives the lines the payload's copy gives.
     """
     all_lines = [each_line.rstrip() for each_line in reply_text.strip().splitlines()]
     all_kept_lines: list[str] = []
@@ -425,7 +429,8 @@ def reply_lines(reply_text: str) -> list[str]:
             all_kept_lines.append(each_line)
             continue
         next_line = all_lines[each_position + 1] if each_position + 1 < len(all_lines) else ""
-        if next_line[:1].isspace() and all_kept_lines and all_kept_lines[-1]:
+        is_before_list_item = LIST_ITEM_LINE_PATTERN.match(next_line) is not None
+        if next_line and not is_before_list_item and all_kept_lines and all_kept_lines[-1]:
             all_kept_lines.append(each_line)
     return all_kept_lines
 
@@ -485,7 +490,8 @@ def payload_closing_texts(all_hook_input_fields: dict[str, object], written_repl
 
         "Both tests pass." and written reply "Done."              -> ["Both tests pass."]
         "Both tests pass." and written reply "Both tests pass.\n" -> []
-        "Done.\n\nIn progress:" and written reply "Done.\nIn progress:" -> [], the lines match
+        "Done.\n\nIn progress:\n- I am fixing it." and written reply
+            "Done.\n\nIn progress:\n\n- I am fixing it."                 -> [], the lines match
         "" or no string                                           -> []
 
     Args:
