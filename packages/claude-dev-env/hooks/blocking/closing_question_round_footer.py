@@ -171,6 +171,8 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am preparing the launch: choose a date."    -> True, a request after a colon
         "I am shipping 8590. Its tests are pending."   -> False
         "I am updating the decision log."              -> False, no wait before the word
+        "I need to review the logs."                   -> False, a step of its own
+        "I am waiting for the tests to confirm the fix." -> False, an automated check
         "I am holding the release until Jon confirms the date." -> True, it waits on a confirmation
         "Should I merge 8590?"                         -> True, a question
         "I am preparing it. Would Friday work? The build is ready." -> True, a question inside

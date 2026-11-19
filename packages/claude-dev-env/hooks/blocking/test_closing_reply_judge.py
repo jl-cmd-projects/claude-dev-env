@@ -195,6 +195,11 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
         "- I am checking the permission rules.\n- I am updating the decision log."
     )
     assert parsed_verdict(verdict_text, keyword_status_reply) == JudgeVerdict("", "")
+    own_step_reply = (
+        "Shipped.\n\nIn progress:\n- I need to review the logs.\n"
+        "- I am waiting for the tests to confirm the fix.\n- I am holding the release until the build confirms it."
+    )
+    assert parsed_verdict(verdict_text, own_step_reply) == JudgeVerdict("", "")
     choice_reply = (
         "Pick which option I should ship.\n\nIn progress:\n- I can ship the export first.\n"
         "- I can ship the ledger first.\n- I can ship both on Friday."
@@ -442,3 +447,14 @@ def test_should_keep_a_list_verdict_on_numbered_choices_under_one_footer_item() 
         {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
     )
     assert parsed_verdict(verdict_text, choices_reply) == JudgeVerdict("", "In progress:")
+
+
+def test_should_keep_a_list_verdict_on_a_table_of_choices_under_one_footer_item() -> None:
+    table_reply = (
+        "Shipped.\n\nIn progress:\n- I need you to pick a release date:\n\n"
+        "  | Date |\n  | --- |\n  | Monday |\n  | Wednesday |\n  | Friday |"
+    )
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert parsed_verdict(verdict_text, table_reply) == JudgeVerdict("", "In progress:")

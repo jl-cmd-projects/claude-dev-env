@@ -377,6 +377,8 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
         prompt, reply "Done.", a later prompt     -> None, a new turn started
         prompt, reply "Done.", an Edit call       -> None, the record ends with work
         a question call after "Done." in a record -> "Done.", the call is set aside
+        "Done.", a question call, its answer      -> "Done.", so a payload that repeats it
+                                                     after the card is that reply, read once
         reply "Done.", then a thinking-only record -> "Done.", a record with no text or call is skipped
         reply "Done.", then Stop hook feedback     -> None, the next reply is a new one
 

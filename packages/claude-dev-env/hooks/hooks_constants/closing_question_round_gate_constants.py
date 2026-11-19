@@ -42,10 +42,18 @@ FOOTER_JOBS_TEXT_ENCODING = "ascii"
 FOOTER_JOBS_DIGEST_LENGTH = 32
 FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’](?:m|ve|ll|d)\b)")
 SENTENCE_BREAK_PATTERN = re.compile(r"(?<=[.!?;:])\s+")
+AUTOMATED_SUBJECT_LOOKAHEAD = (
+    r"(?!(?:the\s+|my\s+|its\s+|our\s+|their\s+)?(?:automated\s+|last\s+|remaining\s+)?"
+    r"(?:tests?|checks?|ci|builds?|jobs?|runs?|pipelines?|workflows?|deploys?|deployments?|scans?|linters?|suites?|me|myself)\b)"
+)
 OTHER_PARTY_REQUEST_PATTERN = re.compile(
-    r"\b(?:need|needs|want|wants|waiting\s+for|wait\s+for|ask|asks|asking)\b[^.!?;]{0,80}?\bto\s+"
+    r"\b(?:need|needs|want|wants|waiting\s+for|wait\s+for|ask|asks|asking)\s+(?!to\b)"
+    + AUTOMATED_SUBJECT_LOOKAHEAD
+    + r"[^.!?;]{0,80}?\bto\s+"
     r"(?:pick|choose|select|approve|confirm|decide|reply|answer|review|sign|say|tell|give|send|share|provide|supply)\b"
-    r"|\b(?:until|once|when|after|unless|before)\b[^.!?;]{0,80}?"
+    r"|\b(?:until|once|when|after|unless|before)\s+"
+    + AUTOMATED_SUBJECT_LOOKAHEAD
+    + r"[^.!?;]{0,80}?"
     r"\b(?:picks|chooses|selects|approves|confirms|decides|answers|replies|reviews|tells|says|signs\s+off|gives|sends|shares|provides|supplies)\b"
     r"|\b(?:need|needs|want|wants|waiting\s+for|wait\s+for)\b[^.!?;]{0,80}?\bfrom\s+(?:the\s+|a\s+|an\s+|my\s+|our\s+)?"
     r"(?:owner|user|client|customer|team|lead|manager|reviewer|approver|admin|maintainer|designer|stakeholder)s?\b",

@@ -48,8 +48,9 @@ from pathlib import Path
 from typing import NamedTuple
 
 from closing_question_round_footer import list_check_text, split_footer
-from closing_reply_shapes import prompt_asks_for_list
+from closing_reply_shapes import item_count_under, prompt_asks_for_list
 from hooks_constants.closing_question_round_gate_constants import FOOTER_HEADING_PATTERN, LIST_ITEM_LINE_PATTERN
+from hooks_constants.user_step_wording_constants import LINE_BREAK
 from hooks_constants.open_tasks_stop_gate_constants import OPEN_ITEM_LIST_MINIMUM
 from hooks_constants.closing_reply_judge_constants import (
     ALL_JUDGE_COMMAND_FLAGS,
@@ -285,11 +286,12 @@ def _is_short_footer_list(list_span: str, list_scope: str) -> bool:
         ),
         default=len(all_scope_lines),
     )
+    all_footer_lines = all_scope_lines[heading_position:]
     visible_item_count = sum(
-        LIST_ITEM_LINE_PATTERN.match(each_line.lstrip()) is not None
-        for each_line in all_scope_lines[heading_position + 1 :]
+        LIST_ITEM_LINE_PATTERN.match(each_line.lstrip()) is not None for each_line in all_footer_lines[1:]
     )
-    if visible_item_count >= OPEN_ITEM_LIST_MINIMUM:
+    table_item_count = item_count_under(LINE_BREAK.join(all_footer_lines), all_footer_lines[0]) if all_footer_lines else 0
+    if max(visible_item_count, table_item_count) >= OPEN_ITEM_LIST_MINIMUM:
         return False
     return not any(FOOTER_HEADING_PATTERN.fullmatch(each_line.strip()) for each_line in split_scope.body.splitlines())
 
@@ -306,6 +308,7 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
         "In progress:" as the span, where the body holds it only inside prose    -> JudgeVerdict(<promise>, "")
         "In progress:" as the span, with fewer than three asks under it in scope -> JudgeVerdict(<promise>, "")
         the same, with three numbered lines under one footer item          -> the verdict stands
+        the same, with a table of three rows under one footer item         -> the verdict stands
         the same, while the body holds its own "In progress:" list            -> the verdict stands
         prose, an extra key, or a string in place of a bool                      -> None
 

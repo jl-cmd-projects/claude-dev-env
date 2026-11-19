@@ -1583,3 +1583,17 @@ def test_should_keep_the_jobs_of_a_footer_whose_item_goes_on_in_another_record(
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields)).startswith(
         FOOTER_CHANGED_REASON_LEAD
     )
+
+
+def test_should_not_reread_a_split_reply_written_before_the_cards(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    question_line = "Should I move the backups to a nightly schedule?"
+    all_records = [
+        typed_prompt_record(),
+        *split_reply_records("The cache is cleared.", question_line),
+        tool_call_record("AskUserQuestion"),
+        tool_result_record("AskUserQuestion", "The user chose Keep the cache."),
+    ]
+    repeated_fields = {"last_assistant_message": f"The cache is cleared.\n\n{question_line}"}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, repeated_fields) is None
