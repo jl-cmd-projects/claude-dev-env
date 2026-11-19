@@ -233,6 +233,7 @@ def list_check_text(closing_reply: str) -> str:
         "Pick which option I should ship.\n\nIn progress:\n- I can ship A." -> the whole reply
         "Pending your decision:\n\nIn progress:\n- I can ship A."         -> the whole reply
         "Please choose which\nI should ship:\n\nIn progress:\n- I can ship A." -> the whole reply, a wrapped request
+        "The date is yours to set.\n\nIn progress:\n- I can ship Friday." -> the whole reply, a choice for the user
         "Done."                                                       -> "Done."
 
     A footer line that only says where work stands is required status, so
@@ -245,7 +246,8 @@ def list_check_text(closing_reply: str) -> str:
     above the footer opens a sentence with a request word, ends with a
     question mark, waits on or needs a decision as "I need a decision."
     does, or ends with a colon after a decision word or a word for the
-    user, it gives the lines under it their meaning, so the
+    user, or names the user above an item that opens with "I can" or "I
+    could", it gives the lines under it their meaning, so the
     whole reply is read.
 
     Args:
@@ -259,7 +261,7 @@ def list_check_text(closing_reply: str) -> str:
     if found_footer is None:
         return closing_reply
     heading_position, all_item_lines = found_footer
-    if _is_asking_lead(all_lines[:heading_position]):
+    if _is_asking_lead(all_lines[:heading_position]) or _is_user_choice(all_lines[:heading_position], all_item_lines):
         return closing_reply
     all_ask_lines = [
         each_item_lines for each_item_lines in all_item_lines if is_footer_ask(_item_text(each_item_lines))
@@ -279,16 +281,28 @@ def list_check_text(closing_reply: str) -> str:
     return LINE_BREAK.join([*all_body_lines, all_lines[heading_position], *all_kept_lines])
 
 
-def _is_asking_lead(all_body_lines: list[str]) -> bool:
+def _lead_paragraph(all_body_lines: list[str]) -> str:
     all_paragraph_lines: list[str] = []
     for each_line in reversed(all_body_lines):
         if each_line.strip():
             all_paragraph_lines.insert(0, each_line.strip())
         elif all_paragraph_lines:
             break
-    if not all_paragraph_lines:
+    return MARKDOWN_EMPHASIS_PATTERN.sub("", LEAD_PARAGRAPH_JOINER.join(all_paragraph_lines))
+
+
+def _is_user_choice(all_body_lines: list[str], all_item_lines: list[list[str]]) -> bool:
+    has_option_item = any(
+        OPTION_ITEM_PATTERN.match(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines)))
+        for each_item_lines in all_item_lines
+    )
+    return has_option_item and USER_MENTION_PATTERN.search(_lead_paragraph(all_body_lines)) is not None
+
+
+def _is_asking_lead(all_body_lines: list[str]) -> bool:
+    lead_line = _lead_paragraph(all_body_lines)
+    if not lead_line:
         return False
-    lead_line = MARKDOWN_EMPHASIS_PATTERN.sub("", LEAD_PARAGRAPH_JOINER.join(all_paragraph_lines))
     is_decision_label = lead_line.endswith(LEAD_LABEL_END) and (
         DECISION_WORD_PATTERN.search(lead_line) is not None or USER_MENTION_PATTERN.search(lead_line) is not None
     )

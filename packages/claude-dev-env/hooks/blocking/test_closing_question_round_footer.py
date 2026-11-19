@@ -155,6 +155,10 @@ def test_should_read_the_whole_reply_when_the_line_above_the_footer_asks_to_pick
     assert list_check_text("Done.\n\nIn progress:\n- I can ship 8590.").strip() == "Done."
     need_reply = "I need a decision.\n\nIn progress:\n- I can ship it today.\n- I can ship it Friday.\n- I can ship it next week."
     assert list_check_text(need_reply) == need_reply
+    yours_reply = "The release date is yours to set.\n\nIn progress:\n- I can ship on Monday.\n- I can ship on Friday.\n- I can ship on the 30th."
+    assert list_check_text(yours_reply) == yours_reply
+    status_for_you_reply = "Your build is ready.\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(status_for_you_reply) == "Your build is ready.\n"
 
 
 def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_check_text() -> None:
