@@ -152,6 +152,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I will release it only with an OK from you."  -> True
         "I am holding it until the owner approves."    -> True, it waits on a decision
         "I am waiting for Jon to authorize the release." -> True, it waits on an authorization
+        "I am waiting for Jon's OK on the release date." -> True, it waits on an OK
         "I need an answer on the price."               -> True, it waits on an answer
         "I need the owner to pick the release date."   -> True, it asks someone to pick
         "I am waiting for Jon to give me a release date." -> True, it asks someone to give

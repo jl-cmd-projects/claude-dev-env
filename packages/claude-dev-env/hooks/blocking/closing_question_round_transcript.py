@@ -91,7 +91,7 @@ def _is_prompt_line(transcript_line: str) -> bool:
 def _is_stop_feedback_line(transcript_line: str) -> bool:
     if STOP_HOOK_FEEDBACK_PREFIX not in transcript_line:
         return False
-    each_record = parsed_object(transcript_line)
+    each_record = _top_level_record(transcript_line)
     return each_record is not None and stop_feedback_text(each_record) is not None
 
 

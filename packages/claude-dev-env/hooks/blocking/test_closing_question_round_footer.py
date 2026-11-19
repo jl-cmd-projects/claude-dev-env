@@ -191,6 +191,7 @@ def test_should_tell_a_footer_ask_from_a_status_line() -> None:
     assert is_footer_ask("I am preparing the launch; please pick a date.")
     assert is_footer_ask("I need a date from the owner.")
     assert is_footer_ask("I am waiting for Jon to authorize the release.")
+    assert is_footer_ask("I am waiting for Jon's OK on the release date.")
     assert is_footer_ask("I am waiting for Jon to give me a release date.")
     assert is_footer_ask("I am holding the release until Jon confirms the date.")
     assert is_footer_ask("I am holding the export until the lead reviews it.")

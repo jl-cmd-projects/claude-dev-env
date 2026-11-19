@@ -219,6 +219,8 @@ def test_last_written_reply_returns_the_reply_only_while_no_prompt_or_work_follo
         "message": {"role": "user", "content": [{"type": "text", "text": "Stop hook feedback:\nFix it."}]},
     }
     assert last_written_reply([*all_lines, *json_lines([block_feedback_record])], NO_DEADLINE) is None
+    sidechain_feedback_record = {**feedback_record, "isSidechain": True}
+    assert last_written_reply([*all_lines, *json_lines([sidechain_feedback_record])], NO_DEADLINE) == "Both tests pass."
 
 
 def test_payload_closing_texts_leaves_out_a_reply_the_transcript_already_ends_with() -> None:

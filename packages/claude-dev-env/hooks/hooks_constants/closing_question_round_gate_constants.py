@@ -73,7 +73,7 @@ COORDINATED_REQUEST_PATTERN = re.compile(
 )
 DECISION_WORD_ALTERNATIVES = (
     r"approv\w*|authori[sz]\w*|decid\w*|decision\w*|sign-?off|go-ahead|green[\s-]?light\w*"
-    r"|clearance|permission|consent|answers?|input|choices?|confirmation|options?"
+    r"|clearance|permission|consent|answers?|input|choices?|confirmation|options?|ok(?:ay)?"
 )
 DECISION_WORD_PATTERN = re.compile(rf"\b(?:{DECISION_WORD_ALTERNATIVES})\b", re.IGNORECASE)
 DECISION_DEPENDENCY_PATTERN = re.compile(
