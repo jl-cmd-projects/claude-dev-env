@@ -114,6 +114,7 @@ from closing_question_round_transcript import (
     has_work_call,
     is_same_reply,
     joined_reply_parts,
+    wake_counts,
     last_typed_prompt_position,
     reply_lines,
     last_written_reply,
@@ -314,6 +315,7 @@ class CoveredSession(NamedTuple):
         newest_footer: The newest footer among the counted records, or None.
         count_start: The transcript line where footer counting starts.
         written_reply: The reply the transcript ends with, or None when a prompt or work comes after it.
+        all_wake_counts: How many prompts came before each counted record, then the total.
     """
 
     all_payload_texts: list[str]
@@ -322,6 +324,7 @@ class CoveredSession(NamedTuple):
     newest_footer: FooterSeen | None
     count_start: int
     written_reply: str | None
+    all_wake_counts: list[int]
 
 
 def _assistant_messages(all_records: list[dict[str, object]]) -> list[tuple[int, str, bool]]:
@@ -400,6 +403,9 @@ class FooterSnapshot(NamedTuple):
             pending footer was kept, so the reply written next is its own.
         reply_key: Names the whole reply a pending footer came in, so only
             that reply, written next, keeps its jobs.
+        wake_count: How many prompts, such as task notifications, the
+            transcript held after the last typed prompt when a pending
+            footer was kept, so a copy written after a later wake is not its reply.
     """
 
     footer_key: str
@@ -408,6 +414,7 @@ class FooterSnapshot(NamedTuple):
     is_pending: bool = False
     record_count: int = 0
     reply_key: str = NO_REPLY_KEY
+    wake_count: int = 0
 
 
 def _short_digest(all_parts: list[object]) -> str:
@@ -474,6 +481,7 @@ def _snapshot_line(snapshot: FooterSnapshot) -> str:
             pending_mark,
             str(snapshot.record_count),
             snapshot.reply_key,
+            str(snapshot.wake_count),
         ]
     )
 
@@ -486,6 +494,7 @@ def record_footer_jobs(
     is_pending: bool = False,
     record_count: int = 0,
     closing_reply: str = "",
+    wake_count: int = 0,
 ) -> None:
     """Keep this footer, its tasks, and its jobs as the session's snapshot of that footer.
 
@@ -505,8 +514,8 @@ def record_footer_jobs(
     holds it leaves the snapshot of the footer the transcript shows. A
     caller that already read the kept snapshots passes them, so the file
     is read once. A footer read only from the payload is kept as pending,
-    with how many counted records the transcript held then and a digest
-    of the whole reply it came in.
+    with how many counted records and wakes the transcript held then and
+    a digest of the whole reply it came in.
     """
     snapshot_path = _snapshot_path(all_hook_input_fields)
     if snapshot_path is None:
@@ -515,6 +524,7 @@ def record_footer_jobs(
         is_pending=is_pending,
         record_count=record_count if is_pending else 0,
         reply_key=reply_key(closing_reply) if is_pending else NO_REPLY_KEY,
+        wake_count=wake_count if is_pending else 0,
     )
     all_other_snapshots = [
         each_snapshot
@@ -602,7 +612,9 @@ def kept_footer_snapshots(all_hook_input_fields: dict[str, object]) -> tuple[Foo
 
 def _parsed_snapshot(snapshot_line: str) -> FooterSnapshot | None:
     all_parts = snapshot_line.split(FOOTER_SNAPSHOT_SEPARATOR)
-    if len(all_parts) != FOOTER_SNAPSHOT_PART_COUNT or not all_parts[2].isdigit() or not all_parts[4].isdigit():
+    if len(all_parts) != FOOTER_SNAPSHOT_PART_COUNT or not all(
+        all_parts[each_position].isdigit() for each_position in (2, 4, 6)
+    ):
         return None
     if all_parts[3] not in (FOOTER_SNAPSHOT_PENDING_MARK, FOOTER_SNAPSHOT_SENT_MARK):
         return None
@@ -613,6 +625,7 @@ def _parsed_snapshot(snapshot_line: str) -> FooterSnapshot | None:
         all_parts[3] == FOOTER_SNAPSHOT_PENDING_MARK,
         int(all_parts[4]),
         all_parts[5],
+        int(all_parts[6]),
     )
 
 
@@ -643,7 +656,9 @@ def were_jobs_shown(
     """
     if footer is None or kept_snapshot is None:
         return False
-    return kept_snapshot._replace(is_pending=False, record_count=0, reply_key=NO_REPLY_KEY) == footer_snapshot(
+    return kept_snapshot._replace(
+        is_pending=False, record_count=0, reply_key=NO_REPLY_KEY, wake_count=0
+    ) == footer_snapshot(
         all_hook_input_fields, footer, all_tasks
     )
 
@@ -672,7 +687,8 @@ def _covered_session(
         return None
     start_position = stretch_start(all_lines, deadline_at)
     count_start = max(start_position, prompt_position + 1)
-    all_counted_records = top_level_records(all_lines[count_start:], deadline_at)
+    all_counted_lines = all_lines[count_start:]
+    all_counted_records = top_level_records(all_counted_lines, deadline_at)
     all_stretch_records = [
         *top_level_records(all_lines[start_position:count_start], deadline_at),
         *all_counted_records,
@@ -685,6 +701,7 @@ def _covered_session(
         _newest_footer(all_counted_records, count_start),
         count_start,
         written_reply,
+        wake_counts(all_counted_lines, deadline_at),
     )
 
 
@@ -791,6 +808,7 @@ def footer_hold_reason(
     newest_footer: FooterSeen | None = None,
     all_known_tasks: SessionTasks | None = None,
     all_counted_records: list[dict[str, object]] | None = None,
+    all_wake_counts: list[int] | None = None,
 ) -> str | None:
     """Return the footer hold reason for the closing reply, or None when the reply may end.
 
@@ -826,6 +844,9 @@ def footer_hold_reason(
         all_counted_records: The counted records, so a pending snapshot
             counts only when the reply written next after its stop is the
             reply it was kept for.
+        all_wake_counts: How many prompts came before each counted record,
+            then the total, so a pending snapshot counts only when no wake
+            came between its stop and its reply. None reads as no wakes.
 
     Returns:
         The reason, or None.
@@ -839,8 +860,12 @@ def footer_hold_reason(
         return None
     if footer_items is None:
         kept_snapshot = kept_footer_snapshot(all_hook_input_fields, newest_footer)
+        all_records = all_counted_records or []
         if kept_snapshot is not None and kept_snapshot.is_pending and not _is_written_by_its_stop(
-            kept_snapshot, all_counted_records or [], _newest_footer_reply(all_counted_records or []) or ""
+            kept_snapshot,
+            all_records,
+            [0] * (len(all_records) + 1) if all_wake_counts is None else all_wake_counts,
+            _newest_footer_reply(all_records) or "",
         ):
             kept_snapshot = None
         is_recorded = is_footer_recorded(kept_snapshot, newest_footer)
@@ -935,7 +960,10 @@ def reply_key(closing_reply: str) -> str:
 
 
 def _is_written_by_its_stop(
-    snapshot: FooterSnapshot, all_counted_records: list[dict[str, object]], closing_reply: str
+    snapshot: FooterSnapshot,
+    all_counted_records: list[dict[str, object]],
+    all_wake_counts: list[int],
+    closing_reply: str,
 ) -> bool:
     if snapshot.reply_key != reply_key(closing_reply):
         return False
@@ -946,6 +974,8 @@ def _is_written_by_its_stop(
     ]
     all_footer_positions = _footer_positions(all_counted_records)
     if not all_later_positions or not all_footer_positions:
+        return False
+    if all_wake_counts[all_later_positions[0]] != snapshot.wake_count:
         return False
     first_record = all_counted_records[all_later_positions[0]]
     footer_record = all_counted_records[all_footer_positions[-1]]
@@ -960,6 +990,7 @@ def _is_unrecorded(
     new_footer: FooterSeen,
     is_pending: bool,
     all_counted_records: list[dict[str, object]],
+    all_wake_counts: list[int],
     closing_reply: str,
 ) -> bool:
     """Return True when no kept snapshot of this footer should stand.
@@ -972,11 +1003,12 @@ def _is_unrecorded(
         a pending snapshot, the reply written right after its stop -> False, its jobs stand
         a pending snapshot, other records written before the reply -> True, the snapshot was stale
         a pending snapshot, another reply with the same footer next -> True, the snapshot was stale
+        a pending snapshot, its reply written after a later wake  -> True, the snapshot was stale
     """
     new_footer_key = footer_key(new_footer)
     return all(
         each_snapshot.footer_key != new_footer_key
-        or (each_snapshot.is_pending and (is_pending or not _is_written_by_its_stop(each_snapshot, all_counted_records, closing_reply)))
+        or (each_snapshot.is_pending and (is_pending or not _is_written_by_its_stop(each_snapshot, all_counted_records, all_wake_counts, closing_reply)))
         for each_snapshot in all_kept_snapshots
     )
 
@@ -985,7 +1017,9 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     covered_session = _covered_session(all_hook_input_fields, deadline_at)
     if covered_session is None:
         return None
-    all_payload_texts, all_stretch_records, all_counted_records, newest_footer, _, written_reply = covered_session
+    all_payload_texts, all_stretch_records, all_counted_records, newest_footer, _, written_reply, all_wake_counts = (
+        covered_session
+    )
     if prior_hold_count(all_counted_records) >= MAXIMUM_HOLD_COUNT:
         return None
     all_closing_texts = (
@@ -1003,6 +1037,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         new_footer,
         is_pending,
         all_counted_records,
+        all_wake_counts,
         closing_reply if is_pending else _newest_footer_reply(all_counted_records) or closing_reply,
     ):
         all_known_tasks = session_tasks(all_hook_input_fields)
@@ -1014,6 +1049,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
             is_pending,
             len(all_counted_records),
             closing_reply,
+            all_wake_counts[-1],
         )
     all_texts = [
         _scanned_text(each_text)
@@ -1031,6 +1067,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         newest_footer,
         all_known_tasks,
         all_counted_records,
+        all_wake_counts,
     )
 
 

@@ -1483,6 +1483,29 @@ def test_should_find_a_short_open_item_in_a_message_too_large_to_scan_whole(
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {})).startswith(CLOSING_ROUND_REASON_LEAD)
 
 
+def test_should_scan_an_indented_code_block_written_as_its_own_record_as_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_records = [typed_prompt_record(), *edit_records(), *split_reply_records("Run this:", "    echo TODO: write docs")]
+    code_fields = {"last_assistant_message": "Run this:\n\n    echo TODO: write docs"}
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, code_fields)).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
+def test_should_not_bind_a_pending_snapshot_to_a_copy_of_its_reply_written_after_a_wake(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    test_job = [{"id": "tests"}]
+    all_before_footer = [typed_prompt_record(), *edit_records()]
+    all_after_notice = [*all_before_footer, notice_record("Tests job started")]
+    all_footer_records = [*all_after_notice, reply_record(LEDGER_FOOTER_REPLY)]
+    all_records = [*all_footer_records, notice_record("Tests job checked in"), reply_record("Still waiting.")]
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": test_job}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields(test_job)) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields) is None
+
+
 def test_should_scan_only_the_oversized_message_block_by_block(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

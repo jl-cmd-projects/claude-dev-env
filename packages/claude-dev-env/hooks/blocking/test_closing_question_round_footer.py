@@ -251,6 +251,13 @@ def test_should_keep_every_option_when_the_lead_leaves_the_choice_to_the_user() 
     assert list_check_text(status_reply).strip() == "The release is set."
 
 
+def test_should_keep_every_choice_under_a_footer_ask_to_pick() -> None:
+    pick_reply = "Done.\n\nIn progress:\n- I need you to pick a date.\n- I have Monday free.\n- I have Friday free."
+    assert list_check_text(pick_reply) == pick_reply
+    status_reply = "Done.\n\nIn progress:\n- I need your approval.\n- I have Monday free."
+    assert list_check_text(status_reply) == "Done.\n\nIn progress:\n- I need your approval."
+
+
 def test_should_keep_every_option_when_an_earlier_paragraph_asks_the_user_to_choose() -> None:
     choice_reply = (
         "Please choose a release date.\n\nThe build is ready.\n\nIn progress:\n"

@@ -295,6 +295,40 @@ def top_level_records(all_lines: list[str], deadline_at: float) -> list[dict[str
     return [each_record for each_record in all_records if each_record is not None]
 
 
+def wake_counts(all_lines: list[str], deadline_at: float) -> list[int]:
+    """Return how many prompts came before each record ``top_level_records`` keeps, then the total.
+
+    ::
+
+        reply, task notification, reply  -> [0, 1, 1]
+        task notification, reply         -> [1, 1]
+        no lines                         -> [0]
+
+    The gate reads the lines after the last typed prompt, so each prompt
+    there is a wake, such as a task notification. A stop that keeps a
+    footer read from its payload notes the total, so a copy of that footer
+    written after a later wake is not taken as the reply that stop sent.
+
+    Args:
+        all_lines: The lines to read, one JSON record per line.
+        deadline_at: The monotonic clock reading at which the scan gives up.
+
+    Returns:
+        One count for each kept record, in order, and the count of every prompt last.
+
+    Raises:
+        TimeoutError: The deadline passed before the scan ended.
+    """
+    all_counts: list[int] = []
+    wake_count = 0
+    for each_line in before_deadline(all_lines, deadline_at):
+        if _may_matter(each_line) and _top_level_record(each_line) is not None:
+            all_counts.append(wake_count)
+        if _is_prompt_line(each_line):
+            wake_count += 1
+    return [*all_counts, wake_count]
+
+
 def block_texts(all_record_fields: dict[str, object]) -> list[str]:
     """Return the string ``text`` of each text block the record's content holds, in order."""
     all_block_texts = (
@@ -396,17 +430,21 @@ def joined_reply_parts(all_parts: list[str]) -> str:
 
         ["Done.", "In progress:\n- I am fixing it."] -> "Done.\n\nIn progress:\n- I am fixing it."
         ["- I am fixing it.", "  The tests run."]   -> "- I am fixing it.\n  The tests run."
+        ["Run this:", "    echo done"]             -> "Run this:\n\n    echo done"
 
-    A block that opens indented goes on the next line with no blank line,
-    since it goes on the item above it, and a blank line there would make
-    it a code block.
+    A block that opens indented right after a list item, or after a line
+    that goes on one, goes on the next line with no blank line, since it
+    goes on that item, and a blank line there would make it a code block.
+    Any other indented block keeps its blank line, so it stays a code block.
     """
     joined_text = ""
     for each_part in all_parts:
         if not joined_text:
             joined_text = each_part
             continue
-        part_joiner = LINE_BREAK if each_part[:1].isspace() else REPLY_PART_JOINER
+        last_line = joined_text.rstrip().rsplit(LINE_BREAK, 1)[-1]
+        is_item_line = last_line[:1].isspace() or LIST_ITEM_LINE_PATTERN.match(last_line) is not None
+        part_joiner = LINE_BREAK if each_part[:1].isspace() and is_item_line else REPLY_PART_JOINER
         joined_text = f"{joined_text.rstrip()}{part_joiner}{each_part}"
     return joined_text
 

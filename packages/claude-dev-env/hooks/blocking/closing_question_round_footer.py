@@ -238,6 +238,7 @@ def list_check_text(closing_reply: str) -> str:
         "Pending your decision:\n\nIn progress:\n- I can ship A."         -> the whole reply
         "Please choose which\nI should ship:\n\nIn progress:\n- I can ship A." -> the whole reply, a wrapped request
         "The date is yours to set.\n\nIn progress:\n- I can ship Friday." -> the whole reply, a choice for the user
+        "Done.\n\nIn progress:\n- I need you to pick a date.\n- I have Monday free." -> the whole reply
         "Done."                                                       -> "Done."
 
     A footer line that only says where work stands is required status, so
@@ -246,7 +247,9 @@ def list_check_text(closing_reply: str) -> str:
     the lines that open with "I can", "I could", "I would", "I might",
     "I may", "I recommend", "I suggest", "I propose", "I prefer", or
     "I favor" stay too, so the options
-    beside the ask still reach the judge. The heading and
+    beside the ask still reach the judge. An ask that leaves a choice to
+    the user, as "I need you to pick a date." does, keeps the whole reply,
+    so the choices under it reach the judge whatever they open with. The heading and
     each kept line stay as the reply wrote them, so a span the judge quotes
     from them is still found in the reply. When the last body paragraph
     above the footer opens a sentence with a request word, ends with a
@@ -276,7 +279,9 @@ def list_check_text(closing_reply: str) -> str:
     all_ask_lines = [
         each_item_lines for each_item_lines in all_item_lines if is_footer_ask(_item_text(each_item_lines))
     ]
-    if len(all_ask_lines) == len(all_item_lines):
+    if len(all_ask_lines) == len(all_item_lines) or any(
+        USER_CHOICE_LEAD_PATTERN.search(_item_text(each_item_lines)) is not None for each_item_lines in all_ask_lines
+    ):
         return closing_reply
     all_body_lines = all_lines[:heading_position]
     if not all_ask_lines:

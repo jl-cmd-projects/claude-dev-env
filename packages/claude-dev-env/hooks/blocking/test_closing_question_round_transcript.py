@@ -16,6 +16,7 @@ from closing_question_round_transcript import (
     last_typed_prompt_position,
     stretch_start,
     top_level_records,
+    wake_counts,
 )
 from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_MISSING_REASON_LEAD,
@@ -331,3 +332,17 @@ def test_reply_lines_keeps_one_blank_line_per_paragraph_break() -> None:
 def test_joined_reply_parts_puts_an_indented_block_on_the_next_line() -> None:
     assert joined_reply_parts(["Done.", "In progress:\n- I am fixing it."]) == "Done.\n\nIn progress:\n- I am fixing it."
     assert joined_reply_parts(["- I am fixing it.", "  The tests run."]) == "- I am fixing it.\n  The tests run."
+
+
+def test_joined_reply_parts_keeps_the_blank_line_before_an_indented_code_block() -> None:
+    assert joined_reply_parts(["Run this:", "    echo done"]) == "Run this:\n\n    echo done"
+    assert joined_reply_parts(["- Item", "  more", "  and more"]) == "- Item\n  more\n  and more"
+
+
+def test_wake_counts_counts_the_prompts_before_each_kept_record() -> None:
+    notice_line = json.dumps(
+        {"type": "user", "message": {"role": "user", "content": "<task-notification>done</task-notification>"}}
+    )
+    all_lines = [json.dumps(reply_record("One.")), notice_line, json.dumps(reply_record("Two."))]
+    assert wake_counts(all_lines, NO_DEADLINE) == [0, 1, 1]
+    assert wake_counts([notice_line], NO_DEADLINE) == [1]

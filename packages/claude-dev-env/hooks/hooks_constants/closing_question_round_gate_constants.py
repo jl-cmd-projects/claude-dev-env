@@ -30,7 +30,7 @@ FOOTER_JOBS_FILE_MODE = 0o600
 FOOTER_JOBS_TEMP_SUFFIX = ".part"
 MESSAGE_ID_KEY = "id"
 FOOTER_SNAPSHOT_SEPARATOR = " "
-FOOTER_SNAPSHOT_PART_COUNT = 6
+FOOTER_SNAPSHOT_PART_COUNT = 7
 NO_REPLY_KEY = "-"
 FOOTER_SNAPSHOT_LINE_SEPARATOR = "\n"
 FOOTER_SNAPSHOT_KEPT_COUNT = 3
@@ -68,7 +68,7 @@ REQUEST_OPENER_PATTERN = re.compile(
 )
 USER_MENTION_PATTERN = re.compile(r"\byou(?:r|rs|rself)?\b", re.IGNORECASE)
 USER_CHOICE_LEAD_PATTERN = re.compile(
-    r"\b(?:yours\s+to\s+(?:choose|pick|decide)|your\s+(?:call|choice|pick|decision)|(?:you|please)\s+(?:choose|pick|decide))\b",
+    r"\b(?:yours\s+to\s+(?:choose|pick|decide)|your\s+(?:call|choice|pick|decision)|(?:you|please)\s+(?:to\s+)?(?:choose|pick|decide))\b",
     re.IGNORECASE,
 )
 PURPOSE_CLAUSE_PATTERN = re.compile(
