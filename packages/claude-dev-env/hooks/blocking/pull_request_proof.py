@@ -86,7 +86,6 @@ from hooks_constants.pull_request_proof_constants import (
     ALL_BASE_FLAGS,
     ALL_DEFAULT_BRANCH_REFERENCES,
     ALL_HEAD_FLAGS,
-    LONG_FLAG_PREFIX,
     ALL_REPOSITORY_FLAGS,
     BASE_FLAG_ASSIGNMENT_PREFIX,
     COMPARE_ENDPOINT_TEMPLATE,
@@ -286,18 +285,6 @@ def _flag_value(all_create_arguments: list[str], all_flags: frozenset[str], assi
             return unquoted_token(all_create_arguments[each_position + 1])
         if each_argument.startswith(assignment_prefix):
             return unquoted_token(each_argument[len(assignment_prefix) :])
-        compact_value = _compact_short_flag_value(each_argument, all_flags)
-        if compact_value:
-            return unquoted_token(compact_value)
-    return None
-
-
-def _compact_short_flag_value(argument: str, all_flags: frozenset[str]) -> str | None:
-    if argument.startswith(LONG_FLAG_PREFIX):
-        return None
-    for each_flag in all_flags:
-        if not each_flag.startswith(LONG_FLAG_PREFIX) and argument.startswith(each_flag):
-            return argument[len(each_flag) :] or None
     return None
 
 
