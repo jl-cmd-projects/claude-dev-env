@@ -117,6 +117,9 @@ def test_should_hold_the_stop_by_default_and_leave_no_flag(
         "Ship it. --NoCards",
         "--NOCARDS, then merge",
         "<system-reminder>x</system-reminder> --nocards",
+        "--no-cards",
+        "work autonomously now; do not block on human. --no-cards",
+        "--No-Cards, then merge",
     ],
 )
 def test_should_allow_the_stop_after_a_prompt_with_the_keyword(
@@ -162,6 +165,12 @@ def test_should_keep_each_session_toggle_apart(
         "---nocards",
         "!nocards",
         "<system-reminder>--nocards</system-reminder> Add the flag.",
+        "no-cards",
+        "--no-cardsplease",
+        "x--no-cards",
+        "---no-cards",
+        "--no--cards",
+        "<system-reminder>--no-cards</system-reminder> Add the flag.",
     ],
 )
 def test_should_change_nothing_for_a_prompt_without_the_keyword(

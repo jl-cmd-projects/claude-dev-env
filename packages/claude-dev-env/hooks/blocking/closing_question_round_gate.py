@@ -56,7 +56,7 @@ The gate leaves a stop alone, with exit code 0 and no output, when:
 - the payload cannot be read, or it carries a non-empty ``agent_id`` (a
   subagent) or a ``conversation_id`` (Cursor);
 - ``CLAUDE_CODE_SESSION_ATTENDED`` is ``0`` (a headless run);
-- the session turned the gate off: a prompt that held ``--nocards`` set the
+- the session turned the gate off: a prompt that held ``--nocards`` or ``--no-cards`` set the
   session's flag, and a later prompt with it clears the flag again, as
   ``session/closing_question_gate_bypass.py`` describes;
 - the transcript is missing or cannot be read;

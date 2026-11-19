@@ -328,8 +328,10 @@ FOOTER_STATUS_STAND_IN = "in progress"
 
 SESSION_ID_KEY = "session_id"
 BYPASS_KEYWORD = "--nocards"
+BYPASS_KEYWORD_HYPHENATED = "--no-cards"
 BYPASS_KEYWORD_PATTERN = re.compile(
-    rf"(?<![\w-]){re.escape(BYPASS_KEYWORD)}(?![\w-])", re.IGNORECASE
+    rf"(?<![\w-])(?:{re.escape(BYPASS_KEYWORD)}|{re.escape(BYPASS_KEYWORD_HYPHENATED)})(?![\w-])",
+    re.IGNORECASE,
 )
 BYPASS_FLAG_FILE_PREFIX = "claude-closing-question-gate-off."
 BYPASS_FLAG_FILE_SUFFIX = ".flag"
