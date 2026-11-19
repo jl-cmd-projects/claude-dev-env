@@ -49,6 +49,9 @@ def test_should_count_a_message_that_approves_one_large_pull_request(message_tex
         "not approved over the size bar",
         "don't keep it as one PR",
         "ok, split it, it is too big for one pull request",
+        'Add a test for "don\'t split it".',
+        "I revoke my approval to keep it as one PR.",
+        "I withdraw the approval of this as one pull request.",
     ],
 )
 def test_should_not_count_a_message_that_does_not_approve_the_size(message_text: str) -> None:
@@ -128,6 +131,7 @@ def test_should_let_a_later_approval_replace_a_split_request(tmp_path: Path) -> 
         (APPROVAL_TEXT, True),
         ("Split it after all.", False),
         ("Approved as one PR. On second thought, split it.", False),
+        ("Thanks, but split it into two PRs.", False),
         ("Don't split hairs.", None),
         ("Run the tests.", None),
     ],
@@ -146,6 +150,36 @@ def test_should_skip_an_approval_a_peer_agent_sent(tmp_path: Path) -> None:
 def test_should_find_an_approval_with_a_human_origin(tmp_path: Path) -> None:
     record = _user_record(APPROVAL_TEXT, origin={"kind": "human"})
     assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is True
+
+
+def _queued_record(prompt: str, **all_attachment_fields: object) -> dict[str, object]:
+    return {
+        "type": "attachment",
+        "attachment": {"type": "queued_command", "prompt": prompt, **all_attachment_fields},
+    }
+
+
+def test_should_find_an_approval_the_user_queued_during_a_turn(tmp_path: Path) -> None:
+    record = _queued_record(APPROVAL_TEXT, origin={"kind": "human"})
+    assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is True
+
+
+def test_should_find_an_approval_cited_in_a_queued_relay(tmp_path: Path) -> None:
+    record = _queued_record(
+        _relay_text(APPROVAL_TEXT, "Build it."), origin={"kind": "task-notification"}, isMeta=True
+    )
+    assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is True
+
+
+@pytest.mark.parametrize(
+    "all_attachment_fields",
+    [{"origin": {"kind": "peer"}}, {"isMeta": True}, {"origin": {"kind": "task-notification"}}],
+)
+def test_should_skip_a_queued_approval_the_user_did_not_type(
+    tmp_path: Path, all_attachment_fields: dict[str, object]
+) -> None:
+    record = _queued_record(APPROVAL_TEXT, **all_attachment_fields)
+    assert approval.has_user_approved_oversized_pull_request(_transcript(tmp_path, record)) is False
 
 
 def test_should_skip_a_cited_block_a_peer_agent_quoted(tmp_path: Path) -> None:

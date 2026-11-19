@@ -8,6 +8,9 @@
     user types "approved" or "is this one pull request?"         -> not approved
     user types "the size gate allows it if the user approved"    -> not approved
     user approves, then later types "split it after all"         -> not approved
+    user types 'add a test for "don't split it"'                 -> not approved
+    user types "I revoke my approval to keep it as one PR"       -> not approved
+    the user's message was queued while a turn ran               -> read like a typed one
     a peer agent's message holds the approving words             -> not approved
     the same words in an assistant message or a tool result      -> not approved
     relay message, the words inside <cited author="user">        -> approved
@@ -19,6 +22,8 @@ both parts on its own, when it, this, that or the pull request ends the clause.
 A sentence that ends in a question mark never counts. A sentence that holds
 "if", "whether", "unless", "until", "gate", "rule", "but", "yet", "said" or
 "depends" states a condition or describes the rule, so it never counts either.
+A sentence that holds a double quote cites words, so it never counts. Revoke,
+withdraw, retract and cancel negate like "not".
 """
 
 from __future__ import annotations
@@ -37,16 +42,21 @@ from hooks_constants.oversized_change_constants import (
     ALL_RELAY_ORIGIN_KINDS,
     ALL_SKIPPED_RECORD_FLAGS,
     ALL_TYPED_ORIGIN_KINDS,
+    ATTACHMENT_KEY,
+    ATTACHMENT_RECORD_TYPE,
     APPROVAL_PATTERN,
     CITED_USER_TEXT_PATTERN,
     CONTENT_KEY,
     CURLY_APOSTROPHE,
+    DOUBLE_QUOTE,
     KEEP_WHOLE_PATTERN,
     LEADING_TAG_PATTERN,
     MESSAGE_KEY,
     META_RECORD_FLAG,
     NEGATION_PATTERN,
     ORIGIN_KEY,
+    QUEUED_COMMAND_TYPE,
+    QUEUED_PROMPT_KEY,
     ORIGIN_KIND_KEY,
     QUESTION_MARK,
     RECORD_TYPE_KEY,
@@ -138,13 +148,13 @@ def _sentences(message_text: str) -> list[str]:
 def _is_split_request(sentence: str) -> bool:
     if sentence.endswith(QUESTION_MARK) or NEGATION_PATTERN.search(sentence):
         return False
-    return bool(SPLIT_WORD_PATTERN.search(sentence)) and not RULE_TALK_PATTERN.search(sentence)
+    return bool(SPLIT_WORD_PATTERN.search(sentence))
 
 
 def _is_approving_sentence(sentence: str) -> bool:
     if not sentence or sentence.endswith(QUESTION_MARK):
         return False
-    if RULE_TALK_PATTERN.search(sentence):
+    if RULE_TALK_PATTERN.search(sentence) or DOUBLE_QUOTE in sentence:
         return False
     if KEEP_WHOLE_PATTERN.search(sentence):
         return True
@@ -155,27 +165,46 @@ def _is_approving_sentence(sentence: str) -> bool:
 
 def _user_typed_texts(transcript_line: str) -> Iterator[str]:
     all_record_fields = parsed_object(transcript_line)
-    if all_record_fields is None or USER_ROLE != all_record_fields.get(RECORD_TYPE_KEY):
-        return
-    message_body = all_record_fields.get(MESSAGE_KEY)
-    if not isinstance(message_body, dict) or message_body.get(ROLE_KEY) != USER_ROLE:
+    if all_record_fields is None:
         return
     if any(all_record_fields.get(each_flag) for each_flag in ALL_SKIPPED_RECORD_FLAGS):
         return
-    all_block_texts = _block_texts(message_body.get(CONTENT_KEY))
-    if all_block_texts is None:
+    all_source_fields = _message_source_fields(all_record_fields)
+    if all_source_fields is None:
         return
-    origin = all_record_fields.get(ORIGIN_KEY)
+    all_block_texts, all_origin_fields = all_source_fields
+    origin = all_origin_fields.get(ORIGIN_KEY)
     origin_kind = origin.get(ORIGIN_KIND_KEY) if isinstance(origin, dict) else None
     if any(RELAY_WRAPPER_PATTERN.search(each_text) for each_text in all_block_texts):
         if origin_kind in ALL_RELAY_ORIGIN_KINDS:
             yield from _cited_user_texts(all_block_texts)
         return
-    if all_record_fields.get(META_RECORD_FLAG) or origin_kind not in ALL_TYPED_ORIGIN_KINDS:
+    if all_origin_fields.get(META_RECORD_FLAG) or origin_kind not in ALL_TYPED_ORIGIN_KINDS:
         return
     yield TEXT_BLOCK_JOINER.join(
         each_text for each_text in all_block_texts if not LEADING_TAG_PATTERN.match(each_text)
     )
+
+
+def _message_source_fields(
+    all_record_fields: dict[str, object],
+) -> tuple[list[str], dict[str, object]] | None:
+    record_type = all_record_fields.get(RECORD_TYPE_KEY)
+    if record_type == ATTACHMENT_RECORD_TYPE:
+        attachment = all_record_fields.get(ATTACHMENT_KEY)
+        if not isinstance(attachment, dict):
+            return None
+        queued_prompt = attachment.get(QUEUED_PROMPT_KEY)
+        if attachment.get(RECORD_TYPE_KEY) != QUEUED_COMMAND_TYPE or not isinstance(queued_prompt, str):
+            return None
+        return [queued_prompt], attachment
+    message_body = all_record_fields.get(MESSAGE_KEY)
+    if record_type != USER_ROLE or not isinstance(message_body, dict):
+        return None
+    all_block_texts = _block_texts(message_body.get(CONTENT_KEY))
+    if message_body.get(ROLE_KEY) != USER_ROLE or all_block_texts is None:
+        return None
+    return all_block_texts, all_record_fields
 
 
 def _cited_user_texts(all_block_texts: list[str]) -> Iterator[str]:

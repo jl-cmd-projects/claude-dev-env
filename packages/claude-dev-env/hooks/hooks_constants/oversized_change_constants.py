@@ -59,6 +59,10 @@ COMPARE_LINE_COUNT_QUERY = (
 )
 USER_ROLE = "user"
 RECORD_TYPE_KEY = "type"
+ATTACHMENT_RECORD_TYPE = "attachment"
+ATTACHMENT_KEY = "attachment"
+QUEUED_COMMAND_TYPE = "queued_command"
+QUEUED_PROMPT_KEY = "prompt"
 MESSAGE_KEY = "message"
 ROLE_KEY = "role"
 CONTENT_KEY = "content"
@@ -77,6 +81,7 @@ CITED_USER_TEXT_PATTERN = re.compile(r"<cited\b[^>]*\bauthor=\"user\"[^>]*>(.*?)
 LEADING_TAG_PATTERN = re.compile(r"\s*<[a-z]")
 SENTENCE_BREAK_PATTERN = re.compile(r"(?<=[.!?])\s+|\n+")
 QUESTION_MARK = "?"
+DOUBLE_QUOTE = '"'
 CURLY_APOSTROPHE = "’"
 STRAIGHT_APOSTROPHE = "'"
 KEEP_WHOLE_PATTERN = re.compile(
@@ -84,7 +89,9 @@ KEEP_WHOLE_PATTERN = re.compile(
     r"(?:it|(?:this|that|the)(?:\s+(?:one|pr|pull request))?)(?!\s+\w)"
 )
 SPLIT_WORD_PATTERN = re.compile(r"\bsplit")
-NEGATION_PATTERN = re.compile(r"n't\b|\b(?:not|no|never|dont|cannot)\b")
+NEGATION_PATTERN = re.compile(
+    r"n't\b|\b(?:not|no|never|dont|cannot|revok\w*|withdr[ae]w\w*|retract\w*|cancel\w*)\b"
+)
 RULE_TALK_PATTERN = re.compile(
     r"\b(?:if|whether|unless|until|gate|rule|but|yet|said|depends?)\b"
 )
