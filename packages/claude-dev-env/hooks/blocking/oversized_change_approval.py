@@ -9,8 +9,9 @@
     user types "the size gate allows it if the user approved"    -> not approved
     user approves, then later types "split it after all"         -> not approved
     user types 'add a test for "don't split it"'                 -> not approved
-    user types "I revoke my approval to keep it as one PR"       -> not approved
-    the user's message was queued while a turn ran               -> read like a typed one
+    user approves, then types "I revoke my approval"             -> not approved
+    a queued message with a human origin                         -> read like a typed one
+    a queued message with no origin                              -> not approved
     a peer agent's message holds the approving words             -> not approved
     the same words in an assistant message or a tool result      -> not approved
     relay message, the words inside <cited author="user">        -> approved
@@ -22,8 +23,9 @@ both parts on its own, when it, this, that or the pull request ends the clause.
 A sentence that ends in a question mark never counts. A sentence that holds
 "if", "whether", "unless", "until", "gate", "rule", "but", "yet", "said" or
 "depends" states a condition or describes the rule, so it never counts either.
-A sentence that holds a double quote cites words, so it never counts. Revoke,
-withdraw, retract and cancel negate like "not".
+A sentence that holds a double quote cites words, so it never counts. A sentence
+that holds revoke, withdraw, retract or cancel never approves, and beside an
+approval word it withdraws an earlier approval the way a split request does.
 """
 
 from __future__ import annotations
@@ -41,6 +43,7 @@ from blocking.open_tasks_transcript_records import parsed_object
 from hooks_constants.oversized_change_constants import (
     ALL_RELAY_ORIGIN_KINDS,
     ALL_SKIPPED_RECORD_FLAGS,
+    ALL_QUEUED_TYPED_ORIGIN_KINDS,
     ALL_TYPED_ORIGIN_KINDS,
     ATTACHMENT_KEY,
     ATTACHMENT_RECORD_TYPE,
@@ -61,6 +64,7 @@ from hooks_constants.oversized_change_constants import (
     QUESTION_MARK,
     RECORD_TYPE_KEY,
     RELAY_WRAPPER_PATTERN,
+    REVOKE_PATTERN,
     RULE_TALK_PATTERN,
     ROLE_KEY,
     SENTENCE_BREAK_PATTERN,
@@ -118,7 +122,10 @@ def size_verdict(message_text: str) -> bool | None:
     Args:
         message_text: The text of one message the user typed.
     """
-    if any(_is_split_request(each_sentence) for each_sentence in _sentences(message_text)):
+    if any(
+        _is_split_request(each_sentence) or _is_withdrawal(each_sentence)
+        for each_sentence in _sentences(message_text)
+    ):
         return False
     return True if is_size_approval(message_text) else None
 
@@ -151,10 +158,18 @@ def _is_split_request(sentence: str) -> bool:
     return bool(SPLIT_WORD_PATTERN.search(sentence))
 
 
+def _is_withdrawal(sentence: str) -> bool:
+    if sentence.endswith(QUESTION_MARK):
+        return False
+    return bool(REVOKE_PATTERN.search(sentence) and APPROVAL_PATTERN.search(sentence))
+
+
 def _is_approving_sentence(sentence: str) -> bool:
     if not sentence or sentence.endswith(QUESTION_MARK):
         return False
     if RULE_TALK_PATTERN.search(sentence) or DOUBLE_QUOTE in sentence:
+        return False
+    if REVOKE_PATTERN.search(sentence):
         return False
     if KEEP_WHOLE_PATTERN.search(sentence):
         return True
@@ -172,14 +187,15 @@ def _user_typed_texts(transcript_line: str) -> Iterator[str]:
     all_source_fields = _message_source_fields(all_record_fields)
     if all_source_fields is None:
         return
-    all_block_texts, all_origin_fields = all_source_fields
+    all_block_texts, all_origin_fields, all_typed_origin_kinds = all_source_fields
     origin = all_origin_fields.get(ORIGIN_KEY)
     origin_kind = origin.get(ORIGIN_KIND_KEY) if isinstance(origin, dict) else None
     if any(RELAY_WRAPPER_PATTERN.search(each_text) for each_text in all_block_texts):
         if origin_kind in ALL_RELAY_ORIGIN_KINDS:
             yield from _cited_user_texts(all_block_texts)
         return
-    if all_origin_fields.get(META_RECORD_FLAG) or origin_kind not in ALL_TYPED_ORIGIN_KINDS:
+    is_meta = all_record_fields.get(META_RECORD_FLAG) or all_origin_fields.get(META_RECORD_FLAG)
+    if is_meta or origin_kind not in all_typed_origin_kinds:
         return
     yield TEXT_BLOCK_JOINER.join(
         each_text for each_text in all_block_texts if not LEADING_TAG_PATTERN.match(each_text)
@@ -188,7 +204,7 @@ def _user_typed_texts(transcript_line: str) -> Iterator[str]:
 
 def _message_source_fields(
     all_record_fields: dict[str, object],
-) -> tuple[list[str], dict[str, object]] | None:
+) -> tuple[list[str], dict[str, object], tuple[str | None, ...]] | None:
     record_type = all_record_fields.get(RECORD_TYPE_KEY)
     if record_type == ATTACHMENT_RECORD_TYPE:
         attachment = all_record_fields.get(ATTACHMENT_KEY)
@@ -197,14 +213,14 @@ def _message_source_fields(
         queued_prompt = attachment.get(QUEUED_PROMPT_KEY)
         if attachment.get(RECORD_TYPE_KEY) != QUEUED_COMMAND_TYPE or not isinstance(queued_prompt, str):
             return None
-        return [queued_prompt], attachment
+        return [queued_prompt], attachment, ALL_QUEUED_TYPED_ORIGIN_KINDS
     message_body = all_record_fields.get(MESSAGE_KEY)
     if record_type != USER_ROLE or not isinstance(message_body, dict):
         return None
     all_block_texts = _block_texts(message_body.get(CONTENT_KEY))
     if message_body.get(ROLE_KEY) != USER_ROLE or all_block_texts is None:
         return None
-    return all_block_texts, all_record_fields
+    return all_block_texts, all_record_fields, ALL_TYPED_ORIGIN_KINDS
 
 
 def _cited_user_texts(all_block_texts: list[str]) -> Iterator[str]:

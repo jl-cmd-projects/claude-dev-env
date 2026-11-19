@@ -75,6 +75,7 @@ META_RECORD_FLAG = "isMeta"
 ORIGIN_KEY = "origin"
 ORIGIN_KIND_KEY = "kind"
 ALL_TYPED_ORIGIN_KINDS = (None, "human")
+ALL_QUEUED_TYPED_ORIGIN_KINDS = ("human",)
 ALL_RELAY_ORIGIN_KINDS = (None, "task-notification")
 RELAY_WRAPPER_PATTERN = re.compile(r"<(?:coordinator-)?relay\b")
 CITED_USER_TEXT_PATTERN = re.compile(r"<cited\b[^>]*\bauthor=\"user\"[^>]*>(.*?)</cited>", re.DOTALL)
@@ -89,9 +90,8 @@ KEEP_WHOLE_PATTERN = re.compile(
     r"(?:it|(?:this|that|the)(?:\s+(?:one|pr|pull request))?)(?!\s+\w)"
 )
 SPLIT_WORD_PATTERN = re.compile(r"\bsplit")
-NEGATION_PATTERN = re.compile(
-    r"n't\b|\b(?:not|no|never|dont|cannot|revok\w*|withdr[ae]w\w*|retract\w*|cancel\w*)\b"
-)
+NEGATION_PATTERN = re.compile(r"n't\b|\b(?:not|no|never|dont|cannot)\b")
+REVOKE_PATTERN = re.compile(r"\b(?:revok\w*|withdr[ae]w\w*|retract\w*|cancel\w*)\b")
 RULE_TALK_PATTERN = re.compile(
     r"\b(?:if|whether|unless|until|gate|rule|but|yet|said|depends?)\b"
 )

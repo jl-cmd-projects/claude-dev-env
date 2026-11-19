@@ -111,6 +111,15 @@ def test_should_let_a_later_split_request_withdraw_an_approval(tmp_path: Path) -
     assert approval.has_user_approved_oversized_pull_request(path) is False
 
 
+def test_should_let_a_later_revocation_withdraw_an_approval(tmp_path: Path) -> None:
+    path = _transcript(
+        tmp_path,
+        _user_record(APPROVAL_TEXT),
+        _user_record("I revoke my approval to keep it as one PR."),
+    )
+    assert approval.has_user_approved_oversized_pull_request(path) is False
+
+
 def test_should_read_the_text_blocks_of_one_message_together(tmp_path: Path) -> None:
     content = [
         {"type": "text", "text": APPROVAL_TEXT},
@@ -132,6 +141,10 @@ def test_should_let_a_later_approval_replace_a_split_request(tmp_path: Path) -> 
         ("Split it after all.", False),
         ("Approved as one PR. On second thought, split it.", False),
         ("Thanks, but split it into two PRs.", False),
+        ("I revoke my approval to keep it as one PR.", False),
+        ("Cancel that, split it.", False),
+        ("I revoke my approval, it is not okay as one PR.", False),
+        ("Cancel the meeting.", None),
         ("Don't split hairs.", None),
         ("Run the tests.", None),
     ],
@@ -173,7 +186,12 @@ def test_should_find_an_approval_cited_in_a_queued_relay(tmp_path: Path) -> None
 
 @pytest.mark.parametrize(
     "all_attachment_fields",
-    [{"origin": {"kind": "peer"}}, {"isMeta": True}, {"origin": {"kind": "task-notification"}}],
+    [
+        {},
+        {"origin": {"kind": "peer"}},
+        {"origin": {"kind": "human"}, "isMeta": True},
+        {"origin": {"kind": "task-notification"}},
+    ],
 )
 def test_should_skip_a_queued_approval_the_user_did_not_type(
     tmp_path: Path, all_attachment_fields: dict[str, object]
