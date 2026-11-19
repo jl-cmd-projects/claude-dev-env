@@ -1,3 +1,5 @@
+import time
+
 import pytest
 
 from closing_question_round_footer import (
@@ -117,6 +119,13 @@ def test_should_keep_the_heading_and_ask_lines_as_the_reply_wrote_them_in_the_li
     assert all(each_line in bold_reply for each_line in kept_text.splitlines())
 
 
+def test_should_read_a_long_footer_item_in_one_pass() -> None:
+    long_item = "I am waiting " + "for the want of a need " * 2000
+    started_at = time.process_time()
+    assert not is_footer_ask(long_item)
+    assert time.process_time() - started_at < 0.2
+
+
 def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_check_text() -> None:
     owner_reply = (
         "Done.\n\nIn progress:\n- I am shipping 8590.\n"
@@ -164,6 +173,8 @@ def test_should_tell_a_footer_ask_from_a_status_line() -> None:
     assert is_footer_ask("I am holding the sale until the owner picks a date.")
     assert is_footer_ask("I am preparing the launch; please pick a date.")
     assert is_footer_ask("I need a date from the owner.")
+    assert is_footer_ask("I am preparing the launch. Next, choose its date.")
+    assert not is_footer_ask("I am preparing the launch. Next, it ships to the store.")
     assert not is_footer_ask("I need the rows from the export before the release.")
     assert not is_footer_ask("I am updating the discount ledger so your prices stay current.")
     assert is_footer_ask("I am holding the launch so your team can approve it.")

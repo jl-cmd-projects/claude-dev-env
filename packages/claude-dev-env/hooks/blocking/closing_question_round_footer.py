@@ -169,13 +169,15 @@ def is_footer_ask(footer_item: str) -> bool:
     "pending", "blocked", "not done", and "not run" may ask the user
     something, so it counts as an ask. A later sentence or clause after a
     semicolon that opens with a
-    request word such as please, pick, choose, approve, or confirm counts as
-    an ask too, so a request after a status sentence is kept, and so does
+    request word such as please, pick, choose, approve, or confirm, alone or
+    after a word such as next, then, or finally, counts as an ask too, so a request after a status sentence is kept, and so does
     an item that needs, wants, waits for, or asks someone to pick, choose,
     approve, confirm, decide, or answer, or that holds until, once, when,
     after, unless, or before someone picks, chooses, approves, decides,
     answers, replies, or signs off, or that needs or waits for something
-    from a person such as the owner, a client, or a reviewer.
+    from a person such as the owner, a client, or a reviewer. Each such
+    match looks at most 80 characters past its first word, so a long item
+    costs one pass.
     """
     status_item = FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, footer_item)
     return (
