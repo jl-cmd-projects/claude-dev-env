@@ -1,8 +1,0 @@
-{
-  "rule_id": "validators",
-  "file_path": "packages/claude-dev-env/hooks/blocking/closing_question_round_footer.py",
-  "message": "packages/claude-dev-env/hooks/blocking/closing_question_round_footer.py:302: Function '_lead_paragraph' has nesting depth 3 (max 2)",
-  "check_id": "validators/nesting-depth",
-  "severity": "smell",
-  "origin_commit": "c80b6d794ffac95ec439bb74bfe872353b89f1f7"
-}

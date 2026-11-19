@@ -318,6 +318,8 @@ def test_should_keep_the_choices_that_follow_a_question_in_the_footer() -> None:
     assert list_check_text(embedded_reply) == embedded_reply
     bold_reply = embedded_reply.replace("Which one works better?", "**Which one works better?**")
     assert list_check_text(bold_reply) == bold_reply
+    code_reply = "Done.\n\nIn progress:\n- Please check the `ready?` flag.\n- I am running tests."
+    assert list_check_text(code_reply) == "Done.\n\nIn progress:\n- Please check the `ready?` flag."
 
 
 def test_should_filter_a_long_mixed_footer_in_linear_time() -> None:

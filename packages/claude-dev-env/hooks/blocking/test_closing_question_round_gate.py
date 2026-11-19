@@ -1185,6 +1185,38 @@ def test_should_read_snapshots_whose_lines_end_in_a_carriage_return(
     assert shown(ledger_fields, second_footer, NO_TASKS)
 
 
+def test_should_read_a_snapshot_kept_before_the_footer_task_verdict(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    ledger_fields = {"session_id": SESSION_ID, "background_tasks": [{"id": "ledger"}]}
+    closing_question_round_gate.record_footer_jobs(ledger_fields, LEDGER_SEEN, NO_TASKS)
+    snapshot_path = closing_question_round_gate._snapshot_path(ledger_fields)
+    assert snapshot_path is not None
+    kept_line = snapshot_path.read_text()
+    snapshot_path.write_text(kept_line.rsplit(" ", 1)[0])
+    kept_snapshot = closing_question_round_gate.kept_footer_snapshot(ledger_fields, LEDGER_SEEN)
+    assert kept_snapshot is not None
+    assert kept_snapshot.is_covering is None
+    assert shown(ledger_fields, LEDGER_SEEN, NO_TASKS)
+    assert not shown({**ledger_fields, "background_tasks": [{"id": "tests"}]}, LEDGER_SEEN, NO_TASKS)
+
+
+def test_should_compare_a_kept_footer_with_many_tasks_in_linear_time(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    session_fields = {"session_id": SESSION_ID}
+    all_running = tuple(TaskItem(str(each_index), f"Watch ledger {each_index}", "in_progress") for each_index in range(2000))
+    all_pending = tuple(TaskItem(str(2000 + each_index), f"Open ledger {each_index}", "pending") for each_index in range(2000))
+    many_tasks = SessionTasks(all_running, (*all_running, *all_pending))
+    closing_question_round_gate.record_footer_jobs(session_fields, LEDGER_SEEN, NO_TASKS)
+    started_at = time.process_time()
+    is_shown = shown(session_fields, LEDGER_SEEN, many_tasks)
+    assert time.process_time() - started_at < 1.0
+    assert not is_shown
+
+
 def test_should_know_the_kept_snapshot_names_a_footer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     session_fields = {"session_id": SESSION_ID}

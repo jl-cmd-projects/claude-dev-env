@@ -1,8 +1,0 @@
-{
-  "rule_id": "validators",
-  "file_path": "packages/claude-dev-env/hooks/blocking/closing_question_round_gate.py",
-  "message": "packages/claude-dev-env/hooks/blocking/closing_question_round_gate.py:491: Function 'record_footer_jobs' is 44 lines (max 30)",
-  "check_id": "validators/function-line-cap",
-  "severity": "smell",
-  "origin_commit": "b2298003f986d79d9674ab6d131bb3b35a7dd25d"
-}

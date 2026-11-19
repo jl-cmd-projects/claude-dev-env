@@ -69,8 +69,9 @@ from hooks_constants.closing_question_round_gate_constants import (
     REASON_PART_SEPARATOR,
     TASK_KEY_WORD_SEPARATOR,
 )
+from hooks_constants.ask_user_question_shape_constants import INLINE_CODE_SPAN_PATTERN
 from hooks_constants.final_reply_gate_constants import QUESTION_MARK
-from hooks_constants.user_step_wording_constants import LINE_BREAK
+from hooks_constants.user_step_wording_constants import CODE_SPAN_STAND_IN, LINE_BREAK
 
 
 class SplitReply(NamedTuple):
@@ -270,8 +271,8 @@ def list_check_text(closing_reply: str) -> str:
     "I may", "I recommend", "I suggest", "I propose", "I prefer", or
     "I favor" stay too, so the options
     beside the ask still reach the judge. Every item after an ask with a
-    sentence that ends with a question mark stays too, since those items
-    answer it. An ask that leaves a choice to
+    sentence that ends with a question mark, outside inline code, stays
+    too, since those items answer it. An ask that leaves a choice to
     the user, as "I need you to pick a date." and "I am leaving the date to
     you." do, keeps the whole reply,
     so the choices under it reach the judge whatever they open with. The heading and
@@ -337,7 +338,9 @@ def _kept_items(all_item_lines: list[list[str]], all_is_ask: list[bool]) -> list
 def _has_question(item_text: str) -> bool:
     return any(
         each_sentence.rstrip().endswith(QUESTION_MARK)
-        for each_sentence in SENTENCE_BREAK_PATTERN.split(MARKDOWN_EMPHASIS_PATTERN.sub("", item_text))
+        for each_sentence in SENTENCE_BREAK_PATTERN.split(
+            MARKDOWN_EMPHASIS_PATTERN.sub("", INLINE_CODE_SPAN_PATTERN.sub(CODE_SPAN_STAND_IN, item_text))
+        )
     )
 
 

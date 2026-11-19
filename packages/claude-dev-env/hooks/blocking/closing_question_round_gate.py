@@ -163,6 +163,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_SNAPSHOT_COVERING_MARK,
     FOOTER_SNAPSHOT_GAP_MARK,
     FOOTER_SNAPSHOT_PART_COUNT,
+    FOOTER_SNAPSHOT_UNKNOWN_MARK,
     NO_REPLY_KEY,
     FOOTER_SNAPSHOT_PENDING_MARK,
     FOOTER_SNAPSHOT_SENT_MARK,
@@ -412,7 +413,8 @@ class FooterSnapshot(NamedTuple):
             footer was kept, so a copy written after a later wake is not its reply.
         is_covering: Whether the footer named every task in progress, as
             the open tasks then set the words a task shares, so a later
-            stop with the same work keeps that verdict.
+            stop with the same work keeps that verdict. None when a
+            snapshot kept before the verdict was saved does not say.
     """
 
     footer_key: str
@@ -422,7 +424,7 @@ class FooterSnapshot(NamedTuple):
     record_count: int = 0
     reply_key: str = NO_REPLY_KEY
     wake_count: int = 0
-    is_covering: bool = True
+    is_covering: bool | None = True
 
 
 def _short_digest(all_parts: list[object]) -> str:
@@ -468,12 +470,7 @@ def footer_snapshot(
     all_task_entries = sorted(
         [each_task.item_id, each_task.subject, each_task.description] for each_task in all_tasks.in_progress
     )
-    return FooterSnapshot(
-        footer_key(footer),
-        _short_digest([all_task_entries, all_identities]),
-        len(all_identities),
-        is_covering=not left_out_tasks(footer.lines, all_tasks.in_progress, all_tasks.still_open),
-    )
+    return FooterSnapshot(footer_key(footer), _short_digest([all_task_entries, all_identities]), len(all_identities))
 
 
 def _snapshot_path(all_hook_input_fields: dict[str, object]) -> Path | None:
@@ -539,6 +536,7 @@ def record_footer_jobs(
         record_count=record_count if is_pending else 0,
         reply_key=reply_key(closing_reply) if is_pending else NO_REPLY_KEY,
         wake_count=wake_count if is_pending else 0,
+        is_covering=not left_out_tasks(footer.lines, all_tasks.in_progress, all_tasks.still_open),
     )
     all_other_snapshots = [
         each_snapshot
@@ -626,6 +624,8 @@ def kept_footer_snapshots(all_hook_input_fields: dict[str, object]) -> tuple[Foo
 
 def _parsed_snapshot(snapshot_line: str) -> FooterSnapshot | None:
     all_parts = snapshot_line.split(FOOTER_SNAPSHOT_SEPARATOR)
+    if len(all_parts) == FOOTER_SNAPSHOT_PART_COUNT - 1:
+        all_parts.append(FOOTER_SNAPSHOT_UNKNOWN_MARK)
     if len(all_parts) != FOOTER_SNAPSHOT_PART_COUNT or not all(
         all_parts[each_position].isdigit() for each_position in (2, 4, 6)
     ):
@@ -633,6 +633,7 @@ def _parsed_snapshot(snapshot_line: str) -> FooterSnapshot | None:
     if all_parts[3] not in (FOOTER_SNAPSHOT_PENDING_MARK, FOOTER_SNAPSHOT_SENT_MARK) or all_parts[7] not in (
         FOOTER_SNAPSHOT_COVERING_MARK,
         FOOTER_SNAPSHOT_GAP_MARK,
+        FOOTER_SNAPSHOT_UNKNOWN_MARK,
     ):
         return None
     return FooterSnapshot(
@@ -643,7 +644,7 @@ def _parsed_snapshot(snapshot_line: str) -> FooterSnapshot | None:
         int(all_parts[4]),
         all_parts[5],
         int(all_parts[6]),
-        all_parts[7] == FOOTER_SNAPSHOT_COVERING_MARK,
+        None if all_parts[7] == FOOTER_SNAPSHOT_UNKNOWN_MARK else all_parts[7] == FOOTER_SNAPSHOT_COVERING_MARK,
     )
 
 
@@ -676,7 +677,7 @@ def were_jobs_shown(
         return False
     return kept_snapshot._replace(
         is_pending=False, record_count=0, reply_key=NO_REPLY_KEY, wake_count=0, is_covering=True
-    ) == footer_snapshot(all_hook_input_fields, footer, all_tasks)._replace(is_covering=True)
+    ) == footer_snapshot(all_hook_input_fields, footer, all_tasks)
 
 
 def is_footer_recorded(kept_snapshot: FooterSnapshot | None, footer: FooterSeen | None) -> bool:
@@ -768,7 +769,7 @@ def is_footer_still_current(
     background_count: int,
     were_jobs_in_footer: bool = False,
     is_recorded: bool = False,
-    was_covering: bool = False,
+    was_covering: bool | None = None,
 ) -> bool:
     """Return True when the newest footer the user saw still shows the work in progress.
 
@@ -806,14 +807,15 @@ def is_footer_still_current(
         were_jobs_in_footer: Whether this footer went out while exactly these jobs ran.
         is_recorded: Whether the kept snapshot names this footer.
         was_covering: Whether the footer named every task in progress when
-            it went out, read when ``were_jobs_in_footer`` is True.
+            it went out, read when ``were_jobs_in_footer`` is True. None
+            checks the footer against the tasks as they are now.
 
     Returns:
         Whether the footer can stand for the reply.
     """
     if all_last_footer_lines is None:
         return False
-    if were_jobs_in_footer:
+    if were_jobs_in_footer and was_covering is not None:
         if not was_covering:
             return False
     elif left_out_tasks(all_last_footer_lines, all_tasks.in_progress, all_tasks.still_open):
@@ -906,7 +908,7 @@ def footer_hold_reason(
             background_job_count(all_hook_input_fields),
             were_jobs_shown(kept_snapshot, all_hook_input_fields, newest_footer, all_tasks),
             is_recorded,
-            kept_snapshot is not None and kept_snapshot.is_covering,
+            None if kept_snapshot is None else kept_snapshot.is_covering,
         ):
             return None
         reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work, is_recorded)
