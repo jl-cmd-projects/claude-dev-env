@@ -101,6 +101,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TASK_CREATED_PATTERN,
     TASK_CREATE_TOOL_NAME,
     TASK_ID_KEY,
+    TASK_DESCRIPTION_KEY,
     TASK_STATUS_KEY,
     TASK_SUBJECT_KEY,
     TASK_UPDATE_ID_KEY,
@@ -144,11 +145,13 @@ class TaskItem(NamedTuple):
         item_id: The task number or position, as text.
         subject: The item's wording.
         status: The item's status, such as ``pending`` or ``completed``.
+        description: The item's details, such as where the work stands.
     """
 
     item_id: str
     subject: str
     status: str
+    description: str = ""
 
 
 def _result_text(all_block_fields: dict[str, object]) -> str:
@@ -250,6 +253,7 @@ class TranscriptReplay:
         self.latest_items: list[TaskItem] | None = None
         self.created_by_id: dict[str, TaskItem] = {}
         self.subject_by_tool_use_id: dict[str, str] = {}
+        self.description_by_tool_use_id: dict[str, str] = {}
         self.plan_items: list[TaskItem] | None = None
         self.own_plan_count = 0
         self.turn_prompt_text = ""
@@ -394,6 +398,7 @@ class TranscriptReplay:
             return
         if tool_name == TASK_CREATE_TOOL_NAME:
             self.subject_by_tool_use_id[tool_use_id] = str(all_input_fields.get(TASK_SUBJECT_KEY, ""))
+            self.description_by_tool_use_id[tool_use_id] = str(all_input_fields.get(TASK_DESCRIPTION_KEY, ""))
             return
         if tool_name == TASK_UPDATE_TOOL_NAME:
             self.apply_task_update(all_input_fields)
@@ -401,16 +406,20 @@ class TranscriptReplay:
     def apply_task_update(self, all_input_fields: dict[str, object]) -> None:
         task_id = str(all_input_fields.get(TASK_UPDATE_ID_KEY, ""))
         new_status = all_input_fields.get(TASK_STATUS_KEY)
+        new_description = all_input_fields.get(TASK_DESCRIPTION_KEY)
         if task_id in self.created_by_id and new_status:
             self.created_by_id[task_id] = self.created_by_id[task_id]._replace(status=str(new_status))
+        if task_id in self.created_by_id and isinstance(new_description, str):
+            self.created_by_id[task_id] = self.created_by_id[task_id]._replace(description=new_description)
 
     def apply_tool_result(self, all_block_fields: dict[str, object]) -> None:
         created_subject = self.subject_by_tool_use_id.pop(str(all_block_fields.get(TOOL_USE_ID_KEY)), None)
+        created_description = self.description_by_tool_use_id.pop(str(all_block_fields.get(TOOL_USE_ID_KEY)), "")
         created_match = re.search(TASK_CREATED_PATTERN, _result_text(all_block_fields))
         if created_subject is None or created_match is None:
             return
         created_id = created_match.group(CREATED_TASK_ID_GROUP_INDEX)
-        self.created_by_id[created_id] = TaskItem(created_id, created_subject, PENDING_STATUS)
+        self.created_by_id[created_id] = TaskItem(created_id, created_subject, PENDING_STATUS, created_description)
 
     def items(self) -> list[TaskItem] | None:
         all_sources = [

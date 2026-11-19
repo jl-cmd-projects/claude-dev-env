@@ -1037,6 +1037,37 @@ def test_should_check_the_footer_of_a_reply_a_thinking_only_record_follows(
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_GAP_REASON_LEAD)
 
 
+def test_should_save_the_jobs_of_a_footer_the_transcript_holds_over_its_pending_snapshot(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    two_jobs = [{"id": "ledger"}, {"id": "tests"}]
+    all_before_footer = [typed_prompt_record(), *edit_records()]
+    all_footer_records = [*all_before_footer, reply_record(LEDGER_FOOTER_REPLY)]
+    all_records = [*all_footer_records, notice_record("Ledger job checked in"), reply_record("Still waiting.")]
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": two_jobs}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields(two_jobs)) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields) is None
+
+
+def test_should_ask_for_a_new_footer_when_a_task_description_changes(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    task_fields = {"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}
+    write_tasks(tmp_path, [{**task_fields, "description": "Waiting for tests."}])
+    footer_reply = f"The retry flag is in place.\n\n{FOOTER}"
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(footer_reply)]
+    all_records = [*all_footer_records, reply_record("The tests passed.")]
+    passed_fields = {"last_assistant_message": "The tests passed."}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, {"last_assistant_message": footer_reply}) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, passed_fields) is None
+    write_tasks(tmp_path, [{**task_fields, "description": "Tests passed; waiting for merge."}])
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, passed_fields)).startswith(
+        FOOTER_CHANGED_REASON_LEAD
+    )
+
+
 def test_should_owe_a_footer_again_when_the_last_one_left_out_the_background_job(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

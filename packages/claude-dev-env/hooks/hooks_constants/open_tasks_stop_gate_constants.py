@@ -15,6 +15,7 @@ TASKS_DIRECTORY_NAME = "tasks"
 TASK_FILE_GLOB = "*.json"
 TASK_ID_KEY = "id"
 TASK_SUBJECT_KEY = "subject"
+TASK_DESCRIPTION_KEY = "description"
 TASK_STATUS_KEY = "status"
 PENDING_STATUS = "pending"
 INCOMPLETE_STATUSES = frozenset({PENDING_STATUS, "in_progress"})

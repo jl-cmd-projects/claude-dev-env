@@ -53,6 +53,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     OTHER_PARTY_REQUEST_PATTERN,
     COORDINATED_REQUEST_PATTERN,
     MARKDOWN_EMPHASIS_PATTERN,
+    OPTION_ITEM_PATTERN,
     PURPOSE_CLAUSE_PATTERN,
     PURPOSE_CLAUSE_STAND_IN,
     REQUEST_OPENER_PATTERN,
@@ -236,7 +237,9 @@ def list_check_text(closing_reply: str) -> str:
 
     A footer line that only says where work stands is required status, so
     the check leaves it out and reads the body with the footer lines that ask
-    the user something, as ``is_footer_ask`` finds them. The heading and
+    the user something, as ``is_footer_ask`` finds them. When one line asks,
+    the lines that open with "I can" or "I could" stay too, so the options
+    beside the ask still reach the judge. The heading and
     each kept line stay as the reply wrote them, so a span the judge quotes
     from them is still found in the reply. When the last body paragraph
     above the footer opens a sentence with a request word, ends with a
@@ -265,7 +268,13 @@ def list_check_text(closing_reply: str) -> str:
     all_body_lines = all_lines[:heading_position]
     if not all_ask_lines:
         return LINE_BREAK.join(all_body_lines)
-    all_kept_lines = [each_line for each_item_lines in all_ask_lines for each_line in each_item_lines]
+    all_kept_items = [
+        each_item_lines
+        for each_item_lines in all_item_lines
+        if each_item_lines in all_ask_lines
+        or OPTION_ITEM_PATTERN.match(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines)))
+    ]
+    all_kept_lines = [each_line for each_item_lines in all_kept_items for each_line in each_item_lines]
     return LINE_BREAK.join([*all_body_lines, all_lines[heading_position], *all_kept_lines])
 
 

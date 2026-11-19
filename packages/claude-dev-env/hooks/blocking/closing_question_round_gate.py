@@ -425,6 +425,7 @@ def footer_snapshot(
         jobs ["ab", "c"] and ["a", "bc"]                       -> two different state keys
         tasks #28 and #29, then #28 alone                      -> two different state keys
         task #28, then #28 with a new subject                  -> two different state keys
+        task #28, then #28 with a new description              -> two different state keys
         jobs "ledger" and {"ledger": {}}                       -> the same state key
 
     Args:
@@ -436,7 +437,9 @@ def footer_snapshot(
         The snapshot for that footer, task set, and job set.
     """
     all_identities = sorted(_job_identities(all_hook_input_fields.get(BACKGROUND_TASKS_KEY)))
-    all_task_entries = sorted([each_task.item_id, each_task.subject] for each_task in all_tasks.in_progress)
+    all_task_entries = sorted(
+        [each_task.item_id, each_task.subject, each_task.description] for each_task in all_tasks.in_progress
+    )
     return FooterSnapshot(footer_key(footer), _short_digest([all_task_entries, all_identities]), len(all_identities))
 
 
@@ -876,13 +879,10 @@ def _is_newest_footer_last_text(all_counted_records: list[dict[str, object]]) ->
     return all_text_positions[-1] == _footer_positions(all_counted_records)[-1]
 
 
-def _is_unrecorded(
-    all_kept_snapshots: tuple[FooterSnapshot, ...], new_footer: FooterSeen, is_pending: bool
-) -> bool:
+def _is_unrecorded(all_kept_snapshots: tuple[FooterSnapshot, ...], new_footer: FooterSeen) -> bool:
     new_footer_key = footer_key(new_footer)
     return all(
-        each_snapshot.footer_key != new_footer_key or (is_pending and each_snapshot.is_pending)
-        for each_snapshot in all_kept_snapshots
+        each_snapshot.footer_key != new_footer_key or each_snapshot.is_pending for each_snapshot in all_kept_snapshots
     )
 
 
@@ -903,7 +903,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     all_known_tasks = None
     all_kept_snapshots = () if new_footer is None else kept_footer_snapshots(all_hook_input_fields)
     is_pending = new_footer != newest_footer
-    if new_footer is not None and _is_unrecorded(all_kept_snapshots, new_footer, is_pending):
+    if new_footer is not None and _is_unrecorded(all_kept_snapshots, new_footer):
         all_known_tasks = session_tasks(all_hook_input_fields)
         record_footer_jobs(all_hook_input_fields, new_footer, all_known_tasks, all_kept_snapshots, is_pending)
     all_texts = [

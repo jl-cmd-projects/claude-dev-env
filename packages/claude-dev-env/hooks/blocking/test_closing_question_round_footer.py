@@ -144,6 +144,15 @@ def test_should_read_the_whole_reply_when_the_line_above_the_footer_asks_to_pick
     assert list_check_text(wrapped_reply) == wrapped_reply
     paragraph_reply = "Please pick one.\n\nShipped so far:\n\nIn progress:\n- I am shipping 8590."
     assert list_check_text(paragraph_reply) == "Please pick one.\n\nShipped so far:\n"
+    option_reply = (
+        "Done.\n\nIn progress:\n- I need your approval to ship the new build.\n"
+        "- I am watching the ledger.\n- I can keep the old build.\n- I could roll back the patch."
+    )
+    assert list_check_text(option_reply) == (
+        "Done.\n\nIn progress:\n- I need your approval to ship the new build.\n"
+        "- I can keep the old build.\n- I could roll back the patch."
+    )
+    assert list_check_text("Done.\n\nIn progress:\n- I can ship 8590.").strip() == "Done."
 
 
 def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_check_text() -> None:

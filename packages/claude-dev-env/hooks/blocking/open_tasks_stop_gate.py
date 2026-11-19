@@ -167,6 +167,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TASK_ID_KEY,
     TASK_LIST_ID_ENVIRONMENT_VARIABLE,
     TASK_NUMBER_REFERENCE_TEMPLATE,
+    TASK_DESCRIPTION_KEY,
     TASK_STATUS_KEY,
     TASK_SUBJECT_KEY,
     TASKS_DIRECTORY_NAME,
@@ -193,6 +194,7 @@ def _task_file_item(task_file: Path) -> TaskItem | None:
         str(all_task_fields.get(TASK_ID_KEY, task_file.stem)),
         str(all_task_fields.get(TASK_SUBJECT_KEY, "")),
         str(all_task_fields.get(TASK_STATUS_KEY, "")),
+        str(all_task_fields.get(TASK_DESCRIPTION_KEY, "")),
     )
 
 

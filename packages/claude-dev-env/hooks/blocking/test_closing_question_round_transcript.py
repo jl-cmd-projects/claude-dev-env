@@ -80,6 +80,16 @@ def json_lines(all_records: list[dict[str, object]]) -> list[str]:
     return [json.dumps(each_record) for each_record in all_records]
 
 
+def test_last_typed_prompt_position_should_skip_only_a_whole_task_notification() -> None:
+    notice_first_lines = json_lines([
+        {"type": "user", "message": {"role": "user", "content": "Add the flag."}},
+        {"type": "user", "message": {"role": "user", "content": "<task-notification><summary>Done</summary></task-notification>"}},
+    ])
+    assert last_typed_prompt_position(notice_first_lines, NO_DEADLINE) == 0
+    typed_tag_lines = json_lines([{"type": "user", "message": {"role": "user", "content": "<task-notification> is broken. Fix it."}}])
+    assert last_typed_prompt_position(typed_tag_lines, NO_DEADLINE) == 0
+
+
 def test_last_typed_prompt_position_returns_the_last_prompt_with_a_human_turn_origin() -> None:
     all_lines = json_lines(
         [
