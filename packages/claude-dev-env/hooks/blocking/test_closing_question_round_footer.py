@@ -311,6 +311,11 @@ def test_should_keep_the_choices_that_follow_a_question_in_the_footer() -> None:
     assert list_check_text(question_reply) == (
         "Done.\n\nIn progress:\n- Which date works for you?\n- I have Monday free.\n- I have Friday free."
     )
+    embedded_reply = (
+        "Done.\n\nIn progress:\n- I have two rollout slots. Which one works better? Both are available.\n"
+        "- I have a Friday slot.\n- I have a Monday slot."
+    )
+    assert list_check_text(embedded_reply) == embedded_reply
 
 
 def test_should_filter_a_long_mixed_footer_in_linear_time() -> None:

@@ -269,8 +269,9 @@ def list_check_text(closing_reply: str) -> str:
     the lines that open with "I can", "I could", "I would", "I might",
     "I may", "I recommend", "I suggest", "I propose", "I prefer", or
     "I favor" stay too, so the options
-    beside the ask still reach the judge. Every item after an ask that
-    ends with a question mark stays too, since those items answer it. An ask that leaves a choice to
+    beside the ask still reach the judge. Every item after an ask with a
+    sentence that ends with a question mark stays too, since those items
+    answer it. An ask that leaves a choice to
     the user, as "I need you to pick a date." and "I am leaving the date to
     you." do, keeps the whole reply,
     so the choices under it reach the judge whatever they open with. The heading and
@@ -329,8 +330,14 @@ def _kept_items(all_item_lines: list[list[str]], all_is_ask: list[bool]) -> list
         item_text = _item_text(each_item_lines)
         if each_is_ask or is_after_question or OPTION_ITEM_PATTERN.match(MARKDOWN_EMPHASIS_PATTERN.sub("", item_text)):
             all_kept_items.append(each_item_lines)
-        is_after_question = is_after_question or (each_is_ask and item_text.endswith(QUESTION_MARK))
+        is_after_question = is_after_question or (each_is_ask and _has_question(item_text))
     return all_kept_items
+
+
+def _has_question(item_text: str) -> bool:
+    return any(
+        each_sentence.rstrip().endswith(QUESTION_MARK) for each_sentence in SENTENCE_BREAK_PATTERN.split(item_text)
+    )
 
 
 def _lead_paragraph(all_body_lines: list[str]) -> str:

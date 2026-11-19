@@ -764,6 +764,7 @@ def is_footer_still_current(
         footer names #28, #29 started since                       -> False, #29 left out
         footer kept with #28, #30 took its place since            -> False, the tasks changed
         footer names #28 and the jobs it went out with, still running -> True
+        footer sent with #28 alone, a pending task added since       -> True
         footer names only #28, its line says the tests still run     -> True, the jobs it went out with still run
         footer names #28, a job started in the background since    -> False, the jobs changed
         one job took another's place since                         -> False, the jobs changed
@@ -778,7 +779,9 @@ def is_footer_still_current(
     the user about the jobs in a line of their own or in the line of the
     task they serve, as the first stop accepts it. A job that starts, ends,
     or takes another's place makes it owed, while a notice that a job is
-    still going does not.
+    still going does not. When the footer went out with exactly these tasks
+    and jobs, only the tasks in progress set the words a task shares, so a
+    task added as pending since does not make it owed.
 
     Args:
         all_last_footer_lines: The lines of the newest footer sent, or None.
@@ -792,7 +795,8 @@ def is_footer_still_current(
     """
     if all_last_footer_lines is None:
         return False
-    if left_out_tasks(all_last_footer_lines, all_tasks.in_progress, all_tasks.still_open):
+    all_word_tasks = all_tasks.in_progress if were_jobs_in_footer else all_tasks.still_open
+    if left_out_tasks(all_last_footer_lines, all_tasks.in_progress, all_word_tasks):
         return False
     if background_count:
         return were_jobs_in_footer

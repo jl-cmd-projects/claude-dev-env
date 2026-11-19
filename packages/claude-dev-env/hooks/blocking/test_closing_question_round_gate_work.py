@@ -1545,6 +1545,19 @@ def test_should_owe_a_new_footer_when_a_finished_task_starts_again(
     )
 
 
+def test_should_keep_a_footer_that_went_out_with_the_same_work_when_a_pending_task_is_added(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    watch_task = {"id": "28", "subject": "Watch discount ledger", "status": "in_progress"}
+    write_tasks(tmp_path, [watch_task])
+    footer_reply = "The ledger is open.\n\nIn progress:\n- I am watching the ledger."
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(footer_reply)]
+    all_records = [*all_footer_records, notice_record("Ledger checked in"), *edit_records(), reply_record("Still waiting.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, {"last_assistant_message": footer_reply}) is None
+    write_tasks(tmp_path, [watch_task, {"id": "29", "subject": "Open ledger pull request", "status": "pending"}])
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": "Still waiting."}) is None
+
+
 def test_should_keep_the_snapshot_of_a_footer_the_payload_wrote_with_crlf(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
