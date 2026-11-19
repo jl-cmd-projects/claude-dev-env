@@ -4,12 +4,13 @@ Groups: the payload and transcript fields that mark a stop the gate leaves
 alone, the transcript text each cheap scan looks for, the time and size
 budget, the wording that marks an open item, the masking of indented code,
 the old declaration line, the In progress footer and the words its coverage
-check skips, the hold cap, the five hold reasons, and the keyword
+check skips, the hold cap, the six hold reasons, and the keyword
 and flag file that turn the gate off for one session.
 """
 
 from __future__ import annotations
 
+import os
 import re
 
 from hooks_constants.open_tasks_stop_gate_constants import (
@@ -22,6 +23,93 @@ BACKGROUND_TASKS_KEY = "background_tasks"
 SESSION_ATTENDED_ENVIRONMENT_VARIABLE = "CLAUDE_CODE_SESSION_ATTENDED"
 HEADLESS_SESSION_ATTENDED_TEXT = "0"
 TURN_ORIGIN_KEY = "turnOrigin"
+FOOTER_JOBS_MARKER_NAME = "closing-question-round-footer-jobs"
+FOOTER_JOBS_KEY_TEMPLATE = "footer-jobs-{digest}"
+FOOTER_JOBS_FILE_TEMPLATE = "claude-{marker}-{session}.txt"
+FOOTER_JOBS_FILE_MODE = 0o600
+FOOTER_JOBS_TEMP_SUFFIX = ".part"
+MESSAGE_ID_KEY = "id"
+FOOTER_SNAPSHOT_SEPARATOR = " "
+FOOTER_SNAPSHOT_PART_COUNT = 8
+NO_REPLY_KEY = "-"
+FOOTER_SNAPSHOT_LINE_SEPARATOR = "\n"
+FOOTER_SNAPSHOT_KEPT_COUNT = 3
+FOOTER_SNAPSHOT_PENDING_MARK = "pending"
+FOOTER_SNAPSHOT_SENT_MARK = "sent"
+FOOTER_SNAPSHOT_COVERING_MARK = "covers"
+FOOTER_SNAPSHOT_GAP_MARK = "gap"
+FOOTER_SNAPSHOT_UNKNOWN_MARK = ""
+NO_FOLLOW_FLAG = getattr(os, "O_NOFOLLOW", 0)
+FOOTER_JOBS_READ_LIMIT = 1024
+FOOTER_JOBS_TEXT_ENCODING = "ascii"
+FOOTER_JOBS_DIGEST_LENGTH = 32
+FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’](?:m|ve|ll|d)\b)")
+SENTENCE_BREAK_PATTERN = re.compile(r"(?<=[.!?;:])\s+")
+AUTOMATED_SUBJECT_LOOKAHEAD = (
+    r"(?!(?:the\s+|my\s+|its\s+|our\s+|their\s+)?(?:automated\s+|last\s+|remaining\s+)?"
+    r"(?:tests?|checks?|ci|builds?|jobs?|runs?|pipelines?|workflows?|deploys?|deployments?|scans?|linters?|suites?|me|myself)\b)"
+)
+OTHER_PARTY_REQUEST_PATTERN = re.compile(
+    r"\b(?:need|needs|want|wants|waiting\s+for|wait\s+for|ask|asks|asking)\s+(?!to\b)"
+    + AUTOMATED_SUBJECT_LOOKAHEAD
+    + r"[^.!?;]{0,80}?\bto\s+"
+    r"(?:pick|choose|select|approve|confirm|decide|reply|answer|review|sign|say|tell|give|send|share|provide|supply)\b"
+    r"|\b(?:until|once|when|after|unless|before)\s+"
+    + AUTOMATED_SUBJECT_LOOKAHEAD
+    + r"[^.!?;]{0,80}?"
+    r"\b(?:picks|chooses|selects|approves|confirms|decides|answers|replies|reviews|tells|says|signs\s+off|gives|sends|shares|provides|supplies)\b"
+    r"|\b(?:need|needs|want|wants|waiting\s+for|wait\s+for)\b[^.!?;]{0,80}?\bfrom\s+(?:the\s+|a\s+|an\s+|my\s+|our\s+)?"
+    r"(?:owner|user|client|customer|team|lead|manager|reviewer|approver|admin|maintainer|designer|stakeholder)s?\b",
+    re.IGNORECASE,
+)
+NAMED_SOURCE_DEPENDENCY_PATTERN = re.compile(
+    r"\b(?:without|until|once|after|pending|need\w*|want\w*|wait\w*\s+for)\b[^.!?;]{0,60}?"
+    r"\bfrom\s+(?-i:[A-Z][a-z]+)\b",
+    re.IGNORECASE,
+)
+REPLY_PART_JOINER = "\n\n"
+REQUEST_WORD_ALTERNATIVES = (
+    "please|pick|choose|select|approve|confirm|decide|reply|answer|tell|send|review|let|give|share|sign|say|name"
+)
+REQUEST_OPENER_PATTERN = re.compile(
+    r"^\W*(?:(?:next|then|finally|also|now|first|second|third|lastly|and|so)\b\W*)?"
+    rf"(?:{REQUEST_WORD_ALTERNATIVES})\b",
+    re.IGNORECASE,
+)
+USER_MENTION_PATTERN = re.compile(r"\byou(?:r|rs|rself)?\b", re.IGNORECASE)
+USER_CHOICE_LEAD_PATTERN = re.compile(
+    r"\b(?:yours\s+to\s+(?:choose|pick|select|decide)|your\s+(?:call|choice|pick|decision)|(?:you|please)\s+(?:to\s+)?(?:choose|pick|select|decide)"
+    r"|up\s+to\s+you|(?:leav\w*|left|hand\w*|defer\w*)\b[^.!?;]{0,60}?\bto\s+you)\b",
+    re.IGNORECASE,
+)
+PURPOSE_CLAUSE_PATTERN = re.compile(
+    r"\bso(?:\s+that)?\s+(?:you(?:\s+can)?\s+(?:see|know|get|read|follow|have|hear|learn|find|watch|track)"
+    r"|your(?:\s+\w+){1,2}?\s+(?:stays?|remains?|keeps?|updates?|shows?|match(?:es)?|loads?|works?|runs?|arrives?|is|are))\b",
+    re.IGNORECASE,
+)
+PURPOSE_CLAUSE_STAND_IN = "so"
+MARKDOWN_EMPHASIS_PATTERN = re.compile(r"[*_~`]+")
+COORDINATED_REQUEST_PATTERN = re.compile(
+    PURPOSE_CLAUSE_PATTERN.pattern
+    + rf"[^.!?;]{{0,80}}?\b(?:and|or|then)\s+(?:then\s+)?(?:{REQUEST_WORD_ALTERNATIVES})\b",
+    re.IGNORECASE,
+)
+DECISION_WORD_ALTERNATIVES = (
+    r"approv\w*|authori[sz]\w*|decid\w*|decision\w*|sign-?off|go-ahead|green[\s-]?light\w*"
+    r"|clearance|permission|consent|answers?|input|choices?|confirmation|options?|ok(?:ay)?"
+)
+DECISION_WORD_PATTERN = re.compile(rf"\b(?:{DECISION_WORD_ALTERNATIVES})\b", re.IGNORECASE)
+DECISION_DEPENDENCY_PATTERN = re.compile(
+    r"\b(?:wait\w*|need\w*|until|once|after|pending|hold\w*|without|requir\w*|block\w*)\b[^.!?;]{0,40}?"
+    rf"\b(?:{DECISION_WORD_ALTERNATIVES})\b",
+    re.IGNORECASE,
+)
+LEAD_LABEL_END = ":"
+OPTION_ITEM_PATTERN = re.compile(
+    r"^\W*I\s+(?:can|could|would|might|may|recommend|suggest|propose|prefer|favou?r)\b", re.IGNORECASE
+)
+LEAD_PARAGRAPH_JOINER = " "
+ALL_BACKGROUND_JOB_ID_KEYS = ("id", "task_id", "taskId")
 HUMAN_TURN_ORIGIN = "human"
 IS_SIDECHAIN_KEY = "isSidechain"
 ATTENDED_SESSION_TEXT = "1"
@@ -136,6 +224,9 @@ IN_PROGRESS_TASKS_REASON_LEAD = (
 FOOTER_MISSING_REASON_LEAD = (
     "This session did work while work is still in progress and ended without the In progress footer."
 )
+FOOTER_CHANGED_REASON_LEAD = (
+    "This session's work changed since its last In progress footer, and the reply ended without a new one."
+)
 FOOTER_GAP_REASON_LEAD = (
     "This session's In progress footer leaves out work that is still in progress."
 )
@@ -146,6 +237,7 @@ ALL_REASON_LEADS = (
     CLOSING_ROUND_REASON_LEAD,
     IN_PROGRESS_TASKS_REASON_LEAD,
     FOOTER_MISSING_REASON_LEAD,
+    FOOTER_CHANGED_REASON_LEAD,
     FOOTER_GAP_REASON_LEAD,
     CARRIED_TASKS_REASON_LEAD,
 )
@@ -205,6 +297,7 @@ ALL_SUBJECT_SKIP_WORDS = frozenset(
     }
 )
 TASK_KEY_WORD_SEPARATOR = " "
+FOOTER_ITEM_PART_SEPARATOR = " "
 FOOTER_TASK_LINE_TEMPLATE = "- {subject} [{key_words}]"
 FOOTER_TASKS_LABEL = "Work in progress, with the words that name each task in brackets:"
 FOOTER_GAP_LABEL = "Left out of the footer:"
@@ -224,7 +317,9 @@ FOOTER_INSTRUCTION = (
     " Give the work that runs on its own one short clause that says what it gets the user, and do"
     " not list each job or each preparation step. Write the footer in your own words for this"
     " session. Do not end with the line Open items: none. When nothing is in progress and no"
-    " background work runs, end the reply with no closing line."
+    " background work runs, end the reply with no closing line. Send the footer once: a later"
+    " reply ends with it again only when a piece of work started, finished, or changed where it"
+    " stands, so a reply that says nothing is new ends with no footer."
 )
 REASON_PART_SEPARATOR = "\n"
 SCANNED_PARAGRAPH_SEPARATOR = "\n\n"

@@ -162,12 +162,17 @@ class JudgeStub:
 
 @pytest.fixture
 def judge_stub(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> JudgeStub:
-    """Put a stub ``claude`` first on PATH that records each call and prints the answer the test sets."""
+    """Put a stub ``claude`` first on PATH that records each call and prints the answer the test sets.
+
+    The folder holds the script as ``claude`` for POSIX and a ``claude.cmd``
+    that runs it with this Python, which Windows finds through ``PATHEXT``.
+    """
     executable_folder = tmp_path / "bin"
     executable_folder.mkdir()
     stub_path = executable_folder / "claude"
     stub_path.write_text(STUB_SCRIPT_TEMPLATE.format(python=sys.executable))
     stub_path.chmod(0o755)
+    (executable_folder / "claude.cmd").write_text(f'@"{sys.executable}" "%~dp0claude" %*\r\n')
     state_folder = tmp_path / "state"
     state_folder.mkdir()
     monkeypatch.setenv("PATH", str(executable_folder))

@@ -1,0 +1,180 @@
+{
+ "tasks": [
+  {
+   "id": "1",
+   "subject": "Ship pull request 8590",
+   "description": "Get pull request 8590 green and merged.",
+   "activeForm": "Shipping pull request 8590",
+   "status": "in_progress",
+   "blocks": [],
+   "blockedBy": []
+  },
+  {
+   "id": "2",
+   "subject": "Ship pull request 8693",
+   "description": "Get pull request 8693 green and merged.",
+   "activeForm": "Shipping pull request 8693",
+   "status": "in_progress",
+   "blocks": [],
+   "blockedBy": []
+  },
+  {
+   "id": "3",
+   "subject": "Ship pull request 8745",
+   "description": "Get pull request 8745 green and merged.",
+   "activeForm": "Shipping pull request 8745",
+   "status": "in_progress",
+   "blocks": [],
+   "blockedBy": []
+  },
+  {
+   "id": "4",
+   "subject": "Ship pull request 8826",
+   "description": "Get pull request 8826 green and merged.",
+   "activeForm": "Shipping pull request 8826",
+   "status": "in_progress",
+   "blocks": [],
+   "blockedBy": []
+  },
+  {
+   "id": "5",
+   "subject": "Ship pull request 8790",
+   "description": "Get pull request 8790 green and merged.",
+   "activeForm": "Shipping pull request 8790",
+   "status": "in_progress",
+   "blocks": [],
+   "blockedBy": []
+  },
+  {
+   "id": "6",
+   "subject": "Ship pull request 8791",
+   "description": "Get pull request 8791 green and merged.",
+   "activeForm": "Shipping pull request 8791",
+   "status": "in_progress",
+   "blocks": [],
+   "blockedBy": []
+  },
+  {
+   "id": "7",
+   "subject": "Ship pull request 8792",
+   "description": "Get pull request 8792 green and merged.",
+   "activeForm": "Shipping pull request 8792",
+   "status": "in_progress",
+   "blocks": [],
+   "blockedBy": []
+  },
+  {
+   "id": "8",
+   "subject": "Ship pull request 8794",
+   "description": "Get pull request 8794 green and merged.",
+   "activeForm": "Shipping pull request 8794",
+   "status": "in_progress",
+   "blocks": [],
+   "blockedBy": []
+  },
+  {
+   "id": "9",
+   "subject": "Ship pull request 8678",
+   "description": "Get pull request 8678 green and merged.",
+   "activeForm": "Shipping pull request 8678",
+   "status": "in_progress",
+   "blocks": [],
+   "blockedBy": []
+  }
+ ],
+ "footers": {
+  "a": [
+   "I'm working to ship pull request 8590: fixing anything that fails its automated tests, then merging it.",
+   "I'm working to ship pull request 8693: fixing anything that fails its automated tests, then merging it.",
+   "I'm working to ship pull request 8745: fixing anything that fails its automated tests, then merging it.",
+   "I'm working to ship pull request 8826: fixing anything that fails its automated tests, then merging it.",
+   "I'm working to ship pull request 8790, the lowest of the four split pieces: getting it ready, then merging it once it has your approval.",
+   "I'm working to ship pull request 8791: getting it ready now, and it merges after 8790 does.",
+   "I'm working to ship pull request 8792: getting it ready now, and it merges after 8791 does.",
+   "I'm working to ship pull request 8794: getting it ready now, and it merges last of the four.",
+   "I'm working to ship pull request 8678: lifting its hold now, then merging it once 8693 is in."
+  ],
+  "c": [
+   "I'm working to ship pull request 8590: lifting its hold, fixing anything that fails its automated tests, then merging it.",
+   "I'm working to ship pull request 8693: fixing anything that fails its automated tests, then merging it.",
+   "I'm working to ship pull request 8745: fixing anything that fails its automated tests, then merging it.",
+   "I'm working to ship pull request 8826: fixing anything that fails its automated tests, then merging it.",
+   "I'm working to ship pull request 8790, the lowest of the four split pieces: getting it ready, then merging it once it has your approval.",
+   "I'm working to ship pull request 8791: getting it ready now, and it merges after 8790 does.",
+   "I'm working to ship pull request 8792: getting it ready now, and it merges after 8791 does.",
+   "I'm working to ship pull request 8794: getting it ready now, and it merges last of the four.",
+   "I'm working to ship pull request 8678: its hold is off, and it merges once 8693 is in."
+  ]
+ },
+ "turns": [
+  {
+   "kind": "prompt",
+   "text": "If you need to remove the hold from any of the PRs I've named, do it. Same authority applies for all of your subunits. Just do it.",
+   "tools": [
+    "SendMessage"
+   ],
+   "body": "Done: the work on pull request 8678 is running again with your authority. It lifts its hold now and merges once 8693 is in.",
+   "footer": "a",
+   "tracker_body": "The task list now shows pull request 8678 as back in progress with its hold being lifted.",
+   "read_body": "I read the live state of all nine: every one is still open."
+  },
+  {
+   "kind": "notification",
+   "text": "Worker on pull request 8678 is waiting on its own background work.",
+   "tools": [],
+   "body": "The work on pull request 8678 is under way again and now waiting on its own next step; it has not reported a result yet.",
+   "footer": "a",
+   "tracker_body": "The task list shows pull request 8678 in progress.",
+   "read_body": "I read the live state of all nine: every one is still open."
+  },
+  {
+   "kind": "notification",
+   "text": "Worker on pull request 8590 reports its hold label is in the way.",
+   "tools": [
+    "Bash",
+    "Bash",
+    "SendMessage"
+   ],
+   "body": "I read the live state of all nine: every one is still open. I told the work on pull request 8590 that it may lift its hold.",
+   "footer": "c",
+   "tracker_body": "The task list now shows pull request 8590 lifting its hold.",
+   "read_body": "I read the live state of all nine: every one is still open."
+  },
+  {
+   "kind": "notification",
+   "text": "Worker on pull request 8590 is waiting on its own background work.",
+   "tools": [],
+   "body": "The work on pull request 8590 has paused on its own next step and has not reported a result yet.",
+   "footer": "c",
+   "tracker_body": "The task list shows pull request 8590 in progress.",
+   "read_body": "I read the live state of all nine: every one is still open."
+  },
+  {
+   "kind": "notification",
+   "text": "Worker on pull request 8590 is waiting on its own background work.",
+   "tools": [],
+   "body": "The work on pull request 8590 has paused on its own next step and has not reported a result yet.",
+   "footer": "c",
+   "tracker_body": "The task list shows pull request 8590 in progress.",
+   "read_body": "I read the live state of all nine: every one is still open."
+  },
+  {
+   "kind": "notification",
+   "text": "Worker on pull request 8590 is waiting on its own background work.",
+   "tools": [],
+   "body": "The work on pull request 8590 has paused on its own next step and has not reported a result yet.",
+   "footer": "c",
+   "tracker_body": "The task list shows pull request 8590 in progress.",
+   "read_body": "I read the live state of all nine: every one is still open."
+  },
+  {
+   "kind": "notification",
+   "text": "Worker on pull request 8590 is waiting on its own background work.",
+   "tools": [],
+   "body": "The work on pull request 8590 has paused on its own next step and has not reported a result yet.",
+   "footer": "c",
+   "tracker_body": "The task list shows pull request 8590 in progress.",
+   "read_body": "I read the live state of all nine: every one is still open."
+  }
+ ]
+}

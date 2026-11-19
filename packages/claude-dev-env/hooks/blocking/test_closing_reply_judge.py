@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from hooks_constants.closing_reply_judge_constants import JUDGE_PROMPT_TEMPLATE
+
 if TYPE_CHECKING:
     from conftest import JudgeStub
 from closing_reply_judge import (
@@ -45,6 +47,186 @@ def test_should_send_only_the_summary_line_for_a_task_notification() -> None:
         "reply": "Done.",
         "question_tool_used": False,
     }
+
+
+def test_should_send_the_list_check_the_reply_without_its_in_progress_footer() -> None:
+    footer_reply = "Shipped.\n\nIn progress:\n- I am fixing the list reader.\n- I am watching the ledger."
+    all_input_fields = judge_input("Fix the build", footer_reply, False)
+    assert all_input_fields["reply"] == footer_reply
+    assert all_input_fields["list_scope"].strip() == "Shipped."
+
+
+def test_should_drop_a_list_span_from_the_footer_and_keep_the_promise() -> None:
+    footer_reply = "I will send a summary later.\n\nIn progress:\n- I am fixing the list reader.\n- I am watching the ledger.\n- I am shipping 8590."
+    verdict_text = json.dumps(
+        {
+            "promised_report": True,
+            "promise_span": "I will send a summary later.",
+            "decisions_as_list": True,
+            "list_span": "In progress:",
+        }
+    )
+    assert parsed_verdict(verdict_text, footer_reply) == JudgeVerdict("I will send a summary later.", "")
+    prose_heading_reply = f"See In progress: below.\n\n{footer_reply}"
+    assert parsed_verdict(verdict_text, prose_heading_reply) == JudgeVerdict("I will send a summary later.", "")
+
+
+def test_should_keep_a_decision_list_under_an_in_progress_heading_in_the_body() -> None:
+    decisions_reply = (
+        "In progress:\n- Should I delete the backup?\n- Should I merge 8590?\n- Should I close 8693?\n\n"
+        "Pick one when you are back."
+    )
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert parsed_verdict(verdict_text, decisions_reply) == JudgeVerdict("", "In progress:")
+
+
+def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
+    ask_reply = "Shipped.\n\nIn progress:\n- Approve the release.\n- Pick a price.\n- Confirm the date."
+    asking_reply = (
+        "Shipped.\n\nIn progress:\n- I am shipping 8590.\n- I am asking you to approve the release.\n"
+        "- I am watching the ledger."
+    )
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert "list_scope" not in judge_input("Fix the build", ask_reply, False)
+    assert judge_prompt("Fix the build", ask_reply, False).count(json.dumps(ask_reply)[1:-1]) == 1
+    assert parsed_verdict(verdict_text, ask_reply) == JudgeVerdict("", "In progress:")
+    assert parsed_verdict(verdict_text, asking_reply) == JudgeVerdict("", "")
+    holding_reply = (
+        "Shipped.\n\nIn progress:\n- I am holding the release for your approval.\n"
+        "- I am holding the price change for your approval.\n- I am holding the date for your approval."
+    )
+    assert parsed_verdict(verdict_text, holding_reply) == JudgeVerdict("", "In progress:")
+    answer_reply = (
+        "Shipped.\n\nIn progress:\n- I need an answer on the price.\n"
+        "- I need an answer on the date.\n- I need an answer on the deposit."
+    )
+    assert parsed_verdict(verdict_text, answer_reply) == JudgeVerdict("", "In progress:")
+    request_reply = (
+        "Shipped.\n\nIn progress:\n- I am preparing the rollout. Pick a release date.\n"
+        "- I am drafting the notice. Pick a sender.\n- I am pricing the plan. Pick a tier."
+    )
+    assert parsed_verdict(verdict_text, request_reply) == JudgeVerdict("", "In progress:")
+    owner_reply = (
+        "Shipped.\n\nIn progress:\n- I need the owner to pick the release date.\n"
+        "- I need the owner to pick the sender.\n- I need the owner to pick the tier."
+    )
+    assert parsed_verdict(verdict_text, owner_reply) == JudgeVerdict("", "In progress:")
+    choice_reply = (
+        "Shipped.\n\nIn progress:\n- I am holding the sale until the owner picks a date.\n"
+        "- I am holding the notice until the owner picks a sender.\n"
+        "- I am holding the plan until the owner picks a tier."
+    )
+    assert parsed_verdict(verdict_text, choice_reply) == JudgeVerdict("", "In progress:")
+    decision_lead_reply = choice_reply.replace("Pick which option I should ship.", "Pending your decision:")
+    assert parsed_verdict(verdict_text, decision_lead_reply) == JudgeVerdict("", "In progress:")
+    embedded_question_reply = (
+        "Shipped.\n\nIn progress:\n- I am preparing the release. Would Friday work for launch? The build is ready.\n"
+        "- I am pricing the plan. Is ten dollars right? The sheet is open.\n"
+        "- I am painting the logo. Should it be blue? The draft is saved."
+    )
+    assert parsed_verdict(verdict_text, embedded_question_reply) == JudgeVerdict("", "In progress:")
+    semicolon_reply = (
+        "Shipped.\n\nIn progress:\n- I am preparing the launch; please pick a date.\n"
+        "- I am drafting the notice; please pick a sender.\n- I am pricing the plan; please pick a tier."
+    )
+    assert parsed_verdict(verdict_text, semicolon_reply) == JudgeVerdict("", "In progress:")
+    colon_reply = (
+        "Shipped.\n\nIn progress:\n- I am preparing the launch: choose a date.\n"
+        "- I am drafting the notice: choose a sender.\n- I am pricing the plan: choose a tier."
+    )
+    assert parsed_verdict(verdict_text, colon_reply) == JudgeVerdict("", "In progress:")
+    owner_input_reply = (
+        "Shipped.\n\nIn progress:\n- I need a date from the owner.\n"
+        "- I need a price from the owner.\n- I need a plan name from the owner."
+    )
+    assert parsed_verdict(verdict_text, owner_input_reply) == JudgeVerdict("", "In progress:")
+    yours_reply = (
+        "Shipped.\n\nThe release date is yours to set.\n\nIn progress:\n- I can ship on Monday.\n"
+        "- I can ship on Friday.\n- I can ship on the 30th."
+    )
+    assert parsed_verdict(verdict_text, yours_reply) == JudgeVerdict("", "In progress:")
+    named_source_reply = (
+        "Shipped.\n\nIn progress:\n- I cannot ship without a date from Jon.\n"
+        "- I cannot price it without a figure from Mel.\n- I cannot paint it without a color from Ana."
+    )
+    assert parsed_verdict(verdict_text, named_source_reply) == JudgeVerdict("", "In progress:")
+    named_ok_reply = (
+        "Shipped.\n\nIn progress:\n- I am waiting for Jon's OK on the release date.\n"
+        "- I am waiting for Jon's OK on the price.\n- I am waiting for Jon's OK on the logo."
+    )
+    assert parsed_verdict(verdict_text, named_ok_reply) == JudgeVerdict("", "In progress:")
+    sequenced_reply = (
+        "Shipped.\n\nIn progress:\n- I am preparing the launch. Next, choose its date.\n"
+        "- I am pricing the plan. Then, pick the price.\n- I am painting the logo. Finally, select a color."
+    )
+    assert parsed_verdict(verdict_text, sequenced_reply) == JudgeVerdict("", "In progress:")
+    coordinated_reply = (
+        "Shipped.\n\nIn progress:\n- I am listing the dates so you can see them and pick one.\n"
+        "- I am listing the prices so you can read them and choose one.\n"
+        "- I am listing the logos so you can see them and then select one."
+    )
+    assert parsed_verdict(verdict_text, coordinated_reply) == JudgeVerdict("", "In progress:")
+    emphasized_reply = coordinated_reply.replace("pick", "**pick**").replace("choose", "_choose_").replace(
+        "select", "`select`"
+    )
+    assert parsed_verdict(verdict_text, emphasized_reply) == JudgeVerdict("", "In progress:")
+    release_wait_reply = (
+        "Shipped.\n\nIn progress:\n- I am waiting for Jon to authorize the release.\n"
+        "- I need a price from the owner.\n- I am holding the launch until the owner picks a date."
+    )
+    assert parsed_verdict(verdict_text, release_wait_reply) == JudgeVerdict("", "In progress:")
+    supply_reply = (
+        "Shipped.\n\nIn progress:\n- I am waiting for Jon to give me a release date.\n"
+        "- I need the client to send the logo.\n- I am waiting for Jon to share the price sheet."
+    )
+    assert parsed_verdict(verdict_text, supply_reply) == JudgeVerdict("", "In progress:")
+    conditional_reply = (
+        "Shipped.\n\nIn progress:\n- I am holding the release until Jon confirms the date.\n"
+        "- I am holding the export until the lead reviews it.\n"
+        "- I am holding the launch until Jon tells me the price."
+    )
+    assert parsed_verdict(verdict_text, conditional_reply) == JudgeVerdict("", "In progress:")
+    keyword_status_reply = (
+        "Shipped.\n\nIn progress:\n- I am adding input validation.\n"
+        "- I am checking the permission rules.\n- I am updating the decision log."
+    )
+    assert parsed_verdict(verdict_text, keyword_status_reply) == JudgeVerdict("", "")
+    own_step_reply = (
+        "Shipped.\n\nIn progress:\n- I need to review the logs.\n"
+        "- I am waiting for the tests to confirm the fix.\n- I am holding the release until the build confirms it."
+    )
+    assert parsed_verdict(verdict_text, own_step_reply) == JudgeVerdict("", "")
+    choice_reply = (
+        "Pick which option I should ship.\n\nIn progress:\n- I can ship the export first.\n"
+        "- I can ship the ledger first.\n- I can ship both on Friday."
+    )
+    assert parsed_verdict(verdict_text, choice_reply) == JudgeVerdict("", "In progress:")
+    benefit_reply = (
+        "Shipped.\n\nIn progress:\n- I am updating the discount ledger so your prices stay current.\n"
+        "- I am watching the export so your files arrive on time.\n"
+        "- I am refreshing the cache so your pages load fast."
+    )
+    assert parsed_verdict(verdict_text, benefit_reply) == JudgeVerdict("", "")
+    one_ask_reply = (
+        "Shipped.\n\nIn progress:\n- I am shipping 8590.\n- I am merging 8790 once it has your approval.\n"
+        "- I am watching the ledger."
+    )
+    assert parsed_verdict(verdict_text, one_ask_reply) == JudgeVerdict("", "")
+    body_list_reply = (
+        "In progress:\n- Should I delete the backup?\n- Should I merge 8590?\n- Should I close 8693?\n\n"
+        "Pick one when you are back.\n\nIn progress:\n- I am shipping 8590.\n- I am merging 8790 once it has your approval."
+    )
+    assert parsed_verdict(verdict_text, body_list_reply) == JudgeVerdict("", "In progress:")
+
+
+def test_should_tell_the_judge_to_read_the_asks_kept_under_in_progress() -> None:
+    assert "Judge every list in list_scope, those footer lines included." in " ".join(
+        JUDGE_PROMPT_TEMPLATE.split()
+    )
 
 
 def test_should_send_the_command_name_and_args_for_a_slash_command() -> None:
@@ -244,3 +426,46 @@ def test_should_write_one_log_line_per_missing_verdict(monkeypatch: pytest.Monke
     log_no_verdict("the transcript cannot be read")
     [log_line] = _log_text(tmp_path).splitlines()
     assert log_line.endswith("closing reply judge gave no verdict: the transcript cannot be read")
+
+
+def test_should_keep_a_decision_list_that_ends_the_reply_under_in_progress() -> None:
+    decisions_reply = "Done.\n\nIn progress:\n- Should I delete the backup?\n- Should I merge 8590?\n- Should I close 8693?"
+    assert "list_scope" not in judge_input("Fix the build", decisions_reply, False)
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert parsed_verdict(verdict_text, decisions_reply) == JudgeVerdict("", "In progress:")
+
+
+
+def test_should_keep_a_list_verdict_on_numbered_choices_under_one_footer_item() -> None:
+    choices_reply = (
+        "Shipped.\n\nIn progress:\n- I need you to pick a release date:\n"
+        "  1. Monday.\n  2. Wednesday.\n  3. Friday."
+    )
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert parsed_verdict(verdict_text, choices_reply) == JudgeVerdict("", "In progress:")
+
+
+def test_should_keep_a_list_verdict_on_nested_asks_under_a_status_item() -> None:
+    nested_reply = (
+        "Shipped.\n\nIn progress:\n- I am preparing the release\n"
+        "    - Pick Monday\n    - Confirm the price\n    - Approve the rollout"
+    )
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert parsed_verdict(verdict_text, nested_reply) == JudgeVerdict("", "In progress:")
+
+
+def test_should_keep_a_list_verdict_on_a_table_of_choices_under_one_footer_item() -> None:
+    table_reply = (
+        "Shipped.\n\nIn progress:\n- I need you to pick a release date:\n\n"
+        "  | Date |\n  | --- |\n  | Monday |\n  | Wednesday |\n  | Friday |"
+    )
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert parsed_verdict(verdict_text, table_reply) == JudgeVerdict("", "In progress:")

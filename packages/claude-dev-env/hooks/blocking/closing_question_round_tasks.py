@@ -62,12 +62,12 @@ class SessionTasks(NamedTuple):
         in_progress: The tasks the user sees with status ``in_progress``, in task list order.
         still_open: The tasks the user sees with status ``in_progress`` or ``pending``, in task list order.
         carried_in_progress: The desktop plan tasks with status ``in_progress`` that a later list
-            left out, which the user no longer sees.
+            left out, which the user no longer sees. Empty by default.
     """
 
     in_progress: tuple[TaskItem, ...]
     still_open: tuple[TaskItem, ...]
-    carried_in_progress: tuple[TaskItem, ...]
+    carried_in_progress: tuple[TaskItem, ...] = ()
 
 
 def _replay(transcript_path: object) -> TranscriptReplay | None:
