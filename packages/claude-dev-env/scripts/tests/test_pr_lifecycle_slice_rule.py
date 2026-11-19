@@ -118,7 +118,8 @@ def test_the_reference_sets_a_size_bar_after_the_four_tests() -> None:
         "Up to 400 lines fits one review, and about 100 lines reads best.",
         "Over 400 lines, look for a seam that passes the four tests.",
         "When none passes, keep the slice whole and state the reason in the pull request body.",
-        "Over 1,000 lines, put that reason under a `## Why one pull request` heading.",
+        "Over 1,000 lines, split first. Keep it whole only when no seam passes the four tests.",
+        "The gate passes a second create for the same branch and base.",
         "google.github.io/eng-practices/review/developer/small-cls.html",
         "smartbear.com/learn/code-review/best-practices-for-peer-code-review",
     )
