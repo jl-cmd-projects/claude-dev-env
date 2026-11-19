@@ -291,6 +291,27 @@ def test_should_replay_ccd_turn_advance_once_and_skip_request_blob_copies(tmp_pa
     ]
 
 
+def test_should_replay_a_task_rename_and_description_only_after_the_update_succeeds(tmp_path: Path) -> None:
+    def task_call(tool_name: str, all_input: dict[str, object], tool_use_id: str) -> dict[str, object]:
+        tool_block = {"type": "tool_use", "id": tool_use_id, "name": tool_name, "input": all_input}
+        return {"type": "assistant", "message": {"role": "assistant", "content": [tool_block]}}
+
+    def task_result(result_text: str, tool_use_id: str, is_error: bool = False) -> dict[str, object]:
+        result_block = {"type": "tool_result", "tool_use_id": tool_use_id, "content": result_text, "is_error": is_error}
+        return {"type": "user", "message": {"role": "user", "content": [result_block]}}
+
+    all_records = [
+        task_call("TaskCreate", {"subject": "Ship 8590", "description": "Waiting for tests."}, "c1"),
+        task_result("Task #1 created successfully", "c1"),
+        task_call("TaskUpdate", {"taskId": "1", "subject": "Ship 8591"}, "u1"),
+        task_result("Updated task #1", "u1"),
+        task_call("TaskUpdate", {"taskId": "1", "description": "Merged."}, "u2"),
+        task_result("Permission denied", "u2", is_error=True),
+    ]
+    replay = replayed_transcript(str(write_transcript(tmp_path / "t.jsonl", all_records)))
+    assert [(each.subject, each.description) for each in replay.items() or []] == [("Ship 8591", "Waiting for tests.")]
+
+
 def test_should_carry_unfinished_items_after_the_replacing_list(tmp_path: Path) -> None:
     first_items = [
         {"content": "Export the OneUI8 APK", "status": "in_progress"},

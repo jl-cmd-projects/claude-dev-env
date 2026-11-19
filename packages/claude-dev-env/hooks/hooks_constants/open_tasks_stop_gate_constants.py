@@ -16,6 +16,7 @@ TASK_FILE_GLOB = "*.json"
 TASK_ID_KEY = "id"
 TASK_SUBJECT_KEY = "subject"
 TASK_DESCRIPTION_KEY = "description"
+TOOL_RESULT_IS_ERROR_KEY = "is_error"
 TASK_STATUS_KEY = "status"
 PENDING_STATUS = "pending"
 INCOMPLETE_STATUSES = frozenset({PENDING_STATUS, "in_progress"})

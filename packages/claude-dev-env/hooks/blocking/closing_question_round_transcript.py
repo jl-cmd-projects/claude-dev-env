@@ -49,8 +49,6 @@ from hooks_constants.closing_question_round_gate_constants import (
     IS_SIDECHAIN_KEY,
     LAST_ASSISTANT_MESSAGE_KEY,
     SESSION_ATTENDED_ENVIRONMENT_VARIABLE,
-    TASK_NOTIFICATION_CLOSING_TAG,
-    TASK_NOTIFICATION_OPENING_TAG,
     TOOL_RESULT_SCAN_TEXT,
     TOOL_USE_BLOCK_ID_KEY,
     TURN_ORIGIN_KEY,
@@ -68,6 +66,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TOOL_USE_ID_KEY,
 )
 from closing_question_round_lines import before_deadline
+from session.tracking_nudge import is_event_wake
 from open_tasks_transcript_records import (
     _content_blocks,
     claude_prompt_text,
@@ -102,11 +101,7 @@ def _is_typed_prompt_line(transcript_line: str) -> bool:
         return False
     each_record = parsed_object(transcript_line)
     prompt_text = claude_prompt_text(each_record) if each_record is not None else None
-    if prompt_text is None:
-        return False
-    return not (
-        prompt_text.lstrip().startswith(TASK_NOTIFICATION_OPENING_TAG) and TASK_NOTIFICATION_CLOSING_TAG in prompt_text
-    )
+    return prompt_text is not None and not is_event_wake(prompt_text)
 
 
 def _last_prompt_line_position(all_lines: list[str], deadline_at: float) -> int | None:
@@ -127,10 +122,11 @@ def last_typed_prompt_position(all_lines: list[str], deadline_at: float) -> int 
         {"message": {"content": "Add the flag."}}, attended session      -> its position
         a task notification after it, no "turnOrigin", attended session -> the prompt's position
         "<task-notification> is broken. Fix it.", no "turnOrigin"      -> its position, no closing tag
+        "<task-notification>...</task-notification> Why?", no "turnOrigin" -> its position, typed text follows
 
     A line is parsed only when it holds ``"turnOrigin"``. When no record
-    carries that key, the last record that starts a turn and is no task
-    notification counts instead, and
+    carries that key, the last record that starts a turn and is no event
+    wake, as ``tracking_nudge.is_event_wake`` reads one, counts instead, and
     only when ``CLAUDE_CODE_SESSION_ATTENDED`` is ``1``; that second scan
     reads from the end and parses only the lines that hold ``"user"``. Both
     scans raise TimeoutError once the clock reaches ``deadline_at``.

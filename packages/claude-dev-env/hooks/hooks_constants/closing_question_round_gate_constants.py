@@ -82,8 +82,6 @@ DECISION_DEPENDENCY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 LEAD_LABEL_END = ":"
-TASK_NOTIFICATION_OPENING_TAG = "<task-notification>"
-TASK_NOTIFICATION_CLOSING_TAG = "</task-notification>"
 OPTION_ITEM_PATTERN = re.compile(r"^\W*I\s+(?:can|could)\b", re.IGNORECASE)
 LEAD_PARAGRAPH_JOINER = " "
 ALL_BACKGROUND_JOB_ID_KEYS = ("id", "task_id", "taskId")
