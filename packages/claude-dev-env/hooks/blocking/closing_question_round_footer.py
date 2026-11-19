@@ -162,6 +162,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am listing the dates so you can see them and **pick** one." -> True, emphasis is read past
         "Approve the release."                         -> True, not first person
         "I am preparing it. Pick a release date."      -> True, its second sentence is a request
+        "I am preparing the launch: choose a date."    -> True, a request after a colon
         "I am shipping 8590. Its tests are pending."   -> False
         "I am updating the decision log."              -> False, no wait before the word
         "I am holding the release until Jon confirms the date." -> True, it waits on a confirmation

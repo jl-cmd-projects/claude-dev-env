@@ -57,8 +57,6 @@ from hooks_constants.closing_question_round_gate_constants import (
 )
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_QUESTION_TOOL_NAMES,
-    CONTENT_KEY,
-    MESSAGE_KEY,
     RECORD_TYPE_KEY,
     STOP_HOOK_FEEDBACK_PREFIX,
     TEXT_KEY,
@@ -66,7 +64,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
     TOOL_USE_ID_KEY,
-    USER_RECORD_TYPE,
 )
 from closing_question_round_lines import before_deadline
 from open_tasks_transcript_records import (
@@ -74,6 +71,7 @@ from open_tasks_transcript_records import (
     claude_prompt_text,
     is_assistant_record,
     parsed_object,
+    stop_feedback_text,
 )
 
 def _top_level_record(transcript_line: str) -> dict[str, object] | None:
@@ -94,11 +92,7 @@ def _is_stop_feedback_line(transcript_line: str) -> bool:
     if STOP_HOOK_FEEDBACK_PREFIX not in transcript_line:
         return False
     each_record = parsed_object(transcript_line)
-    if each_record is None or each_record.get(RECORD_TYPE_KEY) != USER_RECORD_TYPE:
-        return False
-    message_body = each_record.get(MESSAGE_KEY)
-    content_value = message_body.get(CONTENT_KEY) if isinstance(message_body, dict) else None
-    return isinstance(content_value, str) and content_value.lstrip().startswith(STOP_HOOK_FEEDBACK_PREFIX)
+    return each_record is not None and stop_feedback_text(each_record) is not None
 
 
 def _last_prompt_line_position(all_lines: list[str], deadline_at: float) -> int | None:

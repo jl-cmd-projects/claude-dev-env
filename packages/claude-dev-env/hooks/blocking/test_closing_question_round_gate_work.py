@@ -1044,13 +1044,18 @@ def test_should_owe_a_footer_again_when_the_last_one_left_out_the_background_job
     ).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
+@pytest.mark.parametrize(
+    "feedback_content",
+    ["Stop hook feedback:\nThe task list is stale.", [{"type": "text", "text": "Stop hook feedback:\nThe task list is stale."}]],
+)
 def test_should_save_the_jobs_of_a_footer_sent_again_after_another_hook_held_it(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, feedback_content: object
 ) -> None:
     write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
     two_jobs = [{"id": "ledger"}, {"id": "tests"}]
     all_first_footer = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
-    all_after_feedback = [*all_first_footer, stop_feedback_record("Stop hook feedback:\nThe task list is stale.")]
+    feedback_record = {"type": "user", "isMeta": True, "message": {"role": "user", "content": feedback_content}}
+    all_after_feedback = [*all_first_footer, feedback_record]
     all_records = [*all_after_feedback, reply_record(LEDGER_FOOTER_REPLY), *edit_records(), reply_record("The flag reads well.")]
     assert held_reason(monkeypatch, capsys, tmp_path, all_first_footer, footer_stop_fields([{"id": "ledger"}])) is None
     assert held_reason(monkeypatch, capsys, tmp_path, all_after_feedback, footer_stop_fields(two_jobs)) is None

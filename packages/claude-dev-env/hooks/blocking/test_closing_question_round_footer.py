@@ -199,6 +199,7 @@ def test_should_tell_a_footer_ask_from_a_status_line() -> None:
     assert not is_footer_ask("I am checking the permission rules.")
     assert not is_footer_ask("I am updating the decision log.")
     assert is_footer_ask("I am preparing the release. Would Friday work for launch? The build is ready.")
+    assert is_footer_ask("I am preparing the launch: choose a date.")
     assert is_footer_ask("I am holding the export until the client sends the logo.")
     assert is_footer_ask("I am holding the rollout for a green light from the lead.")
     assert is_footer_ask("I am preparing the launch. Next, choose its date.")
