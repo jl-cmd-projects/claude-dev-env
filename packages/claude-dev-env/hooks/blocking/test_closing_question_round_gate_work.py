@@ -9,6 +9,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     CLOSING_ROUND_REASON_LEAD,
     FOOTER_GAP_REASON_LEAD,
     FOOTER_MISSING_REASON_LEAD,
+    FOOTER_CHANGED_REASON_LEAD,
     IN_PROGRESS_TASKS_REASON_LEAD,
     MAXIMUM_SCANNED_BYTES,
 )
@@ -946,6 +947,42 @@ def test_should_count_the_same_footer_sent_again_after_a_new_notification(
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "tests"}]}) is None
 
 
+def test_should_keep_the_sent_snapshot_when_a_notification_stop_repeats_the_last_reply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(
+        tmp_path,
+        [
+            {"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"},
+            {"id": "29", "subject": LEDGER_SUBJECT, "status": "in_progress"},
+        ],
+    )
+    all_first_footer = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_after_notice = [*all_first_footer, notice_record("Ledger job ended")]
+    all_records = [*all_after_notice, *edit_records(), reply_record("The flag reads well.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_first_footer, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_after_notice, footer_stop_fields([])) is None
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": []})).startswith(
+        FOOTER_MISSING_REASON_LEAD
+    )
+
+
+def test_should_ask_for_a_new_footer_when_a_job_ends_and_the_reply_runs_no_tool(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_first_footer = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_records = [*all_first_footer, notice_record("Ledger job ended"), reply_record("The ledger is done.")]
+    done_fields = {"last_assistant_message": "The ledger is done."}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_first_footer, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(
+        monkeypatch, capsys, tmp_path, all_records, {**done_fields, "background_tasks": [{"id": "ledger"}]}
+    ) is None
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {**done_fields, "background_tasks": []})
+    ).startswith(FOOTER_CHANGED_REASON_LEAD)
+
+
 def test_should_tell_apart_the_same_footer_on_each_side_of_an_answered_question(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
@@ -996,9 +1033,9 @@ def test_should_read_the_footer_snapshot_once_when_later_work_has_no_footer(
     all_snapshot_reads: list[object] = []
     original_read = closing_question_round_gate.kept_footer_snapshot
 
-    def counted_read(all_hook_input_fields: dict[str, object]) -> object:
+    def counted_read(all_hook_input_fields: dict[str, object], footer: object) -> object:
         all_snapshot_reads.append(all_hook_input_fields)
-        return original_read(all_hook_input_fields)
+        return original_read(all_hook_input_fields, footer)
 
     monkeypatch.setattr(closing_question_round_gate, "kept_footer_snapshot", counted_read)
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]}) is None

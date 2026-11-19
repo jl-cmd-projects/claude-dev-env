@@ -31,8 +31,10 @@ FOOTER_JOBS_TEMP_SUFFIX = ".part"
 MESSAGE_ID_KEY = "id"
 FOOTER_SNAPSHOT_SEPARATOR = " "
 FOOTER_SNAPSHOT_PART_COUNT = 3
+FOOTER_SNAPSHOT_LINE_SEPARATOR = "\n"
+FOOTER_SNAPSHOT_KEPT_COUNT = 3
 NO_FOLLOW_FLAG = getattr(os, "O_NOFOLLOW", 0)
-FOOTER_JOBS_READ_LIMIT = 256
+FOOTER_JOBS_READ_LIMIT = 1024
 FOOTER_JOBS_TEXT_ENCODING = "ascii"
 FOOTER_JOBS_DIGEST_LENGTH = 32
 FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’]m\b)")
@@ -46,9 +48,12 @@ OTHER_PARTY_REQUEST_PATTERN = re.compile(
     r"(?:owner|user|client|customer|team|lead|manager|reviewer|approver|admin|maintainer|designer|stakeholder)s?\b",
     re.IGNORECASE,
 )
+REQUEST_WORD_ALTERNATIVES = (
+    "please|pick|choose|select|approve|confirm|decide|reply|answer|tell|send|review|let|give|share|sign|say|name"
+)
 REQUEST_OPENER_PATTERN = re.compile(
     r"^\W*(?:(?:next|then|finally|also|now|first|second|third|lastly|and|so)\b\W*)?"
-    r"(?:please|pick|choose|select|approve|confirm|decide|reply|answer|tell|send|review|let|give|share|sign|say|name)\b",
+    rf"(?:{REQUEST_WORD_ALTERNATIVES})\b",
     re.IGNORECASE,
 )
 USER_MENTION_PATTERN = re.compile(r"\byou(?:r|rs|rself)?\b", re.IGNORECASE)
@@ -58,6 +63,11 @@ PURPOSE_CLAUSE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 PURPOSE_CLAUSE_STAND_IN = "so"
+COORDINATED_REQUEST_PATTERN = re.compile(
+    PURPOSE_CLAUSE_PATTERN.pattern
+    + rf"[^.!?;]{{0,80}}?\b(?:and|or|then)\s+(?:then\s+)?(?:{REQUEST_WORD_ALTERNATIVES})\b",
+    re.IGNORECASE,
+)
 DECISION_DEPENDENCY_PATTERN = re.compile(
     r"\b(?:approv\w*|decid\w*|decision\w*|sign-?off|go-ahead|permission|consent|answers?|input|choices?|confirmation)\b",
     re.IGNORECASE,
@@ -176,6 +186,9 @@ IN_PROGRESS_TASKS_REASON_LEAD = (
 )
 FOOTER_MISSING_REASON_LEAD = (
     "This session did work while work is still in progress and ended without the In progress footer."
+)
+FOOTER_CHANGED_REASON_LEAD = (
+    "This session's work changed since its last In progress footer, and the reply ended without a new one."
 )
 FOOTER_GAP_REASON_LEAD = (
     "This session's In progress footer leaves out work that is still in progress."

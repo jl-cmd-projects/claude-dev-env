@@ -48,6 +48,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     FIRST_PERSON_ITEM_PATTERN,
     FOOTER_TASK_LINE_TEMPLATE,
     OTHER_PARTY_REQUEST_PATTERN,
+    COORDINATED_REQUEST_PATTERN,
     PURPOSE_CLAUSE_PATTERN,
     PURPOSE_CLAUSE_STAND_IN,
     REQUEST_OPENER_PATTERN,
@@ -151,6 +152,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am holding it until the owner picks a date." -> True, it waits on a choice
         "I need a date from the owner."                -> True, it waits on a person
         "I am updating the ledger so your prices stay current." -> False, a benefit clause
+        "I am listing the dates so you can see them and pick one." -> True, a request after the benefit
         "Approve the release."                         -> True, not first person
         "I am preparing it. Pick a release date."      -> True, its second sentence is a request
         "I am shipping 8590. Its tests are pending."   -> False
@@ -162,7 +164,9 @@ def is_footer_ask(footer_item: str) -> bool:
     have, hear, learn, find, watch, or track, or "so your" and one or two
     words with stays, remains, keeps, updates, shows, matches, loads, works,
     runs, arrives, is, or are, leaves the user unnamed, so "so you can
-    approve it first" and "so your team can approve it" still name the user. An item that is not
+    approve it first" and "so your team can approve it" still name the user.
+    A benefit clause followed by and, or, or then and a request word, as
+    "so you can see the dates and pick one", counts as an ask. An item that is not
     first person, that names the user in any other way, that waits on an
     approval, a decision, a sign-off, a go-ahead, permission, consent, an
     answer, input, a choice, or a confirmation from anyone, or that holds an open-item line other than the status markers
@@ -187,6 +191,7 @@ def is_footer_ask(footer_item: str) -> bool:
             for each_sentence in SENTENCE_BREAK_PATTERN.split(footer_item.strip())
         )
         or USER_MENTION_PATTERN.search(PURPOSE_CLAUSE_PATTERN.sub(PURPOSE_CLAUSE_STAND_IN, footer_item)) is not None
+        or COORDINATED_REQUEST_PATTERN.search(footer_item) is not None
         or DECISION_DEPENDENCY_PATTERN.search(footer_item) is not None
         or OTHER_PARTY_REQUEST_PATTERN.search(footer_item) is not None
         or bool(marked_open_lines([status_item], math.inf))

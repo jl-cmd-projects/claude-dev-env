@@ -136,6 +136,12 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
         "- I am pricing the plan. Then, pick the price.\n- I am painting the logo. Finally, select a color."
     )
     assert parsed_verdict(verdict_text, sequenced_reply) == JudgeVerdict("", "In progress:")
+    coordinated_reply = (
+        "Shipped.\n\nIn progress:\n- I am listing the dates so you can see them and pick one.\n"
+        "- I am listing the prices so you can read them and choose one.\n"
+        "- I am listing the logos so you can see them and then select one."
+    )
+    assert parsed_verdict(verdict_text, coordinated_reply) == JudgeVerdict("", "In progress:")
     benefit_reply = (
         "Shipped.\n\nIn progress:\n- I am updating the discount ledger so your prices stay current.\n"
         "- I am watching the export so your files arrive on time.\n"

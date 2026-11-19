@@ -1077,12 +1077,12 @@ LEDGER_SEEN = closing_question_round_gate.FooterSeen(("I am watching the ledger.
 
 
 def shown(all_fields: dict[str, object], footer: object, all_tasks: SessionTasks) -> bool:
-    kept_snapshot = closing_question_round_gate.kept_footer_snapshot(all_fields)
+    kept_snapshot = closing_question_round_gate.kept_footer_snapshot(all_fields, footer)
     return closing_question_round_gate.were_jobs_shown(kept_snapshot, all_fields, footer, all_tasks)
 
 
 def recorded(all_fields: dict[str, object], footer: object) -> bool:
-    kept_snapshot = closing_question_round_gate.kept_footer_snapshot(all_fields)
+    kept_snapshot = closing_question_round_gate.kept_footer_snapshot(all_fields, footer)
     return closing_question_round_gate.is_footer_recorded(kept_snapshot, footer)
 
 
@@ -1115,17 +1115,36 @@ def test_should_know_only_the_newest_footer_snapshot(monkeypatch: pytest.MonkeyP
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     ledger_fields = {"session_id": SESSION_ID, "background_tasks": [{"id": "ledger"}]}
     both_fields = {**ledger_fields, "background_tasks": [{"id": "ledger"}, {"id": "tests"}]}
-    assert closing_question_round_gate.kept_footer_snapshot(ledger_fields) is None
+    assert closing_question_round_gate.kept_footer_snapshot(ledger_fields, LEDGER_SEEN) is None
     assert not shown(ledger_fields, LEDGER_SEEN, NO_TASKS)
     closing_question_round_gate.record_footer_jobs(ledger_fields, LEDGER_SEEN, NO_TASKS)
     assert shown(ledger_fields, LEDGER_SEEN, NO_TASKS)
     closing_question_round_gate.record_footer_jobs(both_fields, LEDGER_SEEN, NO_TASKS)
-    assert closing_question_round_gate.kept_footer_snapshot(ledger_fields) == (
+    assert closing_question_round_gate.kept_footer_snapshot(ledger_fields, LEDGER_SEEN) == (
         closing_question_round_gate.footer_snapshot(both_fields, LEDGER_SEEN, NO_TASKS)
     )
     assert shown(both_fields, LEDGER_SEEN, NO_TASKS)
     assert not shown(ledger_fields, LEDGER_SEEN, NO_TASKS)
     assert not shown(ledger_fields, None, NO_TASKS)
+
+
+def test_should_keep_the_snapshots_of_the_newest_three_footers(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    ledger_fields = {"session_id": SESSION_ID, "background_tasks": [{"id": "ledger"}]}
+    tests_fields = {**ledger_fields, "background_tasks": [{"id": "tests"}]}
+    all_footers = [LEDGER_SEEN._replace(occurrence=each_occurrence) for each_occurrence in range(1, 5)]
+    closing_question_round_gate.record_footer_jobs(ledger_fields, all_footers[0], NO_TASKS)
+    closing_question_round_gate.record_footer_jobs(tests_fields, all_footers[1], NO_TASKS)
+    assert shown(ledger_fields, all_footers[0], NO_TASKS)
+    assert shown(tests_fields, all_footers[1], NO_TASKS)
+    closing_question_round_gate.record_footer_jobs(ledger_fields, all_footers[2], NO_TASKS)
+    closing_question_round_gate.record_footer_jobs(ledger_fields, all_footers[3], NO_TASKS)
+    assert [each.footer_key for each in closing_question_round_gate.kept_footer_snapshots(ledger_fields)] == [
+        closing_question_round_gate.footer_key(each_footer) for each_footer in reversed(all_footers[1:])
+    ]
+    assert not recorded(ledger_fields, all_footers[0])
 
 
 def test_should_know_the_kept_snapshot_names_a_footer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
@@ -1178,7 +1197,8 @@ def test_should_refuse_a_snapshot_name_that_links_to_another_file(
         snapshot_path.symlink_to(planted_path)
     except OSError:
         pytest.skip("this runner cannot make a symlink")
-    assert closing_question_round_gate.kept_footer_snapshot(job_fields) is None
+    assert closing_question_round_gate.kept_footer_snapshot(job_fields, LEDGER_SEEN) is None
+    assert closing_question_round_gate.kept_footer_snapshots(job_fields) == ()
 
 
 def test_should_record_and_read_back_a_long_background_job_set(
