@@ -57,6 +57,8 @@ from hooks_constants.oversized_change_constants import (
     LINGUIST_GENERATED_ATTRIBUTE,
     NUMSTAT_FIELD_COUNT,
     NUMSTAT_FIELD_SEPARATOR,
+    ORIGIN_HEAD_REFERENCE,
+    ORIGIN_REFERENCE_PREFIX,
     OVERSIZED_PULL_REQUEST_REASON,
     RENAME_DETECTION_LIMIT_OPTION,
     SESSION_ID_FIELD,
@@ -84,7 +86,7 @@ def oversized_pull_request_reason(all_payload_fields: Mapping[str, object]) -> s
     One pull request is the repository, head and base the create names.
     Repository falls back to the checkout's top-level folder, then the session
     folder. Head falls back to the checked-out branch. Base falls back to the
-    branch ``gh-merge-base`` names for the head. A refusal records that
+    branch ``gh-merge-base`` names for the head, then to the branch ``origin/HEAD`` names. A refusal records that
     key for the session, so the next create for it passes.
 
     Args:
@@ -122,8 +124,17 @@ def _pull_request_key(create_call: CreateCall, working_directory: str) -> list[s
         working_directory, "rev-parse", "--show-toplevel"
     )
     head_branch = create_call.head or _first_git_line(working_directory, "branch", "--show-current")
-    base_branch = create_call.base or _configured_merge_base(working_directory, create_call.head)
+    base_branch = (
+        create_call.base
+        or _configured_merge_base(working_directory, create_call.head)
+        or _default_base_branch(working_directory)
+    )
     return [repository or working_directory, head_branch or "", base_branch or ""]
+
+
+def _default_base_branch(working_directory: str) -> str | None:
+    origin_head = _first_git_line(working_directory, "symbolic-ref", "--short", ORIGIN_HEAD_REFERENCE)
+    return origin_head.removeprefix(ORIGIN_REFERENCE_PREFIX) if origin_head else None
 
 
 def _first_git_line(working_directory: str, *all_git_arguments: str) -> str | None:

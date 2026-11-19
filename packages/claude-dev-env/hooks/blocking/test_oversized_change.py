@@ -103,8 +103,16 @@ def test_should_pass_a_second_create_at_any_size(tmp_path: Path) -> None:
 
 def test_should_refuse_a_first_create_against_another_base(large_branch: Path) -> None:
     assert size.oversized_pull_request_reason(_create(large_branch, PLAIN_BODY)) is not None
-    named_base_payload = _create(large_branch, PLAIN_BODY, "--base main")
+    _git(large_branch, "push", "--quiet", "origin", "main:parent")
+    _git(large_branch, "fetch", "--quiet", "origin")
+    named_base_payload = _create(large_branch, PLAIN_BODY, "--base parent")
     assert size.oversized_pull_request_reason(named_base_payload) == OVER_BAR_REASON
+    assert size.oversized_pull_request_reason(named_base_payload) is None
+
+
+def test_should_pass_a_second_create_that_names_the_default_base(large_branch: Path) -> None:
+    assert size.oversized_pull_request_reason(_create(large_branch, PLAIN_BODY)) == OVER_BAR_REASON
+    named_base_payload = _create(large_branch, PLAIN_BODY, "--base main")
     assert size.oversized_pull_request_reason(named_base_payload) is None
 
 
