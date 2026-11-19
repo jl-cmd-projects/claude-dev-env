@@ -1055,6 +1055,33 @@ def test_should_not_bind_a_stale_stop_to_the_next_reply_that_shares_its_footer(
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields) is None
 
 
+@pytest.mark.parametrize("is_split", [False, True])
+def test_should_reuse_a_pending_snapshot_for_its_reply_written_as_one_or_two_records(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, is_split: bool
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    ledger_job = [{"id": "ledger"}]
+    body_text = "The retry flag is in place."
+    all_reply_records = [reply_record(LEDGER_FOOTER_REPLY)]
+    if is_split:
+        all_reply_records = [
+            {"type": "assistant", "message": {"id": "m-1", "role": "assistant", "content": [{"type": "text", "text": each_text}]}}
+            for each_text in (body_text, LEDGER_FOOTER)
+        ]
+    all_before_footer = [typed_prompt_record(), *edit_records()]
+    all_footer_records = [*all_before_footer, *all_reply_records]
+    read_records = [
+        tool_call_record("Read", {"file_path": "jobs/export.py"}, tool_use_id="id-read"),
+        tool_result_record("Read", "def export(): ...", tool_use_id="id-read"),
+    ]
+    all_records = [*all_footer_records, notice_record("Ledger job checked in"), *read_records, reply_record("Still waiting.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, footer_stop_fields(ledger_job)) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields(ledger_job)) is None
+    assert held_reason(
+        monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": "Still waiting.", "background_tasks": ledger_job}
+    ) is None
+
+
 def test_should_not_read_a_pending_snapshot_kept_for_a_reply_that_was_never_written(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

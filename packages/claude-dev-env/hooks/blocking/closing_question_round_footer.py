@@ -53,6 +53,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     OTHER_PARTY_REQUEST_PATTERN,
     COORDINATED_REQUEST_PATTERN,
     MARKDOWN_EMPHASIS_PATTERN,
+    NAMED_SOURCE_DEPENDENCY_PATTERN,
     OPTION_ITEM_PATTERN,
     PURPOSE_CLAUSE_PATTERN,
     PURPOSE_CLAUSE_STAND_IN,
@@ -160,6 +161,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am waiting for Jon to give me a release date." -> True, it asks someone to give
         "I am holding it until the owner picks a date." -> True, it waits on a choice
         "I need a date from the owner."                -> True, it waits on a person
+        "I cannot ship without a date from Jon."       -> True, it waits on a named person
         "I am updating the ledger so your prices stay current." -> False, a benefit clause
         "I am listing the dates so you can see them and pick one." -> True, a request after the benefit
         "I am listing the dates so you can see them and **pick** one." -> True, emphasis is read past
@@ -218,6 +220,7 @@ def is_footer_ask(footer_item: str) -> bool:
         )
         or DECISION_DEPENDENCY_PATTERN.search(plain_item) is not None
         or OTHER_PARTY_REQUEST_PATTERN.search(plain_item) is not None
+        or NAMED_SOURCE_DEPENDENCY_PATTERN.search(plain_item) is not None
         or bool(marked_open_lines([status_item], math.inf))
     )
 

@@ -51,6 +51,12 @@ OTHER_PARTY_REQUEST_PATTERN = re.compile(
     r"(?:owner|user|client|customer|team|lead|manager|reviewer|approver|admin|maintainer|designer|stakeholder)s?\b",
     re.IGNORECASE,
 )
+NAMED_SOURCE_DEPENDENCY_PATTERN = re.compile(
+    r"\b(?:without|until|once|after|pending|need\w*|want\w*|wait\w*\s+for)\b[^.!?;]{0,60}?"
+    r"\bfrom\s+(?-i:[A-Z][a-z]+)\b",
+    re.IGNORECASE,
+)
+REPLY_PART_JOINER = "\n"
 REQUEST_WORD_ALTERNATIVES = (
     "please|pick|choose|select|approve|confirm|decide|reply|answer|tell|send|review|let|give|share|sign|say|name"
 )

@@ -157,6 +157,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_SNAPSHOT_LINE_SEPARATOR,
     FOOTER_SNAPSHOT_PART_COUNT,
     NO_REPLY_KEY,
+    REPLY_PART_JOINER,
     FOOTER_SNAPSHOT_PENDING_MARK,
     FOOTER_SNAPSHOT_SENT_MARK,
     FOOTER_SNAPSHOT_SEPARATOR,
@@ -922,8 +923,12 @@ def reply_key(closing_reply: str) -> str:
         "Done.\\n\\nIn progress:\\n- I am shipping 8590."  -> one key
         "Merged.\\n\\nIn progress:\\n- I am shipping 8590." -> another key
         the first reply with white space around it        -> the first key
+        the first reply with its lines broken another way -> the first key
+
+    The digest reads the words alone, so a reply written as two records
+    of one message matches the whole reply the payload carried.
     """
-    return _short_digest([closing_reply.strip()])
+    return _short_digest(closing_reply.split())
 
 
 def _is_written_by_its_stop(
@@ -1019,8 +1024,15 @@ def _newest_footer_reply(all_counted_records: list[dict[str, object]]) -> str | 
     all_footer_positions = _footer_positions(all_counted_records)
     if not all_footer_positions:
         return None
-    all_texts = block_texts(all_counted_records[all_footer_positions[-1]])
-    return all_texts[-1] if all_texts else None
+    footer_record = all_counted_records[all_footer_positions[-1]]
+    footer_message_id = _message_id(footer_record)
+    all_message_records = (
+        [footer_record]
+        if footer_message_id is None
+        else [each_record for each_record in all_counted_records if _message_id(each_record) == footer_message_id]
+    )
+    all_texts = [each_text for each_record in all_message_records for each_text in block_texts(each_record)]
+    return REPLY_PART_JOINER.join(all_texts) if all_texts else None
 
 
 def _capped_hook_input() -> dict[str, object] | None:
