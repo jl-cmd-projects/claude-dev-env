@@ -399,13 +399,35 @@ def is_same_reply(first_reply: str, second_reply: str) -> bool:
     A footer is read line by line, so a reply whose heading and item share
     one line is another reply than one that puts them on two lines, and a
     line indented as an item's continuation differs from the same line
-    unindented.
+    unindented. The lines come from ``reply_lines``.
     """
-    return _reply_lines(first_reply) == _reply_lines(second_reply)
+    return reply_lines(first_reply) == reply_lines(second_reply)
 
 
-def _reply_lines(reply_text: str) -> list[str]:
-    return [each_line.rstrip() for each_line in reply_text.strip().splitlines() if each_line.strip()]
+def reply_lines(reply_text: str) -> list[str]:
+    """Return the lines that decide how a reply reads, with each indent kept.
+
+    ::
+
+        "Done.\n\nIn progress:\n- I am fixing it." -> ["Done.", "In progress:", "- I am fixing it."]
+        "Done.\n\n    TODO: add the flag."        -> ["Done.", "", "    TODO: add the flag."]
+        "Done.\n    TODO: add the flag."          -> ["Done.", "    TODO: add the flag."]
+
+    A blank line stays only above an indented line, where it makes the
+    indented text a code block. Elsewhere blank lines do not change how
+    the reply reads, so a reply written as two records of one message
+    gives the lines the payload's copy gives.
+    """
+    all_lines = [each_line.rstrip() for each_line in reply_text.strip().splitlines()]
+    all_kept_lines: list[str] = []
+    for each_position, each_line in enumerate(all_lines):
+        if each_line:
+            all_kept_lines.append(each_line)
+            continue
+        next_line = all_lines[each_position + 1] if each_position + 1 < len(all_lines) else ""
+        if next_line[:1].isspace() and all_kept_lines and all_kept_lines[-1]:
+            all_kept_lines.append(each_line)
+    return all_kept_lines
 
 
 def _earlier_message_texts(all_lines: list[str], message_id: str | None, deadline_at: float) -> list[str]:

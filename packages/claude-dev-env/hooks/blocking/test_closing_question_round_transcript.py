@@ -5,6 +5,7 @@ import pytest
 
 from closing_question_round_transcript import (
     is_same_reply,
+    reply_lines,
     assistant_texts,
     block_texts,
     closing_reply_texts,
@@ -317,3 +318,9 @@ def test_is_same_reply_reads_lines_and_sets_blank_lines_aside() -> None:
     assert is_same_reply("Done.\n\nIn progress:\n- I am fixing it.", "Done.\nIn progress:\n- I am fixing it.")
     assert not is_same_reply("In progress: - I am fixing it.", "In progress:\n- I am fixing it.")
     assert not is_same_reply("In progress:\n- I am fixing it.\nThe tests run.", "In progress:\n- I am fixing it.\n  The tests run.")
+    assert not is_same_reply("Done.\n\n    TODO: add the flag.", "Done.\n    TODO: add the flag.")
+
+
+def test_reply_lines_keeps_a_blank_line_only_above_an_indented_line() -> None:
+    assert reply_lines("Done.\n\nIn progress:\n- I am fixing it.") == ["Done.", "In progress:", "- I am fixing it."]
+    assert reply_lines("Done.\n\n\n    TODO: add the flag.") == ["Done.", "", "    TODO: add the flag."]

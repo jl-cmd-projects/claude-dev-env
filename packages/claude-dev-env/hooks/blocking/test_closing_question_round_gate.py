@@ -1107,6 +1107,8 @@ def test_should_name_two_replies_that_share_a_footer_apart() -> None:
     done_key = closing_question_round_gate.reply_key("Done.\n\nIn progress:\n- I am shipping 8590.")
     assert done_key == closing_question_round_gate.reply_key("  Done.\n\nIn progress:\n- I am shipping 8590.\n")
     assert done_key != closing_question_round_gate.reply_key("Merged.\n\nIn progress:\n- I am shipping 8590.")
+    assert done_key == closing_question_round_gate.reply_key("Done.\nIn progress:\n- I am shipping 8590.")
+    assert done_key != closing_question_round_gate.reply_key("Done.\n\nIn progress:\n  - I am shipping 8590.")
 
 
 def test_should_name_each_footer_occurrence_apart() -> None:

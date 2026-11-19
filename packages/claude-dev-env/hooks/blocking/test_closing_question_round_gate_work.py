@@ -1453,3 +1453,13 @@ def test_should_read_a_payload_that_moves_the_footer_heading_to_its_own_line(
     footer_reply = f"The retry flag is in place.\n\n{FOOTER}"
     all_records = [typed_prompt_record(), *edit_records(), reply_record(inline_reply)]
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": footer_reply}) is None
+
+
+def test_should_read_a_status_marker_in_a_split_footer_as_status(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    pending_item = "- I am fixing the list reader in pull request 8801. Its last tests are pending."
+    all_records = [typed_prompt_record(), *edit_records(), *split_reply_records("Done.\n\nIn progress:", pending_item)]
+    footer_reply = f"Done.\n\nIn progress:\n{pending_item}"
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": footer_reply}) is None

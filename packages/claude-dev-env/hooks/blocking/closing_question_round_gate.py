@@ -110,11 +110,11 @@ from closing_question_round_open_items import declares_no_open_items, marked_ope
 from closing_question_round_tasks import SessionTasks, session_tasks
 from closing_question_round_transcript import (
     _message_id,
-    assistant_texts,
     block_texts,
     has_work_call,
     is_same_reply,
     last_typed_prompt_position,
+    reply_lines,
     last_written_reply,
     payload_closing_texts,
     stretch_start,
@@ -924,12 +924,14 @@ def reply_key(closing_reply: str) -> str:
         "Done.\\n\\nIn progress:\\n- I am shipping 8590."  -> one key
         "Merged.\\n\\nIn progress:\\n- I am shipping 8590." -> another key
         the first reply with white space around it        -> the first key
-        the first reply with its lines broken another way -> the first key
+        the first reply with one more blank line           -> the first key
+        the first reply with its item indented             -> another key
 
-    The digest reads the words alone, so a reply written as two records
-    of one message matches the whole reply the payload carried.
+    The digest reads the lines ``reply_lines`` keeps, so a reply written as
+    two records of one message matches the whole reply the payload carried,
+    while a reply laid out another way does not.
     """
-    return _short_digest(closing_reply.split())
+    return _short_digest(reply_lines(closing_reply))
 
 
 def _is_written_by_its_stop(
@@ -1015,7 +1017,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         )
     all_texts = [
         _scanned_text(each_text)
-        for each_text in [*assistant_texts(all_stretch_records), *all_payload_texts]
+        for each_text in [*(each_message_text for _, each_message_text, _ in _assistant_messages(all_stretch_records)), *all_payload_texts]
     ]
     if not has_background_work(all_hook_input_fields):
         all_open_item_lines = marked_open_lines(all_texts, deadline_at)
