@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/closing_question_round_transcript.py",
+  "message": "packages/claude-dev-env/hooks/blocking/closing_question_round_transcript.py:368: Function 'last_written_reply' is 33 lines (max 30)",
+  "check_id": "validators/function-line-cap",
+  "severity": "smell",
+  "origin_commit": "e20fd839edbe429a1de62934047056911e105c19"
+}

@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/closing_question_round_footer.py",
+  "message": "packages/claude-dev-env/hooks/blocking/closing_question_round_footer.py:129: Function '_item_line_groups' has nesting depth 3 (max 2)",
+  "check_id": "validators/nesting-depth",
+  "severity": "smell",
+  "origin_commit": "e20fd839edbe429a1de62934047056911e105c19"
+}
