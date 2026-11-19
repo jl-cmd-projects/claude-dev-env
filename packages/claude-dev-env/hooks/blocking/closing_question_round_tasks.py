@@ -114,7 +114,7 @@ def carried_tasks_reason(all_carried_items: Sequence[TaskItem]) -> str:
 
         This session's task list dropped work that was still in progress, so the user no longer sees it.
         Dropped from the list while in progress:
-        - Run Codex rerun 2 on Sol (ends 11:05 PM ET)
+        - Run the nightly export rerun
         The user sees only the newest list, ... put the item on the list once with status
         completed, then send the list again without it. ...
 

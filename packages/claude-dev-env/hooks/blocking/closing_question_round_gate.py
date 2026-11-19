@@ -39,7 +39,8 @@ is carried, and the footer never has to name it.
 - Work with work in progress and no footer holds the stop.
 - A footer that leaves out an in-progress task holds the stop, as
   ``closing_question_round_footer.left_out_tasks`` matches the tasks.
-- A carried ``in_progress`` task holds the stop before any footer check, with
+- In a turn the footer check covers (work, a footer, or the old declaration),
+  a carried ``in_progress`` task holds the stop in place of that check, with
   a reason that names each one and tells the agent to put it back on the
   list when it is still open, or to list it once as completed and then send
   the list again without it. A carried ``pending`` task is not held.
