@@ -142,7 +142,7 @@ def _item_line_groups(all_tail_lines: list[str]) -> list[list[str]]:
 
 def _item_text(all_item_lines: list[str]) -> str:
     item_match = FOOTER_ITEM_LINE_PATTERN.match(all_item_lines[0])
-    first_text = item_match["item"] if item_match is not None else all_item_lines[0].strip()
+    first_text = item_match["item"].rstrip() if item_match is not None else all_item_lines[0].strip()
     return FOOTER_ITEM_PART_SEPARATOR.join([first_text, *(each_line.strip() for each_line in all_item_lines[1:])])
 
 
@@ -282,9 +282,10 @@ def list_check_text(closing_reply: str) -> str:
     whole reply is read. A body that leaves a choice to the user, as "The
     date is yours to choose." or "Please choose a date." do in any
     paragraph, keeps a footer of two or more items whole too, and so does
-    a question or a sentence that opens with a request word, as "Pick a
-    release date." does, in any paragraph above an item that opens with
-    "I can" or another option opener.
+    a question in any paragraph above two or more items, or above an item
+    that opens with "I can" or another option opener, and so does a
+    sentence that opens with a request word, as "Pick a release date."
+    does, above such an option item.
 
     Args:
         closing_reply: The reply the turn ends with.
@@ -337,7 +338,8 @@ def _is_user_choice(all_body_lines: list[str], all_item_lines: list[list[str]]) 
     body_text = MARKDOWN_EMPHASIS_PATTERN.sub("", LEAD_PARAGRAPH_JOINER.join(all_body_lines))
     if len(all_item_lines) > 1 and USER_CHOICE_LEAD_PATTERN.search(body_text) is not None:
         return True
-    if has_option_item and any(each_line.strip().endswith(QUESTION_MARK) for each_line in all_body_lines):
+    is_choice_list = has_option_item or len(all_item_lines) > 1
+    if is_choice_list and any(each_line.strip().endswith(QUESTION_MARK) for each_line in all_body_lines):
         return True
     if has_option_item and any(
         REQUEST_OPENER_PATTERN.match(each_sentence) is not None

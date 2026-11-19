@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+import closing_question_round_transcript
 from closing_question_round_transcript import (
     is_same_reply,
     joined_reply_parts,
@@ -17,7 +18,7 @@ from closing_question_round_transcript import (
     last_typed_prompt_position,
     stretch_start,
     top_level_records,
-    wake_counts,
+    records_with_wake_counts,
 )
 from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_MISSING_REASON_LEAD,
@@ -360,10 +361,29 @@ def test_joined_reply_parts_keeps_the_blank_line_before_an_indented_code_block()
     assert joined_reply_parts(["- Item\n\nDone.", "    echo done"]) == "- Item\n\nDone.\n\n    echo done"
 
 
-def test_wake_counts_counts_the_prompts_before_each_kept_record() -> None:
+def test_records_with_wake_counts_counts_the_prompts_before_each_kept_record() -> None:
     notice_line = json.dumps(
         {"type": "user", "message": {"role": "user", "content": "<task-notification>done</task-notification>"}}
     )
     all_lines = [json.dumps(reply_record("One.")), notice_line, json.dumps(reply_record("Two."))]
-    assert wake_counts(all_lines, NO_DEADLINE) == [0, 1, 1]
-    assert wake_counts([notice_line], NO_DEADLINE) == [1]
+    all_records, all_counts = records_with_wake_counts(all_lines, NO_DEADLINE)
+    assert [block_texts(each_record) for each_record in all_records] == [["One."], ["Two."]]
+    assert all_counts == [0, 1, 1]
+    assert records_with_wake_counts([notice_line], NO_DEADLINE) == ([], [1])
+
+
+def test_records_with_wake_counts_parses_each_line_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    all_parsed_lines: list[str] = []
+    original_parse = closing_question_round_transcript.parsed_object
+
+    def counting_parse(transcript_line: str) -> dict[str, object] | None:
+        all_parsed_lines.append(transcript_line)
+        return original_parse(transcript_line)
+
+    monkeypatch.setattr(closing_question_round_transcript, "parsed_object", counting_parse)
+    notice_line = json.dumps(
+        {"type": "user", "message": {"role": "user", "content": "<task-notification>done</task-notification>"}}
+    )
+    all_lines = [json.dumps(reply_record("One.")), notice_line, json.dumps(reply_record("Two."))]
+    records_with_wake_counts(all_lines, NO_DEADLINE)
+    assert sorted(all_parsed_lines) == sorted(all_lines)

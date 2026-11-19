@@ -1545,6 +1545,20 @@ def test_should_owe_a_new_footer_when_a_finished_task_starts_again(
     )
 
 
+def test_should_keep_the_snapshot_of_a_footer_the_payload_wrote_with_crlf(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    ledger_job = [{"id": "ledger"}]
+    all_before_footer = [typed_prompt_record(), *edit_records()]
+    all_footer_records = [*all_before_footer, reply_record(LEDGER_FOOTER_REPLY)]
+    all_records = [*all_footer_records, notice_record("Ledger job checked in"), *read_records(), reply_record("Still waiting.")]
+    crlf_fields = {"last_assistant_message": LEDGER_FOOTER_REPLY.replace("\n", "\r\n"), "background_tasks": ledger_job}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, crlf_fields) is None
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": ledger_job}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields) is None
+
+
 def test_should_not_bind_a_pending_snapshot_to_a_copy_of_its_reply_written_after_a_wake(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

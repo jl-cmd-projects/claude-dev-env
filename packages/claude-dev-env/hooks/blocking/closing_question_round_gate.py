@@ -114,11 +114,11 @@ from closing_question_round_transcript import (
     has_work_call,
     is_same_reply,
     joined_reply_parts,
-    wake_counts,
     last_typed_prompt_position,
     reply_lines,
     last_written_reply,
     payload_closing_texts,
+    records_with_wake_counts,
     stretch_start,
     top_level_records,
 )
@@ -689,8 +689,7 @@ def _covered_session(
         return None
     start_position = stretch_start(all_lines, deadline_at)
     count_start = max(start_position, prompt_position + 1)
-    all_counted_lines = all_lines[count_start:]
-    all_counted_records = top_level_records(all_counted_lines, deadline_at)
+    all_counted_records, all_wake_counts = records_with_wake_counts(all_lines[count_start:], deadline_at)
     all_stretch_records = [
         *top_level_records(all_lines[start_position:count_start], deadline_at),
         *all_counted_records,
@@ -703,7 +702,7 @@ def _covered_session(
         _newest_footer(all_counted_records, count_start),
         count_start,
         written_reply,
-        wake_counts(all_counted_lines, deadline_at),
+        all_wake_counts,
     )
 
 

@@ -297,14 +297,18 @@ def top_level_records(all_lines: list[str], deadline_at: float) -> list[dict[str
     return [each_record for each_record in all_records if each_record is not None]
 
 
-def wake_counts(all_lines: list[str], deadline_at: float) -> list[int]:
-    """Return how many prompts came before each record ``top_level_records`` keeps, then the total.
+def records_with_wake_counts(
+    all_lines: list[str], deadline_at: float
+) -> tuple[list[dict[str, object]], list[int]]:
+    """Return the records ``top_level_records`` keeps, and how many prompts came before each, then the total.
 
     ::
 
-        reply, task notification, reply  -> [0, 1, 1]
-        task notification, reply         -> [1, 1]
-        no lines                         -> [0]
+        reply, task notification, reply  -> ([reply, reply], [0, 1, 1])
+        task notification, reply         -> ([reply], [1, 1])
+        no lines                         -> ([], [0])
+
+    Each line is parsed at most once, for its record and its prompt alike.
 
     The gate reads the lines after the last typed prompt, so each prompt
     there is a wake, such as a task notification. A stop that keeps a
@@ -316,19 +320,26 @@ def wake_counts(all_lines: list[str], deadline_at: float) -> list[int]:
         deadline_at: The monotonic clock reading at which the scan gives up.
 
     Returns:
-        One count for each kept record, in order, and the count of every prompt last.
+        The kept records in order, and one count for each with the count of every prompt last.
 
     Raises:
         TimeoutError: The deadline passed before the scan ended.
     """
+    all_records: list[dict[str, object]] = []
     all_counts: list[int] = []
     wake_count = 0
     for each_line in before_deadline(all_lines, deadline_at):
-        if _may_matter(each_line) and _top_level_record(each_line) is not None:
+        is_mattering = _may_matter(each_line)
+        is_user_line = USER_ROLE_SCAN_TEXT in each_line
+        each_record = parsed_object(each_line) if is_mattering or is_user_line else None
+        if each_record is None:
+            continue
+        if is_mattering and not each_record.get(IS_SIDECHAIN_KEY):
+            all_records.append(each_record)
             all_counts.append(wake_count)
-        if _is_prompt_line(each_line):
+        if is_user_line and claude_prompt_text(each_record) is not None:
             wake_count += 1
-    return [*all_counts, wake_count]
+    return all_records, [*all_counts, wake_count]
 
 
 def block_texts(all_record_fields: dict[str, object]) -> list[str]:

@@ -265,6 +265,14 @@ def test_should_keep_the_options_under_a_request_in_an_earlier_paragraph() -> No
     assert list_check_text(status_reply).strip() == "The release is ready.\n\nAll three dates are available."
 
 
+def test_should_keep_the_choices_under_a_question_in_an_earlier_paragraph() -> None:
+    choice_reply = (
+        "Which of these release dates works for you?\n\nThe build is ready.\n\nIn progress:\n"
+        "- I am offering Monday.\n- I am offering Wednesday.\n- I am offering Friday."
+    )
+    assert list_check_text(choice_reply) == choice_reply
+
+
 def test_should_keep_a_status_item_whose_nested_lines_ask() -> None:
     nested_reply = (
         "Done.\n\nIn progress:\n- I am preparing the release\n"
