@@ -114,6 +114,7 @@ from closing_question_round_transcript import (
     closing_reply_texts,
     has_work_call,
     last_typed_prompt_position,
+    last_written_reply,
     stretch_start,
     top_level_records,
 )
@@ -304,6 +305,7 @@ class CoveredSession(NamedTuple):
         all_counted_records: The stretch records after the last typed prompt, where holds count.
         newest_footer: The newest footer among the counted records, or None.
         count_start: The transcript line where footer counting starts.
+        written_reply: The reply the transcript ends with, or None when a prompt or work comes after it.
     """
 
     all_payload_texts: list[str]
@@ -311,6 +313,7 @@ class CoveredSession(NamedTuple):
     all_counted_records: list[dict[str, object]]
     newest_footer: FooterSeen | None
     count_start: int
+    written_reply: str | None
 
 
 def _message_id(all_record_fields: dict[str, object]) -> str | None:
@@ -564,21 +567,24 @@ def _covered_session(
         *top_level_records(all_lines[start_position:count_start], deadline_at),
         *all_counted_records,
     ]
-    all_payload_texts = closing_reply_texts(all_hook_input_fields, all_lines, deadline_at)
-    all_positions = _footer_positions(all_counted_records)
-    newest_footer = None
-    if all_positions:
-        newest_footer = FooterSeen(
-            split_footer(block_texts(all_counted_records[all_positions[-1]])[-1]).footer_items or (),
-            count_start,
-            len(all_positions),
-        )
     return CoveredSession(
-        all_payload_texts,
+        closing_reply_texts(all_hook_input_fields, all_lines, deadline_at),
         all_stretch_records,
         all_counted_records,
-        newest_footer,
+        _newest_footer(all_counted_records, count_start),
         count_start,
+        last_written_reply(all_lines, deadline_at),
+    )
+
+
+def _newest_footer(all_counted_records: list[dict[str, object]], count_start: int) -> FooterSeen | None:
+    all_positions = _footer_positions(all_counted_records)
+    if not all_positions:
+        return None
+    return FooterSeen(
+        split_footer(block_texts(all_counted_records[all_positions[-1]])[-1]).footer_items or (),
+        count_start,
+        len(all_positions),
     )
 
 
@@ -751,10 +757,7 @@ def _new_footer(
     payload_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     all_footer_items = split_footer(closing_reply).footer_items
     if payload_reply is None:
-        newest_footer = covered_session.newest_footer
-        if newest_footer is None or _has_work_since_footer(covered_session.all_stretch_records):
-            return None
-        return newest_footer if all_footer_items == newest_footer.lines else None
+        return _closing_transcript_footer(all_footer_items, covered_session)
     if not isinstance(payload_reply, str) or payload_reply.strip() != closing_reply.strip():
         return None
     if all_footer_items is None:
@@ -766,6 +769,16 @@ def _new_footer(
     return FooterSeen(tuple(all_footer_items), covered_session.count_start, footer_count + int(is_unwritten))
 
 
+def _closing_transcript_footer(
+    all_footer_items: tuple[str, ...] | None, covered_session: CoveredSession
+) -> FooterSeen | None:
+    newest_footer = covered_session.newest_footer
+    written_reply = covered_session.written_reply
+    if newest_footer is None or written_reply is None or all_footer_items != newest_footer.lines:
+        return None
+    return newest_footer if split_footer(written_reply).footer_items == newest_footer.lines else None
+
+
 def _is_unrecorded(all_hook_input_fields: dict[str, object], new_footer: FooterSeen) -> bool:
     kept_snapshot = kept_footer_snapshot(all_hook_input_fields)
     return kept_snapshot is None or kept_snapshot.footer_key != footer_key(new_footer)
@@ -775,7 +788,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     covered_session = _covered_session(all_hook_input_fields, deadline_at)
     if covered_session is None:
         return None
-    all_payload_texts, all_stretch_records, all_counted_records, newest_footer, _ = covered_session
+    all_payload_texts, all_stretch_records, all_counted_records, newest_footer, _, _ = covered_session
     if prior_hold_count(all_counted_records) >= MAXIMUM_HOLD_COUNT:
         return None
     all_closing_texts = _closing_reply_texts(all_stretch_records, all_payload_texts)

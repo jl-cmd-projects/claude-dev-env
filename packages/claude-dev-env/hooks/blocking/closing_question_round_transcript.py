@@ -290,7 +290,26 @@ def has_work_call(all_stretch_records: list[dict[str, object]]) -> bool:
     )
 
 
-def _last_assistant_text(all_lines: list[str], deadline_at: float) -> str | None:
+def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
+    """Return the text the transcript's last assistant record ends with, or None.
+
+    ::
+
+        prompt, reply "Done."                     -> "Done."
+        prompt, reply "Done.", a later prompt     -> None, a new turn started
+        prompt, reply "Done.", an Edit call       -> None, the record ends with work
+        a question call after "Done." in a record -> "Done.", the call is set aside
+
+    Args:
+        all_lines: The transcript, one JSON record per line.
+        deadline_at: The monotonic clock reading at which the scan gives up.
+
+    Returns:
+        The reply the transcript ends with, or None when a prompt or work comes after it.
+
+    Raises:
+        TimeoutError: The deadline passed before the scan ended.
+    """
     for each_line in before_deadline(reversed(all_lines), deadline_at):
         if _is_prompt_line(each_line):
             return None
@@ -343,7 +362,7 @@ def closing_reply_texts(
     closing_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(closing_reply, str) or not closing_reply.strip():
         return []
-    last_written_text = _last_assistant_text(all_lines, deadline_at)
+    last_written_text = last_written_reply(all_lines, deadline_at)
     if last_written_text is not None and last_written_text.strip() == closing_reply.strip():
         return []
     return [closing_reply]

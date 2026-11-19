@@ -843,6 +843,19 @@ def test_should_keep_a_snapshot_of_a_footer_the_transcript_already_ends_with(
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]}) is None
 
 
+def test_should_not_file_new_jobs_under_a_transcript_footer_sent_before_a_notification(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_after_notice = [*all_footer_records, notice_record("Ledger job ended")]
+    all_records = [*all_after_notice, *edit_records(), reply_record("The flag reads well.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_after_notice, {"background_tasks": [{"id": "tests"}]}) is None
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "tests"}]})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
 def test_should_count_the_same_footer_sent_again_after_a_new_notification(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

@@ -47,6 +47,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_STATUS_STAND_IN,
     FIRST_PERSON_ITEM_PATTERN,
     FOOTER_TASK_LINE_TEMPLATE,
+    OTHER_PARTY_REQUEST_PATTERN,
     PURPOSE_CLAUSE_PATTERN,
     PURPOSE_CLAUSE_STAND_IN,
     REQUEST_OPENER_PATTERN,
@@ -146,6 +147,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I will release it only with an OK from you."  -> True
         "I am holding it until the owner approves."    -> True, it waits on a decision
         "I need an answer on the price."               -> True, it waits on an answer
+        "I need the owner to pick the release date."   -> True, it asks someone to pick
         "Approve the release."                         -> True, not first person
         "I am preparing it. Pick a release date."      -> True, its second sentence is a request
         "I am shipping 8590. Its tests are pending."   -> False
@@ -162,7 +164,9 @@ def is_footer_ask(footer_item: str) -> bool:
     "pending", "blocked", "not done", and "not run" may ask the user
     something, so it counts as an ask. A later sentence that opens with a
     request word such as please, pick, choose, approve, or confirm counts as
-    an ask too, so a request after a status sentence is kept.
+    an ask too, so a request after a status sentence is kept, and so does
+    an item that needs, wants, waits for, or asks someone to pick, choose,
+    approve, confirm, decide, or answer.
     """
     status_item = FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, footer_item)
     return (
@@ -173,6 +177,7 @@ def is_footer_ask(footer_item: str) -> bool:
         )
         or USER_MENTION_PATTERN.search(PURPOSE_CLAUSE_PATTERN.sub(PURPOSE_CLAUSE_STAND_IN, footer_item)) is not None
         or DECISION_DEPENDENCY_PATTERN.search(footer_item) is not None
+        or OTHER_PARTY_REQUEST_PATTERN.search(footer_item) is not None
         or bool(marked_open_lines([status_item], math.inf))
     )
 

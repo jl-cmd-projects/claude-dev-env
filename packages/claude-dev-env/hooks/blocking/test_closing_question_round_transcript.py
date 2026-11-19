@@ -7,6 +7,7 @@ from closing_question_round_transcript import (
     assistant_texts,
     block_texts,
     closing_reply_texts,
+    last_written_reply,
     has_work_call,
     last_typed_prompt_position,
     stretch_start,
@@ -197,6 +198,15 @@ def test_assistant_texts_reads_only_assistant_records() -> None:
         reply_record("Three."),
     ]
     assert assistant_texts(all_stretch_records) == ["One.", "Three."]
+
+
+def test_last_written_reply_returns_the_reply_only_while_no_prompt_or_work_follows_it() -> None:
+    all_lines = json_lines([typed_prompt_record(), reply_record("Both tests pass.")])
+    assert last_written_reply(all_lines, NO_DEADLINE) == "Both tests pass."
+    assert last_written_reply([*all_lines, *json_lines([typed_prompt_record("Run it again.")])], NO_DEADLINE) is None
+    edit_call = {"type": "tool_use", "id": "id-edit", "name": "Edit", "input": {}}
+    edit_record = {"type": "assistant", "message": {"role": "assistant", "content": [edit_call]}}
+    assert last_written_reply([*all_lines, *json_lines([edit_record])], NO_DEADLINE) is None
 
 
 def test_closing_reply_texts_reads_a_closing_reply_the_transcript_does_not_end_with() -> None:
