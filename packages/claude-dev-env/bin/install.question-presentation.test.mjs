@@ -228,7 +228,7 @@ test('enabling pstack after a pstack-off install preserves question guidance', (
     const updatedGuidance = readFileSync(codexGuidancePath, 'utf8');
     assert.ok(updatedGuidance.includes(firstGuidance));
     assert.doesNotMatch(updatedGuidance, /<!-- claude-dev-env skill load: start -->/);
-    assert.match(updatedGuidance, /^feature, refactoring: gpt-6-sol$/m);
+    assert.match(updatedGuidance, /^feature, refactoring: gpt-6\.2-sol$/m);
     assert.match(readFileSync(join(homeDirectory, '.codex', 'pstack-models.md'), 'utf8'), /^session hook: on$/m);
 });
 

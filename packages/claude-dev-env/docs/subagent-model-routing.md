@@ -35,9 +35,14 @@ example, change the `terra` and `medium` entry in `replacements` to:
 
 The next routing call reads the file again. The resolver source stays unchanged.
 
+The shipped policy approves Sol (`gpt-6.2-sol`) at High and Xhigh. Sol Max
+and Terra Max route to Sol Xhigh. Astra has no approved pair, and a request that
+names Astra at any effort routes to Sol Xhigh. The advisor default is Sol Xhigh.
+
 Selector exclusions keep a pair out of panels. They do not change direct route
 decisions. The shipped policy keeps Sol Medium out of panels and routes direct
-requests for Sol Medium to Luna Max through `replacements`. Sol Medium is absent
+worker requests for Sol Medium to Luna Max through `roleReplacements`. Advisor
+requests for Sol Low or Sol Medium route to Sol Xhigh. Sol Medium is absent
 from `approvedPairs`. The selector drops the requested pair before routing it,
 so its Luna replacement does not enter the panel through that preference.
 
@@ -47,10 +52,11 @@ so its Luna replacement does not enter the panel through that preference.
 ]
 ```
 
-The matching replacement is:
+The matching worker replacement is:
 
 ```json
 {
+  "role": "worker",
   "requested": {"model": "sol", "effort": "medium"},
   "selected": {"model": "luna", "effort": "max"}
 }

@@ -107,7 +107,7 @@ def test_sendmessage_reply_wait_is_positive_bound() -> None:
 
 @pytest.mark.parametrize("tier_name", ["Astra", "astra", "ASTRA", " Astra "])
 def test_resolve_codex_model_id_maps_astra(tier_name: str) -> None:
-    assert resolve_codex_model_id(tier_name) == "gpt-6-astra"
+    assert resolve_codex_model_id(tier_name) == "gpt-6.2-sol"
 
 
 def test_resolve_codex_model_id_rejects_old_sol_tier() -> None:

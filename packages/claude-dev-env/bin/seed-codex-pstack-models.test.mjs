@@ -27,12 +27,16 @@ test('fresh Codex home gets the selected roles and hook setting', (context) => {
     const sheet = readFileSync(join(codexHome, 'pstack-models.md'), 'utf8');
     const agents = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
     assert.deepEqual(paths, [join(codexHome, 'pstack-models.md'), join(codexHome, 'AGENTS.md')]);
-    assert.match(sheet, /^feature, refactoring: gpt-6-sol$/m);
-    assert.match(sheet, /^bug-fix: gpt-6-astra$/m);
+    assert.match(sheet, /^feature, refactoring: gpt-6\.2-sol$/m);
+    assert.match(sheet, /^bug-fix: gpt-6\.2-sol$/m);
     assert.match(sheet, /^how explorer: gpt-6-luna$/m);
-    assert.match(sheet, /^arena runners: gpt-6-astra, gpt-6-sol, gpt-6-luna$/m);
+    assert.match(sheet, /^arena runners: gpt-6\.2-sol, gpt-6\.2-sol, gpt-6-luna$/m);
+    assert.match(sheet, /^Panel entries use xhigh, max, xhigh in the listed order\.$/m);
+    assert.doesNotMatch(sheet, /gpt-[\w.]*-astra/i);
+    assert.doesNotMatch(sheet, /\bAstra roles\b/i);
     assert.match(sheet, /^session hook: on$/m);
-    assert.match(agents, /^feature, refactoring: gpt-6-sol$/m);
+    assert.match(agents, /^feature, refactoring: gpt-6\.2-sol$/m);
+    assert.doesNotMatch(agents, /gpt-[\w.]*-astra/i);
     assert.doesNotMatch(agents, /^session hook:/m);
     assert.equal(readFileSync(join(claudeHome, 'CLAUDE.md'), 'utf8'), 'Claude guidance\n');
     assert.equal(existsSync(join(claudeHome, 'pstack-models.md')), false);
@@ -93,7 +97,7 @@ test('a question-only Codex file receives model defaults and keeps its block', (
     assert.deepEqual(paths, [join(codexHome, 'pstack-models.md'), join(codexHome, 'AGENTS.md')]);
     assert.match(readFileSync(join(codexHome, 'pstack-models.md'), 'utf8'), /^session hook: on$/m);
     const agents = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
-    assert.match(agents, /^feature, refactoring: gpt-6-sol$/m);
+    assert.match(agents, /^feature, refactoring: gpt-6\.2-sol$/m);
     assert.ok(agents.endsWith(QUESTION_GUIDANCE));
 });
 
@@ -147,7 +151,7 @@ for (const [label, existingGuidance] of [
 
         assert.deepEqual(paths, [join(codexHome, 'pstack-models.md'), join(codexHome, 'AGENTS.md')]);
         const agents = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
-        assert.match(agents, /^feature, refactoring: gpt-6-sol$/m);
+        assert.match(agents, /^feature, refactoring: gpt-6\.2-sol$/m);
         assert.ok(agents.endsWith(existingGuidance));
     });
 }
