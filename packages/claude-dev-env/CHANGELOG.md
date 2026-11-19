@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.133.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.1...claude-dev-env-v8.133.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* **hooks:** send the In progress footer once per change ([#2466](https://github.com/jl-cmd-projects/claude-dev-env/issues/2466)) ([41a54f9](https://github.com/jl-cmd-projects/claude-dev-env/commit/41a54f914535ac570fd6943f08f057bb53da407f))
+
 ## [8.133.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.0...claude-dev-env-v8.133.1) (2026-11-19)
 
 
