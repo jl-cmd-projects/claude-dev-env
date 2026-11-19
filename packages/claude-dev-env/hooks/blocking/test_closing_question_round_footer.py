@@ -255,6 +255,16 @@ def test_should_keep_every_option_when_the_lead_leaves_the_choice_to_the_user() 
     assert list_check_text(status_reply).strip() == "The release is set."
 
 
+def test_should_keep_a_status_item_whose_nested_lines_ask() -> None:
+    nested_reply = (
+        "Done.\n\nIn progress:\n- I am preparing the release\n"
+        "    - Pick Monday\n    - Confirm the price\n    - Approve the rollout"
+    )
+    assert list_check_text(nested_reply) == nested_reply
+    status_reply = "Done.\n\nIn progress:\n- I am preparing the release\n    - The notes are ready"
+    assert list_check_text(status_reply).strip() == "Done."
+
+
 def test_should_keep_every_choice_under_a_footer_ask_to_pick() -> None:
     pick_reply = "Done.\n\nIn progress:\n- I need you to pick a date.\n- I have Monday free.\n- I have Friday free."
     assert list_check_text(pick_reply) == pick_reply

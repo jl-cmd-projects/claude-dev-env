@@ -65,7 +65,6 @@ NAMED_SOURCE_DEPENDENCY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 REPLY_PART_JOINER = "\n\n"
-LIST_ITEM_LINE_PATTERN = re.compile(r"(?:[-*+]|\d+[.)])\s")
 REQUEST_WORD_ALTERNATIVES = (
     "please|pick|choose|select|approve|confirm|decide|reply|answer|tell|send|review|let|give|share|sign|say|name"
 )

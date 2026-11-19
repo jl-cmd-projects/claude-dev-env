@@ -49,6 +49,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_STATUS_MARKER_PATTERN,
     FOOTER_STATUS_STAND_IN,
     FIRST_PERSON_ITEM_PATTERN,
+    LIST_ITEM_LINE_PATTERN,
     FOOTER_TASK_LINE_TEMPLATE,
     OTHER_PARTY_REQUEST_PATTERN,
     COORDINATED_REQUEST_PATTERN,
@@ -143,6 +144,23 @@ def _item_text(all_item_lines: list[str]) -> str:
     item_match = FOOTER_ITEM_LINE_PATTERN.match(all_item_lines[0])
     first_text = item_match["item"] if item_match is not None else all_item_lines[0].strip()
     return FOOTER_ITEM_PART_SEPARATOR.join([first_text, *(each_line.strip() for each_line in all_item_lines[1:])])
+
+
+def _is_ask_item(all_item_lines: list[str]) -> bool:
+    if is_footer_ask(_item_text(all_item_lines)):
+        return True
+    for each_line in all_item_lines[1:]:
+        nested_line = each_line.lstrip()
+        if LIST_ITEM_LINE_PATTERN.match(nested_line) is not None and _is_nested_ask(nested_line.split(maxsplit=1)[1]):
+            return True
+    return False
+
+
+def _is_nested_ask(nested_text: str) -> bool:
+    plain_text = MARKDOWN_EMPHASIS_PATTERN.sub("", nested_text).strip()
+    if FIRST_PERSON_ITEM_PATTERN.match(plain_text):
+        return is_footer_ask(nested_text)
+    return REQUEST_OPENER_PATTERN.match(plain_text) is not None or plain_text.endswith(QUESTION_MARK)
 
 
 def is_footer_ask(footer_item: str) -> bool:
@@ -241,11 +259,13 @@ def list_check_text(closing_reply: str) -> str:
         "Please choose which\nI should ship:\n\nIn progress:\n- I can ship A." -> the whole reply, a wrapped request
         "The date is yours to set.\n\nIn progress:\n- I can ship Friday." -> the whole reply, a choice for the user
         "Done.\n\nIn progress:\n- I need you to pick a date.\n- I have Monday free." -> the whole reply
+        "Done.\n\nIn progress:\n- I am preparing it\n    - Pick Monday." -> the whole reply, a nested ask
         "Done."                                                       -> "Done."
 
     A footer line that only says where work stands is required status, so
     the check leaves it out and reads the body with the footer lines that ask
-    the user something, as ``is_footer_ask`` finds them. When one line asks,
+    the user something, as ``is_footer_ask`` finds them, read for the
+    whole item and for each list line nested under it. When one line asks,
     the lines that open with "I can", "I could", "I would", "I might",
     "I may", "I recommend", "I suggest", "I propose", "I prefer", or
     "I favor" stay too, so the options
@@ -278,9 +298,7 @@ def list_check_text(closing_reply: str) -> str:
     heading_position, all_item_lines = found_footer
     if _is_asking_lead(all_lines[:heading_position]) or _is_user_choice(all_lines[:heading_position], all_item_lines):
         return closing_reply
-    all_ask_lines = [
-        each_item_lines for each_item_lines in all_item_lines if is_footer_ask(_item_text(each_item_lines))
-    ]
+    all_ask_lines = [each_item_lines for each_item_lines in all_item_lines if _is_ask_item(each_item_lines)]
     if len(all_ask_lines) == len(all_item_lines) or any(
         USER_CHOICE_LEAD_PATTERN.search(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines))) is not None
         for each_item_lines in all_ask_lines

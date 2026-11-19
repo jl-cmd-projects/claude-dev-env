@@ -45,6 +45,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     ASSISTANT_SCAN_TEXT,
     ATTENDED_SESSION_TEXT,
     FOOTER_HEADING_PATTERN,
+    INDENTED_CODE_LINE_PATTERN,
     HUMAN_TURN_ORIGIN,
     IS_ERROR_KEY,
     IS_SIDECHAIN_KEY,
@@ -492,6 +493,8 @@ def reply_lines(reply_text: str) -> list[str]:
         "Done.\n\n    TODO: add the flag."        -> ["Done.", "", "    TODO: add the flag."]
         "Done.\nIn progress:\n- I am fixing it."   -> ["Done.", "In progress:", "- I am fixing it."]
         "Done.\n\n    In progress:"               -> ["Done.", "", "    In progress:"]
+        "\n    TODO: add the flag."                 -> ["    TODO: add the flag."], a code indent kept
+        "  Done."                                  -> ["Done."]
 
     A run of blank lines stays as one blank line, since it ends a paragraph
     and the open-item scan reads paragraphs. A blank line above a list item
@@ -503,7 +506,11 @@ def reply_lines(reply_text: str) -> list[str]:
     a footer whose heading or list is its own record of one message gives
     the lines the payload's copy gives.
     """
-    all_lines = [each_line.rstrip() for each_line in reply_text.strip().splitlines()]
+    all_lines = [each_line.rstrip() for each_line in reply_text.rstrip().splitlines()]
+    while all_lines and not all_lines[0]:
+        all_lines.pop(0)
+    if all_lines and INDENTED_CODE_LINE_PATTERN.match(all_lines[0]) is None:
+        all_lines[0] = all_lines[0].lstrip()
     all_kept_lines: list[str] = []
     for each_position, each_line in enumerate(all_lines):
         if each_line:

@@ -818,6 +818,16 @@ def test_should_not_count_a_closing_reply_the_transcript_already_holds_twice(
     assert '"Step 1 is deferred."' in str(reason)
 
 
+def test_should_scan_a_payload_that_writes_as_prose_what_the_transcript_holds_as_code(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_records = [typed_prompt_record(), reply_record("    TODO: add the flag.")]
+    prose_fields = {"last_assistant_message": "TODO: add the flag."}
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, prose_fields)).startswith(
+        CLOSING_ROUND_REASON_LEAD
+    )
+
+
 def test_should_not_reread_a_closing_reply_written_before_the_cards(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
@@ -1105,7 +1115,8 @@ def test_should_name_the_footer_tasks_and_background_jobs_the_same_in_any_order(
 
 def test_should_name_two_replies_that_share_a_footer_apart() -> None:
     done_key = closing_question_round_gate.reply_key("Done.\n\nIn progress:\n- I am shipping 8590.")
-    assert done_key == closing_question_round_gate.reply_key("  Done.\n\nIn progress:\n- I am shipping 8590.\n")
+    assert done_key == closing_question_round_gate.reply_key("\n  Done.\n\nIn progress:\n- I am shipping 8590.\n")
+    assert done_key != closing_question_round_gate.reply_key("    Done.\n\nIn progress:\n- I am shipping 8590.")
     assert done_key != closing_question_round_gate.reply_key("Merged.\n\nIn progress:\n- I am shipping 8590.")
     assert done_key == closing_question_round_gate.reply_key("Done.\n\n\nIn progress:\n\n- I am shipping 8590.")
     assert done_key == closing_question_round_gate.reply_key("Done.\nIn progress:\n- I am shipping 8590.")

@@ -953,6 +953,7 @@ def reply_key(closing_reply: str) -> str:
         "Done.\\n\\nIn progress:\\n- I am shipping 8590."  -> one key
         "Merged.\\n\\nIn progress:\\n- I am shipping 8590." -> another key
         the first reply with white space around it        -> the first key
+        the first reply with its first line indented as code -> another key
         the first reply with one more blank line           -> the first key
         the first reply with no blank line above "In progress:" -> the first key
         the first reply with its item indented             -> another key

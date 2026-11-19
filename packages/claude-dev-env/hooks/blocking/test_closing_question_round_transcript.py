@@ -335,6 +335,12 @@ def test_reply_lines_reads_a_footer_heading_after_a_blank_line_as_after_a_line_b
     assert reply_lines("Done.\n\n    In progress:") != reply_lines("Done.\n    In progress:")
 
 
+def test_reply_lines_keeps_the_indent_of_the_first_line() -> None:
+    assert reply_lines("\n    TODO: add the flag.\n") == ["    TODO: add the flag."]
+    assert not is_same_reply("    TODO: add the flag.", "TODO: add the flag.")
+    assert is_same_reply("  TODO: add the flag.", "TODO: add the flag.")
+
+
 def test_joined_reply_parts_puts_an_indented_block_on_the_next_line() -> None:
     assert joined_reply_parts(["Done.", "In progress:\n- I am fixing it."]) == "Done.\n\nIn progress:\n- I am fixing it."
     assert joined_reply_parts(["- I am fixing it.", "  The tests run."]) == "- I am fixing it.\n  The tests run."

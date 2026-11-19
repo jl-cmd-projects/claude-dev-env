@@ -449,6 +449,17 @@ def test_should_keep_a_list_verdict_on_numbered_choices_under_one_footer_item() 
     assert parsed_verdict(verdict_text, choices_reply) == JudgeVerdict("", "In progress:")
 
 
+def test_should_keep_a_list_verdict_on_nested_asks_under_a_status_item() -> None:
+    nested_reply = (
+        "Shipped.\n\nIn progress:\n- I am preparing the release\n"
+        "    - Pick Monday\n    - Confirm the price\n    - Approve the rollout"
+    )
+    verdict_text = json.dumps(
+        {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
+    )
+    assert parsed_verdict(verdict_text, nested_reply) == JudgeVerdict("", "In progress:")
+
+
 def test_should_keep_a_list_verdict_on_a_table_of_choices_under_one_footer_item() -> None:
     table_reply = (
         "Shipped.\n\nIn progress:\n- I need you to pick a release date:\n\n"
