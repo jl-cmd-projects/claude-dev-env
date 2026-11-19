@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -1356,3 +1357,62 @@ def test_should_hold_later_work_when_the_footer_shared_its_record_with_a_questio
     ]
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_MISSING_REASON_LEAD)
 
+
+
+def test_should_hold_work_after_a_message_whose_footer_is_followed_by_prose_in_a_later_record(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    closing_prose = "I will read the tests next."
+    all_records = [
+        typed_prompt_record(),
+        *edit_records(),
+        *split_reply_records("Done.\n\nIn progress:", LIST_READER_ITEM, closing_prose),
+    ]
+    joined_reply = f"Done.\n\nIn progress:\n{LIST_READER_ITEM}\n{closing_prose}"
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": joined_reply})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
+def test_should_hold_a_split_footer_that_leaves_out_a_task_when_the_payload_reply_is_blank(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(
+        tmp_path,
+        [
+            {"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"},
+            {"id": "29", "subject": LEDGER_SUBJECT, "status": "in_progress"},
+        ],
+    )
+    all_records = [typed_prompt_record(), *edit_records(), *split_reply_records("Done.\n\nIn progress:", LIST_READER_ITEM)]
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": ""})).startswith(
+        FOOTER_GAP_REASON_LEAD
+    )
+
+
+def test_should_find_the_footers_of_many_messages_in_linear_time() -> None:
+    message_count = 12000
+    all_records = [
+        {"type": "assistant", "message": {"id": f"m-{each_index}", "role": "assistant", "content": [{"type": "text", "text": FOOTER}]}}
+        for each_index in range(message_count)
+    ]
+    started_at = time.process_time()
+    all_positions = closing_question_round_gate._footer_positions(all_records)
+    assert time.process_time() - started_at < 1.0
+    assert all_positions == list(range(message_count))
+
+
+def test_should_save_the_jobs_of_a_split_footer_when_the_payload_reply_is_blank(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    test_job = [{"id": "tests"}]
+    all_footer_records = [typed_prompt_record(), *edit_records(), *split_reply_records("The retry flag is in place.\n\nIn progress:", LEDGER_FOOTER.split("\n", 1)[1])]
+    all_records = [*all_footer_records, notice_record("Ledger job ended"), reply_record("Still waiting.")]
+    ledger_fields = {"last_assistant_message": "", "background_tasks": [{"id": "ledger"}]}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, ledger_fields) is None
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": test_job}
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields)).startswith(
+        FOOTER_CHANGED_REASON_LEAD
+    )

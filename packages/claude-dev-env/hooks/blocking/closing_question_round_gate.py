@@ -329,42 +329,40 @@ def _message_id(all_record_fields: dict[str, object]) -> str | None:
     return message_id if isinstance(message_id, str) and message_id else None
 
 
-def _message_text(all_records: list[dict[str, object]], position: int) -> str:
-    message_id = _message_id(all_records[position])
-    all_message_records = (
-        [all_records[position]]
-        if message_id is None
-        else [each_record for each_record in all_records[: position + 1] if _message_id(each_record) == message_id]
+def _assistant_messages(all_records: list[dict[str, object]]) -> list[tuple[int, str, bool]]:
+    all_parts_by_message: dict[object, list[str]] = {}
+    last_text_positions: dict[object, int] = {}
+    all_tool_message_keys: set[object] = set()
+    for each_position, each_record in enumerate(all_records):
+        message_id = _message_id(each_record)
+        message_key = each_position if message_id is None else message_id
+        if _has_tool_call(each_record):
+            all_tool_message_keys.add(message_key)
+        all_record_texts = block_texts(each_record) if is_assistant_record(each_record) else []
+        if not all_record_texts:
+            continue
+        all_parts_by_message.setdefault(message_key, []).extend(all_record_texts)
+        last_text_positions[message_key] = each_position
+    return sorted(
+        (
+            last_text_positions[each_key],
+            REPLY_PART_JOINER.join(all_parts),
+            each_key in all_tool_message_keys,
+        )
+        for each_key, all_parts in all_parts_by_message.items()
     )
-    return REPLY_PART_JOINER.join(
-        each_text for each_record in all_message_records for each_text in block_texts(each_record)
-    )
+
+
+def _footer_messages(all_records: list[dict[str, object]]) -> list[tuple[int, str]]:
+    return [
+        (each_position, each_text)
+        for each_position, each_text, has_tool_call in _assistant_messages(all_records)
+        if not has_tool_call and split_footer(each_text).footer_items is not None
+    ]
 
 
 def _footer_positions(all_records: list[dict[str, object]]) -> list[int]:
-    all_tool_message_ids = {
-        _message_id(each_record) for each_record in all_records if _has_tool_call(each_record)
-    } - {None}
-    last_text_positions = {
-        _message_id(each_record): each_position
-        for each_position, each_record in enumerate(all_records)
-        if is_assistant_record(each_record) and block_texts(each_record)
-    }
-    all_positions = []
-    for each_position, each_record in enumerate(all_records):
-        if not is_assistant_record(each_record) or _has_tool_call(each_record):
-            continue
-        all_record_texts = block_texts(each_record)
-        if not all_record_texts:
-            continue
-        message_id = _message_id(each_record)
-        if message_id in all_tool_message_ids:
-            continue
-        if message_id is not None and last_text_positions[message_id] != each_position:
-            continue
-        if split_footer(_message_text(all_records, each_position)).footer_items is not None:
-            all_positions.append(each_position)
-    return all_positions
+    return [each_position for each_position, _ in _footer_messages(all_records)]
 
 
 def _has_tool_call(all_record_fields: dict[str, object]) -> bool:
@@ -696,26 +694,19 @@ def _covered_session(
 
 
 def _newest_footer(all_counted_records: list[dict[str, object]], count_start: int) -> FooterSeen | None:
-    all_positions = _footer_positions(all_counted_records)
-    if not all_positions:
+    all_footer_messages = _footer_messages(all_counted_records)
+    if not all_footer_messages:
         return None
     return FooterSeen(
-        split_footer(_message_text(all_counted_records, all_positions[-1])).footer_items or (),
+        split_footer(all_footer_messages[-1][1]).footer_items or (),
         count_start,
-        len(all_positions),
+        len(all_footer_messages),
     )
 
 
 def _has_work_since_footer(all_stretch_records: list[dict[str, object]]) -> bool:
-    start_position = 0
-    for each_position in range(len(all_stretch_records) - 1, -1, -1):
-        each_record = all_stretch_records[each_position]
-        all_record_texts = block_texts(each_record) if is_assistant_record(each_record) else []
-        if has_work_call([each_record]) or not all_record_texts:
-            continue
-        if split_footer(_message_text(all_stretch_records, each_position)).footer_items is not None:
-            start_position = each_position + 1
-            break
+    all_footer_positions = _footer_positions(all_stretch_records)
+    start_position = all_footer_positions[-1] + 1 if all_footer_positions else 0
     return has_work_call(all_stretch_records[start_position:])
 
 
@@ -728,7 +719,8 @@ def _closing_reply_texts(
         if has_work_call([each_record])
     ]
     first_closing_position = all_work_positions[-1] + 1 if all_work_positions else 0
-    return [*assistant_texts(all_stretch_records[first_closing_position:]), *all_payload_texts]
+    all_closing_messages = _assistant_messages(all_stretch_records[first_closing_position:])
+    return [*(each_text for _, each_text, _ in all_closing_messages), *all_payload_texts]
 
 
 def _missing_footer_lead(
@@ -914,7 +906,7 @@ def _closing_transcript_footer(
     written_reply = covered_session.written_reply
     if newest_footer is None or written_reply is None or all_footer_items != newest_footer.lines:
         return None
-    if split_footer(written_reply).footer_items != newest_footer.lines:
+    if split_footer(_newest_footer_reply(covered_session.all_counted_records) or "").footer_items != newest_footer.lines:
         return None
     return newest_footer if _is_newest_footer_last_text(covered_session.all_counted_records) else None
 
@@ -1045,10 +1037,10 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
 
 
 def _newest_footer_reply(all_counted_records: list[dict[str, object]]) -> str | None:
-    all_footer_positions = _footer_positions(all_counted_records)
-    if not all_footer_positions:
+    all_footer_messages = _footer_messages(all_counted_records)
+    if not all_footer_messages:
         return None
-    return _message_text(all_counted_records, all_footer_positions[-1]) or None
+    return all_footer_messages[-1][1] or None
 
 
 def _capped_hook_input() -> dict[str, object] | None:
