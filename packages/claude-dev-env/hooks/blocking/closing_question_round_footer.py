@@ -336,7 +336,8 @@ def _kept_items(all_item_lines: list[list[str]], all_is_ask: list[bool]) -> list
 
 def _has_question(item_text: str) -> bool:
     return any(
-        each_sentence.rstrip().endswith(QUESTION_MARK) for each_sentence in SENTENCE_BREAK_PATTERN.split(item_text)
+        each_sentence.rstrip().endswith(QUESTION_MARK)
+        for each_sentence in SENTENCE_BREAK_PATTERN.split(MARKDOWN_EMPHASIS_PATTERN.sub("", item_text))
     )
 
 

@@ -1558,6 +1558,25 @@ def test_should_keep_a_footer_that_went_out_with_the_same_work_when_a_pending_ta
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": "Still waiting."}) is None
 
 
+def test_should_still_owe_a_footer_that_left_a_task_out_when_the_work_has_not_changed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(
+        tmp_path,
+        [
+            {"id": "28", "subject": "Watch discount ledger", "status": "in_progress"},
+            {"id": "29", "subject": "Open ledger pull request", "status": "pending"},
+        ],
+    )
+    footer_reply = "The ledger is open.\n\nIn progress:\n- I am watching the ledger."
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(footer_reply)]
+    all_records = [*all_footer_records, notice_record("Ledger checked in"), *edit_records(), reply_record("Still waiting.")]
+    first_reason = held_reason(monkeypatch, capsys, tmp_path, all_footer_records, {"last_assistant_message": footer_reply})
+    assert str(first_reason).startswith(FOOTER_GAP_REASON_LEAD)
+    second_reason = held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": "Still waiting."})
+    assert str(second_reason).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
 def test_should_keep_the_snapshot_of_a_footer_the_payload_wrote_with_crlf(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
