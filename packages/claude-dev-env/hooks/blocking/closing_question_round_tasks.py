@@ -115,8 +115,8 @@ def carried_tasks_reason(all_carried_items: Sequence[TaskItem]) -> str:
         This session's task list dropped work that was still in progress, and the user's list does not show it.
         Dropped from the list while in progress:
         - Run the nightly export rerun
-        The user sees only the newest list, ... put the item on the list once with status
-        completed, then send the list again without it. ...
+        The user sees only the newest list, ... send two calls: the first puts the item on the
+        list with status completed, and the second sends the list again without it. ...
 
     Args:
         all_carried_items: The carried tasks with status ``in_progress``.

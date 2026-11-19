@@ -70,8 +70,12 @@ def test_should_hold_a_list_that_dropped_in_progress_work_and_not_ask_the_footer
     reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records))
     assert reason.startswith(CARRIED_REASON_LEAD)
     assert f"\n- {RERUN_SUBJECT}\n" in reason
-    assert "status completed, then send the list again without it" in reason
-    assert "When the work is still open, put the item back on the list" in reason
+    assert "When the work is still open, send one call that puts the item back on the list" in reason
+    assert (
+        "send two calls: the first puts the item on the list with status completed,"
+        " and the second sends the list again without it"
+    ) in reason
+    assert "Send one mcp__ccd_turn__update_plan" not in reason
     assert JUDGE_SUBJECT not in reason
     assert FOOTER_GAP_REASON_LEAD not in reason
 

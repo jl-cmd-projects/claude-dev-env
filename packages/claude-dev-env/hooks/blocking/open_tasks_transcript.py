@@ -15,8 +15,13 @@ A desktop plan call either lists items or moves the current list::
     {"advance": true}                            -> complete the in_progress item, start the next pending
 
 The user sees only the newest list. ``shown_items`` leaves the carried items
-out, and ``carried_items`` returns them. A later list closes a carried item
-when it holds the same subject, in any letter case, with status ``completed``.
+out, and ``carried_items`` returns them. A later list that holds a carried
+item's subject again, in any letter case and with any status, takes the item
+off the carried part. The item is then on the newest list with the status that
+list gives it::
+
+    carried "Run the rerun" in_progress, list 3 holds "run the rerun" pending
+        -> shown: "run the rerun" pending; carried: none
 
 Only ``assistant`` records count for a desktop plan call, because Claude Code
 also copies each call into ``api-request-blob`` records.

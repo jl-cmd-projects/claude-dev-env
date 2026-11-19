@@ -516,6 +516,74 @@ def test_should_count_completed_items_only_beside_open_ones() -> None:
     assert open_tasks_stop_gate.stale_list_reason([open_item]) is None
 
 
+RERUN_SUBJECT = "Run the nightly export rerun"
+READER_SUBJECT = "Fix the list reader"
+NOTES_SUBJECT = "Write the release notes"
+
+
+def plan_call_record(all_items: list[tuple[str, str]], scope: str = "continuation") -> dict[str, object]:
+    all_entries = [{"content": each_subject, "status": each_status} for each_subject, each_status in all_items]
+    return tool_call_record("mcp__ccd_turn__update_plan", {"items": all_entries, "scope": scope})
+
+
+def test_should_leave_a_carried_plan_item_out_of_the_completed_beside_open_hold(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(
+        tmp_path / "s.jsonl",
+        [
+            user_prompt_record("did the export fail?"),
+            plan_call_record([(RERUN_SUBJECT, "in_progress")], scope="first_task"),
+            plan_call_record([(READER_SUBJECT, "completed")]),
+        ],
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path) == {}
+
+
+@pytest.mark.parametrize("all_first_items", [[], [(RERUN_SUBJECT, "in_progress")]])
+def test_should_count_only_the_shown_plan_list_when_it_holds_completed_beside_open(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    all_first_items: list[tuple[str, str]],
+) -> None:
+    transcript_path = write_records(
+        tmp_path / "s.jsonl",
+        [
+            user_prompt_record("did the export fail?"),
+            plan_call_record(all_first_items, scope="first_task"),
+            plan_call_record([(READER_SUBJECT, "completed"), (NOTES_SUBJECT, "pending")]),
+        ],
+    )
+    block_output = run_gate(monkeypatch, capsys, transcript_path)
+    assert "1 of 2 items are completed" in block_output["reason"]
+
+
+def task_create_records(subject: str, task_number: int) -> list[dict[str, object]]:
+    tool_use_id = f"create-{task_number}"
+    create_block = {"type": "tool_use", "id": tool_use_id, "name": "TaskCreate", "input": {"subject": subject}}
+    result_block = {"type": "tool_result", "tool_use_id": tool_use_id, "content": f"Task #{task_number} created successfully"}
+    return [
+        {"type": "assistant", "message": {"role": "assistant", "content": [create_block]}},
+        {"type": "user", "message": {"role": "user", "content": [result_block]}},
+    ]
+
+
+def test_should_hold_a_task_create_list_with_completed_beside_open(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(
+        tmp_path / "s.jsonl",
+        [
+            user_prompt_record("did the export fail?"),
+            *task_create_records(READER_SUBJECT, 1),
+            *task_create_records(NOTES_SUBJECT, 2),
+            tool_call_record("TaskUpdate", {"taskId": "1", "status": "completed"}),
+        ],
+    )
+    assert "1 of 2 items are completed" in run_gate(monkeypatch, capsys, transcript_path)["reason"]
+
+
 @pytest.mark.parametrize(
     ("all_turn_calls", "expected_text", "absent_text"),
     [
