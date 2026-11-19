@@ -789,6 +789,7 @@ def footer_hold_reason(
     deadline_at: float,
     newest_footer: FooterSeen | None = None,
     all_known_tasks: SessionTasks | None = None,
+    newest_footer_reply: str | None = None,
 ) -> str | None:
     """Return the footer hold reason for the closing reply, or None when the reply may end.
 
@@ -807,6 +808,7 @@ def footer_hold_reason(
             newest footer                                  -> None, a waiting notice
         work, no footer, an earlier footer since the typed
             prompt or answered card still shows the work   -> None, the footer is not sent again
+        a pending snapshot of another reply's footer       -> the snapshot is not read
 
     Args:
         all_hook_input_fields: The Stop payload, read for ``background_tasks``
@@ -820,6 +822,8 @@ def footer_hold_reason(
             None when no reply since then ended with one.
         all_known_tasks: The session's tasks when the caller already read
             them, or None to read them here.
+        newest_footer_reply: The text of the reply the newest footer came in,
+            so a pending snapshot counts only when it was kept for that reply.
 
     Returns:
         The reason, or None.
@@ -833,6 +837,10 @@ def footer_hold_reason(
         return None
     if footer_items is None:
         kept_snapshot = kept_footer_snapshot(all_hook_input_fields, newest_footer)
+        if kept_snapshot is not None and kept_snapshot.is_pending and (
+            newest_footer_reply is None or reply_key(newest_footer_reply) != kept_snapshot.reply_key
+        ):
+            kept_snapshot = None
         is_recorded = is_footer_recorded(kept_snapshot, newest_footer)
         if not is_declared and not did_work and not is_recorded:
             return None
@@ -1003,7 +1011,16 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         deadline_at,
         newest_footer,
         all_known_tasks,
+        _newest_footer_reply(all_counted_records),
     )
+
+
+def _newest_footer_reply(all_counted_records: list[dict[str, object]]) -> str | None:
+    all_footer_positions = _footer_positions(all_counted_records)
+    if not all_footer_positions:
+        return None
+    all_texts = block_texts(all_counted_records[all_footer_positions[-1]])
+    return all_texts[-1] if all_texts else None
 
 
 def _capped_hook_input() -> dict[str, object] | None:

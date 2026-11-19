@@ -157,6 +157,8 @@ def test_should_read_the_whole_reply_when_the_line_above_the_footer_asks_to_pick
     assert list_check_text(need_reply) == need_reply
     yours_reply = "The release date is yours to set.\n\nIn progress:\n- I can ship on Monday.\n- I can ship on Friday.\n- I can ship on the 30th."
     assert list_check_text(yours_reply) == yours_reply
+    would_reply = "The date is yours to set.\n\nIn progress:\n- I would ship Monday.\n- I would ship Friday.\n- I would ship the 30th."
+    assert list_check_text(would_reply) == would_reply
     status_for_you_reply = "Your build is ready.\n\nIn progress:\n- I am shipping 8590."
     assert list_check_text(status_for_you_reply) == "Your build is ready.\n"
 

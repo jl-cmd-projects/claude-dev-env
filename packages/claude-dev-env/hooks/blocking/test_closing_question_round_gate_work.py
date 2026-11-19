@@ -1055,6 +1055,20 @@ def test_should_not_bind_a_stale_stop_to_the_next_reply_that_shares_its_footer(
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields) is None
 
 
+def test_should_not_read_a_pending_snapshot_kept_for_a_reply_that_was_never_written(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    two_jobs = [{"id": "ledger"}, {"id": "tests"}]
+    written_reply = f"The tests job is queued.\n\n{LEDGER_FOOTER}"
+    all_before_footer = [typed_prompt_record(), *edit_records()]
+    all_records = [*all_before_footer, reply_record(written_reply), *edit_records(), reply_record("Fixed.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, footer_stop_fields(two_jobs)) is None
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": "Fixed.", "background_tasks": two_jobs})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
 def test_should_keep_the_jobs_a_footer_went_out_with_when_the_transcript_shows_it_later(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
