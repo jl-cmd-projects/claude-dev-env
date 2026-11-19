@@ -388,7 +388,7 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
 
 
 def is_same_reply(first_reply: str, second_reply: str) -> bool:
-    """Return True when two replies hold the same lines, blank lines and outer spaces aside.
+    """Return True when two replies hold the same lines, blank lines and trailing spaces aside.
 
     ::
 
@@ -397,13 +397,15 @@ def is_same_reply(first_reply: str, second_reply: str) -> bool:
         "Done." and "Done.\n"                                                            -> True
 
     A footer is read line by line, so a reply whose heading and item share
-    one line is another reply than one that puts them on two lines.
+    one line is another reply than one that puts them on two lines, and a
+    line indented as an item's continuation differs from the same line
+    unindented.
     """
     return _reply_lines(first_reply) == _reply_lines(second_reply)
 
 
 def _reply_lines(reply_text: str) -> list[str]:
-    return [each_line.strip() for each_line in reply_text.splitlines() if each_line.strip()]
+    return [each_line.rstrip() for each_line in reply_text.strip().splitlines() if each_line.strip()]
 
 
 def _earlier_message_texts(all_lines: list[str], message_id: str | None, deadline_at: float) -> list[str]:

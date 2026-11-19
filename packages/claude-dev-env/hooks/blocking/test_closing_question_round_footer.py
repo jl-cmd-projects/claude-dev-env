@@ -257,3 +257,22 @@ def test_should_keep_every_option_when_an_earlier_paragraph_asks_the_user_to_cho
         "- I will ship on Monday.\n- I will ship on Wednesday.\n- I will ship on Friday."
     )
     assert list_check_text(choice_reply) == choice_reply
+
+
+def test_should_keep_the_options_when_a_paragraph_sits_between_them_and_the_question() -> None:
+    choice_reply = (
+        "Which implementation should I use?\n\nThe first is faster and the second is simpler.\n\nIn progress:\n"
+        "- I can keep the cache.\n- I can drop the cache.\n- I can make the cache optional."
+    )
+    assert list_check_text(choice_reply) == choice_reply
+
+
+def test_should_build_the_lead_paragraph_of_a_long_reply_in_linear_time() -> None:
+    long_body = "\n".join(f"Line {each_index} of the notes." for each_index in range(200000))
+    long_reply = f"{long_body}\n\nIn progress:\n- I am shipping 8590."
+    started_at = time.process_time()
+    checked_text = list_check_text(long_reply)
+    assert time.process_time() - started_at < 3.0
+    assert checked_text.strip() == long_body
+    ordered_reply = "The tests pass.\nWhich day should I ship it?\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(ordered_reply) == ordered_reply

@@ -316,3 +316,4 @@ def test_last_written_reply_joins_the_text_blocks_of_its_last_record() -> None:
 def test_is_same_reply_reads_lines_and_sets_blank_lines_aside() -> None:
     assert is_same_reply("Done.\n\nIn progress:\n- I am fixing it.", "Done.\nIn progress:\n- I am fixing it.")
     assert not is_same_reply("In progress: - I am fixing it.", "In progress:\n- I am fixing it.")
+    assert not is_same_reply("In progress:\n- I am fixing it.\nThe tests run.", "In progress:\n- I am fixing it.\n  The tests run.")

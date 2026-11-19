@@ -255,7 +255,9 @@ def list_check_text(closing_reply: str) -> str:
     could", "I would", "I might", or "I may", it gives the lines under it their meaning, so the
     whole reply is read. A body that leaves a choice to the user, as "The
     date is yours to choose." or "Please choose a date." do in any
-    paragraph, keeps a footer of two or more items whole too.
+    paragraph, keeps a footer of two or more items whole too, and so does
+    a question in any paragraph above an item that opens with "I can" or
+    another option opener.
 
     Args:
         closing_reply: The reply the turn ends with.
@@ -292,10 +294,10 @@ def _lead_paragraph(all_body_lines: list[str]) -> str:
     all_paragraph_lines: list[str] = []
     for each_line in reversed(all_body_lines):
         if each_line.strip():
-            all_paragraph_lines.insert(0, each_line.strip())
+            all_paragraph_lines.append(each_line.strip())
         elif all_paragraph_lines:
             break
-    return MARKDOWN_EMPHASIS_PATTERN.sub("", LEAD_PARAGRAPH_JOINER.join(all_paragraph_lines))
+    return MARKDOWN_EMPHASIS_PATTERN.sub("", LEAD_PARAGRAPH_JOINER.join(reversed(all_paragraph_lines)))
 
 
 def _is_user_choice(all_body_lines: list[str], all_item_lines: list[list[str]]) -> bool:
@@ -306,6 +308,8 @@ def _is_user_choice(all_body_lines: list[str], all_item_lines: list[list[str]]) 
     lead_paragraph = _lead_paragraph(all_body_lines)
     body_text = MARKDOWN_EMPHASIS_PATTERN.sub("", LEAD_PARAGRAPH_JOINER.join(all_body_lines))
     if len(all_item_lines) > 1 and USER_CHOICE_LEAD_PATTERN.search(body_text) is not None:
+        return True
+    if has_option_item and any(each_line.strip().endswith(QUESTION_MARK) for each_line in all_body_lines):
         return True
     return has_option_item and USER_MENTION_PATTERN.search(lead_paragraph) is not None
 
