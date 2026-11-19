@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.133.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.2...claude-dev-env-v8.133.3) (2026-11-19)
+
+
+### Bug Fixes
+
+* **hooks:** ask the footer only for work on the list the user sees ([#2468](https://github.com/jl-cmd-projects/claude-dev-env/issues/2468)) ([b2ba09a](https://github.com/jl-cmd-projects/claude-dev-env/commit/b2ba09ac579c1531855dc5643c4fe18cf8c72cdb))
+
 ## [8.133.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.1...claude-dev-env-v8.133.2) (2026-11-19)
 
 
