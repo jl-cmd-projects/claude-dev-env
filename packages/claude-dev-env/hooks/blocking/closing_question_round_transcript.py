@@ -66,6 +66,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TOOL_USE_ID_KEY,
 )
 from closing_question_round_lines import before_deadline
+from hooks_constants.background_silence_prompt_constants import BACKGROUND_EVENT_PATTERN
 from session.tracking_nudge import is_event_wake
 from open_tasks_transcript_records import (
     _content_blocks,
@@ -101,7 +102,7 @@ def _is_typed_prompt_line(transcript_line: str) -> bool:
         return False
     each_record = parsed_object(transcript_line)
     prompt_text = claude_prompt_text(each_record) if each_record is not None else None
-    return prompt_text is not None and not is_event_wake(prompt_text)
+    return prompt_text is not None and not is_event_wake(prompt_text) and BACKGROUND_EVENT_PATTERN.search(prompt_text) is None
 
 
 def _last_prompt_line_position(all_lines: list[str], deadline_at: float) -> int | None:
@@ -126,7 +127,8 @@ def last_typed_prompt_position(all_lines: list[str], deadline_at: float) -> int 
 
     A line is parsed only when it holds ``"turnOrigin"``. When no record
     carries that key, the last record that starts a turn and is no event
-    wake, as ``tracking_nudge.is_event_wake`` reads one, counts instead, and
+    wake, as ``tracking_nudge.is_event_wake`` reads one, and no system
+    notification counts instead, and
     only when ``CLAUDE_CODE_SESSION_ATTENDED`` is ``1``; that second scan
     reads from the end and parses only the lines that hold ``"user"``. Both
     scans raise TimeoutError once the clock reaches ``deadline_at``.

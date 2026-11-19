@@ -1064,22 +1064,75 @@ def test_should_reuse_a_pending_snapshot_for_its_reply_written_as_one_or_two_rec
     body_text = "The retry flag is in place."
     all_reply_records = [reply_record(LEDGER_FOOTER_REPLY)]
     if is_split:
-        all_reply_records = [
-            {"type": "assistant", "message": {"id": "m-1", "role": "assistant", "content": [{"type": "text", "text": each_text}]}}
-            for each_text in (body_text, LEDGER_FOOTER)
-        ]
+        all_reply_records = split_reply_records(body_text, LEDGER_FOOTER)
     all_before_footer = [typed_prompt_record(), *edit_records()]
     all_footer_records = [*all_before_footer, *all_reply_records]
-    read_records = [
-        tool_call_record("Read", {"file_path": "jobs/export.py"}, tool_use_id="id-read"),
-        tool_result_record("Read", "def export(): ...", tool_use_id="id-read"),
-    ]
-    all_records = [*all_footer_records, notice_record("Ledger job checked in"), *read_records, reply_record("Still waiting.")]
+    all_records = [*all_footer_records, notice_record("Ledger job checked in"), *read_records(), reply_record("Still waiting.")]
     assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, footer_stop_fields(ledger_job)) is None
     assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields(ledger_job)) is None
     assert held_reason(
         monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": "Still waiting.", "background_tasks": ledger_job}
     ) is None
+
+
+def split_reply_records(*all_texts: str) -> list[dict[str, object]]:
+    return [
+        {"type": "assistant", "message": {"id": "m-1", "role": "assistant", "content": [{"type": "text", "text": each_text}]}}
+        for each_text in all_texts
+    ]
+
+
+def read_records() -> list[dict[str, object]]:
+    return [
+        tool_call_record("Read", {"file_path": "jobs/export.py"}, tool_use_id="id-read"),
+        tool_result_record("Read", "def export(): ...", tool_use_id="id-read"),
+    ]
+
+
+def test_should_keep_the_jobs_of_a_split_reply_when_a_stop_without_a_payload_reply_finds_it(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    test_job = [{"id": "tests"}]
+    all_before_footer = [typed_prompt_record(), *edit_records()]
+    all_footer_records = [*all_before_footer, *split_reply_records("The retry flag is in place.", LEDGER_FOOTER)]
+    all_records = [*all_footer_records, notice_record("Ledger job ended"), reply_record("Still waiting.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, {"background_tasks": test_job}) is None
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": test_job}
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields)).startswith(
+        FOOTER_CHANGED_REASON_LEAD
+    )
+
+
+def test_should_read_a_footer_whose_heading_and_list_are_two_records_of_one_message(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    footer_reply = f"Done.\n\n{FOOTER}"
+    all_footer_records = [typed_prompt_record(), *edit_records(), *split_reply_records("Done.\n\nIn progress:", LIST_READER_ITEM)]
+    all_records = [*all_footer_records, *read_records(), reply_record("Read it.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, {"last_assistant_message": footer_reply}) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": "Read it."}) is None
+
+
+def test_should_not_read_a_pending_snapshot_when_work_came_before_its_reply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    ledger_job = [{"id": "ledger"}]
+    all_before_footer = [typed_prompt_record(), *edit_records()]
+    all_records = [
+        *all_before_footer,
+        *read_records(),
+        reply_record(LEDGER_FOOTER_REPLY),
+        *read_records(),
+        reply_record("Read it."),
+    ]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, footer_stop_fields(ledger_job)) is None
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": "Read it.", "background_tasks": ledger_job})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
 def test_should_not_read_a_pending_snapshot_kept_for_a_reply_that_was_never_written(

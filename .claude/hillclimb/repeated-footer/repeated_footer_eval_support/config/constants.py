@@ -22,6 +22,7 @@ TOP_LINE_COUNT = 5
 RECORD_TYPE_KEY = "type"
 IS_SIDECHAIN_KEY = "isSidechain"
 MESSAGE_KEY = "message"
+MESSAGE_ID_KEY = "id"
 CONTENT_KEY = "content"
 ROLE_KEY = "role"
 TEXT_KEY = "text"

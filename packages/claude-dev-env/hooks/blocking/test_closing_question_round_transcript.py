@@ -91,6 +91,11 @@ def test_last_typed_prompt_position_should_skip_only_a_whole_task_notification()
     quoted_notice_text = "<task-notification>Job ended</task-notification> Why did it fail?"
     quoted_lines = json_lines([{"type": "user", "message": {"role": "user", "content": quoted_notice_text}}])
     assert last_typed_prompt_position(quoted_lines, NO_DEADLINE) == 0
+    system_notice_lines = json_lines([
+        {"type": "user", "message": {"role": "user", "content": "Add the flag."}},
+        {"type": "user", "message": {"role": "user", "content": "[SYSTEM NOTIFICATION - NOT USER INPUT]\nA job ended."}},
+    ])
+    assert last_typed_prompt_position(system_notice_lines, NO_DEADLINE) == 0
 
 
 def test_last_typed_prompt_position_returns_the_last_prompt_with_a_human_turn_origin() -> None:

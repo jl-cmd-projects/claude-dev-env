@@ -39,6 +39,7 @@ from repeated_footer_eval_support.config.constants import (
     LINE_BREAK,
     LINE_REPORT_TEMPLATE,
     LIST_MARKER_PATTERN,
+    MESSAGE_ID_KEY,
     MESSAGE_KEY,
     MINIMUM_COUNTED_LINE_LENGTH,
     RECORD_TYPE_KEY,
@@ -166,10 +167,12 @@ def repeat_report(all_replies: list[str]) -> RepeatReport:
 
 
 def transcript_replies(transcript_path: Path) -> list[str]:
-    """Return the text of each assistant text block in a session transcript, in order.
+    """Return the text of each assistant message in a session transcript, in order.
 
     Lines that are not JSON objects are skipped, and so are records flagged
-    ``isSidechain``, which a subagent wrote and the user never saw.
+    ``isSidechain``, which a subagent wrote and the user never saw. The text
+    blocks of records that share one message id join into one reply, so a
+    message written across two records counts once.
 
     Args:
         transcript_path: A session transcript, one JSON record per line.
@@ -177,7 +180,8 @@ def transcript_replies(transcript_path: Path) -> list[str]:
     Returns:
         The text blocks, in transcript order.
     """
-    all_replies = []
+    all_replies: list[str] = []
+    reply_position_by_id: dict[str, int] = {}
     for each_line in transcript_path.read_text(encoding=UTF8_ENCODING).splitlines():
         try:
             each_record = json.loads(each_line)
@@ -195,13 +199,25 @@ def transcript_replies(transcript_path: Path) -> list[str]:
         )
         if not isinstance(all_blocks, list):
             continue
-        all_replies.extend(
+        all_texts = [
             each_block[TEXT_KEY]
             for each_block in all_blocks
             if isinstance(each_block, dict)
             and each_block.get(RECORD_TYPE_KEY) == TEXT_BLOCK_TYPE
             and isinstance(each_block.get(TEXT_KEY), str)
-        )
+        ]
+        message_id = message_body.get(MESSAGE_ID_KEY) if isinstance(message_body, dict) else None
+        if not isinstance(message_id, str) or not message_id:
+            all_replies.extend(all_texts)
+            continue
+        if not all_texts:
+            continue
+        if message_id in reply_position_by_id:
+            reply_position = reply_position_by_id[message_id]
+            all_replies[reply_position] = LINE_BREAK.join([all_replies[reply_position], *all_texts])
+            continue
+        reply_position_by_id[message_id] = len(all_replies)
+        all_replies.append(LINE_BREAK.join(all_texts))
     return all_replies
 
 

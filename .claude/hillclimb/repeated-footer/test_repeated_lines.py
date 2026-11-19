@@ -59,6 +59,16 @@ def test_should_read_each_assistant_text_block_of_a_transcript(tmp_path: Path) -
     assert transcript_replies(transcript_path) == [FOOTER]
 
 
+def test_should_read_a_message_written_across_two_records_as_one_reply(tmp_path: Path) -> None:
+    def text_record(text: str) -> dict[str, object]:
+        return {"type": "assistant", "message": {"id": "m-1", "content": [{"type": "text", "text": text}]}}
+
+    all_records = [text_record("Shipped."), text_record(FOOTER)]
+    transcript_path = tmp_path / "session.jsonl"
+    transcript_path.write_text("\n".join(map(json.dumps, all_records)), encoding="utf-8")
+    assert transcript_replies(transcript_path) == [f"Shipped.\n{FOOTER}"]
+
+
 def test_should_print_the_summary_then_each_line_sent_more_than_once() -> None:
     all_rows = report_rows(repeat_report([FOOTER, FOOTER]))
     assert all_rows[0] == "replies 2, counted lines 4, footer copies 2, repeated lines 2"
