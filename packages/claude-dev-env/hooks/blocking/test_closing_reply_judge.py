@@ -123,6 +123,12 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
     assert parsed_verdict(verdict_text, choice_reply) == JudgeVerdict("", "In progress:")
     decision_lead_reply = choice_reply.replace("Pick which option I should ship.", "Pending your decision:")
     assert parsed_verdict(verdict_text, decision_lead_reply) == JudgeVerdict("", "In progress:")
+    embedded_question_reply = (
+        "Shipped.\n\nIn progress:\n- I am preparing the release. Would Friday work for launch? The build is ready.\n"
+        "- I am pricing the plan. Is ten dollars right? The sheet is open.\n"
+        "- I am painting the logo. Should it be blue? The draft is saved."
+    )
+    assert parsed_verdict(verdict_text, embedded_question_reply) == JudgeVerdict("", "In progress:")
     semicolon_reply = (
         "Shipped.\n\nIn progress:\n- I am preparing the launch; please pick a date.\n"
         "- I am drafting the notice; please pick a sender.\n- I am pricing the plan; please pick a tier."

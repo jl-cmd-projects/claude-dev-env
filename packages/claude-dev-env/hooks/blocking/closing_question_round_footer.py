@@ -166,6 +166,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am updating the decision log."              -> False, no wait before the word
         "I am holding the release until Jon confirms the date." -> True, it waits on a confirmation
         "Should I merge 8590?"                         -> True, a question
+        "I am preparing it. Would Friday work? The build is ready." -> True, a question inside
 
     The rule writes each footer item in first person and says what the work
     gets the user, as "so you see its next update" does. Only such a benefit
@@ -175,7 +176,8 @@ def is_footer_ask(footer_item: str) -> bool:
     runs, arrives, is, or are, leaves the user unnamed, so "so you can
     approve it first" and "so your team can approve it" still name the user.
     A benefit clause followed by and, or, or then and a request word, as
-    "so you can see the dates and pick one", counts as an ask. Each word
+    "so you can see the dates and pick one", counts as an ask, and so does
+    an item with a sentence that ends with a question mark. Each word
     check reads the item with its asterisks, underscores, tildes, and
     backticks left out, so "**pick**" reads as pick. An item that is not
     first person, that names the user in any other way, that waits,
@@ -206,6 +208,10 @@ def is_footer_ask(footer_item: str) -> bool:
         )
         or USER_MENTION_PATTERN.search(PURPOSE_CLAUSE_PATTERN.sub(PURPOSE_CLAUSE_STAND_IN, plain_item)) is not None
         or COORDINATED_REQUEST_PATTERN.search(plain_item) is not None
+        or any(
+            each_sentence.rstrip().endswith(QUESTION_MARK)
+            for each_sentence in SENTENCE_BREAK_PATTERN.split(plain_item.strip())
+        )
         or DECISION_DEPENDENCY_PATTERN.search(plain_item) is not None
         or OTHER_PARTY_REQUEST_PATTERN.search(plain_item) is not None
         or bool(marked_open_lines([status_item], math.inf))

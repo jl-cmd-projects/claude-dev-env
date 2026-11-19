@@ -57,12 +57,16 @@ from hooks_constants.closing_question_round_gate_constants import (
 )
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_QUESTION_TOOL_NAMES,
+    CONTENT_KEY,
+    MESSAGE_KEY,
     RECORD_TYPE_KEY,
+    STOP_HOOK_FEEDBACK_PREFIX,
     TEXT_KEY,
     TOOL_NAME_KEY,
     TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
     TOOL_USE_ID_KEY,
+    USER_RECORD_TYPE,
 )
 from closing_question_round_lines import before_deadline
 from open_tasks_transcript_records import (
@@ -84,6 +88,17 @@ def _is_prompt_line(transcript_line: str) -> bool:
         return False
     each_record = parsed_object(transcript_line)
     return each_record is not None and claude_prompt_text(each_record) is not None
+
+
+def _is_stop_feedback_line(transcript_line: str) -> bool:
+    if STOP_HOOK_FEEDBACK_PREFIX not in transcript_line:
+        return False
+    each_record = parsed_object(transcript_line)
+    if each_record is None or each_record.get(RECORD_TYPE_KEY) != USER_RECORD_TYPE:
+        return False
+    message_body = each_record.get(MESSAGE_KEY)
+    content_value = message_body.get(CONTENT_KEY) if isinstance(message_body, dict) else None
+    return isinstance(content_value, str) and content_value.lstrip().startswith(STOP_HOOK_FEEDBACK_PREFIX)
 
 
 def _last_prompt_line_position(all_lines: list[str], deadline_at: float) -> int | None:
@@ -300,6 +315,7 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
         prompt, reply "Done.", an Edit call       -> None, the record ends with work
         a question call after "Done." in a record -> "Done.", the call is set aside
         reply "Done.", then a thinking-only record -> "Done.", a record with no text or call is skipped
+        reply "Done.", then Stop hook feedback     -> None, the next reply is a new one
 
     Args:
         all_lines: The transcript, one JSON record per line.
@@ -312,7 +328,7 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
         TimeoutError: The deadline passed before the scan ended.
     """
     for each_line in before_deadline(reversed(all_lines), deadline_at):
-        if _is_prompt_line(each_line):
+        if _is_prompt_line(each_line) or _is_stop_feedback_line(each_line):
             return None
         if ASSISTANT_SCAN_TEXT not in each_line:
             continue
