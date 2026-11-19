@@ -243,8 +243,9 @@ def list_check_text(closing_reply: str) -> str:
     each kept line stay as the reply wrote them, so a span the judge quotes
     from them is still found in the reply. When the last body paragraph
     above the footer opens a sentence with a request word, ends with a
-    question mark, or ends with a colon after a decision word or a word
-    for the user, it gives the lines under it their meaning, so the
+    question mark, waits on or needs a decision as "I need a decision."
+    does, or ends with a colon after a decision word or a word for the
+    user, it gives the lines under it their meaning, so the
     whole reply is read.
 
     Args:
@@ -293,6 +294,7 @@ def _is_asking_lead(all_body_lines: list[str]) -> bool:
     )
     return (
         is_decision_label
+        or DECISION_DEPENDENCY_PATTERN.search(lead_line) is not None
         or lead_line.endswith(QUESTION_MARK)
         or any(
             REQUEST_OPENER_PATTERN.match(each_sentence) is not None

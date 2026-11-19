@@ -1037,17 +1037,35 @@ def test_should_check_the_footer_of_a_reply_a_thinking_only_record_follows(
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_GAP_REASON_LEAD)
 
 
-def test_should_save_the_jobs_of_a_footer_the_transcript_holds_over_its_pending_snapshot(
+def test_should_keep_the_jobs_a_footer_went_out_with_when_the_transcript_shows_it_later(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    test_job = [{"id": "tests"}]
+    all_before_footer = [typed_prompt_record(), *edit_records()]
+    all_footer_records = [*all_before_footer, reply_record(LEDGER_FOOTER_REPLY)]
+    all_records = [*all_footer_records, notice_record("Ledger job ended"), reply_record("Still waiting.")]
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": test_job}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields(test_job)) is None
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields)).startswith(
+        FOOTER_CHANGED_REASON_LEAD
+    )
+
+
+def test_should_not_bind_the_jobs_of_a_stale_stop_to_the_next_copy_of_its_footer(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
     two_jobs = [{"id": "ledger"}, {"id": "tests"}]
-    all_before_footer = [typed_prompt_record(), *edit_records()]
-    all_footer_records = [*all_before_footer, reply_record(LEDGER_FOOTER_REPLY)]
-    all_records = [*all_footer_records, notice_record("Ledger job checked in"), reply_record("Still waiting.")]
-    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": two_jobs}
-    assert held_reason(monkeypatch, capsys, tmp_path, all_before_footer, footer_stop_fields([{"id": "ledger"}])) is None
-    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields(two_jobs)) is None
+    all_first_footer = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_after_notice = [*all_first_footer, notice_record("Tests job started")]
+    all_second_footer = [*all_after_notice, *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_records = [*all_second_footer, notice_record("Ledger job checked in"), reply_record("Still waiting.")]
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": [{"id": "ledger"}]}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_first_footer, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_after_notice, footer_stop_fields(two_jobs)) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_second_footer, footer_stop_fields([{"id": "ledger"}])) is None
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields) is None
 
 

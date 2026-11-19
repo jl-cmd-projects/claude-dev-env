@@ -389,12 +389,15 @@ class FooterSnapshot(NamedTuple):
         is_pending: Whether the footer came from the payload before the
             transcript held it, so a later stop that carries it again
             writes its own jobs over this snapshot.
+        record_count: How many counted records the transcript held when a
+            pending footer was kept, so the reply written next is its own.
     """
 
     footer_key: str
     state_key: str
     job_count: int
     is_pending: bool = False
+    record_count: int = 0
 
 
 def _short_digest(all_parts: list[object]) -> str:
@@ -454,7 +457,7 @@ def _snapshot_path(all_hook_input_fields: dict[str, object]) -> Path | None:
 def _snapshot_line(snapshot: FooterSnapshot) -> str:
     pending_mark = FOOTER_SNAPSHOT_PENDING_MARK if snapshot.is_pending else FOOTER_SNAPSHOT_SENT_MARK
     return FOOTER_SNAPSHOT_SEPARATOR.join(
-        [snapshot.footer_key, snapshot.state_key, str(snapshot.job_count), pending_mark]
+        [snapshot.footer_key, snapshot.state_key, str(snapshot.job_count), pending_mark, str(snapshot.record_count)]
     )
 
 
@@ -464,6 +467,7 @@ def record_footer_jobs(
     all_tasks: SessionTasks,
     all_kept_snapshots: tuple[FooterSnapshot, ...] | None = None,
     is_pending: bool = False,
+    record_count: int = 0,
 ) -> None:
     """Keep this footer, its tasks, and its jobs as the session's snapshot of that footer.
 
@@ -483,13 +487,14 @@ def record_footer_jobs(
     holds it leaves the snapshot of the footer the transcript shows. A
     caller that already read the kept snapshots passes them, so the file
     is read once. A footer read only from the payload is kept as pending,
-    so a stop that still carries an older reply after a notification
-    does not fix the jobs of the footer the agent sends next.
+    with how many counted records the transcript held then.
     """
     snapshot_path = _snapshot_path(all_hook_input_fields)
     if snapshot_path is None:
         return
-    snapshot = footer_snapshot(all_hook_input_fields, footer, all_tasks)._replace(is_pending=is_pending)
+    snapshot = footer_snapshot(all_hook_input_fields, footer, all_tasks)._replace(
+        is_pending=is_pending, record_count=record_count if is_pending else 0
+    )
     all_other_snapshots = [
         each_snapshot
         for each_snapshot in (
@@ -576,12 +581,12 @@ def kept_footer_snapshots(all_hook_input_fields: dict[str, object]) -> tuple[Foo
 
 def _parsed_snapshot(snapshot_line: str) -> FooterSnapshot | None:
     all_parts = snapshot_line.split(FOOTER_SNAPSHOT_SEPARATOR)
-    if len(all_parts) != FOOTER_SNAPSHOT_PART_COUNT or not all_parts[2].isdigit():
+    if len(all_parts) != FOOTER_SNAPSHOT_PART_COUNT or not all_parts[2].isdigit() or not all_parts[4].isdigit():
         return None
     if all_parts[3] not in (FOOTER_SNAPSHOT_PENDING_MARK, FOOTER_SNAPSHOT_SENT_MARK):
         return None
     return FooterSnapshot(
-        all_parts[0], all_parts[1], int(all_parts[2]), all_parts[3] == FOOTER_SNAPSHOT_PENDING_MARK
+        all_parts[0], all_parts[1], int(all_parts[2]), all_parts[3] == FOOTER_SNAPSHOT_PENDING_MARK, int(all_parts[4])
     )
 
 
@@ -612,7 +617,9 @@ def were_jobs_shown(
     """
     if footer is None or kept_snapshot is None:
         return False
-    return kept_snapshot._replace(is_pending=False) == footer_snapshot(all_hook_input_fields, footer, all_tasks)
+    return kept_snapshot._replace(is_pending=False, record_count=0) == footer_snapshot(
+        all_hook_input_fields, footer, all_tasks
+    )
 
 
 def is_footer_recorded(kept_snapshot: FooterSnapshot | None, footer: FooterSeen | None) -> bool:
@@ -879,10 +886,37 @@ def _is_newest_footer_last_text(all_counted_records: list[dict[str, object]]) ->
     return all_text_positions[-1] == _footer_positions(all_counted_records)[-1]
 
 
-def _is_unrecorded(all_kept_snapshots: tuple[FooterSnapshot, ...], new_footer: FooterSeen) -> bool:
+def _is_written_by_its_stop(snapshot: FooterSnapshot, all_counted_records: list[dict[str, object]]) -> bool:
+    all_later_positions = [
+        each_position
+        for each_position, each_record in enumerate(all_counted_records)
+        if each_position >= snapshot.record_count and is_assistant_record(each_record)
+    ]
+    all_footer_positions = _footer_positions(all_counted_records)
+    return bool(all_later_positions and all_footer_positions) and all_later_positions[0] == all_footer_positions[-1]
+
+
+def _is_unrecorded(
+    all_kept_snapshots: tuple[FooterSnapshot, ...],
+    new_footer: FooterSeen,
+    is_pending: bool,
+    all_counted_records: list[dict[str, object]],
+) -> bool:
+    """Return True when no kept snapshot of this footer should stand.
+
+    ::
+
+        no snapshot of the footer                                -> True
+        a sent snapshot of it                                    -> False
+        a pending snapshot, the footer read from the payload again -> True
+        a pending snapshot, the reply written right after its stop -> False, its jobs stand
+        a pending snapshot, other records written before the reply -> True, the snapshot was stale
+    """
     new_footer_key = footer_key(new_footer)
     return all(
-        each_snapshot.footer_key != new_footer_key or each_snapshot.is_pending for each_snapshot in all_kept_snapshots
+        each_snapshot.footer_key != new_footer_key
+        or (each_snapshot.is_pending and (is_pending or not _is_written_by_its_stop(each_snapshot, all_counted_records)))
+        for each_snapshot in all_kept_snapshots
     )
 
 
@@ -903,9 +937,11 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     all_known_tasks = None
     all_kept_snapshots = () if new_footer is None else kept_footer_snapshots(all_hook_input_fields)
     is_pending = new_footer != newest_footer
-    if new_footer is not None and _is_unrecorded(all_kept_snapshots, new_footer):
+    if new_footer is not None and _is_unrecorded(all_kept_snapshots, new_footer, is_pending, all_counted_records):
         all_known_tasks = session_tasks(all_hook_input_fields)
-        record_footer_jobs(all_hook_input_fields, new_footer, all_known_tasks, all_kept_snapshots, is_pending)
+        record_footer_jobs(
+            all_hook_input_fields, new_footer, all_known_tasks, all_kept_snapshots, is_pending, len(all_counted_records)
+        )
     all_texts = [
         _scanned_text(each_text)
         for each_text in [*assistant_texts(all_stretch_records), *all_payload_texts]

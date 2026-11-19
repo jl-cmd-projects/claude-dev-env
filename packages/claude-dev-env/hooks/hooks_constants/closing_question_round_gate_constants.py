@@ -30,7 +30,7 @@ FOOTER_JOBS_FILE_MODE = 0o600
 FOOTER_JOBS_TEMP_SUFFIX = ".part"
 MESSAGE_ID_KEY = "id"
 FOOTER_SNAPSHOT_SEPARATOR = " "
-FOOTER_SNAPSHOT_PART_COUNT = 4
+FOOTER_SNAPSHOT_PART_COUNT = 5
 FOOTER_SNAPSHOT_LINE_SEPARATOR = "\n"
 FOOTER_SNAPSHOT_KEPT_COUNT = 3
 FOOTER_SNAPSHOT_PENDING_MARK = "pending"
@@ -39,7 +39,7 @@ NO_FOLLOW_FLAG = getattr(os, "O_NOFOLLOW", 0)
 FOOTER_JOBS_READ_LIMIT = 1024
 FOOTER_JOBS_TEXT_ENCODING = "ascii"
 FOOTER_JOBS_DIGEST_LENGTH = 32
-FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’]m\b)")
+FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’](?:m|ve|ll|d)\b)")
 SENTENCE_BREAK_PATTERN = re.compile(r"(?<=[.!?;:])\s+")
 OTHER_PARTY_REQUEST_PATTERN = re.compile(
     r"\b(?:need|needs|want|wants|waiting\s+for|wait\s+for|ask|asks|asking)\b[^.!?;]{0,80}?\bto\s+"

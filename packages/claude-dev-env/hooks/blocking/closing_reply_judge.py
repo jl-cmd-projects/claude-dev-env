@@ -157,6 +157,7 @@ def judge_input(prompt_text: str, reply_text: str, has_question_tool_call: bool)
         "<task-notification>...<summary>Lint ended</summary>"  -> task_notification, "Lint ended"
         "<command-name>/review</command-name>"                -> slash_command, "/review"
         "Fix the build"                                       -> typed, "Fix the build"
+        a reply the list check leaves whole                   -> no "list_scope", the reply is sent once
 
     Args:
         prompt_text: The prompt that started the turn.
@@ -164,13 +165,16 @@ def judge_input(prompt_text: str, reply_text: str, has_question_tool_call: bool)
         has_question_tool_call: Whether the turn called the question tool.
     """
     prompt_kind, user_prompt = _prompt_kind_and_text(prompt_text)
-    return {
+    all_input_fields: dict[str, object] = {
         PROMPT_KIND_KEY: prompt_kind,
         USER_PROMPT_KEY: user_prompt,
         REPLY_KEY: reply_text,
         QUESTION_TOOL_USED_KEY: bool(has_question_tool_call),
-        LIST_SCOPE_KEY: list_check_text(reply_text),
     }
+    list_scope = list_check_text(reply_text)
+    if list_scope != reply_text:
+        all_input_fields[LIST_SCOPE_KEY] = list_scope
+    return all_input_fields
 
 
 def judge_prompt(prompt_text: str, reply_text: str, has_question_tool_call: bool) -> str:

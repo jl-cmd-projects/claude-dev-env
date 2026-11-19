@@ -153,6 +153,8 @@ def test_should_read_the_whole_reply_when_the_line_above_the_footer_asks_to_pick
         "- I can keep the old build.\n- I could roll back the patch."
     )
     assert list_check_text("Done.\n\nIn progress:\n- I can ship 8590.").strip() == "Done."
+    need_reply = "I need a decision.\n\nIn progress:\n- I can ship it today.\n- I can ship it Friday.\n- I can ship it next week."
+    assert list_check_text(need_reply) == need_reply
 
 
 def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_check_text() -> None:
@@ -217,6 +219,8 @@ def test_should_tell_a_footer_ask_from_a_status_line() -> None:
     assert not is_footer_ask("I am updating the decision log.")
     assert is_footer_ask("I am preparing the release. Would Friday work for launch? The build is ready.")
     assert is_footer_ask("I am preparing the launch: choose a date.")
+    for each_status in ("I've started the build.", "I’ve started the build.", "I'll merge once the tests pass.", "I’ll merge once the tests pass.", "I'd queued the export."):
+        assert not is_footer_ask(each_status)
     assert is_footer_ask("I am holding the export until the client sends the logo.")
     assert is_footer_ask("I am holding the rollout for a green light from the lead.")
     assert is_footer_ask("I am preparing the launch. Next, choose its date.")

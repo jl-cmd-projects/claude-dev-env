@@ -46,7 +46,6 @@ def test_should_send_only_the_summary_line_for_a_task_notification() -> None:
         "user_prompt": "Lint job ended",
         "reply": "Done.",
         "question_tool_used": False,
-        "list_scope": "Done.",
     }
 
 
@@ -92,7 +91,8 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
     verdict_text = json.dumps(
         {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
     )
-    assert judge_input("Fix the build", ask_reply, False)["list_scope"] == ask_reply
+    assert "list_scope" not in judge_input("Fix the build", ask_reply, False)
+    assert judge_prompt("Fix the build", ask_reply, False).count(json.dumps(ask_reply)[1:-1]) == 1
     assert parsed_verdict(verdict_text, ask_reply) == JudgeVerdict("", "In progress:")
     assert parsed_verdict(verdict_text, asking_reply) == JudgeVerdict("", "")
     holding_reply = (
@@ -415,7 +415,7 @@ def test_should_write_one_log_line_per_missing_verdict(monkeypatch: pytest.Monke
 
 def test_should_keep_a_decision_list_that_ends_the_reply_under_in_progress() -> None:
     decisions_reply = "Done.\n\nIn progress:\n- Should I delete the backup?\n- Should I merge 8590?\n- Should I close 8693?"
-    assert judge_input("Fix the build", decisions_reply, False)["list_scope"] == decisions_reply
+    assert "list_scope" not in judge_input("Fix the build", decisions_reply, False)
     verdict_text = json.dumps(
         {"promised_report": False, "promise_span": "", "decisions_as_list": True, "list_span": "In progress:"}
     )

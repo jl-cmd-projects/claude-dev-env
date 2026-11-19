@@ -20,7 +20,8 @@ JUDGE_PROMPT_TEMPLATE = (
     'its In progress footer left out. That footer is a line that holds only "In progress:" at the end '
     "of the reply, with one list line under it for each piece of the agent's own work still running. "
     'A footer line that asks the user to decide or act stays in list_scope under "In progress:". '
-    "Judge every list in list_scope, those footer lines included.\n"
+    "Judge every list in list_scope, those footer lines included. When list_scope is absent, it is the "
+    "whole reply.\n"
     '- "question_tool_used" is true when the agent asked the user a question through its question '
     "tool during this turn.\n"
     "\n"
