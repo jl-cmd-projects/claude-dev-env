@@ -3,6 +3,7 @@
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -21,7 +22,17 @@ PLAIN_BODY = "## What this does\nAdds a tool.\n"
 ONE_PULL_REQUEST_BODY = (
     PLAIN_BODY + "\n### Why one pull request\nThe schema and its reader must land together.\n"
 )
-EMPTY_ONE_PULL_REQUEST_BODY = PLAIN_BODY + "\n## Why one pull request\n\n## Risk\nLow.\n"
+OVER_BAR_REASON = OVERSIZED_PULL_REQUEST_REASON.format(
+    measured_line_count=1500, measured_line_bar=1000
+)
+
+
+@pytest.fixture(autouse=True)
+def attempt_records_in_tmp_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    state_directory = tmp_path / "state"
+    state_directory.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(state_directory))
+    return state_directory
 
 
 def _git(repository_path: Path, *all_arguments: str) -> None:
@@ -64,24 +75,108 @@ def large_branch(tmp_path: Path) -> Path:
     return clone_path
 
 
-def test_should_deny_a_create_over_the_bar_with_no_reason_section(large_branch: Path) -> None:
-    reason = size.oversized_pull_request_reason(_create(large_branch, PLAIN_BODY))
-    assert reason == OVERSIZED_PULL_REQUEST_REASON.format(
-        measured_line_count=1500, measured_line_bar=1000
-    )
-
-
-def test_should_pass_a_create_over_the_bar_whose_body_says_why_it_stays_one(
+def test_should_refuse_the_first_create_over_the_bar_even_with_a_reason_section(
     large_branch: Path,
 ) -> None:
-    assert size.oversized_pull_request_reason(_create(large_branch, ONE_PULL_REQUEST_BODY)) is None
+    reason = size.oversized_pull_request_reason(_create(large_branch, ONE_PULL_REQUEST_BODY))
+    assert reason == OVER_BAR_REASON
 
 
-def test_should_deny_when_the_reason_section_is_empty(large_branch: Path) -> None:
-    reason = size.oversized_pull_request_reason(_create(large_branch, EMPTY_ONE_PULL_REQUEST_BODY))
-    assert reason == OVERSIZED_PULL_REQUEST_REASON.format(
-        measured_line_count=1500, measured_line_bar=1000
+def test_should_pass_the_second_and_later_creates_for_the_same_branch_and_base(
+    large_branch: Path,
+) -> None:
+    payload = _create(large_branch, PLAIN_BODY)
+    assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
+    assert size.oversized_pull_request_reason(payload) is None
+    assert size.oversized_pull_request_reason(payload) is None
+
+
+def test_should_pass_a_second_create_at_any_size(tmp_path: Path) -> None:
+    clone_path = _clone_on_branch(tmp_path, "feature")
+    _commit_lines(clone_path, "tool.py", 2500)
+    payload = _create(clone_path, PLAIN_BODY)
+    assert size.oversized_pull_request_reason(payload) == OVERSIZED_PULL_REQUEST_REASON.format(
+        measured_line_count=2500, measured_line_bar=1000
     )
+    assert size.oversized_pull_request_reason(payload) is None
+
+
+def test_should_refuse_a_first_create_against_another_base(large_branch: Path) -> None:
+    assert size.oversized_pull_request_reason(_create(large_branch, PLAIN_BODY)) is not None
+    _git(large_branch, "push", "--quiet", "origin", "main:parent")
+    _git(large_branch, "fetch", "--quiet", "origin")
+    named_base_payload = _create(large_branch, PLAIN_BODY, "--base parent")
+    assert size.oversized_pull_request_reason(named_base_payload) == OVER_BAR_REASON
+    assert size.oversized_pull_request_reason(named_base_payload) is None
+
+
+def test_should_pass_a_second_create_that_names_the_default_base(large_branch: Path) -> None:
+    assert size.oversized_pull_request_reason(_create(large_branch, PLAIN_BODY)) == OVER_BAR_REASON
+    named_base_payload = _create(large_branch, PLAIN_BODY, "--base main")
+    assert size.oversized_pull_request_reason(named_base_payload) is None
+
+
+def test_should_pass_a_default_base_retry_beside_a_local_branch_named_like_the_remote(
+    large_branch: Path,
+) -> None:
+    _git(large_branch, "branch", "origin/main", "main")
+    assert size.oversized_pull_request_reason(_create(large_branch, PLAIN_BODY)) == OVER_BAR_REASON
+    named_base_payload = _create(large_branch, PLAIN_BODY, "--base main")
+    assert size.oversized_pull_request_reason(named_base_payload) is None
+
+
+def test_should_leave_the_default_base_unnamed_for_a_create_in_another_repository(
+    large_branch: Path,
+) -> None:
+    other_repository_call = proof.CreateCall(
+        title="t", body=PLAIN_BODY, head="feature", base=None, repository="owner/other"
+    )
+    assert size._pull_request_key(other_repository_call, str(large_branch)) == [
+        "owner/other",
+        "feature",
+        "",
+    ]
+
+
+def test_should_refuse_a_first_create_after_the_configured_base_changes(
+    large_branch: Path,
+) -> None:
+    payload = _create(large_branch, PLAIN_BODY)
+    assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
+    assert size.oversized_pull_request_reason(payload) is None
+    _git(large_branch, "push", "--quiet", "origin", "main:parent")
+    _git(large_branch, "config", "branch.feature.gh-merge-base", "parent")
+    assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
+    assert size.oversized_pull_request_reason(payload) is None
+
+
+def test_should_keep_the_attempts_of_one_session_apart_from_another(large_branch: Path) -> None:
+    payload = _create(large_branch, PLAIN_BODY)
+    assert size.oversized_pull_request_reason({**payload, "session_id": "one"}) is not None
+    assert size.oversized_pull_request_reason({**payload, "session_id": "two"}) is not None
+    assert size.oversized_pull_request_reason({**payload, "session_id": "one"}) is None
+
+
+def test_should_count_an_unreadable_attempt_record_as_no_earlier_attempt(
+    large_branch: Path, attempt_records_in_tmp_path: Path
+) -> None:
+    payload = {**_create(large_branch, PLAIN_BODY), "session_id": "s1"}
+    (attempt_records_in_tmp_path / "oversized-create-attempts-s1.json").write_text(
+        "{not json", encoding="utf-8"
+    )
+    assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
+    assert size.oversized_pull_request_reason(payload) is None
+
+
+def test_should_refuse_each_time_when_the_attempt_record_cannot_be_written(
+    large_branch: Path, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    blocked_directory = tmp_path / "not-a-directory"
+    blocked_directory.write_text("", encoding="utf-8")
+    monkeypatch.setattr(tempfile, "tempdir", str(blocked_directory))
+    payload = _create(large_branch, PLAIN_BODY)
+    assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
+    assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
 
 
 def test_should_pass_a_create_under_the_bar(tmp_path: Path) -> None:
@@ -253,7 +348,7 @@ def test_should_read_worktree_attributes_when_git_cannot_read_them_from_the_head
 def test_should_measure_remotely_when_the_create_names_another_repository(
     large_branch: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(size, "remote_measured_line_count", lambda *all_arguments: None)
+    monkeypatch.setattr(size, "_compare_lines", lambda *all_arguments: None)
     payload = _create(large_branch, PLAIN_BODY, "--repo other-owner/other-repository --head feature")
     assert size.oversized_pull_request_reason(payload) is None
 
@@ -290,19 +385,6 @@ def test_should_count_only_the_edited_lines_of_renames_past_the_rename_limit(
     assert size.local_measured_line_count(str(large_branch), "feature", None) == 2
 
 
-def test_should_pass_when_a_later_reason_section_states_the_reason(large_branch: Path) -> None:
-    body = (
-        EMPTY_ONE_PULL_REQUEST_BODY
-        + "\n## Why one pull request\nThe schema and its reader land together.\n"
-    )
-    assert size.oversized_pull_request_reason(_create(large_branch, body)) is None
-
-
-def test_should_pass_a_reason_heading_that_ends_in_punctuation(large_branch: Path) -> None:
-    body = PLAIN_BODY + "\n## Why one pull request?\nThe schema and its reader land together.\n"
-    assert size.oversized_pull_request_reason(_create(large_branch, body)) is None
-
-
 def test_should_count_the_whole_branch_when_git_diffs_relative_to_the_session_folder(
     tmp_path: Path,
 ) -> None:
@@ -314,7 +396,39 @@ def test_should_count_the_whole_branch_when_git_diffs_relative_to_the_session_fo
 def test_should_not_measure_the_clone_for_a_create_aimed_at_another_repository(
     large_branch: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(size, "remote_measured_line_count", lambda *all_arguments: None)
+    monkeypatch.setattr(size, "_compare_lines", lambda *all_arguments: None)
 
-    assert size._read_measured_line_count(str(large_branch), "o/r", "main", "feature") is None
-    assert size._read_measured_line_count(str(large_branch), "o/r", "main", None) == 1500
+    assert size._read_measurement(str(large_branch), "o/r", "main", "feature") is None
+    assert size._read_measurement(str(large_branch), "o/r", "main", None) == 1500
+
+
+def test_should_measure_against_the_merge_base_gh_is_configured_to_use(tmp_path: Path) -> None:
+    clone_path = _clone_on_branch(tmp_path, "parent")
+    _commit_lines(clone_path, "library.py", 1500)
+    _git(clone_path, "push", "-q", "origin", "parent")
+    _git(clone_path, "checkout", "-q", "-b", "child")
+    _commit_lines(clone_path, "caller.py", 200)
+    _git(clone_path, "config", "branch.child.gh-merge-base", "parent")
+    assert size.oversized_pull_request_reason(_create(clone_path, PLAIN_BODY)) is None
+
+
+def test_should_refuse_a_create_whose_capped_compare_count_is_over_the_bar(
+    large_branch: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        size, "_compare_lines", lambda *all_arguments: ["300", json.dumps(["a.py", 1500, 0])]
+    )
+    payload = _create(large_branch, PLAIN_BODY, "--repo other-owner/other-repository --head feature")
+    assert size.oversized_pull_request_reason(payload) == OVER_BAR_REASON
+
+
+def test_should_read_the_configured_merge_base_of_a_head_named_with_its_owner(
+    tmp_path: Path,
+) -> None:
+    clone_path = _clone_on_branch(tmp_path, "parent")
+    _commit_lines(clone_path, "library.py", 1500)
+    _git(clone_path, "push", "-q", "origin", "parent")
+    _git(clone_path, "checkout", "-q", "-b", "child")
+    _commit_lines(clone_path, "caller.py", 1500)
+    _git(clone_path, "config", "branch.child.gh-merge-base", "parent")
+    assert size._configured_merge_base(str(clone_path), "owner:child") == "parent"

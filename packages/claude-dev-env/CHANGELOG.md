@@ -1,5 +1,26 @@
 # Changelog
 
+## [8.133.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.0...claude-dev-env-v8.133.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **hooks:** refuse the first oversized create and pass the second ([#2463](https://github.com/jl-cmd-projects/claude-dev-env/issues/2463)) ([ec66a65](https://github.com/jl-cmd-projects/claude-dev-env/commit/ec66a654322d4af233bcb377f13dca893eb37fbe))
+
+## [8.133.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.132.2...claude-dev-env-v8.133.0) (2026-11-18)
+
+
+### Features
+
+* **agents:** pre-approve helper branches in project-thread cloud sessions ([#2461](https://github.com/jl-cmd-projects/claude-dev-env/issues/2461)) ([6d0b503](https://github.com/jl-cmd-projects/claude-dev-env/commit/6d0b503f72d3620f842b8e502ae3435539865348))
+
+## [8.132.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.132.1...claude-dev-env-v8.132.2) (2026-11-18)
+
+
+### Bug Fixes
+
+* **hooks:** name a delegated task list item Worker ([#2459](https://github.com/jl-cmd-projects/claude-dev-env/issues/2459)) ([191a12f](https://github.com/jl-cmd-projects/claude-dev-env/commit/191a12f26f4fee888a241cc5ded7d5654f18ee1d))
+
 ## [8.132.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.132.0...claude-dev-env-v8.132.1) (2026-11-18)
 
 

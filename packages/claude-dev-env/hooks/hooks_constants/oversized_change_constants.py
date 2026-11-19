@@ -1,17 +1,26 @@
 """Constants for the size check on a new pull request."""
 
 MEASURED_LINE_BAR = 1000
-ONE_PULL_REQUEST_HEADING_PATTERN = r"^(#{1,6})[ \t]+why one pull request[?:.]?[ \t]*#*[ \t]*$"
 SPLIT_GUIDE_PATH = "~/.claude/skills/pr-lifecycle/reference/split-a-pull-request.md"
 OVERSIZED_PULL_REQUEST_REASON = (
     "This pull request changes {measured_line_count} lines against its base, over the"
     " {measured_line_bar}-line bar. Lockfiles are left out of the count, and a local count"
     " also leaves out files marked linguist-generated in .gitattributes."
     " Split it into stacked pull requests, each created with --base set to the branch below it,"
-    " as " + SPLIT_GUIDE_PATH + " describes. When the change must stay one pull request,"
-    " add a 'Why one pull request' heading to the body and state the reason under it."
+    " as " + SPLIT_GUIDE_PATH + " describes. Split first."
+    " The gate passes a second create for the same branch and base. Retry the create only when"
+    " no seam passes the four slice tests."
 )
-LINGUIST_GENERATED_ATTRIBUTE = "linguist-generated"
+ATTEMPT_RECORD_FILE_TEMPLATE = "oversized-create-attempts-{session_id}.json"
+ATTEMPT_RECORD_TEMPORARY_PREFIX = ".oversized-create-attempts-"
+ATTEMPT_RECORD_ENCODING = "utf-8"
+SESSION_ID_FIELD = "session_id"
+WORKING_DIRECTORY_FIELD = "cwd"
+GH_MERGE_BASE_CONFIG_KEY = "branch.{branch_name}.gh-merge-base"
+HEAD_OWNER_SEPARATOR = ":"
+ORIGIN_HEAD_REFERENCE = "refs/remotes/origin/HEAD"
+ORIGIN_REFERENCE_PREFIX = "refs/remotes/origin/"
+LINGUIST_GENERATED_ATTRIBUTE ="linguist-generated"
 ALL_GENERATED_ATTRIBUTE_VALUES = frozenset({"set", "true"})
 CHECK_ATTR_FIELD_COUNT = 3
 ALL_LOCKFILE_NAMES = frozenset(

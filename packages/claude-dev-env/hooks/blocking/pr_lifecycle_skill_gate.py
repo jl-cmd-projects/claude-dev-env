@@ -381,7 +381,7 @@ def decision_for(all_payload_fields: dict[str, object]) -> dict[str, object] | N
         pull request with no flowchart in What this does  -> MISSING_FLOWCHART_REASON
         feature changing an agent surface, no eval section -> MISSING_EVAL_SECTION_REASON + why
         changed page whose proof shows no picture         -> MISSING_LOOK_REASON
-        new pull request over 1,000 lines, no 'Why one pull request' -> OVERSIZED_PULL_REQUEST_REASON
+        first create of a pull request over 1,000 lines   -> OVERSIZED_PULL_REQUEST_REASON
         second follow-up pull request for one parent      -> DUPLICATE_FOLLOWUP_REASON_TEMPLATE
         follow-up read of open pull requests unanswered   -> UNANSWERED_FOLLOWUP_REASON_TEMPLATE
         follow-up with no repository, origin unread       -> UNREAD_ORIGIN_FOLLOWUP_REASON_TEMPLATE
