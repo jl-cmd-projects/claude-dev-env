@@ -843,6 +843,42 @@ def test_should_keep_a_snapshot_of_a_footer_the_transcript_already_ends_with(
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]}) is None
 
 
+def test_should_keep_a_snapshot_of_a_transcript_footer_when_the_payload_reply_is_blank(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_footer_records, all_records = _footer_then_work()
+    blank_fields = {"background_tasks": [{"id": "ledger"}], "last_assistant_message": "  "}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, blank_fields) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]}) is None
+
+
+def test_should_keep_the_snapshot_when_the_payload_repeats_a_footer_sent_with_a_question_call(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    card_reply = LEDGER_FOOTER_REPLY.replace("The retry flag is in place.", "One choice is open.").replace(
+        "- I am", "- I am still", 1
+    )
+    card_record = {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": card_reply},
+                {"type": "tool_use", "id": "id-card", "name": "AskUserQuestion", "input": {}},
+            ],
+        },
+    }
+    all_card_records = [*all_footer_records, *edit_records(), card_record]
+    all_records = [*all_card_records, *edit_records(), reply_record("The flag reads well.")]
+    ledger_fields = {"background_tasks": [{"id": "ledger"}]}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([{"id": "ledger"}])) is None
+    held_reason(monkeypatch, capsys, tmp_path, all_card_records, {**ledger_fields, "last_assistant_message": card_reply})
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, ledger_fields) is None
+
+
 def test_should_hold_a_footer_whose_task_changed_its_subject_since(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

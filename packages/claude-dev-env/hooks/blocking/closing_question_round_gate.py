@@ -757,17 +757,17 @@ def _new_footer(
 ) -> FooterSeen | None:
     payload_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     all_footer_items = split_footer(closing_reply).footer_items
-    if payload_reply is None:
+    if not isinstance(payload_reply, str) or not payload_reply.strip():
         return _closing_transcript_footer(all_footer_items, covered_session)
-    if not isinstance(payload_reply, str) or payload_reply.strip() != closing_reply.strip():
+    if payload_reply.strip() != closing_reply.strip() or all_footer_items is None:
         return None
-    if all_footer_items is None:
-        return None
-    footer_count = len(_footer_positions(covered_session.all_counted_records))
     is_unwritten = any(
         each_text.strip() == closing_reply.strip() for each_text in covered_session.all_payload_texts
     )
-    return FooterSeen(tuple(all_footer_items), covered_session.count_start, footer_count + int(is_unwritten))
+    if not is_unwritten:
+        return _closing_transcript_footer(all_footer_items, covered_session)
+    footer_count = len(_footer_positions(covered_session.all_counted_records))
+    return FooterSeen(tuple(all_footer_items), covered_session.count_start, footer_count + 1)
 
 
 def _closing_transcript_footer(

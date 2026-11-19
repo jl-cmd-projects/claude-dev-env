@@ -166,7 +166,8 @@ def is_footer_ask(footer_item: str) -> bool:
     approval, a decision, a sign-off, a go-ahead, permission, consent, an
     answer, input, a choice, or a confirmation from anyone, or that holds an open-item line other than the status markers
     "pending", "blocked", "not done", and "not run" may ask the user
-    something, so it counts as an ask. A later sentence that opens with a
+    something, so it counts as an ask. A later sentence or clause after a
+    semicolon that opens with a
     request word such as please, pick, choose, approve, or confirm counts as
     an ask too, so a request after a status sentence is kept, and so does
     an item that needs, wants, waits for, or asks someone to pick, choose,
