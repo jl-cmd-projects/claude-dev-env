@@ -24,3 +24,5 @@ def test_should_point_at_the_shipped_judge_files() -> None:
     assert constants.CASES_FILE.is_file()
     for each_path in constants.ALL_DIGEST_SOURCES:
         assert each_path.is_file(), each_path
+    all_source_names = {each_path.name for each_path in constants.ALL_DIGEST_SOURCES}
+    assert {"closing_question_round_footer.py", "closing_question_round_gate_constants.py"} <= all_source_names

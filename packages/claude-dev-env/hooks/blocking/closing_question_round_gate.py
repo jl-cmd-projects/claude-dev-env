@@ -889,10 +889,14 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     covered_session = _covered_session(all_hook_input_fields, deadline_at)
     if covered_session is None:
         return None
-    all_payload_texts, all_stretch_records, all_counted_records, newest_footer, _, _ = covered_session
+    all_payload_texts, all_stretch_records, all_counted_records, newest_footer, _, written_reply = covered_session
     if prior_hold_count(all_counted_records) >= MAXIMUM_HOLD_COUNT:
         return None
-    all_closing_texts = _closing_reply_texts(all_stretch_records, all_payload_texts)
+    all_closing_texts = (
+        _closing_reply_texts(all_stretch_records, all_payload_texts)
+        if all_payload_texts or written_reply is not None
+        else []
+    )
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
     new_footer = _new_footer(all_hook_input_fields, closing_reply, covered_session)
     all_known_tasks = None

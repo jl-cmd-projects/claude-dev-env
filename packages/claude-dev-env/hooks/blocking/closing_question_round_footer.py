@@ -160,6 +160,8 @@ def is_footer_ask(footer_item: str) -> bool:
         "Approve the release."                         -> True, not first person
         "I am preparing it. Pick a release date."      -> True, its second sentence is a request
         "I am shipping 8590. Its tests are pending."   -> False
+        "I am updating the decision log."              -> False, no wait before the word
+        "I am holding the release until Jon confirms the date." -> True, it waits on a confirmation
         "Should I merge 8590?"                         -> True, a question
 
     The rule writes each footer item in first person and says what the work
@@ -173,8 +175,9 @@ def is_footer_ask(footer_item: str) -> bool:
     "so you can see the dates and pick one", counts as an ask. Each word
     check reads the item with its asterisks, underscores, tildes, and
     backticks left out, so "**pick**" reads as pick. An item that is not
-    first person, that names the user in any other way, that waits on an
-    approval, an authorization, a green light, a clearance, a decision, a sign-off, a go-ahead, permission, consent, an
+    first person, that names the user in any other way, that waits,
+    needs, holds, or is blocked, until, once, or after, within 40
+    characters before one of an approval, an authorization, a green light, a clearance, a decision, a sign-off, a go-ahead, permission, consent, an
     answer, input, a choice, or a confirmation from anyone, or that holds an open-item line other than the status markers
     "pending", "blocked", "not done", and "not run" may ask the user
     something, so it counts as an ask. A later sentence or clause after a
@@ -184,8 +187,8 @@ def is_footer_ask(footer_item: str) -> bool:
     an item that needs, wants, waits for, or asks someone to pick, choose,
     approve, confirm, decide, answer, give, send, share, provide, or supply,
     or that holds until, once, when, after, unless, or before someone
-    picks, chooses, approves, decides, answers, replies, signs off, gives,
-    sends, shares, provides, or supplies, or that needs or waits for something
+    picks, chooses, approves, confirms, decides, answers, replies, reviews,
+    tells, says, signs off, gives, sends, shares, provides, or supplies, or that needs or waits for something
     from a person such as the owner, a client, or a reviewer. Each such
     match looks at most 80 characters past its first word, so a long item
     costs one pass.

@@ -156,6 +156,17 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
         "- I need the client to send the logo.\n- I am waiting for Jon to share the price sheet."
     )
     assert parsed_verdict(verdict_text, supply_reply) == JudgeVerdict("", "In progress:")
+    conditional_reply = (
+        "Shipped.\n\nIn progress:\n- I am holding the release until Jon confirms the date.\n"
+        "- I am holding the export until the lead reviews it.\n"
+        "- I am holding the launch until Jon tells me the price."
+    )
+    assert parsed_verdict(verdict_text, conditional_reply) == JudgeVerdict("", "In progress:")
+    keyword_status_reply = (
+        "Shipped.\n\nIn progress:\n- I am adding input validation.\n"
+        "- I am checking the permission rules.\n- I am updating the decision log."
+    )
+    assert parsed_verdict(verdict_text, keyword_status_reply) == JudgeVerdict("", "")
     benefit_reply = (
         "Shipped.\n\nIn progress:\n- I am updating the discount ledger so your prices stay current.\n"
         "- I am watching the export so your files arrive on time.\n"
