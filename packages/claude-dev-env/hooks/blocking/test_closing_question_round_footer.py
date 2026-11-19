@@ -294,6 +294,29 @@ def test_should_keep_every_choice_under_a_footer_ask_to_pick() -> None:
     assert list_check_text(status_reply) == "Done.\n\nIn progress:\n- I need your approval."
 
 
+def test_should_keep_every_choice_under_a_footer_item_that_leaves_a_choice_to_the_user() -> None:
+    leave_reply = (
+        "Done.\n\nIn progress:\n- I am leaving the release date to you.\n- I have Monday open.\n- I have Friday open."
+    )
+    assert list_check_text(leave_reply) == leave_reply
+    up_to_you_reply = "Done.\n\nIn progress:\n- The release date is up to you.\n- I have Monday open."
+    assert list_check_text(up_to_you_reply) == up_to_you_reply
+
+
+def test_should_filter_a_long_mixed_footer_in_linear_time() -> None:
+    all_items = [
+        each_line
+        for each_index in range(20000)
+        for each_line in (f"- I am shipping build {each_index}.", f"- Confirm build {each_index}.")
+    ]
+    mixed_reply = "Done.\n\nIn progress:\n" + "\n".join(all_items)
+    started_at = time.process_time()
+    checked_text = list_check_text(mixed_reply)
+    assert time.process_time() - started_at < 3.0
+    assert "- Confirm build 19999." in checked_text
+    assert "- I am shipping build 19999." not in checked_text
+
+
 def test_should_keep_every_option_when_an_earlier_paragraph_asks_the_user_to_choose() -> None:
     choice_reply = (
         "Please choose a release date.\n\nThe build is ready.\n\nIn progress:\n"

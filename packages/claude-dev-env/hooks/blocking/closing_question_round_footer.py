@@ -270,7 +270,8 @@ def list_check_text(closing_reply: str) -> str:
     "I may", "I recommend", "I suggest", "I propose", "I prefer", or
     "I favor" stay too, so the options
     beside the ask still reach the judge. An ask that leaves a choice to
-    the user, as "I need you to pick a date." does, keeps the whole reply,
+    the user, as "I need you to pick a date." and "I am leaving the date to
+    you." do, keeps the whole reply,
     so the choices under it reach the judge whatever they open with. The heading and
     each kept line stay as the reply wrote them, so a span the judge quotes
     from them is still found in the reply. When the last body paragraph
@@ -300,7 +301,10 @@ def list_check_text(closing_reply: str) -> str:
     heading_position, all_item_lines = found_footer
     if _is_asking_lead(all_lines[:heading_position]) or _is_user_choice(all_lines[:heading_position], all_item_lines):
         return closing_reply
-    all_ask_lines = [each_item_lines for each_item_lines in all_item_lines if _is_ask_item(each_item_lines)]
+    all_is_ask = [_is_ask_item(each_item_lines) for each_item_lines in all_item_lines]
+    all_ask_lines = [
+        each_item_lines for each_item_lines, is_ask in zip(all_item_lines, all_is_ask, strict=True) if is_ask
+    ]
     if len(all_ask_lines) == len(all_item_lines) or any(
         USER_CHOICE_LEAD_PATTERN.search(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines))) is not None
         for each_item_lines in all_ask_lines
@@ -311,8 +315,8 @@ def list_check_text(closing_reply: str) -> str:
         return LINE_BREAK.join(all_body_lines)
     all_kept_items = [
         each_item_lines
-        for each_item_lines in all_item_lines
-        if each_item_lines in all_ask_lines
+        for each_item_lines, is_ask in zip(all_item_lines, all_is_ask, strict=True)
+        if is_ask
         or OPTION_ITEM_PATTERN.match(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines)))
     ]
     all_kept_lines = [each_line for each_item_lines in all_kept_items for each_line in each_item_lines]
