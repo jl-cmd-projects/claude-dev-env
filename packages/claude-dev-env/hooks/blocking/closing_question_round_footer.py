@@ -148,6 +148,8 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am holding it until the owner approves."    -> True, it waits on a decision
         "I need an answer on the price."               -> True, it waits on an answer
         "I need the owner to pick the release date."   -> True, it asks someone to pick
+        "I am holding it until the owner picks a date." -> True, it waits on a choice
+        "I am updating the ledger so your prices stay current." -> False, a benefit clause
         "Approve the release."                         -> True, not first person
         "I am preparing it. Pick a release date."      -> True, its second sentence is a request
         "I am shipping 8590. Its tests are pending."   -> False
@@ -156,8 +158,10 @@ def is_footer_ask(footer_item: str) -> bool:
     The rule writes each footer item in first person and says what the work
     gets the user, as "so you see its next update" does. Only such a benefit
     clause, "so you" or "so that you" with see, know, get, read, follow,
-    have, hear, learn, find, watch, or track, leaves the user unnamed, so
-    "so you can approve it first" still names the user. An item that is not
+    have, hear, learn, find, watch, or track, or "so your" and one or two
+    words with stays, remains, keeps, updates, shows, matches, loads, works,
+    runs, arrives, is, or are, leaves the user unnamed, so "so you can
+    approve it first" and "so your team can approve it" still name the user. An item that is not
     first person, that names the user in any other way, that waits on an
     approval, a decision, a sign-off, a go-ahead, permission, consent, an
     answer, input, a choice, or a confirmation from anyone, or that holds an open-item line other than the status markers
@@ -166,7 +170,9 @@ def is_footer_ask(footer_item: str) -> bool:
     request word such as please, pick, choose, approve, or confirm counts as
     an ask too, so a request after a status sentence is kept, and so does
     an item that needs, wants, waits for, or asks someone to pick, choose,
-    approve, confirm, decide, or answer.
+    approve, confirm, decide, or answer, or that holds until, once, when,
+    after, unless, or before someone picks, chooses, approves, decides,
+    answers, replies, or signs off.
     """
     status_item = FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, footer_item)
     return (

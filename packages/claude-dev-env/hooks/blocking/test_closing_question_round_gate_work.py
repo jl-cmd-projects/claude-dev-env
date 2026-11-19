@@ -843,6 +843,19 @@ def test_should_keep_a_snapshot_of_a_footer_the_transcript_already_ends_with(
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]}) is None
 
 
+def test_should_hold_a_footer_whose_task_changed_its_subject_since(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": "Move payments to Adyen", "status": "in_progress"}])
+    footer_reply = "The retry flag is in place.\n\nIn progress:\n- I am moving payments to Adyen so checkout uses it."
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(footer_reply)]
+    all_records = [*all_footer_records, *edit_records(), reply_record("The flag reads well.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, {"last_assistant_message": footer_reply}) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {}) is None
+    write_tasks(tmp_path, [{"id": "28", "subject": "Keep payments off Adyen", "status": "in_progress"}])
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {})).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
 def test_should_not_file_new_jobs_under_a_transcript_footer_sent_before_a_notification(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

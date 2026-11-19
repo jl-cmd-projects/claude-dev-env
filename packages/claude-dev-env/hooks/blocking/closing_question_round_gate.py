@@ -415,6 +415,7 @@ def footer_snapshot(
         footer F, tasks #28, jobs [{"id": "b"}, {"id": "a"}]  -> (key of F, key of #28 and a, b, 2)
         jobs ["ab", "c"] and ["a", "bc"]                       -> two different state keys
         tasks #28 and #29, then #28 alone                      -> two different state keys
+        task #28, then #28 with a new subject                  -> two different state keys
         jobs "ledger" and {"ledger": {}}                       -> the same state key
 
     Args:
@@ -426,8 +427,8 @@ def footer_snapshot(
         The snapshot for that footer, task set, and job set.
     """
     all_identities = sorted(_job_identities(all_hook_input_fields.get(BACKGROUND_TASKS_KEY)))
-    all_task_ids = sorted(each_task.item_id for each_task in all_tasks.in_progress)
-    return FooterSnapshot(footer_key(footer), _short_digest([all_task_ids, all_identities]), len(all_identities))
+    all_task_entries = sorted([each_task.item_id, each_task.subject] for each_task in all_tasks.in_progress)
+    return FooterSnapshot(footer_key(footer), _short_digest([all_task_entries, all_identities]), len(all_identities))
 
 
 def _snapshot_path(all_hook_input_fields: dict[str, object]) -> Path | None:

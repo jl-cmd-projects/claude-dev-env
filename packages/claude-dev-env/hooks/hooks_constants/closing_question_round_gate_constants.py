@@ -39,7 +39,9 @@ FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’]m\b)")
 SENTENCE_BREAK_PATTERN = re.compile(r"(?<=[.!?])\s+")
 OTHER_PARTY_REQUEST_PATTERN = re.compile(
     r"\b(?:need|needs|want|wants|waiting\s+for|wait\s+for|ask|asks|asking)\b[^.!?]*?\bto\s+"
-    r"(?:pick|choose|select|approve|confirm|decide|reply|answer|review|sign|say|tell)\b",
+    r"(?:pick|choose|select|approve|confirm|decide|reply|answer|review|sign|say|tell)\b"
+    r"|\b(?:until|once|when|after|unless|before)\b[^.!?]*?"
+    r"\b(?:picks|chooses|selects|approves|decides|answers|replies|signs\s+off)\b",
     re.IGNORECASE,
 )
 REQUEST_OPENER_PATTERN = re.compile(
@@ -48,7 +50,8 @@ REQUEST_OPENER_PATTERN = re.compile(
 )
 USER_MENTION_PATTERN = re.compile(r"\byou(?:r|rs|rself)?\b", re.IGNORECASE)
 PURPOSE_CLAUSE_PATTERN = re.compile(
-    r"\bso(?:\s+that)?\s+you(?:\s+can)?\s+(?:see|know|get|read|follow|have|hear|learn|find|watch|track)\b",
+    r"\bso(?:\s+that)?\s+(?:you(?:\s+can)?\s+(?:see|know|get|read|follow|have|hear|learn|find|watch|track)"
+    r"|your(?:\s+\w+){1,2}?\s+(?:stays?|remains?|keeps?|updates?|shows?|match(?:es)?|loads?|works?|runs?|arrives?|is|are))\b",
     re.IGNORECASE,
 )
 PURPOSE_CLAUSE_STAND_IN = "so"
