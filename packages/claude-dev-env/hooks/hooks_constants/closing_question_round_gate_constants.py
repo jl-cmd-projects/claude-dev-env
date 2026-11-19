@@ -41,7 +41,9 @@ OTHER_PARTY_REQUEST_PATTERN = re.compile(
     r"\b(?:need|needs|want|wants|waiting\s+for|wait\s+for|ask|asks|asking)\b[^.!?]*?\bto\s+"
     r"(?:pick|choose|select|approve|confirm|decide|reply|answer|review|sign|say|tell)\b"
     r"|\b(?:until|once|when|after|unless|before)\b[^.!?]*?"
-    r"\b(?:picks|chooses|selects|approves|decides|answers|replies|signs\s+off)\b",
+    r"\b(?:picks|chooses|selects|approves|decides|answers|replies|signs\s+off)\b"
+    r"|\b(?:need|needs|want|wants|waiting\s+for|wait\s+for)\b[^.!?;]*?\bfrom\s+(?:the\s+|a\s+|an\s+|my\s+|our\s+)?"
+    r"(?:owner|user|client|customer|team|lead|manager|reviewer|approver|admin|maintainer|designer|stakeholder)s?\b",
     re.IGNORECASE,
 )
 REQUEST_OPENER_PATTERN = re.compile(

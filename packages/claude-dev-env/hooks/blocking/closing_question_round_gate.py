@@ -111,10 +111,10 @@ from closing_question_round_tasks import SessionTasks, session_tasks
 from closing_question_round_transcript import (
     assistant_texts,
     block_texts,
-    closing_reply_texts,
     has_work_call,
     last_typed_prompt_position,
     last_written_reply,
+    payload_closing_texts,
     stretch_start,
     top_level_records,
 )
@@ -568,13 +568,14 @@ def _covered_session(
         *top_level_records(all_lines[start_position:count_start], deadline_at),
         *all_counted_records,
     ]
+    written_reply = last_written_reply(all_lines, deadline_at)
     return CoveredSession(
-        closing_reply_texts(all_hook_input_fields, all_lines, deadline_at),
+        payload_closing_texts(all_hook_input_fields, written_reply),
         all_stretch_records,
         all_counted_records,
         _newest_footer(all_counted_records, count_start),
         count_start,
-        last_written_reply(all_lines, deadline_at),
+        written_reply,
     )
 
 
@@ -777,7 +778,18 @@ def _closing_transcript_footer(
     written_reply = covered_session.written_reply
     if newest_footer is None or written_reply is None or all_footer_items != newest_footer.lines:
         return None
-    return newest_footer if split_footer(written_reply).footer_items == newest_footer.lines else None
+    if split_footer(written_reply).footer_items != newest_footer.lines:
+        return None
+    return newest_footer if _is_newest_footer_last_text(covered_session.all_counted_records) else None
+
+
+def _is_newest_footer_last_text(all_counted_records: list[dict[str, object]]) -> bool:
+    all_text_positions = [
+        each_position
+        for each_position, each_record in enumerate(all_counted_records)
+        if is_assistant_record(each_record) and block_texts(each_record)
+    ]
+    return all_text_positions[-1] == _footer_positions(all_counted_records)[-1]
 
 
 def _is_unrecorded(all_hook_input_fields: dict[str, object], new_footer: FooterSeen) -> bool:

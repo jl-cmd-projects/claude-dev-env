@@ -359,10 +359,28 @@ def closing_reply_texts(
     Raises:
         TimeoutError: The deadline passed before the scan ended.
     """
+    return payload_closing_texts(all_hook_input_fields, last_written_reply(all_lines, deadline_at))
+
+
+def payload_closing_texts(all_hook_input_fields: dict[str, object], written_reply: str | None) -> list[str]:
+    """Return the payload's closing reply as a one-item list, unless the transcript already ends with it.
+
+    ::
+
+        "Both tests pass." and written reply "Done."              -> ["Both tests pass."]
+        "Both tests pass." and written reply "Both tests pass.\n" -> []
+        "" or no string                                           -> []
+
+    Args:
+        all_hook_input_fields: The Stop payload.
+        written_reply: The reply the transcript ends with, from ``last_written_reply``.
+
+    Returns:
+        The closing reply to read, when the transcript does not hold it yet.
+    """
     closing_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(closing_reply, str) or not closing_reply.strip():
         return []
-    last_written_text = last_written_reply(all_lines, deadline_at)
-    if last_written_text is not None and last_written_text.strip() == closing_reply.strip():
+    if written_reply is not None and written_reply.strip() == closing_reply.strip():
         return []
     return [closing_reply]

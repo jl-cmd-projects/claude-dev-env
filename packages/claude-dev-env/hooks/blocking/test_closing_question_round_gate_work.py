@@ -879,6 +879,27 @@ def test_should_keep_the_snapshot_when_the_payload_repeats_a_footer_sent_with_a_
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, ledger_fields) is None
 
 
+def test_should_not_save_new_jobs_under_a_footer_a_question_message_repeats(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    card_record = {
+        "type": "assistant",
+        "message": {
+            "role": "assistant",
+            "content": [
+                {"type": "text", "text": LEDGER_FOOTER_REPLY},
+                {"type": "tool_use", "id": "id-card", "name": "AskUserQuestion", "input": {}},
+            ],
+        },
+    }
+    all_card_records = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY), *edit_records(), card_record]
+    all_records = [*all_card_records, *edit_records(), reply_record("The flag reads well.")]
+    tests_fields = {"background_tasks": [{"id": "tests"}]}
+    held_reason(monkeypatch, capsys, tmp_path, all_card_records, {**tests_fields, "last_assistant_message": LEDGER_FOOTER_REPLY})
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, tests_fields)).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
 def test_should_hold_a_footer_whose_task_changed_its_subject_since(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

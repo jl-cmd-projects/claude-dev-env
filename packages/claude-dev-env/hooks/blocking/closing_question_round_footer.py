@@ -149,6 +149,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I need an answer on the price."               -> True, it waits on an answer
         "I need the owner to pick the release date."   -> True, it asks someone to pick
         "I am holding it until the owner picks a date." -> True, it waits on a choice
+        "I need a date from the owner."                -> True, it waits on a person
         "I am updating the ledger so your prices stay current." -> False, a benefit clause
         "Approve the release."                         -> True, not first person
         "I am preparing it. Pick a release date."      -> True, its second sentence is a request
@@ -173,7 +174,8 @@ def is_footer_ask(footer_item: str) -> bool:
     an item that needs, wants, waits for, or asks someone to pick, choose,
     approve, confirm, decide, or answer, or that holds until, once, when,
     after, unless, or before someone picks, chooses, approves, decides,
-    answers, replies, or signs off.
+    answers, replies, or signs off, or that needs or waits for something
+    from a person such as the owner, a client, or a reviewer.
     """
     status_item = FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, footer_item)
     return (
