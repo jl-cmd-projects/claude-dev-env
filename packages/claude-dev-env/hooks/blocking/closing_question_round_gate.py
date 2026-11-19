@@ -323,11 +323,19 @@ def _footer_positions(all_records: list[dict[str, object]]) -> list[int]:
     all_tool_message_ids = {
         _message_id(each_record) for each_record in all_records if _has_tool_call(each_record)
     } - {None}
+    last_text_positions = {
+        _message_id(each_record): each_position
+        for each_position, each_record in enumerate(all_records)
+        if is_assistant_record(each_record) and block_texts(each_record)
+    }
     all_positions = []
     for each_position, each_record in enumerate(all_records):
         if not is_assistant_record(each_record) or _has_tool_call(each_record):
             continue
-        if _message_id(each_record) in all_tool_message_ids:
+        message_id = _message_id(each_record)
+        if message_id in all_tool_message_ids:
+            continue
+        if message_id is not None and last_text_positions[message_id] != each_position:
             continue
         all_record_texts = block_texts(each_record)
         if all_record_texts and split_footer(all_record_texts[-1]).footer_items is not None:
@@ -525,18 +533,19 @@ def were_jobs_shown(
     return kept_snapshot == footer_snapshot(all_hook_input_fields, footer, all_tasks)
 
 
-def did_footer_show_jobs(kept_snapshot: FooterSnapshot | None, footer: FooterSeen | None) -> bool:
-    """Return True when this footer went out while background jobs ran.
+def is_footer_recorded(kept_snapshot: FooterSnapshot | None, footer: FooterSeen | None) -> bool:
+    """Return True when the kept snapshot names this footer, whatever tasks and jobs it holds.
 
     ::
 
         footer F sent while job a ran, F newest             -> True
-        footer F sent with no background work               -> False
+        footer F sent with no background work               -> True
+        a snapshot of another footer                        -> False
         no footer, or no snapshot kept for this session     -> False
     """
     if footer is None or kept_snapshot is None:
         return False
-    return kept_snapshot.footer_key == footer_key(footer) and kept_snapshot.job_count > 0
+    return kept_snapshot.footer_key == footer_key(footer)
 
 
 def _covered_session(
@@ -611,7 +620,7 @@ def is_footer_still_current(
     all_tasks: SessionTasks,
     background_count: int,
     were_jobs_in_footer: bool = False,
-    did_show_jobs: bool = False,
+    is_recorded: bool = False,
 ) -> bool:
     """Return True when the newest footer the user saw still shows the work in progress.
 
@@ -620,6 +629,7 @@ def is_footer_still_current(
         footer names #28 and #29, both in progress                -> True
         footer names #28 and #29, #29 finished                    -> False, one line too many
         footer names #28, #29 started since                       -> False, #29 left out
+        footer kept with #28, #30 took its place since            -> False, the tasks changed
         footer names #28 and the jobs it went out with, still running -> True
         footer names #28, a job started in the background since    -> False, the jobs changed
         one job took another's place since                         -> False, the jobs changed
@@ -627,8 +637,10 @@ def is_footer_still_current(
         no footer since the typed prompt or answered card         -> False
 
     The footer has one line per piece of work. With no background work, a
-    footer with more lines than tasks in progress shows work that is done.
-    With background work, this footer must have gone out while exactly
+    footer with more lines than tasks in progress shows work that is done,
+    and a footer the gate kept a snapshot of must have gone out with exactly
+    these tasks in progress and no jobs. With background work, this footer
+    must have gone out while exactly
     these jobs ran. A job that starts, ends, or takes another's place makes
     it owed, while a notice that a job is still going does not. The footer
     may sum up all the jobs in one line.
@@ -638,7 +650,7 @@ def is_footer_still_current(
         all_tasks: The session's tasks.
         background_count: How many background jobs the payload names.
         were_jobs_in_footer: Whether this footer went out while exactly these jobs ran.
-        did_show_jobs: Whether this footer went out while background jobs ran.
+        is_recorded: Whether the kept snapshot names this footer.
 
     Returns:
         Whether the footer can stand for the reply.
@@ -649,7 +661,9 @@ def is_footer_still_current(
         return False
     if background_count:
         return were_jobs_in_footer
-    return len(all_last_footer_lines) <= len(all_tasks.in_progress) and not did_show_jobs
+    if len(all_last_footer_lines) > len(all_tasks.in_progress):
+        return False
+    return were_jobs_in_footer or not is_recorded
 
 
 def footer_hold_reason(
@@ -703,7 +717,7 @@ def footer_hold_reason(
             all_tasks,
             background_job_count(all_hook_input_fields),
             were_jobs_shown(kept_snapshot, all_hook_input_fields, newest_footer, all_tasks),
-            did_footer_show_jobs(kept_snapshot, newest_footer),
+            is_footer_recorded(kept_snapshot, newest_footer),
         ):
             return None
         reason_lead = _missing_footer_lead(all_tasks, is_declared, did_work)

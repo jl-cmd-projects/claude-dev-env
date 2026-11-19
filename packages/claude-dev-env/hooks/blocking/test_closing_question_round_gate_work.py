@@ -774,6 +774,46 @@ def test_should_hold_a_job_that_started_after_its_footer_was_sent_with_no_jobs(
     ).startswith(FOOTER_MISSING_REASON_LEAD)
 
 
+def test_should_hold_a_footer_whose_task_another_task_replaced_since(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    footer_reply = f"The retry flag is in place.\n\nIn progress:\n{LIST_READER_ITEM}"
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(footer_reply)]
+    all_records = [*all_footer_records, *edit_records(), reply_record("The flag reads well.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, {"last_assistant_message": footer_reply}) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {}) is None
+    write_tasks(
+        tmp_path,
+        [
+            {"id": "28", "subject": LIST_READER_SUBJECT, "status": "completed"},
+            {"id": "30", "subject": "Test list reader lint finding", "status": "in_progress"},
+        ],
+    )
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {})).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
+def test_should_count_a_footer_only_when_it_ends_the_last_text_of_its_message(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    footer_record = reply_record(f"The retry flag is in place.\n\nIn progress:\n{LIST_READER_ITEM}")
+    footer_record["message"]["id"] = "message-9"
+    prose_record = reply_record("One more note on the flag.")
+    prose_record["message"]["id"] = "message-9"
+    all_records = [
+        typed_prompt_record(),
+        *edit_records(),
+        footer_record,
+        prose_record,
+        *edit_records(),
+        reply_record("The flag reads well."),
+    ]
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_MISSING_REASON_LEAD)
+    prose_record["message"]["id"] = "message-10"
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None
+
+
 def test_should_count_the_same_footer_sent_again_after_a_new_notification(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

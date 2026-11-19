@@ -100,6 +100,11 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
         "- I am holding the price change for your approval.\n- I am holding the date for your approval."
     )
     assert parsed_verdict(verdict_text, holding_reply) == JudgeVerdict("", "In progress:")
+    answer_reply = (
+        "Shipped.\n\nIn progress:\n- I need an answer on the price.\n"
+        "- I need an answer on the date.\n- I need an answer on the deposit."
+    )
+    assert parsed_verdict(verdict_text, answer_reply) == JudgeVerdict("", "In progress:")
     one_ask_reply = (
         "Shipped.\n\nIn progress:\n- I am shipping 8590.\n- I am merging 8790 once it has your approval.\n"
         "- I am watching the ledger."

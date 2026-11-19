@@ -143,6 +143,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am merging 8590 once it has your approval." -> True, it names the user
         "I will release it only with an OK from you."  -> True
         "I am holding it until the owner approves."    -> True, it waits on a decision
+        "I need an answer on the price."               -> True, it waits on an answer
         "Approve the release."                         -> True, not first person
         "Should I merge 8590?"                         -> True, a question
 
@@ -152,8 +153,8 @@ def is_footer_ask(footer_item: str) -> bool:
     have, hear, learn, find, watch, or track, leaves the user unnamed, so
     "so you can approve it first" still names the user. An item that is not
     first person, that names the user in any other way, that waits on an
-    approval, a decision, a sign-off, a go-ahead, permission, or consent from
-    anyone, or that holds an open-item line other than the status markers
+    approval, a decision, a sign-off, a go-ahead, permission, consent, an
+    answer, input, a choice, or a confirmation from anyone, or that holds an open-item line other than the status markers
     "pending", "blocked", "not done", and "not run" may ask the user
     something, so it counts as an ask.
     """
