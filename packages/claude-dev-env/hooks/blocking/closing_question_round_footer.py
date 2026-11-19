@@ -62,6 +62,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     REASON_PART_SEPARATOR,
     TASK_KEY_WORD_SEPARATOR,
 )
+from hooks_constants.final_reply_gate_constants import QUESTION_MARK
 from hooks_constants.user_step_wording_constants import LINE_BREAK
 
 
@@ -217,13 +218,17 @@ def list_check_text(closing_reply: str) -> str:
         "Done.\n\nIn progress:\n- I am shipping 8590."                -> "Done.\n"
         "Done.\n\nIn progress:\n- Pick a price.\n- Confirm the date."  -> the whole reply
         "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price." -> "Done.\n\nIn progress:\n- Pick a price."
+        "Pick which option I should ship.\n\nIn progress:\n- I can ship A." -> the whole reply
         "Done."                                                       -> "Done."
 
     A footer line that only says where work stands is required status, so
     the check leaves it out and reads the body with the footer lines that ask
     the user something, as ``is_footer_ask`` finds them. The heading and
     each kept line stay as the reply wrote them, so a span the judge quotes
-    from them is still found in the reply.
+    from them is still found in the reply. When the last body line above
+    the footer opens a sentence with a request word or ends with a
+    question mark, it gives the lines under it their meaning, so the
+    whole reply is read.
 
     Args:
         closing_reply: The reply the turn ends with.
@@ -236,6 +241,8 @@ def list_check_text(closing_reply: str) -> str:
     if found_footer is None:
         return closing_reply
     heading_position, all_item_lines = found_footer
+    if _is_asking_lead(all_lines[:heading_position]):
+        return closing_reply
     all_ask_lines = [
         each_item_lines for each_item_lines in all_item_lines if is_footer_ask(_item_text(each_item_lines))
     ]
@@ -246,6 +253,17 @@ def list_check_text(closing_reply: str) -> str:
         return LINE_BREAK.join(all_body_lines)
     all_kept_lines = [each_line for each_item_lines in all_ask_lines for each_line in each_item_lines]
     return LINE_BREAK.join([*all_body_lines, all_lines[heading_position], *all_kept_lines])
+
+
+def _is_asking_lead(all_body_lines: list[str]) -> bool:
+    all_filled_lines = [each_line.strip() for each_line in all_body_lines if each_line.strip()]
+    if not all_filled_lines:
+        return False
+    lead_line = MARKDOWN_EMPHASIS_PATTERN.sub("", all_filled_lines[-1])
+    return lead_line.endswith(QUESTION_MARK) or any(
+        REQUEST_OPENER_PATTERN.match(each_sentence) is not None
+        for each_sentence in SENTENCE_BREAK_PATTERN.split(lead_line)
+    )
 
 
 def _stem(word: str) -> str:

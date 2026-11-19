@@ -1014,6 +1014,22 @@ def test_should_not_read_a_footer_from_before_a_notification_as_a_blank_stop_rep
     ).startswith(FOOTER_CHANGED_REASON_LEAD)
 
 
+def test_should_check_the_footer_of_a_reply_a_thinking_only_record_follows(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(
+        tmp_path,
+        [
+            {"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"},
+            {"id": "29", "subject": LEDGER_SUBJECT, "status": "in_progress"},
+        ],
+    )
+    thinking_block = {"type": "thinking", "thinking": "Checking the ledger."}
+    thinking_record = {"type": "assistant", "message": {"role": "assistant", "content": [thinking_block]}}
+    all_records = [typed_prompt_record(), *edit_records(), reply_record(f"Done.\n\n{FOOTER}"), thinking_record]
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(FOOTER_GAP_REASON_LEAD)
+
+
 def test_should_allow_the_third_stop_after_two_changed_work_holds(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

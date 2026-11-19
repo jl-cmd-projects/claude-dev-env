@@ -208,6 +208,9 @@ def test_last_written_reply_returns_the_reply_only_while_no_prompt_or_work_follo
     edit_call = {"type": "tool_use", "id": "id-edit", "name": "Edit", "input": {}}
     edit_record = {"type": "assistant", "message": {"role": "assistant", "content": [edit_call]}}
     assert last_written_reply([*all_lines, *json_lines([edit_record])], NO_DEADLINE) is None
+    thinking_block = {"type": "thinking", "thinking": "Checking the ledger."}
+    thinking_record = {"type": "assistant", "message": {"role": "assistant", "content": [thinking_block]}}
+    assert last_written_reply([*all_lines, *json_lines([thinking_record])], NO_DEADLINE) == "Both tests pass."
 
 
 def test_payload_closing_texts_leaves_out_a_reply_the_transcript_already_ends_with() -> None:

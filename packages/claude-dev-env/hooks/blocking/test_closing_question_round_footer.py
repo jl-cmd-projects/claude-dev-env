@@ -126,6 +126,15 @@ def test_should_read_a_long_footer_item_in_one_pass() -> None:
     assert time.process_time() - started_at < 0.2
 
 
+def test_should_read_the_whole_reply_when_the_line_above_the_footer_asks_to_pick() -> None:
+    choice_reply = "Pick which option I should ship.\n\nIn progress:\n- I can ship the export first."
+    assert list_check_text(choice_reply) == choice_reply
+    asked_reply = "Which one ships first?\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(asked_reply) == asked_reply
+    status_reply = "Done.\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(status_reply) == "Done.\n"
+
+
 def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_check_text() -> None:
     owner_reply = (
         "Done.\n\nIn progress:\n- I am shipping 8590.\n"

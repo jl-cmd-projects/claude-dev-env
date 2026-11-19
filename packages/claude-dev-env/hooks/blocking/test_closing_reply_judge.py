@@ -167,6 +167,11 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
         "- I am checking the permission rules.\n- I am updating the decision log."
     )
     assert parsed_verdict(verdict_text, keyword_status_reply) == JudgeVerdict("", "")
+    choice_reply = (
+        "Pick which option I should ship.\n\nIn progress:\n- I can ship the export first.\n"
+        "- I can ship the ledger first.\n- I can ship both on Friday."
+    )
+    assert parsed_verdict(verdict_text, choice_reply) == JudgeVerdict("", "In progress:")
     benefit_reply = (
         "Shipped.\n\nIn progress:\n- I am updating the discount ledger so your prices stay current.\n"
         "- I am watching the export so your files arrive on time.\n"

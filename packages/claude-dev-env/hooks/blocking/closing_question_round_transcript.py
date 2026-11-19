@@ -299,6 +299,7 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
         prompt, reply "Done.", a later prompt     -> None, a new turn started
         prompt, reply "Done.", an Edit call       -> None, the record ends with work
         a question call after "Done." in a record -> "Done.", the call is set aside
+        reply "Done.", then a thinking-only record -> "Done.", a record with no text or call is skipped
 
     Args:
         all_lines: The transcript, one JSON record per line.
@@ -319,7 +320,11 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
         if each_record is None or not is_assistant_record(each_record):
             continue
         all_blocks = _content_blocks(each_record)
-        all_answer_blocks = list(all_blocks)
+        all_answer_blocks = [
+            each_block
+            for each_block in all_blocks
+            if each_block.get(RECORD_TYPE_KEY) in (TEXT_KEY, TOOL_USE_BLOCK_TYPE)
+        ]
         while all_answer_blocks and _is_question_block(all_answer_blocks[-1]):
             all_answer_blocks.pop()
         if all_blocks and not all_answer_blocks:
