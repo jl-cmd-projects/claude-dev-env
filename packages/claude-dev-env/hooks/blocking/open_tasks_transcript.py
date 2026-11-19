@@ -101,9 +101,11 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TASK_CREATED_PATTERN,
     TASK_CREATE_TOOL_NAME,
     TASK_ID_KEY,
+    TASK_DESCRIPTION_KEY,
     TASK_STATUS_KEY,
     TASK_SUBJECT_KEY,
     TASK_UPDATE_ID_KEY,
+    TOOL_RESULT_IS_ERROR_KEY,
     TASK_UPDATE_TOOL_NAME,
     TEXT_KEY,
     TODOS_KEY,
@@ -144,11 +146,13 @@ class TaskItem(NamedTuple):
         item_id: The task number or position, as text.
         subject: The item's wording.
         status: The item's status, such as ``pending`` or ``completed``.
+        description: The item's details, such as where the work stands.
     """
 
     item_id: str
     subject: str
     status: str
+    description: str = ""
 
 
 def _result_text(all_block_fields: dict[str, object]) -> str:
@@ -250,6 +254,8 @@ class TranscriptReplay:
         self.latest_items: list[TaskItem] | None = None
         self.created_by_id: dict[str, TaskItem] = {}
         self.subject_by_tool_use_id: dict[str, str] = {}
+        self.description_by_tool_use_id: dict[str, str] = {}
+        self.task_edit_by_tool_use_id: dict[str, tuple[str, object, object]] = {}
         self.plan_items: list[TaskItem] | None = None
         self.own_plan_count = 0
         self.turn_prompt_text = ""
@@ -394,23 +400,39 @@ class TranscriptReplay:
             return
         if tool_name == TASK_CREATE_TOOL_NAME:
             self.subject_by_tool_use_id[tool_use_id] = str(all_input_fields.get(TASK_SUBJECT_KEY, ""))
+            self.description_by_tool_use_id[tool_use_id] = str(all_input_fields.get(TASK_DESCRIPTION_KEY, ""))
             return
         if tool_name == TASK_UPDATE_TOOL_NAME:
-            self.apply_task_update(all_input_fields)
+            self.apply_task_update(all_input_fields, tool_use_id)
 
-    def apply_task_update(self, all_input_fields: dict[str, object]) -> None:
+    def apply_task_update(self, all_input_fields: dict[str, object], tool_use_id: str) -> None:
         task_id = str(all_input_fields.get(TASK_UPDATE_ID_KEY, ""))
         new_status = all_input_fields.get(TASK_STATUS_KEY)
         if task_id in self.created_by_id and new_status:
             self.created_by_id[task_id] = self.created_by_id[task_id]._replace(status=str(new_status))
+        self.task_edit_by_tool_use_id[tool_use_id] = (
+            task_id,
+            all_input_fields.get(TASK_SUBJECT_KEY),
+            all_input_fields.get(TASK_DESCRIPTION_KEY),
+        )
 
     def apply_tool_result(self, all_block_fields: dict[str, object]) -> None:
+        task_edit = self.task_edit_by_tool_use_id.pop(str(all_block_fields.get(TOOL_USE_ID_KEY)), None)
+        if task_edit is not None and not all_block_fields.get(TOOL_RESULT_IS_ERROR_KEY):
+            edited_id, new_subject, new_description = task_edit
+            edited_item = self.created_by_id.get(edited_id)
+            if edited_item is not None:
+                self.created_by_id[edited_id] = edited_item._replace(
+                    subject=new_subject if isinstance(new_subject, str) and new_subject else edited_item.subject,
+                    description=new_description if isinstance(new_description, str) else edited_item.description,
+                )
         created_subject = self.subject_by_tool_use_id.pop(str(all_block_fields.get(TOOL_USE_ID_KEY)), None)
+        created_description = self.description_by_tool_use_id.pop(str(all_block_fields.get(TOOL_USE_ID_KEY)), "")
         created_match = re.search(TASK_CREATED_PATTERN, _result_text(all_block_fields))
         if created_subject is None or created_match is None:
             return
         created_id = created_match.group(CREATED_TASK_ID_GROUP_INDEX)
-        self.created_by_id[created_id] = TaskItem(created_id, created_subject, PENDING_STATUS)
+        self.created_by_id[created_id] = TaskItem(created_id, created_subject, PENDING_STATUS, created_description)
 
     def items(self) -> list[TaskItem] | None:
         all_sources = [
