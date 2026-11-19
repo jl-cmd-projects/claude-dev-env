@@ -51,6 +51,8 @@ def test_should_count_a_message_that_approves_one_large_pull_request(message_tex
         "ok, split it, it is too big for one pull request",
         'Add a test for "don\'t split it".',
         "I revoke my approval to keep it as one PR.",
+        'Add a test with this prompt: "Thanks. Keep it as one PR. Then run the tests."',
+        "Add a test with this prompt: “Thanks. Keep it as one PR. Then run the tests.”",
         "I withdraw the approval of this as one pull request.",
     ],
 )
@@ -145,6 +147,8 @@ def test_should_let_a_later_approval_replace_a_split_request(tmp_path: Path) -> 
         ("Cancel that, split it.", False),
         ("I revoke my approval, it is not okay as one PR.", False),
         ("Cancel the meeting.", None),
+        ("If the size changes, split it into two PRs.", None),
+        ('Add a case for "Hi. Split it. Thanks."', None),
         ("Don't split hairs.", None),
         ("Run the tests.", None),
     ],

@@ -84,6 +84,8 @@ LEADING_TAG_PATTERN = re.compile(r"\s*<[a-z]")
 SENTENCE_BREAK_PATTERN = re.compile(r"(?<=[.!?])\s+|\n+")
 QUESTION_MARK = "?"
 DOUBLE_QUOTE = '"'
+CURLY_DOUBLE_QUOTE_PATTERN = re.compile("[“”]")
+QUOTED_SPAN_PATTERN = re.compile(r'"[^"]*"')
 CURLY_APOSTROPHE = "’"
 STRAIGHT_APOSTROPHE = "'"
 KEEP_WHOLE_PATTERN = re.compile(
@@ -95,6 +97,9 @@ NEGATION_PATTERN = re.compile(r"n't\b|\b(?:not|no|never|dont|cannot)\b")
 REVOKE_PATTERN = re.compile(r"\b(?:revok\w*|withdr[ae]w\w*|retract\w*|cancel\w*)\b")
 RULE_TALK_PATTERN = re.compile(
     r"\b(?:if|whether|unless|until|gate|rule|but|yet|said|depends?)\b"
+)
+SPLIT_CONDITION_PATTERN = re.compile(
+    r"\b(?:if|whether|unless|until|gate|rule|said|depends?)\b"
 )
 APPROVAL_PATTERN = re.compile(
     r"\b(?:approve[ds]?|approving|approval|fine|ok|okay|go ahead|open it|ship it"
