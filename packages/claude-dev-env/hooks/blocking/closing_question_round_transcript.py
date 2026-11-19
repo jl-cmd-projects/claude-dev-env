@@ -489,12 +489,15 @@ def reply_lines(reply_text: str) -> list[str]:
         "This is out of\n\n\nscope."               -> ["This is out of", "", "scope."]
         "Done.\n\n    TODO: add the flag."        -> ["Done.", "", "    TODO: add the flag."]
         "Done.\nIn progress:\n- I am fixing it."   -> ["Done.", "In progress:", "- I am fixing it."]
+        "Done.\n\n    In progress:"               -> ["Done.", "", "    In progress:"]
 
     A run of blank lines stays as one blank line, since it ends a paragraph
     and the open-item scan reads paragraphs. A blank line above a list item
     stays out unless that item is indented, since it changes neither the
-    list nor the paragraph above it, and so does a blank line above the
-    footer heading, which the footer reads on its own line either way. So
+    list nor the paragraph above it, and so does a blank line above an
+    unindented footer heading, which the footer reads on its own line
+    either way. Above an indented heading the blank line decides whether
+    the heading opens a code block, so it stays. So
     a footer whose heading or list is its own record of one message gives
     the lines the payload's copy gives.
     """
@@ -506,7 +509,7 @@ def reply_lines(reply_text: str) -> list[str]:
             continue
         next_line = all_lines[each_position + 1] if each_position + 1 < len(all_lines) else ""
         is_before_list_item = LIST_ITEM_LINE_PATTERN.match(next_line) is not None
-        is_before_heading = FOOTER_HEADING_PATTERN.fullmatch(next_line.strip()) is not None
+        is_before_heading = FOOTER_HEADING_PATTERN.fullmatch(next_line) is not None
         if next_line and not is_before_list_item and not is_before_heading and all_kept_lines and all_kept_lines[-1]:
             all_kept_lines.append(each_line)
     return all_kept_lines

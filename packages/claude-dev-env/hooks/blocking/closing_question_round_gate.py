@@ -814,7 +814,9 @@ def footer_hold_reason(
 
     ::
 
-        nothing in progress, no background work           -> None, no closing line owed
+        nothing in progress, no background work           -> None, no closing line owed,
+            and the newest footer is kept as sent with no work, so work
+            that starts again owes a new footer
         "Open items: none."  task #28 in_progress          -> the declaration reason
         work, no footer, task #28 or background work       -> the missing-footer reason
         a footer that leaves out in-progress task #29      -> the gap reason
@@ -857,6 +859,8 @@ def footer_hold_reason(
         return None
     all_tasks = all_known_tasks if all_known_tasks is not None else session_tasks(all_hook_input_fields)
     if not all_tasks.in_progress and not has_background_work(all_hook_input_fields):
+        if newest_footer is not None:
+            record_footer_jobs(all_hook_input_fields, newest_footer, all_tasks)
         return None
     if footer_items is None:
         kept_snapshot = kept_footer_snapshot(all_hook_input_fields, newest_footer)

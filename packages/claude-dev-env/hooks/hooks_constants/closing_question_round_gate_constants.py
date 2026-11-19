@@ -68,7 +68,7 @@ REQUEST_OPENER_PATTERN = re.compile(
 )
 USER_MENTION_PATTERN = re.compile(r"\byou(?:r|rs|rself)?\b", re.IGNORECASE)
 USER_CHOICE_LEAD_PATTERN = re.compile(
-    r"\b(?:yours\s+to\s+(?:choose|pick|decide)|your\s+(?:call|choice|pick|decision)|(?:you|please)\s+(?:to\s+)?(?:choose|pick|decide))\b",
+    r"\b(?:yours\s+to\s+(?:choose|pick|select|decide)|your\s+(?:call|choice|pick|decision)|(?:you|please)\s+(?:to\s+)?(?:choose|pick|select|decide))\b",
     re.IGNORECASE,
 )
 PURPOSE_CLAUSE_PATTERN = re.compile(

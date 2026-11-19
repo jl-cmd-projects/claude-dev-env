@@ -1516,6 +1516,23 @@ def test_should_keep_the_jobs_of_a_footer_whose_heading_is_its_own_record(
     )
 
 
+def test_should_owe_a_new_footer_when_a_finished_task_starts_again(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    task_fields = {"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}
+    footer_reply = f"The retry flag is in place.\n\n{FOOTER}"
+    all_footer_records = [typed_prompt_record(), *edit_records(), reply_record(footer_reply)]
+    all_done_records = [*all_footer_records, notice_record("Tests job ended"), reply_record("The tests passed.")]
+    all_records = [*all_done_records, notice_record("Tests job failed"), *edit_records(), reply_record("Fixed it.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, {"last_assistant_message": footer_reply}) is None
+    write_tasks(tmp_path, [{**task_fields, "status": "completed"}])
+    assert held_reason(monkeypatch, capsys, tmp_path, all_done_records, {"last_assistant_message": "The tests passed."}) is None
+    write_tasks(tmp_path, [task_fields])
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": "Fixed it."})).startswith(
+        FOOTER_MISSING_REASON_LEAD
+    )
+
+
 def test_should_not_bind_a_pending_snapshot_to_a_copy_of_its_reply_written_after_a_wake(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

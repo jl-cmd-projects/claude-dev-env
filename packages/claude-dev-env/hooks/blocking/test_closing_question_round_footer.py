@@ -256,6 +256,8 @@ def test_should_keep_every_choice_under_a_footer_ask_to_pick() -> None:
     assert list_check_text(pick_reply) == pick_reply
     bold_reply = "Done.\n\nIn progress:\n- I need you to **pick** a date.\n- I have Monday free.\n- I have Friday free."
     assert list_check_text(bold_reply) == bold_reply
+    select_reply = "Done.\n\nIn progress:\n- I need you to select a date.\n- I have Monday free.\n- I have Friday free."
+    assert list_check_text(select_reply) == select_reply
     status_reply = "Done.\n\nIn progress:\n- I need your approval.\n- I have Monday free."
     assert list_check_text(status_reply) == "Done.\n\nIn progress:\n- I need your approval."
 

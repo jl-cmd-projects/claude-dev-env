@@ -332,6 +332,7 @@ def test_reply_lines_keeps_one_blank_line_per_paragraph_break() -> None:
 def test_reply_lines_reads_a_footer_heading_after_a_blank_line_as_after_a_line_break() -> None:
     assert reply_lines("Done.\n\nIn progress:\n- I am fixing it.") == reply_lines("Done.\nIn progress:\n- I am fixing it.")
     assert reply_lines("Done.\n\nNext:\n- I am fixing it.") != reply_lines("Done.\nNext:\n- I am fixing it.")
+    assert reply_lines("Done.\n\n    In progress:") != reply_lines("Done.\n    In progress:")
 
 
 def test_joined_reply_parts_puts_an_indented_block_on_the_next_line() -> None:
