@@ -23,10 +23,11 @@ both parts on its own, when it, this, that or the pull request ends the clause.
 A sentence that ends in a question mark never counts. A sentence that holds
 "if", "whether", "unless", "until", "gate", "rule", "but", "yet", "said" or
 "depends" states a condition or describes the rule, so it never counts either.
-A sentence that holds a double quote cites words, so it never counts, and the
-words between two double quotes are dropped before the sentences are read.
-A split request counts after "but" or "yet", and never beside the other
-condition words. A sentence
+A sentence that holds a double quote cites words, so it never approves, and the
+words between two double quotes are dropped before an approval is read.
+A split request or a withdrawal is read from the whole text, quoted words and
+condition words included. A wrong withdrawal costs one refused create, and a
+wrong approval lets an oversized pull request through. A sentence
 that holds revoke, withdraw, retract or cancel never approves, and beside an
 approval word it withdraws an earlier approval the way a split request does.
 """
@@ -74,7 +75,6 @@ from hooks_constants.oversized_change_constants import (
     ROLE_KEY,
     SENTENCE_BREAK_PATTERN,
     SIZE_SUBJECT_PATTERN,
-    SPLIT_CONDITION_PATTERN,
     SPLIT_WORD_PATTERN,
     STRAIGHT_APOSTROPHE,
     TEXT_BLOCK_JOINER,
@@ -130,7 +130,7 @@ def size_verdict(message_text: str) -> bool | None:
     """
     if any(
         _is_split_request(each_sentence) or _is_withdrawal(each_sentence)
-        for each_sentence in _sentences(message_text)
+        for each_sentence in _sentences(message_text, keeps_quoted_spans=True)
     ):
         return False
     return True if is_size_approval(message_text) else None
@@ -153,23 +153,22 @@ def is_size_approval(message_text: str) -> bool:
     return any(_is_approving_sentence(each_sentence) for each_sentence in _sentences(message_text))
 
 
-def _sentences(message_text: str) -> list[str]:
+def _sentences(message_text: str, *, keeps_quoted_spans: bool = False) -> list[str]:
     normalized_text = message_text.lower().replace(CURLY_APOSTROPHE, STRAIGHT_APOSTROPHE)
-    straight_quoted_text = CURLY_DOUBLE_QUOTE_PATTERN.sub(DOUBLE_QUOTE, normalized_text)
-    unquoted_text = QUOTED_SPAN_PATTERN.sub(DOUBLE_QUOTE, straight_quoted_text)
-    return [each_sentence.strip() for each_sentence in SENTENCE_BREAK_PATTERN.split(unquoted_text)]
+    readable_text = CURLY_DOUBLE_QUOTE_PATTERN.sub(DOUBLE_QUOTE, normalized_text)
+    if not keeps_quoted_spans:
+        readable_text = QUOTED_SPAN_PATTERN.sub(DOUBLE_QUOTE, readable_text)
+    return [each_sentence.strip() for each_sentence in SENTENCE_BREAK_PATTERN.split(readable_text)]
 
 
 def _is_split_request(sentence: str) -> bool:
     if sentence.endswith(QUESTION_MARK) or NEGATION_PATTERN.search(sentence):
         return False
-    if SPLIT_CONDITION_PATTERN.search(sentence) or DOUBLE_QUOTE in sentence:
-        return False
     return bool(SPLIT_WORD_PATTERN.search(sentence))
 
 
 def _is_withdrawal(sentence: str) -> bool:
-    if sentence.endswith(QUESTION_MARK) or DOUBLE_QUOTE in sentence:
+    if sentence.endswith(QUESTION_MARK):
         return False
     return bool(REVOKE_PATTERN.search(sentence) and APPROVAL_PATTERN.search(sentence))
 

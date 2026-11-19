@@ -98,9 +98,6 @@ REVOKE_PATTERN = re.compile(r"\b(?:revok\w*|withdr[ae]w\w*|retract\w*|cancel\w*)
 RULE_TALK_PATTERN = re.compile(
     r"\b(?:if|whether|unless|until|gate|rule|but|yet|said|depends?)\b"
 )
-SPLIT_CONDITION_PATTERN = re.compile(
-    r"\b(?:if|whether|unless|until|gate|rule|said|depends?)\b"
-)
 APPROVAL_PATTERN = re.compile(
     r"\b(?:approve[ds]?|approving|approval|fine|ok|okay|go ahead|open it|ship it"
     r"|(?:keep|leave|stays?)\s+(?:it\s+|this\s+|that\s+)?(?:as\s+)?(?:a\s+)?(?:one|single))\b"
