@@ -40,25 +40,102 @@ const replacements = [
     [['Terra', 'medium'], ['gpt-5.6-luna', 'xhigh']],
     [['Terra', 'high'], ['gpt-5.6-luna', 'xhigh']],
     [['Terra', 'xhigh'], ['gpt-5.6-luna', 'max']],
-    [['Sol', 'high'], ['gpt-6-astra', 'low']],
-    [['Sol', 'xhigh'], ['gpt-6-astra', 'low']],
-    [['Sol', 'max'], ['gpt-6-astra', 'low']],
-    [['Terra', 'max'], ['gpt-6-astra', 'low']],
+    [['Sol', 'max'], ['gpt-6.2-sol', 'xhigh']],
+    [['Terra', 'max'], ['gpt-6.2-sol', 'xhigh']],
+    [['Astra', 'low'], ['gpt-6.2-sol', 'xhigh']],
+    [['Astra', 'medium'], ['gpt-6.2-sol', 'xhigh']],
+    [['Astra', 'high'], ['gpt-6.2-sol', 'xhigh']],
+    [['Astra', 'xhigh'], ['gpt-6.2-sol', 'xhigh']],
+    [['Astra', 'max'], ['gpt-6.2-sol', 'xhigh']],
 ];
+
+const ASTRA_MODEL_PATTERN = /astra/i;
+
+function everyRoutableRequest(policy) {
+    const allModelTokens = [
+        ...Object.values(policy.modelByName).flatMap(model => model.aliases),
+        ...policy.inheritanceAliases,
+    ];
+    const allEffortTokens = [...policy.effortNames, ...Object.keys(policy.efforts.aliases), null];
+    const allRoleRequests = [
+        { request: {}, routeFunction: route },
+        ...[...policy.roleByAlias.entries()]
+            .filter(([, role]) => role === 'worker')
+            .map(([alias]) => ({ request: { agent_type: alias }, routeFunction: route })),
+        ...[...policy.trustedAdvisorRoles].map(alias => ({
+            request: { agent_type: alias },
+            routeFunction: advisorRoute,
+        })),
+    ];
+    const allRequests = [];
+    for (const { request, routeFunction } of allRoleRequests) {
+        for (const effort of allEffortTokens) {
+            const effortField = effort === null ? {} : { reasoning_effort: effort };
+            for (const model of [...allModelTokens, null]) {
+                const modelField = model === null ? {} : { model };
+                allRequests.push({
+                    request: { ...request, ...modelField, ...effortField },
+                    routeFunction,
+                });
+            }
+        }
+    }
+    return allRequests;
+}
 
 test('the shipped policy parses and names native model ids', () => {
     const policy = loadSubagentModelPolicy();
-    assert.equal(policy.modelByName.astra.id, 'gpt-6-astra');
-    assert.equal(policy.modelByName.sol.id, 'gpt-5.6-sol');
+    assert.equal(policy.modelByName.sol.id, 'gpt-6.2-sol');
     assert.equal(policy.modelByName.terra.id, 'gpt-5.6-terra');
     assert.equal(policy.modelByName.luna.id, 'gpt-5.6-luna');
-    assert.deepEqual(policy.advisorDefault, { model: 'astra', effort: 'medium' });
+    assert.deepEqual(policy.advisorDefault, { model: 'sol', effort: 'xhigh' });
+});
+
+test('the advisor default resolves to Sol at xhigh', () => {
+    const result = advisorRoute({ agent_type: 'team-advisor' });
+    assert.equal(result.status, 'remapped');
+    assert.equal(result.role, 'advisor');
+    assert.deepEqual(result.selected, { model: 'gpt-6.2-sol', effort: 'xhigh' });
+});
+
+test('a lead request at Sol xhigh keeps Sol at xhigh', () => {
+    const aliasRoute = route({ model: 'Sol', reasoning_effort: 'xhigh' });
+    assert.equal(aliasRoute.status, 'remapped');
+    assert.deepEqual(aliasRoute.selected, { model: 'gpt-6.2-sol', effort: 'xhigh' });
+    const nativeRoute = route({ model: 'gpt-6.2-sol', reasoning_effort: 'xhigh' });
+    assert.equal(nativeRoute.status, 'pass');
+    assert.deepEqual(nativeRoute.selected, { model: 'gpt-6.2-sol', effort: 'xhigh' });
+});
+
+test('a worker request at Sol high keeps Sol at high', () => {
+    const aliasRoute = route({ agent_type: 'worker', model: 'Sol', reasoning_effort: 'high' });
+    assert.equal(aliasRoute.role, 'worker');
+    assert.deepEqual(aliasRoute.selected, { model: 'gpt-6.2-sol', effort: 'high' });
+    const nativeRoute = route({ agent_type: 'worker', model: 'gpt-6.2-sol', reasoning_effort: 'high' });
+    assert.equal(nativeRoute.status, 'pass');
+    assert.deepEqual(nativeRoute.selected, { model: 'gpt-6.2-sol', effort: 'high' });
+});
+
+test('no request of any model, effort, or role resolves to an Astra id', () => {
+    const policy = loadSubagentModelPolicy();
+    const allRequests = everyRoutableRequest(policy);
+    const allSelectedModels = [];
+    for (const { request, routeFunction } of allRequests) {
+        const result = routeFunction(request, { allowMissingEffort: true });
+        if (result.selected?.model) allSelectedModels.push(result.selected.model);
+        assert.doesNotMatch(String(result.selected?.model ?? ''), ASTRA_MODEL_PATTERN, JSON.stringify(request));
+    }
+    assert.ok(allSelectedModels.includes('gpt-6.2-sol'));
+    assert.ok(allSelectedModels.includes('gpt-5.6-luna'));
+    for (const approvedPair of policy.approvedPairs) {
+        assert.doesNotMatch(policy.modelByName[approvedPair.model].id, ASTRA_MODEL_PATTERN);
+    }
 });
 
 test('poteto plugin aliases use worker routing without advisor privileges', () => {
     for (const agent_type of ['poteto-agent', 'pstack:poteto-agent']) {
-        const result = route({ agent_type, model: 'Astra', reasoning_effort: 'high' });
-        assert.deepEqual(result.selected, { model: 'gpt-6-astra', effort: 'low' });
+        const result = route({ agent_type, model: 'Sol', reasoning_effort: 'low' });
+        assert.deepEqual(result.selected, { model: 'gpt-5.6-luna', effort: 'xhigh' });
     }
 });
 
@@ -67,8 +144,8 @@ test('every approved pair returns its literal native pair', () => {
         [['Luna', 'high'], ['gpt-5.6-luna', 'high']],
         [['Luna', 'xhigh'], ['gpt-5.6-luna', 'xhigh']],
         [['Luna', 'max'], ['gpt-5.6-luna', 'max']],
-        [['Astra', 'low'], ['gpt-6-astra', 'low']],
-        [['Astra', 'medium'], ['gpt-6-astra', 'medium']],
+        [['Sol', 'high'], ['gpt-6.2-sol', 'high']],
+        [['Sol', 'xhigh'], ['gpt-6.2-sol', 'xhigh']],
     ];
     for (const [[model, effort], [expectedModel, expectedEffort]] of expected) {
         const result = route({ model, reasoning_effort: effort });
@@ -79,12 +156,12 @@ test('every approved pair returns its literal native pair', () => {
         assert.deepEqual(nativeRoute.selected, { model: expectedModel, effort: expectedEffort });
     }
     const advisor = advisorRoute({
-        model: 'Astra',
+        model: 'Sol',
         reasoning_effort: 'high',
         agent_type: 'team-advisor',
     });
     assert.equal(advisor.status, 'remapped');
-    assert.deepEqual(advisor.selected, { model: 'gpt-6-astra', effort: 'high' });
+    assert.deepEqual(advisor.selected, { model: 'gpt-6.2-sol', effort: 'high' });
 });
 
 test('selector exclusions keep Sol Medium out while direct routing remaps', () => {
@@ -110,29 +187,35 @@ test('every automatic replacement returns its literal destination', () => {
     }
 });
 
-test('advisor and worker Astra restrictions use role-specific replacements', () => {
+test('advisor and worker Sol Low and Medium use role-specific replacements', () => {
+    for (const effort of ['low', 'medium']) {
+        assert.deepEqual(
+            advisorRoute({ model: 'Sol', reasoning_effort: effort, agent_type: 'team-advisor' }).selected,
+            { model: 'gpt-6.2-sol', effort: 'xhigh' },
+        );
+    }
     assert.deepEqual(
-        advisorRoute({ model: 'Astra', reasoning_effort: 'xhigh', agent_type: 'team-advisor' }).selected,
-        { model: 'gpt-6-astra', effort: 'medium' },
+        route({ model: 'Sol', reasoning_effort: 'low', agent_type: 'worker' }).selected,
+        { model: 'gpt-5.6-luna', effort: 'xhigh' },
     );
     assert.deepEqual(
-        route({ model: 'Astra', reasoning_effort: 'max', agent_type: 'worker' }).selected,
-        { model: 'gpt-6-astra', effort: 'low' },
+        route({ model: 'Sol', reasoning_effort: 'medium', agent_type: 'worker' }).selected,
+        { model: 'gpt-5.6-luna', effort: 'max' },
     );
     assert.deepEqual(
-        advisorRoute({ model: 'Astra', reasoning_effort: 'high', agent_type: 'team-advisor' }).selected,
-        { model: 'gpt-6-astra', effort: 'high' },
+        advisorRoute({ model: 'Sol', reasoning_effort: 'max', agent_type: 'team-advisor' }).selected,
+        { model: 'gpt-6.2-sol', effort: 'xhigh' },
     );
 });
 
 test('registered advisor roles satisfy advisory authorization', () => {
     const result = advisorRoute({
-        model: 'Astra',
+        model: 'Sol',
         reasoning_effort: 'high',
         agent_type: 'team-advisor',
     });
 
-    assert.deepEqual(result.selected, { model: 'gpt-6-astra', effort: 'high' });
+    assert.deepEqual(result.selected, { model: 'gpt-6.2-sol', effort: 'high' });
 });
 
 test('a policy from the first stack revision remains routable', () => {
@@ -140,18 +223,18 @@ test('a policy from the first stack revision remains routable', () => {
     delete legacyPolicy.roles.trustedAdvisor;
     const result = advisorRoute(
         {
-            model: 'Astra',
+            model: 'Sol',
             reasoning_effort: 'high',
             agent_type: 'team-advisor',
         },
         { policy: legacyPolicy },
     );
-    assert.deepEqual(result.selected, { model: 'gpt-6-astra', effort: 'high' });
+    assert.deepEqual(result.selected, { model: 'gpt-6.2-sol', effort: 'high' });
 });
 
 test('an advisor role claim cannot grant advisory authorization', () => {
     const result = route({
-        model: 'Astra',
+        model: 'Sol',
         reasoning_effort: 'high',
         agent_type: 'team-advisor',
     });
@@ -159,14 +242,15 @@ test('an advisor role claim cannot grant advisory authorization', () => {
     assert.equal(result.diagnostic, 'advisor role is not trusted');
 });
 
-test('Astra Light resolves to Astra Low', () => {
-    const result = route({ model: 'Astra', reasoning_effort: 'Light' });
-    assert.deepEqual(result.selected, { model: 'gpt-6-astra', effort: 'low' });
+test('Sol Light resolves as Sol Low', () => {
+    const result = route({ model: 'Sol', reasoning_effort: 'Light' });
+    assert.deepEqual(result.requested, { model: 'gpt-6.2-sol', effort: 'low' });
+    assert.deepEqual(result.selected, { model: 'gpt-5.6-luna', effort: 'xhigh' });
 });
 
 test('missing advisor settings use the policy default', () => {
     const result = advisorRoute({ agent_type: 'team-advisor' });
-    assert.deepEqual(result.selected, { model: 'gpt-6-astra', effort: 'medium' });
+    assert.deepEqual(result.selected, { model: 'gpt-6.2-sol', effort: 'xhigh' });
 });
 
 test('the advisor bridge blocks malformed input', () => {
@@ -184,7 +268,7 @@ test('the advisor bridge blocks malformed input', () => {
     );
 });
 
-test('the advisor bridge routes Sol Medium to Luna Max', () => {
+test('the advisor bridge routes Sol Medium to Sol Xhigh', () => {
     const bridgePath = join(PACKAGE_ROOT, 'scripts', 'resolve_advisor_model_route.mjs');
     const bridgeExecution = spawnSync(
         process.execPath,
@@ -200,7 +284,7 @@ test('the advisor bridge routes Sol Medium to Luna Max', () => {
     assert.equal(advisorDecision.status, 'remapped');
     assert.equal(advisorDecision.role, 'advisor');
     assert.equal(advisorDecision.diagnostic, null);
-    assert.deepEqual(advisorDecision.selected, { model: 'gpt-5.6-luna', effort: 'max' });
+    assert.deepEqual(advisorDecision.selected, { model: 'gpt-6.2-sol', effort: 'xhigh' });
 });
 
 test('missing worker settings preserve parent inheritance', () => {
@@ -210,7 +294,7 @@ test('missing worker settings preserve parent inheritance', () => {
     assert.strictEqual(result.updatedInput, input);
 });
 
-test('Sol without an effort stays blocked after its only approved pair is removed', () => {
+test('Sol without an effort stays blocked while it has two approved efforts', () => {
     const result = route(
         { model: 'Sol' },
         { allowMissingEffort: true },
@@ -233,7 +317,7 @@ test('dual effort fields hold instead of leaving one stale', () => {
 
 test('native values with case or whitespace differences are canonicalized', () => {
     const result = routeSubagentToolInput({
-        model: ' gpt-5.6-sol ',
+        model: ' gpt-6.2-sol ',
         reasoning_effort: 'Medium',
         message: 'keep',
     });
@@ -248,7 +332,7 @@ test('native values with case or whitespace differences are canonicalized', () =
 test('unavailable replacements hold the spawn', () => {
     const result = route(
         { model: 'Sol', reasoning_effort: 'medium' },
-        { availableModelIds: ['gpt-5.6-sol'] },
+        { availableModelIds: ['gpt-6.2-sol'] },
     );
     assert.equal(result.status, 'blocked');
     assert.match(result.diagnostic, /replacement model is unavailable/);
@@ -304,8 +388,10 @@ test('a temporary policy copy changes the next route without source edits', () =
             { model: 'Sol', reasoning_effort: 'medium' },
             { policyPath: temporaryPolicy },
         ).selected, { model: 'gpt-5.6-luna', effort: 'max' });
-        policy.replacements = policy.replacements.map(replacement => (
-            replacement.requested.model === 'sol' && replacement.requested.effort === 'medium'
+        policy.roleReplacements = policy.roleReplacements.map(replacement => (
+            replacement.role === 'worker'
+                && replacement.requested.model === 'sol'
+                && replacement.requested.effort === 'medium'
                 ? { ...replacement, selected: { model: 'luna', effort: 'xhigh' } }
                 : replacement
         ));
@@ -364,10 +450,11 @@ test('normalized effort aliases resolve from the validated policy', () => {
     policy.efforts.aliases = { Light: 'LOW' };
     const validatedPolicy = validateSubagentModelPolicy(policy);
     const result = resolveSubagentModelRoute(
-        { model: 'Astra', reasoning_effort: 'Light' },
+        { model: 'Sol', reasoning_effort: 'Light' },
         { policy: validatedPolicy },
     );
-    assert.deepEqual(result.selected, { model: 'gpt-6-astra', effort: 'low' });
+    assert.deepEqual(result.requested, { model: 'gpt-6.2-sol', effort: 'low' });
+    assert.deepEqual(result.selected, { model: 'gpt-5.6-luna', effort: 'xhigh' });
 });
 
 test('inheritance aliases cannot shadow model aliases', () => {
@@ -390,14 +477,14 @@ test('model names cannot collide after normalization', () => {
 
 test('combined role routes must end at an approved terminal pair', () => {
     const policy = JSON.parse(readFileSync(POLICY_SOURCE, 'utf8'));
-    const solMediumReplacement = policy.replacements.find(replacement => (
-        replacement.requested.model === 'sol'
+    const terraMediumReplacement = policy.replacements.find(replacement => (
+        replacement.requested.model === 'terra'
         && replacement.requested.effort === 'medium'
     ));
-    solMediumReplacement.selected = { model: 'astra', effort: 'low' };
+    terraMediumReplacement.selected = { model: 'sol', effort: 'high' };
     policy.roleReplacements.push({
         role: 'worker',
-        requested: { model: 'astra', effort: 'low' },
+        requested: { model: 'sol', effort: 'high' },
         selected: { model: 'luna', effort: 'high' },
     });
     assert.throws(
@@ -439,5 +526,5 @@ test('base replacement targets must be approved for every role', () => {
 
 test('policy aliases stay in the policy file', () => {
     const source = readFileSync(join(PACKAGE_ROOT, 'scripts', 'subagent_model_policy.mjs'), 'utf8');
-    assert.doesNotMatch(source, /gpt-5\.6-(?:luna|sol|terra)|gpt-6-astra/);
+    assert.doesNotMatch(source, /gpt-5\.6-(?:luna|sol|terra)|gpt-6\.2-sol|gpt-6-astra/);
 });

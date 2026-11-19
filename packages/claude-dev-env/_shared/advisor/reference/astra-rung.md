@@ -12,7 +12,7 @@ A Windows `setx` write only updates the persisted user environment; only a proce
 
 ## Effort
 
-`ADVISOR_EFFORT` selects Codex `model_reasoning_effort` for Astra: `low`, `medium`, `high`, `xhigh`, or `max`. The policy default is `medium`, which sends `model_reasoning_effort="medium"`. Astra Xhigh and Max requests route to Medium. Pass `--effort <level>` on the helper to set effort for that Astra run without changing the environment. An unset value uses the policy default. An unknown value blocks advisor routing.
+`ADVISOR_EFFORT` selects Codex `model_reasoning_effort` for the Astra tier, which runs Sol (`gpt-6.2-sol`): `low`, `medium`, `high`, `xhigh`, or `max`. The policy default is `xhigh`, which sends `model_reasoning_effort="xhigh"`. A High request runs at high. Low, Medium, and Max requests route to Xhigh. Pass `--effort <level>` on the helper to set effort for that Astra run without changing the environment. An unset value uses the policy default. An unknown value blocks advisor routing.
 
 Every fallback reply carries a `fallback_kind` field. `declined` means policy closed the rung (flag off, the account broker named no Codex account on the `normal` tier, or the broker refused the home pinned in `CODEX_HOME`). `broken` means the Astra path itself failed (missing executable, spawn error, timeout, malformed reply). A `broken` fallback is a defect to report.
 
@@ -40,7 +40,7 @@ The gate passes when the broker exits 0 and answers `normal` or `luna` with a `d
 
 ## Branches
 
-**Preflight pass.** Bind one Codex CLI session at `gpt-6-astra` with `model_reasoning_effort` set from the policy-selected `ADVISOR_EFFORT` value, `--sandbox read-only`, and JSON output. The helper receives the standing-reviewer charter on stdin and returns only parsed ENDORSE / CORRECTION / PLAN / STOP guidance with a session ID.
+**Preflight pass.** Bind one Codex CLI session at `gpt-6.2-sol` with `model_reasoning_effort` set from the policy-selected `ADVISOR_EFFORT` value, `--sandbox read-only`, and JSON output. The helper receives the standing-reviewer charter on stdin and returns only parsed ENDORSE / CORRECTION / PLAN / STOP guidance with a session ID.
 
 **Preflight fail.** A broker failure other than exit 3 with a wait answer, timeout, malformed answer, or a `luna` or `wait` tier fails closed when Opus did not bind. With a pinned home, only a `wait` answer or a tier other than `normal` or `luna` is refused on tier.
 
