@@ -137,6 +137,13 @@ def test_should_read_the_whole_reply_when_the_line_above_the_footer_asks_to_pick
     assert list_check_text(decision_reply) == decision_reply
     label_reply = "Shipped so far:\n\nIn progress:\n- I am shipping 8590."
     assert list_check_text(label_reply) == "Shipped so far:\n"
+    wrapped_reply = (
+        "Please choose which of these options\nI should ship for the release:\n\nIn progress:\n"
+        "- I can ship the export.\n- I can ship the import.\n- I can ship the report."
+    )
+    assert list_check_text(wrapped_reply) == wrapped_reply
+    paragraph_reply = "Please pick one.\n\nShipped so far:\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(paragraph_reply) == "Please pick one.\n\nShipped so far:\n"
 
 
 def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_check_text() -> None:

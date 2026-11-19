@@ -982,12 +982,19 @@ def test_should_save_the_jobs_of_a_footer_sent_again_after_a_stale_notification_
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields) is None
 
 
+@pytest.mark.parametrize("has_turn_origin", [True, False])
 def test_should_ask_for_a_new_footer_when_a_job_ends_and_the_reply_runs_no_tool(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, has_turn_origin: bool
 ) -> None:
     write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
     all_first_footer = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
     all_records = [*all_first_footer, notice_record("Ledger job ended"), reply_record("The ledger is done.")]
+    if not has_turn_origin:
+        all_first_footer, all_records = (
+            [{each_key: each_value for each_key, each_value in each_record.items() if each_key != "turnOrigin"}
+             for each_record in each_list]
+            for each_list in (all_first_footer, all_records)
+        )
     done_fields = {"last_assistant_message": "The ledger is done."}
     assert held_reason(monkeypatch, capsys, tmp_path, all_first_footer, footer_stop_fields([{"id": "ledger"}])) is None
     assert held_reason(

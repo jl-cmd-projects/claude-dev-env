@@ -82,6 +82,8 @@ DECISION_DEPENDENCY_PATTERN = re.compile(
     re.IGNORECASE,
 )
 LEAD_LABEL_END = ":"
+TASK_NOTIFICATION_PROMPT_PREFIX = "<task-notification"
+LEAD_PARAGRAPH_JOINER = " "
 ALL_BACKGROUND_JOB_ID_KEYS = ("id", "task_id", "taskId")
 HUMAN_TURN_ORIGIN = "human"
 IS_SIDECHAIN_KEY = "isSidechain"

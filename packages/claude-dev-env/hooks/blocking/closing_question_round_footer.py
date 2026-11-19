@@ -38,6 +38,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     DECISION_DEPENDENCY_PATTERN,
     DECISION_WORD_PATTERN,
     LEAD_LABEL_END,
+    LEAD_PARAGRAPH_JOINER,
     FOOTER_CONTINUATION_LINE_PATTERN,
     FOOTER_GAP_LABEL,
     FOOTER_HEADING_PATTERN,
@@ -230,14 +231,15 @@ def list_check_text(closing_reply: str) -> str:
         "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price." -> "Done.\n\nIn progress:\n- Pick a price."
         "Pick which option I should ship.\n\nIn progress:\n- I can ship A." -> the whole reply
         "Pending your decision:\n\nIn progress:\n- I can ship A."         -> the whole reply
+        "Please choose which\nI should ship:\n\nIn progress:\n- I can ship A." -> the whole reply, a wrapped request
         "Done."                                                       -> "Done."
 
     A footer line that only says where work stands is required status, so
     the check leaves it out and reads the body with the footer lines that ask
     the user something, as ``is_footer_ask`` finds them. The heading and
     each kept line stay as the reply wrote them, so a span the judge quotes
-    from them is still found in the reply. When the last body line above
-    the footer opens a sentence with a request word, ends with a
+    from them is still found in the reply. When the last body paragraph
+    above the footer opens a sentence with a request word, ends with a
     question mark, or ends with a colon after a decision word or a word
     for the user, it gives the lines under it their meaning, so the
     whole reply is read.
@@ -268,10 +270,15 @@ def list_check_text(closing_reply: str) -> str:
 
 
 def _is_asking_lead(all_body_lines: list[str]) -> bool:
-    all_filled_lines = [each_line.strip() for each_line in all_body_lines if each_line.strip()]
-    if not all_filled_lines:
+    all_paragraph_lines: list[str] = []
+    for each_line in reversed(all_body_lines):
+        if each_line.strip():
+            all_paragraph_lines.insert(0, each_line.strip())
+        elif all_paragraph_lines:
+            break
+    if not all_paragraph_lines:
         return False
-    lead_line = MARKDOWN_EMPHASIS_PATTERN.sub("", all_filled_lines[-1])
+    lead_line = MARKDOWN_EMPHASIS_PATTERN.sub("", LEAD_PARAGRAPH_JOINER.join(all_paragraph_lines))
     is_decision_label = lead_line.endswith(LEAD_LABEL_END) and (
         DECISION_WORD_PATTERN.search(lead_line) is not None or USER_MENTION_PATTERN.search(lead_line) is not None
     )
