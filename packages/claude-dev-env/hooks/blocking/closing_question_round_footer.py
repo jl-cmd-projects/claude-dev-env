@@ -151,6 +151,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am waiting for Jon to authorize the release." -> True, it waits on an authorization
         "I need an answer on the price."               -> True, it waits on an answer
         "I need the owner to pick the release date."   -> True, it asks someone to pick
+        "I am waiting for Jon to give me a release date." -> True, it asks someone to give
         "I am holding it until the owner picks a date." -> True, it waits on a choice
         "I need a date from the owner."                -> True, it waits on a person
         "I am updating the ledger so your prices stay current." -> False, a benefit clause
@@ -181,9 +182,10 @@ def is_footer_ask(footer_item: str) -> bool:
     request word such as please, pick, choose, approve, or confirm, alone or
     after a word such as next, then, or finally, counts as an ask too, so a request after a status sentence is kept, and so does
     an item that needs, wants, waits for, or asks someone to pick, choose,
-    approve, confirm, decide, or answer, or that holds until, once, when,
-    after, unless, or before someone picks, chooses, approves, decides,
-    answers, replies, or signs off, or that needs or waits for something
+    approve, confirm, decide, answer, give, send, share, provide, or supply,
+    or that holds until, once, when, after, unless, or before someone
+    picks, chooses, approves, decides, answers, replies, signs off, gives,
+    sends, shares, provides, or supplies, or that needs or waits for something
     from a person such as the owner, a client, or a reviewer. Each such
     match looks at most 80 characters past its first word, so a long item
     costs one pass.

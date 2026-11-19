@@ -1136,9 +1136,11 @@ def test_should_keep_the_snapshots_of_the_newest_three_footers(
     tests_fields = {**ledger_fields, "background_tasks": [{"id": "tests"}]}
     all_footers = [LEDGER_SEEN._replace(occurrence=each_occurrence) for each_occurrence in range(1, 5)]
     closing_question_round_gate.record_footer_jobs(ledger_fields, all_footers[0], NO_TASKS)
-    closing_question_round_gate.record_footer_jobs(tests_fields, all_footers[1], NO_TASKS)
+    closing_question_round_gate.record_footer_jobs(tests_fields, all_footers[1], NO_TASKS, is_pending=True)
     assert shown(ledger_fields, all_footers[0], NO_TASKS)
     assert shown(tests_fields, all_footers[1], NO_TASKS)
+    assert closing_question_round_gate.kept_footer_snapshot(tests_fields, all_footers[1]).is_pending
+    assert not closing_question_round_gate.kept_footer_snapshot(ledger_fields, all_footers[0]).is_pending
     closing_question_round_gate.record_footer_jobs(ledger_fields, all_footers[2], NO_TASKS)
     closing_question_round_gate.record_footer_jobs(ledger_fields, all_footers[3], NO_TASKS)
     assert [each.footer_key for each in closing_question_round_gate.kept_footer_snapshots(ledger_fields)] == [

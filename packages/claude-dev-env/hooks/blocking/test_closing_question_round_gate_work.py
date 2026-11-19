@@ -967,6 +967,21 @@ def test_should_keep_the_sent_snapshot_when_a_notification_stop_repeats_the_last
     )
 
 
+def test_should_save_the_jobs_of_a_footer_sent_again_after_a_stale_notification_stop(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    two_jobs = [{"id": "ledger"}, {"id": "tests"}]
+    all_first_footer = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_after_notice = [*all_first_footer, notice_record("Ledger job checked in")]
+    all_records = [*all_after_notice, reply_record(LEDGER_FOOTER_REPLY), reply_record("Still waiting.")]
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": two_jobs}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_first_footer, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_after_notice, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_after_notice, footer_stop_fields(two_jobs)) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields) is None
+
+
 def test_should_ask_for_a_new_footer_when_a_job_ends_and_the_reply_runs_no_tool(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

@@ -30,9 +30,11 @@ FOOTER_JOBS_FILE_MODE = 0o600
 FOOTER_JOBS_TEMP_SUFFIX = ".part"
 MESSAGE_ID_KEY = "id"
 FOOTER_SNAPSHOT_SEPARATOR = " "
-FOOTER_SNAPSHOT_PART_COUNT = 3
+FOOTER_SNAPSHOT_PART_COUNT = 4
 FOOTER_SNAPSHOT_LINE_SEPARATOR = "\n"
 FOOTER_SNAPSHOT_KEPT_COUNT = 3
+FOOTER_SNAPSHOT_PENDING_MARK = "pending"
+FOOTER_SNAPSHOT_SENT_MARK = "sent"
 NO_FOLLOW_FLAG = getattr(os, "O_NOFOLLOW", 0)
 FOOTER_JOBS_READ_LIMIT = 1024
 FOOTER_JOBS_TEXT_ENCODING = "ascii"
@@ -41,9 +43,9 @@ FIRST_PERSON_ITEM_PATTERN = re.compile(r"^\W*I(?:\s|['’]m\b)")
 SENTENCE_BREAK_PATTERN = re.compile(r"(?<=[.!?;])\s+")
 OTHER_PARTY_REQUEST_PATTERN = re.compile(
     r"\b(?:need|needs|want|wants|waiting\s+for|wait\s+for|ask|asks|asking)\b[^.!?;]{0,80}?\bto\s+"
-    r"(?:pick|choose|select|approve|confirm|decide|reply|answer|review|sign|say|tell)\b"
+    r"(?:pick|choose|select|approve|confirm|decide|reply|answer|review|sign|say|tell|give|send|share|provide|supply)\b"
     r"|\b(?:until|once|when|after|unless|before)\b[^.!?;]{0,80}?"
-    r"\b(?:picks|chooses|selects|approves|decides|answers|replies|signs\s+off)\b"
+    r"\b(?:picks|chooses|selects|approves|decides|answers|replies|signs\s+off|gives|sends|shares|provides|supplies)\b"
     r"|\b(?:need|needs|want|wants|waiting\s+for|wait\s+for)\b[^.!?;]{0,80}?\bfrom\s+(?:the\s+|a\s+|an\s+|my\s+|our\s+)?"
     r"(?:owner|user|client|customer|team|lead|manager|reviewer|approver|admin|maintainer|designer|stakeholder)s?\b",
     re.IGNORECASE,

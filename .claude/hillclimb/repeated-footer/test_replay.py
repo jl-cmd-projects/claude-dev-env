@@ -65,6 +65,26 @@ sys.exit(2)
 """
 
 
+TRANSCRIPT_ORDER_GATE_SOURCE = """import json, pathlib, sys
+payload = json.loads(sys.stdin.read())
+all_lines = pathlib.Path(payload["transcript_path"]).read_text(encoding="utf-8").splitlines()
+last_record = json.loads(all_lines[-1]) if all_lines else {}
+if last_record.get("type") == "assistant" and payload["last_assistant_message"] in json.dumps(last_record):
+    print(json.dumps({"decision": "block", "reason": "The reply was written before the Stop hooks ran."}))
+    sys.exit(2)
+"""
+
+
+def test_should_run_the_stop_hooks_before_the_reply_is_written(tmp_path: Path) -> None:
+    blocking_directory = tmp_path / "hooks" / "blocking"
+    blocking_directory.mkdir(parents=True)
+    (blocking_directory / "open_tasks_stop_gate.py").write_text("import sys\nsys.stdin.read()\n", encoding="utf-8")
+    (blocking_directory / "closing_question_round_gate.py").write_text(TRANSCRIPT_ORDER_GATE_SOURCE, encoding="utf-8")
+    all_scenario_fields = json.loads(SCENARIO_FILE.read_text(encoding="utf-8"))
+    outcome = replay(tmp_path / "hooks", all_scenario_fields, "minimal")
+    assert outcome.all_holds == []
+
+
 def test_should_stop_the_replay_when_a_turn_never_clears_its_holds(tmp_path: Path) -> None:
     blocking_directory = tmp_path / "hooks" / "blocking"
     blocking_directory.mkdir(parents=True)

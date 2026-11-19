@@ -204,9 +204,9 @@ def _held_turn_replies(
     all_hold_leads: list[str] = []
     is_held_stop = False
     for _ in range(MAXIMUM_HOLDS_PER_STOP + 1):
-        session.add_reply(reply_text)
         all_replies.append(reply_text)
         all_reasons = session.stop_reasons(hooks_directory, reply_text, is_held_stop)
+        session.add_reply(reply_text)
         if not all_reasons:
             return all_replies, all_hold_leads
         all_hold_leads.extend(each_reason.split(LINE_BREAK)[0][:HOLD_LEAD_LENGTH] for each_reason in all_reasons)
