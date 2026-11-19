@@ -12,6 +12,7 @@ The gate holds the stop for these shapes, and only in a session it covers::
     allow: the footer naming #28, a later Bash call, then "Read it."   no typed prompt or card between
     hold:  the footer that names #28 and leaves out in-progress task #29
     hold:  "Open items: none." beside task #28 in_progress
+    hold:  an Edit call, then any reply   a later plan list dropped in_progress "Run the rerun"
 
 The stretch is every top-level record after the last question call that
 reached the user, then the payload's closing reply. The closing reply is the
@@ -26,7 +27,9 @@ question call and that sits in the stretch after the last record whose final
 text ends with the footer, in a record with no work call of its own. Work is
 in progress when the session's task list, as ``closing_question_round_tasks``
 reads it, holds an ``in_progress`` task, or the payload's ``background_tasks``
-is a non-empty list, object, or string.
+is a non-empty list, object, or string. That task list is the one the user
+sees: a desktop plan item that a later list left out while it was unfinished
+is carried, and the footer never has to name it.
 
 - A marker line holds the stop with the closing round reason, unless
   background work runs. The reason quotes the last 8 marker lines at most,
@@ -41,6 +44,11 @@ is a non-empty list, object, or string.
   not sent again.
 - A footer that leaves out an in-progress task holds the stop, as
   ``closing_question_round_footer.left_out_tasks`` matches the tasks.
+- In a turn the footer check covers (work, a footer, or the old declaration),
+  a carried ``in_progress`` task holds the stop in place of that check, with
+  a reason that names each one and tells the agent to put it back on the
+  list when it is still open, or to list it once as completed and then send
+  the list again without it. A carried ``pending`` task is not held.
 - Nothing in progress and no background work: the reply owes no closing line.
 
 The gate leaves a stop alone, with exit code 0 and no output, when:
@@ -107,7 +115,7 @@ from closing_question_gate_flag import is_bypass_on
 from closing_question_round_footer import footer_reason, left_out_tasks, split_footer
 from closing_question_round_lines import is_within_scan_cap, transcript_lines
 from closing_question_round_open_items import declares_no_open_items, marked_open_lines
-from closing_question_round_tasks import SessionTasks, session_tasks
+from closing_question_round_tasks import SessionTasks, carried_tasks_reason, session_tasks
 from closing_question_round_transcript import (
     _message_id,
     block_texts,
@@ -847,6 +855,7 @@ def footer_hold_reason(
 
     ::
 
+        a later plan list dropped in_progress "Run the rerun" -> the carried reason
         nothing in progress, no background work           -> None, no closing line owed,
             and the newest footer is kept as sent with no work, so work
             that starts again owes a new footer
@@ -891,6 +900,8 @@ def footer_hold_reason(
     if footer_items is None and not is_declared and not did_work and newest_footer is None:
         return None
     all_tasks = all_known_tasks if all_known_tasks is not None else session_tasks(all_hook_input_fields)
+    if all_tasks.carried_in_progress:
+        return carried_tasks_reason(all_tasks.carried_in_progress)
     if not all_tasks.in_progress and not has_background_work(all_hook_input_fields):
         if newest_footer is not None:
             record_footer_jobs(all_hook_input_fields, newest_footer, all_tasks)

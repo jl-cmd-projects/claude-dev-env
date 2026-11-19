@@ -46,7 +46,7 @@ def test_instructions_should_ask_for_the_footer_and_never_for_the_declaration() 
     assert "In progress footer" in CLOSING_ROUND_INSTRUCTION
     assert f"line {NO_OPEN_ITEMS_DECLARATION}" not in CLOSING_ROUND_INSTRUCTION
     assert f"Do not end with the line {NO_OPEN_ITEMS_DECLARATION}" in FOOTER_INSTRUCTION
-    assert len(set(ALL_REASON_LEADS)) == 5
+    assert len(set(ALL_REASON_LEADS)) == 6
 
 
 def test_footer_instruction_should_hold_no_example_sentence_to_copy() -> None:

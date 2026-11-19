@@ -40,8 +40,14 @@ turn once when completed items sit beside open ones::
     allow: 13 pending               -> stop
 
 The list is the session's task store, or the transcript's list when the session
-has no store. A list that ``CLAUDE_CODE_TASK_LIST_ID`` shares with other
-sessions is left alone.
+has no store. The transcript's list is the newest desktop plan list, so a plan
+item that a later list carried does not count::
+
+    list 1: "Run the rerun" in_progress   list 2: "Fix the reader" completed
+        -> allow: the user sees 1 completed, none open
+
+A list that ``CLAUDE_CODE_TASK_LIST_ID`` shares with other sessions is left
+alone.
 
 A turn that tells the user something waits on them reads the live state first
 and hands over each step through the question tool. The gate reads the closing
@@ -241,9 +247,13 @@ def is_untracked_work_turn(replay: TranscriptReplay) -> bool:
 
 
 def shown_task_items(session_id: object, replay: TranscriptReplay) -> list[TaskItem]:
-    """Return the task list the user sees: the task store when the session has one, else the transcript's list."""
+    """Return the task list the user sees: the task store when the session has one, else the transcript's list.
+
+    The transcript's list leaves out the desktop plan items a later list carried, because the user sees only
+    the newest list.
+    """
     all_store_items = task_store_items(session_id)
-    return all_store_items if all_store_items is not None else replay.items() or []
+    return all_store_items if all_store_items is not None else replay.shown_items() or []
 
 
 def stale_list_reason(all_items: list[TaskItem]) -> str | None:
