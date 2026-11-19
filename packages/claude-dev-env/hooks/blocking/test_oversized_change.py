@@ -116,6 +116,28 @@ def test_should_pass_a_second_create_that_names_the_default_base(large_branch: P
     assert size.oversized_pull_request_reason(named_base_payload) is None
 
 
+def test_should_pass_a_default_base_retry_beside_a_local_branch_named_like_the_remote(
+    large_branch: Path,
+) -> None:
+    _git(large_branch, "branch", "origin/main", "main")
+    assert size.oversized_pull_request_reason(_create(large_branch, PLAIN_BODY)) == OVER_BAR_REASON
+    named_base_payload = _create(large_branch, PLAIN_BODY, "--base main")
+    assert size.oversized_pull_request_reason(named_base_payload) is None
+
+
+def test_should_leave_the_default_base_unnamed_for_a_create_in_another_repository(
+    large_branch: Path,
+) -> None:
+    other_repository_call = proof.CreateCall(
+        title="t", body=PLAIN_BODY, head="feature", base=None, repository="owner/other"
+    )
+    assert size._pull_request_key(other_repository_call, str(large_branch)) == [
+        "owner/other",
+        "feature",
+        "",
+    ]
+
+
 def test_should_refuse_a_first_create_after_the_configured_base_changes(
     large_branch: Path,
 ) -> None:
