@@ -41,13 +41,12 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_HEADING_PATTERN,
     FOOTER_INSTRUCTION,
     FOOTER_ITEM_LINE_PATTERN,
+    FOOTER_ITEM_PART_SEPARATOR,
     FOOTER_KEY_WORDS_INSTRUCTION,
     FOOTER_STATUS_MARKER_PATTERN,
     FOOTER_STATUS_STAND_IN,
     FIRST_PERSON_ITEM_PATTERN,
     FOOTER_TASK_LINE_TEMPLATE,
-    LIST_SCOPE_FOOTER_TEMPLATE,
-    LIST_SCOPE_ITEM_TEMPLATE,
     PURPOSE_CLAUSE_PATTERN,
     PURPOSE_CLAUSE_STAND_IN,
     USER_MENTION_PATTERN,
@@ -89,25 +88,49 @@ def split_footer(closing_reply: str) -> SplitReply:
     one on, and at least one item must follow.
     """
     all_lines = closing_reply.rstrip().split(LINE_BREAK)
-    for each_position in range(len(all_lines) - 1, -1, -1):
-        if FOOTER_HEADING_PATTERN.fullmatch(all_lines[each_position].strip()) is None:
+    found_footer = _footer_item_lines(all_lines)
+    if found_footer is None:
+        return SplitReply(closing_reply, None)
+    heading_position, all_item_lines = found_footer
+    return SplitReply(
+        LINE_BREAK.join(all_lines[:heading_position]),
+        tuple(_item_text(each_item_lines) for each_item_lines in all_item_lines),
+    )
+
+
+def _footer_item_lines(all_lines: list[str]) -> tuple[int, list[list[str]]] | None:
+    heading_position = next(
+        (
+            each_position
+            for each_position in range(len(all_lines) - 1, -1, -1)
+            if FOOTER_HEADING_PATTERN.fullmatch(all_lines[each_position].strip()) is not None
+        ),
+        None,
+    )
+    if heading_position is None:
+        return None
+    all_item_lines = _item_line_groups(all_lines[heading_position + 1 :])
+    return (heading_position, all_item_lines) if all_item_lines else None
+
+
+def _item_line_groups(all_tail_lines: list[str]) -> list[list[str]]:
+    all_item_lines: list[list[str]] = []
+    for each_line in all_tail_lines:
+        if not each_line.strip():
             continue
-        all_tail_lines = [
-            each_line for each_line in all_lines[each_position + 1 :] if each_line.strip()
-        ]
-        all_items: list[str] = []
-        for each_line in all_tail_lines:
-            item_match = FOOTER_ITEM_LINE_PATTERN.match(each_line)
-            if item_match is not None:
-                all_items.append(item_match["item"])
-            elif all_items and FOOTER_CONTINUATION_LINE_PATTERN.match(each_line):
-                all_items[-1] = f"{all_items[-1]} {each_line.strip()}"
-            else:
-                return SplitReply(closing_reply, None)
-        if not all_items:
-            return SplitReply(closing_reply, None)
-        return SplitReply(LINE_BREAK.join(all_lines[:each_position]), tuple(all_items))
-    return SplitReply(closing_reply, None)
+        if FOOTER_ITEM_LINE_PATTERN.match(each_line) is not None:
+            all_item_lines.append([each_line])
+        elif all_item_lines and FOOTER_CONTINUATION_LINE_PATTERN.match(each_line):
+            all_item_lines[-1].append(each_line)
+        else:
+            return []
+    return all_item_lines
+
+
+def _item_text(all_item_lines: list[str]) -> str:
+    item_match = FOOTER_ITEM_LINE_PATTERN.match(all_item_lines[0])
+    first_text = item_match["item"] if item_match is not None else all_item_lines[0].strip()
+    return FOOTER_ITEM_PART_SEPARATOR.join([first_text, *(each_line.strip() for each_line in all_item_lines[1:])])
 
 
 def is_footer_ask(footer_item: str) -> bool:
@@ -150,12 +173,14 @@ def list_check_text(closing_reply: str) -> str:
 
         "Done.\n\nIn progress:\n- I am shipping 8590."                -> "Done.\n"
         "Done.\n\nIn progress:\n- Pick a price.\n- Confirm the date."  -> the whole reply
-        "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price." -> "Done.\n\n\nIn progress:\n- Pick a price."
+        "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price." -> "Done.\n\nIn progress:\n- Pick a price."
         "Done."                                                       -> "Done."
 
     A footer line that only says where work stands is required status, so
     the check leaves it out and reads the body with the footer lines that ask
-    the user something, as ``is_footer_ask`` finds them.
+    the user something, as ``is_footer_ask`` finds them. The heading and
+    each kept line stay as the reply wrote them, so a span the judge quotes
+    from them is still found in the reply.
 
     Args:
         closing_reply: The reply the turn ends with.
@@ -163,16 +188,21 @@ def list_check_text(closing_reply: str) -> str:
     Returns:
         The body with the footer's asks, or the whole reply when every item asks.
     """
-    split_reply = split_footer(closing_reply)
-    if split_reply.footer_items is None:
+    all_lines = closing_reply.rstrip().split(LINE_BREAK)
+    found_footer = _footer_item_lines(all_lines)
+    if found_footer is None:
         return closing_reply
-    all_asks = [each_item for each_item in split_reply.footer_items if is_footer_ask(each_item)]
-    if len(all_asks) == len(split_reply.footer_items):
+    heading_position, all_item_lines = found_footer
+    all_ask_lines = [
+        each_item_lines for each_item_lines in all_item_lines if is_footer_ask(_item_text(each_item_lines))
+    ]
+    if len(all_ask_lines) == len(all_item_lines):
         return closing_reply
-    if not all_asks:
-        return split_reply.body
-    all_ask_lines = [LIST_SCOPE_ITEM_TEMPLATE.format(item=each_item) for each_item in all_asks]
-    return LIST_SCOPE_FOOTER_TEMPLATE.format(body=split_reply.body, items=LINE_BREAK.join(all_ask_lines))
+    all_body_lines = all_lines[:heading_position]
+    if not all_ask_lines:
+        return LINE_BREAK.join(all_body_lines)
+    all_kept_lines = [each_line for each_item_lines in all_ask_lines for each_line in each_item_lines]
+    return LINE_BREAK.join([*all_body_lines, all_lines[heading_position], *all_kept_lines])
 
 
 def _stem(word: str) -> str:

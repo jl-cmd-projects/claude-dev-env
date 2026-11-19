@@ -212,6 +212,10 @@ def test_closing_reply_texts_reads_a_closing_reply_the_transcript_does_not_end_w
     )
     assert closing_reply_texts({"last_assistant_message": "  "}, all_lines, NO_DEADLINE) == []
     assert closing_reply_texts({}, all_lines, NO_DEADLINE) == []
+    all_later_lines = [*all_lines, *json_lines([typed_prompt_record("Run it again.")])]
+    assert closing_reply_texts(
+        {"last_assistant_message": "Both tests pass."}, all_later_lines, NO_DEADLINE
+    ) == ["Both tests pass."]
 
 
 def test_closing_reply_texts_sets_aside_the_question_calls_that_share_the_last_record() -> None:

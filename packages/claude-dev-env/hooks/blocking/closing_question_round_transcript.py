@@ -292,6 +292,8 @@ def has_work_call(all_stretch_records: list[dict[str, object]]) -> bool:
 
 def _last_assistant_text(all_lines: list[str], deadline_at: float) -> str | None:
     for each_line in before_deadline(reversed(all_lines), deadline_at):
+        if _is_prompt_line(each_line):
+            return None
         if ASSISTANT_SCAN_TEXT not in each_line:
             continue
         each_record = _top_level_record(each_line)
@@ -318,11 +320,14 @@ def closing_reply_texts(
 
         "Both tests pass."  and the transcript ends with other text  -> ["Both tests pass."]
         "Both tests pass."  and the transcript ends with it          -> []
+        "Both tests pass."  and a prompt came after that copy         -> ["Both tests pass."]
         "" or no string                                               -> []
 
     The transcript ends with the reply when its last top-level assistant
     record, question calls left aside, ends in a text block equal to it, with
-    outer whitespace stripped. A text before a later work call is not it.
+    outer whitespace stripped, and no prompt comes after that record. A text
+    before a later work call is not it, and a copy sent before the prompt
+    that started this turn is an earlier reply.
 
     Args:
         all_hook_input_fields: The Stop payload.

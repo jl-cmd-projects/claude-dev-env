@@ -150,7 +150,7 @@ def repeat_report(all_replies: list[str]) -> RepeatReport:
         )
         all_seen_lines.update(all_reply_lines)
         line_counts.update(all_reply_lines)
-        reply_counts.update(set(all_reply_lines))
+        reply_counts.update(dict.fromkeys(all_reply_lines, 1))
     all_top_lines = [
         (each_line, each_count)
         for each_line, each_count in reply_counts.most_common(TOP_LINE_COUNT)

@@ -104,8 +104,17 @@ def test_should_keep_a_footer_of_asks_for_the_user_in_the_list_check_text() -> N
     ask_reply = "Done.\n\nIn progress:\n- Approve the release.\n- Pick a price.\n- Confirm the date."
     mixed_reply = "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price."
     assert list_check_text(ask_reply) == ask_reply
-    assert list_check_text(mixed_reply) == "Done.\n\n\nIn progress:\n- Pick a price."
+    assert list_check_text(mixed_reply) == "Done.\n\nIn progress:\n- Pick a price."
     assert list_check_text("Done.\n\nIn progress:\n- I\u2019m shipping 8590.").strip() == "Done."
+
+
+def test_should_keep_the_heading_and_ask_lines_as_the_reply_wrote_them_in_the_list_check_text() -> None:
+    bold_reply = (
+        "Done.\n\n**in progress:**\n- I am shipping 8590.\n* Pick a price\n  for the second plan."
+    )
+    kept_text = list_check_text(bold_reply)
+    assert kept_text == "Done.\n\n**in progress:**\n* Pick a price\n  for the second plan."
+    assert all(each_line in bold_reply for each_line in kept_text.splitlines())
 
 
 def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_check_text() -> None:
@@ -114,7 +123,7 @@ def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_c
         "- I am holding the release until the owner approves the price."
     )
     assert list_check_text(owner_reply) == (
-        "Done.\n\n\nIn progress:\n- I am holding the release until the owner approves the price."
+        "Done.\n\nIn progress:\n- I am holding the release until the owner approves the price."
     )
 
 
@@ -130,9 +139,9 @@ def test_should_keep_a_first_person_footer_that_waits_on_the_user_in_the_list_ch
         "- I am holding the price change for your approval.\n- I am holding the date for your approval."
     )
     assert list_check_text(approval_reply) == (
-        "Done.\n\n\nIn progress:\n- I can proceed once you approve the release."
+        "Done.\n\nIn progress:\n- I can proceed once you approve the release."
     )
-    assert list_check_text(asking_reply) == "Done.\n\n\nIn progress:\n- I am asking you to approve the release."
+    assert list_check_text(asking_reply) == "Done.\n\nIn progress:\n- I am asking you to approve the release."
     assert list_check_text(holding_reply) == holding_reply
     assert list_check_text(status_reply).strip() == "Done."
 

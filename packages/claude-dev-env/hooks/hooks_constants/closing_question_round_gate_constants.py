@@ -31,8 +31,6 @@ FOOTER_JOBS_TEMP_SUFFIX = ".part"
 MESSAGE_ID_KEY = "id"
 FOOTER_SNAPSHOT_SEPARATOR = " "
 FOOTER_SNAPSHOT_PART_COUNT = 3
-LIST_SCOPE_FOOTER_TEMPLATE = "{body}\n\nIn progress:\n{items}"
-LIST_SCOPE_ITEM_TEMPLATE = "- {item}"
 NO_FOLLOW_FLAG = getattr(os, "O_NOFOLLOW", 0)
 FOOTER_JOBS_READ_LIMIT = 256
 FOOTER_JOBS_TEXT_ENCODING = "ascii"
@@ -218,6 +216,7 @@ ALL_SUBJECT_SKIP_WORDS = frozenset(
     }
 )
 TASK_KEY_WORD_SEPARATOR = " "
+FOOTER_ITEM_PART_SEPARATOR = " "
 FOOTER_TASK_LINE_TEMPLATE = "- {subject} [{key_words}]"
 FOOTER_TASKS_LABEL = "Work in progress, with the words that name each task in brackets:"
 FOOTER_GAP_LABEL = "Left out of the footer:"
