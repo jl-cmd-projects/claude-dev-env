@@ -1416,3 +1416,16 @@ def test_should_save_the_jobs_of_a_split_footer_when_the_payload_reply_is_blank(
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields)).startswith(
         FOOTER_CHANGED_REASON_LEAD
     )
+
+
+def test_should_record_a_split_footer_the_payload_repeats_from_the_transcript(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_footer_records = [typed_prompt_record(), *edit_records(), *split_reply_records("The retry flag is in place.", LEDGER_FOOTER)]
+    all_records = [*all_footer_records, notice_record("Ledger job ended"), reply_record("Still waiting.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([{"id": "ledger"}])) is None
+    waiting_fields = {"last_assistant_message": "Still waiting.", "background_tasks": [{"id": "tests"}]}
+    assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, waiting_fields)).startswith(
+        FOOTER_CHANGED_REASON_LEAD
+    )

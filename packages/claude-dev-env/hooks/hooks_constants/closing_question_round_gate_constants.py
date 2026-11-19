@@ -66,6 +66,10 @@ REQUEST_OPENER_PATTERN = re.compile(
     re.IGNORECASE,
 )
 USER_MENTION_PATTERN = re.compile(r"\byou(?:r|rs|rself)?\b", re.IGNORECASE)
+USER_CHOICE_LEAD_PATTERN = re.compile(
+    r"\b(?:yours\s+to\s+(?:choose|pick|decide)|your\s+(?:call|choice|pick|decision)|you\s+(?:choose|pick|decide))\b",
+    re.IGNORECASE,
+)
 PURPOSE_CLAUSE_PATTERN = re.compile(
     r"\bso(?:\s+that)?\s+(?:you(?:\s+can)?\s+(?:see|know|get|read|follow|have|hear|learn|find|watch|track)"
     r"|your(?:\s+\w+){1,2}?\s+(?:stays?|remains?|keeps?|updates?|shows?|match(?:es)?|loads?|works?|runs?|arrives?|is|are))\b",

@@ -59,6 +59,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     PURPOSE_CLAUSE_STAND_IN,
     REQUEST_OPENER_PATTERN,
     SENTENCE_BREAK_PATTERN,
+    USER_CHOICE_LEAD_PATTERN,
     USER_MENTION_PATTERN,
     FOOTER_TASKS_LABEL,
     FOOTER_WORD_PATTERN,
@@ -300,7 +301,10 @@ def _is_user_choice(all_body_lines: list[str], all_item_lines: list[list[str]]) 
         OPTION_ITEM_PATTERN.match(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines)))
         for each_item_lines in all_item_lines
     )
-    return has_option_item and USER_MENTION_PATTERN.search(_lead_paragraph(all_body_lines)) is not None
+    lead_paragraph = _lead_paragraph(all_body_lines)
+    if len(all_item_lines) > 1 and USER_CHOICE_LEAD_PATTERN.search(lead_paragraph) is not None:
+        return True
+    return has_option_item and USER_MENTION_PATTERN.search(lead_paragraph) is not None
 
 
 def _is_asking_lead(all_body_lines: list[str]) -> bool:

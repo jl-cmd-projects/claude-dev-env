@@ -239,3 +239,13 @@ def test_should_tell_a_footer_ask_from_a_status_line() -> None:
     assert not is_footer_ask("I need the build to finish before the release.")
     assert not is_footer_ask("I am fixing the list reader in pull request 8801. I am waiting for the last tests.")
 
+
+
+def test_should_keep_every_option_when_the_lead_leaves_the_choice_to_the_user() -> None:
+    choice_reply = (
+        "The release date is yours to choose.\n\nIn progress:\n"
+        "- I will ship Friday under option A.\n- I will ship Monday under option B.\n- I will ship Wednesday under option C."
+    )
+    assert list_check_text(choice_reply) == choice_reply
+    status_reply = "The release is set.\n\nIn progress:\n- I will ship Friday.\n- I will ship the notes Monday."
+    assert list_check_text(status_reply).strip() == "The release is set."

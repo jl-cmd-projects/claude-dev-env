@@ -96,6 +96,12 @@ def test_last_typed_prompt_position_should_skip_only_a_whole_task_notification()
         {"type": "user", "message": {"role": "user", "content": "[SYSTEM NOTIFICATION - NOT USER INPUT]\nA job ended."}},
     ])
     assert last_typed_prompt_position(system_notice_lines, NO_DEADLINE) == 0
+    quoted_marker_text = "Fix the code that emits <system-reminder>[SYSTEM NOTIFICATION - NOT USER INPUT] markers."
+    quoted_marker_lines = json_lines([
+        {"type": "user", "message": {"role": "user", "content": "Add the flag."}},
+        {"type": "user", "message": {"role": "user", "content": quoted_marker_text}},
+    ])
+    assert last_typed_prompt_position(quoted_marker_lines, NO_DEADLINE) == 1
 
 
 def test_last_typed_prompt_position_returns_the_last_prompt_with_a_human_turn_origin() -> None:
@@ -288,3 +294,12 @@ def test_closing_reply_texts_sets_aside_the_question_calls_that_share_the_last_r
             closing_reply_texts({"last_assistant_message": question_line}, all_lines, NO_DEADLINE)
             == all_expected_texts
         )
+
+
+def test_last_written_reply_joins_the_records_of_one_message() -> None:
+    all_records = [
+        {"type": "assistant", "message": {"id": "m-1", "role": "assistant", "content": [{"type": "text", "text": each_text}]}}
+        for each_text in ("Done.", "In progress:\n- I am shipping 8590.")
+    ]
+    all_lines = json_lines([typed_prompt_record(), reply_record("Earlier."), *all_records])
+    assert last_written_reply(all_lines, NO_DEADLINE) == "Done.\nIn progress:\n- I am shipping 8590."

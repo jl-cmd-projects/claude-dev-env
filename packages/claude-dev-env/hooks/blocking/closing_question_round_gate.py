@@ -109,6 +109,7 @@ from closing_question_round_lines import transcript_lines
 from closing_question_round_open_items import declares_no_open_items, marked_open_lines
 from closing_question_round_tasks import SessionTasks, session_tasks
 from closing_question_round_transcript import (
+    _message_id,
     assistant_texts,
     block_texts,
     has_work_call,
@@ -152,7 +153,6 @@ from hooks_constants.closing_question_round_gate_constants import (
     FOOTER_JOBS_DIGEST_LENGTH,
     FOOTER_JOBS_FILE_MODE,
     FOOTER_JOBS_TEMP_SUFFIX,
-    MESSAGE_ID_KEY,
     FOOTER_SNAPSHOT_KEPT_COUNT,
     FOOTER_SNAPSHOT_LINE_SEPARATOR,
     FOOTER_SNAPSHOT_PART_COUNT,
@@ -321,12 +321,6 @@ class CoveredSession(NamedTuple):
     newest_footer: FooterSeen | None
     count_start: int
     written_reply: str | None
-
-
-def _message_id(all_record_fields: dict[str, object]) -> str | None:
-    message_body = all_record_fields.get(MESSAGE_KEY)
-    message_id = message_body.get(MESSAGE_ID_KEY) if isinstance(message_body, dict) else None
-    return message_id if isinstance(message_id, str) and message_id else None
 
 
 def _assistant_messages(all_records: list[dict[str, object]]) -> list[tuple[int, str, bool]]:
@@ -888,10 +882,10 @@ def _new_footer(
     all_footer_items = split_footer(closing_reply).footer_items
     if not isinstance(payload_reply, str) or not payload_reply.strip():
         return _closing_transcript_footer(all_footer_items, covered_session)
-    if payload_reply.strip() != closing_reply.strip() or all_footer_items is None:
+    if payload_reply.split() != closing_reply.split() or all_footer_items is None:
         return None
     is_unwritten = any(
-        each_text.strip() == closing_reply.strip() for each_text in covered_session.all_payload_texts
+        each_text.split() == closing_reply.split() for each_text in covered_session.all_payload_texts
     )
     if not is_unwritten:
         return _closing_transcript_footer(all_footer_items, covered_session)

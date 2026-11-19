@@ -48,6 +48,8 @@ from hooks_constants.closing_question_round_gate_constants import (
     IS_ERROR_KEY,
     IS_SIDECHAIN_KEY,
     LAST_ASSISTANT_MESSAGE_KEY,
+    MESSAGE_ID_KEY,
+    REPLY_PART_JOINER,
     SESSION_ATTENDED_ENVIRONMENT_VARIABLE,
     TOOL_RESULT_SCAN_TEXT,
     TOOL_USE_BLOCK_ID_KEY,
@@ -57,6 +59,7 @@ from hooks_constants.closing_question_round_gate_constants import (
 )
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_QUESTION_TOOL_NAMES,
+    MESSAGE_KEY,
     RECORD_TYPE_KEY,
     STOP_HOOK_FEEDBACK_PREFIX,
     TEXT_KEY,
@@ -75,6 +78,12 @@ from open_tasks_transcript_records import (
     parsed_object,
     stop_feedback_text,
 )
+
+def _message_id(all_record_fields: dict[str, object]) -> str | None:
+    message_body = all_record_fields.get(MESSAGE_KEY)
+    message_id = message_body.get(MESSAGE_ID_KEY) if isinstance(message_body, dict) else None
+    return message_id if isinstance(message_id, str) and message_id else None
+
 
 def _top_level_record(transcript_line: str) -> dict[str, object] | None:
     each_record = parsed_object(transcript_line)
@@ -102,7 +111,11 @@ def _is_typed_prompt_line(transcript_line: str) -> bool:
         return False
     each_record = parsed_object(transcript_line)
     prompt_text = claude_prompt_text(each_record) if each_record is not None else None
-    return prompt_text is not None and not is_event_wake(prompt_text) and BACKGROUND_EVENT_PATTERN.search(prompt_text) is None
+    return (
+        prompt_text is not None
+        and not is_event_wake(prompt_text)
+        and BACKGROUND_EVENT_PATTERN.match(prompt_text.lstrip()) is None
+    )
 
 
 def _last_prompt_line_position(all_lines: list[str], deadline_at: float) -> int | None:
@@ -315,11 +328,13 @@ def has_work_call(all_stretch_records: list[dict[str, object]]) -> bool:
 
 
 def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
-    """Return the text the transcript's last assistant record ends with, or None.
+    """Return the text the transcript's last assistant message ends with, or None.
 
     ::
 
         prompt, reply "Done."                     -> "Done."
+        "Done." and "In progress:" as two records of one message
+                                                  -> "Done.\nIn progress:"
         prompt, reply "Done.", a later prompt     -> None, a new turn started
         prompt, reply "Done.", an Edit call       -> None, the record ends with work
         a question call after "Done." in a record -> "Done.", the call is set aside
@@ -336,7 +351,8 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
     Raises:
         TimeoutError: The deadline passed before the scan ended.
     """
-    for each_line in before_deadline(reversed(all_lines), deadline_at):
+    for each_position in before_deadline(range(len(all_lines) - 1, -1, -1), deadline_at):
+        each_line = all_lines[each_position]
         if _is_prompt_line(each_line) or _is_stop_feedback_line(each_line):
             return None
         if ASSISTANT_SCAN_TEXT not in each_line:
@@ -356,8 +372,28 @@ def last_written_reply(all_lines: list[str], deadline_at: float) -> str | None:
             continue
         last_block = all_answer_blocks[-1] if all_answer_blocks else {}
         last_text = last_block.get(TEXT_KEY) if last_block.get(RECORD_TYPE_KEY) == TEXT_KEY else None
-        return last_text if isinstance(last_text, str) else None
+        if not isinstance(last_text, str):
+            return None
+        return REPLY_PART_JOINER.join(
+            [*_earlier_message_texts(all_lines[:each_position], _message_id(each_record), deadline_at), last_text]
+        )
     return None
+
+
+def _earlier_message_texts(all_lines: list[str], message_id: str | None, deadline_at: float) -> list[str]:
+    all_texts: list[str] = []
+    if message_id is None:
+        return all_texts
+    for each_line in before_deadline(reversed(all_lines), deadline_at):
+        if ASSISTANT_SCAN_TEXT not in each_line:
+            continue
+        each_record = _top_level_record(each_line)
+        if each_record is None or not is_assistant_record(each_record):
+            continue
+        if _message_id(each_record) != message_id:
+            break
+        all_texts[:0] = block_texts(each_record)
+    return all_texts
 
 
 def closing_reply_texts(
@@ -399,6 +435,7 @@ def payload_closing_texts(all_hook_input_fields: dict[str, object], written_repl
 
         "Both tests pass." and written reply "Done."              -> ["Both tests pass."]
         "Both tests pass." and written reply "Both tests pass.\n" -> []
+        "Done.\n\nIn progress:" and written reply "Done.\nIn progress:" -> [], the words match
         "" or no string                                           -> []
 
     Args:
@@ -411,6 +448,6 @@ def payload_closing_texts(all_hook_input_fields: dict[str, object], written_repl
     closing_reply = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     if not isinstance(closing_reply, str) or not closing_reply.strip():
         return []
-    if written_reply is not None and written_reply.strip() == closing_reply.strip():
+    if written_reply is not None and written_reply.split() == closing_reply.split():
         return []
     return [closing_reply]
