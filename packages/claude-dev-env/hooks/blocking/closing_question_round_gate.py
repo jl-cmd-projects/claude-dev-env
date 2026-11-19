@@ -485,7 +485,9 @@ def record_footer_jobs(
         return
     temporary_path = Path(temporary_name)
     try:
-        with os.fdopen(file_descriptor, "w", encoding=FOOTER_JOBS_TEXT_ENCODING) as snapshot_file:
+        with os.fdopen(
+            file_descriptor, "w", encoding=FOOTER_JOBS_TEXT_ENCODING, newline=FOOTER_SNAPSHOT_LINE_SEPARATOR
+        ) as snapshot_file:
             snapshot_file.write(snapshot_text)
         os.chmod(temporary_path, FOOTER_JOBS_FILE_MODE)
         os.replace(temporary_path, snapshot_path)
@@ -523,6 +525,7 @@ def kept_footer_snapshots(all_hook_input_fields: dict[str, object]) -> tuple[Foo
     ::
 
         snapshots written by ``record_footer_jobs``      -> those snapshots
+        the same lines ended by \r\n                       -> those snapshots
         no snapshot, a symlink, or a damaged file       -> ()
 
     The read checks that the name holds a regular file, not a link, and that
@@ -543,7 +546,7 @@ def kept_footer_snapshots(all_hook_input_fields: dict[str, object]) -> tuple[Foo
         if not os.path.samestat(name_status, os.fstat(snapshot_file.fileno())):
             return ()
         kept_text = snapshot_file.read(FOOTER_JOBS_READ_LIMIT).decode(FOOTER_JOBS_TEXT_ENCODING, errors="replace")
-    all_snapshots = [_parsed_snapshot(each_line) for each_line in kept_text.split(FOOTER_SNAPSHOT_LINE_SEPARATOR)]
+    all_snapshots = [_parsed_snapshot(each_line) for each_line in kept_text.splitlines()]
     if None in all_snapshots:
         return ()
     return tuple(each_snapshot for each_snapshot in all_snapshots if each_snapshot is not None)

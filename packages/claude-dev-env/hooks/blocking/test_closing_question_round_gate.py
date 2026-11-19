@@ -1147,6 +1147,22 @@ def test_should_keep_the_snapshots_of_the_newest_three_footers(
     assert not recorded(ledger_fields, all_footers[0])
 
 
+def test_should_read_snapshots_whose_lines_end_in_a_carriage_return(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    ledger_fields = {"session_id": SESSION_ID, "background_tasks": [{"id": "ledger"}]}
+    second_footer = LEDGER_SEEN._replace(occurrence=2)
+    closing_question_round_gate.record_footer_jobs(ledger_fields, LEDGER_SEEN, NO_TASKS)
+    closing_question_round_gate.record_footer_jobs(ledger_fields, second_footer, NO_TASKS)
+    snapshot_path = closing_question_round_gate._snapshot_path(ledger_fields)
+    assert snapshot_path is not None
+    assert b"\r" not in snapshot_path.read_bytes()
+    snapshot_path.write_bytes(snapshot_path.read_bytes().replace(b"\n", b"\r\n"))
+    assert shown(ledger_fields, LEDGER_SEEN, NO_TASKS)
+    assert shown(ledger_fields, second_footer, NO_TASKS)
+
+
 def test_should_know_the_kept_snapshot_names_a_footer(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
     session_fields = {"session_id": SESSION_ID}

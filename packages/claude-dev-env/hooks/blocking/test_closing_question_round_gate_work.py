@@ -983,6 +983,27 @@ def test_should_ask_for_a_new_footer_when_a_job_ends_and_the_reply_runs_no_tool(
     ).startswith(FOOTER_CHANGED_REASON_LEAD)
 
 
+def test_should_allow_the_third_stop_after_two_changed_work_holds(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_first_footer = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    changed_feedback = f"Stop hook feedback:\n{FOOTER_CHANGED_REASON_LEAD}\nWork in progress:"
+    all_records = [
+        *all_first_footer,
+        notice_record("Ledger job ended"),
+        reply_record("The ledger is done."),
+        stop_feedback_record(changed_feedback),
+        reply_record("The ledger is done."),
+        stop_feedback_record(changed_feedback),
+        reply_record("The ledger is done."),
+    ]
+    done_fields = {"last_assistant_message": "The ledger is done.", "background_tasks": []}
+    assert held_reason(monkeypatch, capsys, tmp_path, all_first_footer, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records[:-2], done_fields) is not None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, done_fields) is None
+
+
 def test_should_tell_apart_the_same_footer_on_each_side_of_an_answered_question(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

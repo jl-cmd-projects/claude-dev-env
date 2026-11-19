@@ -142,6 +142,10 @@ def test_should_keep_a_decision_list_in_an_in_progress_footer_of_asks() -> None:
         "- I am listing the logos so you can see them and then select one."
     )
     assert parsed_verdict(verdict_text, coordinated_reply) == JudgeVerdict("", "In progress:")
+    emphasized_reply = coordinated_reply.replace("pick", "**pick**").replace("choose", "_choose_").replace(
+        "select", "`select`"
+    )
+    assert parsed_verdict(verdict_text, emphasized_reply) == JudgeVerdict("", "In progress:")
     benefit_reply = (
         "Shipped.\n\nIn progress:\n- I am updating the discount ledger so your prices stay current.\n"
         "- I am watching the export so your files arrive on time.\n"
