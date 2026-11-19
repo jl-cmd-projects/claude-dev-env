@@ -285,12 +285,13 @@ class FooterSeen(NamedTuple):
 
     Attributes:
         lines: The footer's items.
-        prompt_position: The transcript line of the last typed prompt before it.
-        occurrence: How many footer replies since that prompt end with it, this one included.
+        count_start: The transcript line where footer counting starts: after the last
+            typed prompt, or after the last answered question when that comes later.
+        occurrence: How many footer replies since that line end with it, this one included.
     """
 
     lines: tuple[str, ...]
-    prompt_position: int
+    count_start: int
     occurrence: int
 
 
@@ -302,14 +303,14 @@ class CoveredSession(NamedTuple):
         all_stretch_records: The top-level records after the last question call that reached the user.
         all_counted_records: The stretch records after the last typed prompt, where holds count.
         newest_footer: The newest footer among the counted records, or None.
-        prompt_position: The transcript line of the last typed prompt.
+        count_start: The transcript line where footer counting starts.
     """
 
     all_payload_texts: list[str]
     all_stretch_records: list[dict[str, object]]
     all_counted_records: list[dict[str, object]]
     newest_footer: FooterSeen | None
-    prompt_position: int
+    count_start: int
 
 
 def _message_id(all_record_fields: dict[str, object]) -> str | None:
@@ -384,11 +385,11 @@ def footer_key(footer: FooterSeen) -> str:
 
     ::
 
-        footer F, prompt line 4, first footer since it    -> "footer-jobs-<digest>"
-        the same words as the second footer since it      -> another key
-        the same words after another typed prompt         -> another key
+        footer F, counting from line 4, first footer      -> "footer-jobs-<digest>"
+        the same words as the second footer since then    -> another key
+        the same words after another prompt or answer     -> another key
     """
-    return _short_digest([list(footer.lines), footer.prompt_position, footer.occurrence])
+    return _short_digest([list(footer.lines), footer.count_start, footer.occurrence])
 
 
 def footer_snapshot(
@@ -432,6 +433,7 @@ def record_footer_jobs(
     ::
 
         footer F with job a, then F with jobs a and b   -> the snapshot is F with a and b
+        footer F with no jobs                           -> the snapshot is F with no jobs
         payload with no session id                      -> nothing kept
         the snapshot name is a symlink                  -> the new file takes the name, the target untouched
 
@@ -557,7 +559,7 @@ def _covered_session(
     if all_positions:
         newest_footer = FooterSeen(
             split_footer(block_texts(all_counted_records[all_positions[-1]])[-1]).footer_items or (),
-            prompt_position,
+            count_start,
             len(all_positions),
         )
     return CoveredSession(
@@ -565,7 +567,7 @@ def _covered_session(
         all_stretch_records,
         all_counted_records,
         newest_footer,
-        prompt_position,
+        count_start,
     )
 
 
@@ -740,7 +742,7 @@ def _new_footer(
     is_unwritten = any(
         each_text.strip() == closing_reply.strip() for each_text in covered_session.all_payload_texts
     )
-    return FooterSeen(tuple(all_footer_items), covered_session.prompt_position, footer_count + int(is_unwritten))
+    return FooterSeen(tuple(all_footer_items), covered_session.count_start, footer_count + int(is_unwritten))
 
 
 def _is_unrecorded(all_hook_input_fields: dict[str, object], new_footer: FooterSeen) -> bool:
@@ -759,9 +761,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     closing_reply = all_closing_texts[-1] if all_closing_texts else ""
     new_footer = _new_footer(all_hook_input_fields, closing_reply, covered_session)
     all_known_tasks = None
-    if new_footer is not None and has_background_work(all_hook_input_fields) and _is_unrecorded(
-        all_hook_input_fields, new_footer
-    ):
+    if new_footer is not None and _is_unrecorded(all_hook_input_fields, new_footer):
         all_known_tasks = session_tasks(all_hook_input_fields)
         record_footer_jobs(all_hook_input_fields, new_footer, all_known_tasks)
     all_texts = [

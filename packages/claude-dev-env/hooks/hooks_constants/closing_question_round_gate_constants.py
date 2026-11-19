@@ -44,6 +44,10 @@ PURPOSE_CLAUSE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 PURPOSE_CLAUSE_STAND_IN = "so"
+DECISION_DEPENDENCY_PATTERN = re.compile(
+    r"\b(?:approv\w*|decid\w*|decision\w*|sign-?off|go-ahead|permission|consent)\b",
+    re.IGNORECASE,
+)
 ALL_BACKGROUND_JOB_ID_KEYS = ("id", "task_id", "taskId")
 HUMAN_TURN_ORIGIN = "human"
 IS_SIDECHAIN_KEY = "isSidechain"

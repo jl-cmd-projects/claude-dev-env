@@ -31,6 +31,16 @@ def test_should_find_no_repeat_in_replies_that_each_say_something_new() -> None:
     assert report.all_top_lines == []
 
 
+def test_should_rank_only_lines_that_a_later_reply_sent_again() -> None:
+    echoed_line = "This line shows up three times in one reply."
+    report = repeat_report([f"{echoed_line}\n{echoed_line}\n{echoed_line}", f"Done.\n\n{FOOTER}", FOOTER])
+    assert report.repeated_line_count == 2
+    assert report.all_top_lines == [
+        (FOOTER_ITEM, 2),
+        ("I am shipping pull request 8693 once 8590 is in.", 2),
+    ]
+
+
 def test_should_count_a_footer_only_where_it_closes_the_reply() -> None:
     assert has_footer("Done.\n\n**In progress:**\n- I am shipping it.")
     assert not has_footer("The In progress: list is below.")

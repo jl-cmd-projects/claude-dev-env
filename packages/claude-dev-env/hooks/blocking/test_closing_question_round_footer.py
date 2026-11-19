@@ -108,6 +108,16 @@ def test_should_keep_a_footer_of_asks_for_the_user_in_the_list_check_text() -> N
     assert list_check_text("Done.\n\nIn progress:\n- I\u2019m shipping 8590.").strip() == "Done."
 
 
+def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_check_text() -> None:
+    owner_reply = (
+        "Done.\n\nIn progress:\n- I am shipping 8590.\n"
+        "- I am holding the release until the owner approves the price."
+    )
+    assert list_check_text(owner_reply) == (
+        "Done.\n\n\nIn progress:\n- I am holding the release until the owner approves the price."
+    )
+
+
 def test_should_keep_a_first_person_footer_that_waits_on_the_user_in_the_list_check_text() -> None:
     approval_reply = (
         "Done.\n\nIn progress:\n- I am shipping 8590.\n- I can proceed once you approve the release.\n"
@@ -138,4 +148,6 @@ def test_should_tell_a_footer_ask_from_a_status_line() -> None:
     assert not is_footer_ask("I am running the automated tests so that you know it works.")
     assert not is_footer_ask("I am watching the ledger so you can see its next update.")
     assert is_footer_ask("I am holding the launch so you can approve it first.")
+    assert is_footer_ask("I am holding the release until the owner approves the price.")
+    assert is_footer_ask("I am waiting for a decision on the second vendor.")
 

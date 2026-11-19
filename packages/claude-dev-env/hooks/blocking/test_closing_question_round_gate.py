@@ -1107,7 +1107,7 @@ def test_should_name_each_footer_occurrence_apart() -> None:
     first_key = closing_question_round_gate.footer_key(LEDGER_SEEN)
     assert first_key == closing_question_round_gate.footer_key(LEDGER_SEEN._replace())
     assert first_key != closing_question_round_gate.footer_key(LEDGER_SEEN._replace(occurrence=2))
-    assert first_key != closing_question_round_gate.footer_key(LEDGER_SEEN._replace(prompt_position=9))
+    assert first_key != closing_question_round_gate.footer_key(LEDGER_SEEN._replace(count_start=9))
     assert first_key != closing_question_round_gate.footer_key(LEDGER_SEEN._replace(lines=("I am running the tests.",)))
 
 

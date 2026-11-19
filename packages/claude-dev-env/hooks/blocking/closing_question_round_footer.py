@@ -35,6 +35,7 @@ from open_tasks_transcript import TaskItem
 
 from hooks_constants.closing_question_round_gate_constants import (
     ALL_SUBJECT_SKIP_WORDS,
+    DECISION_DEPENDENCY_PATTERN,
     FOOTER_CONTINUATION_LINE_PATTERN,
     FOOTER_GAP_LABEL,
     FOOTER_HEADING_PATTERN,
@@ -118,6 +119,7 @@ def is_footer_ask(footer_item: str) -> bool:
         "I am watching the ledger so you see it."      -> False
         "I am merging 8590 once it has your approval." -> True, it names the user
         "I will release it only with an OK from you."  -> True
+        "I am holding it until the owner approves."    -> True, it waits on a decision
         "Approve the release."                         -> True, not first person
         "Should I merge 8590?"                         -> True, a question
 
@@ -126,14 +128,17 @@ def is_footer_ask(footer_item: str) -> bool:
     clause, "so you" or "so that you" with see, know, get, read, follow,
     have, hear, learn, find, watch, or track, leaves the user unnamed, so
     "so you can approve it first" still names the user. An item that is not
-    first person, that names the user in any other way, or that holds an
-    open-item line other than the status markers "pending", "blocked", "not
-    done", and "not run" may ask the user something, so it counts as an ask.
+    first person, that names the user in any other way, that waits on an
+    approval, a decision, a sign-off, a go-ahead, permission, or consent from
+    anyone, or that holds an open-item line other than the status markers
+    "pending", "blocked", "not done", and "not run" may ask the user
+    something, so it counts as an ask.
     """
     status_item = FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, footer_item)
     return (
         FIRST_PERSON_ITEM_PATTERN.match(footer_item) is None
         or USER_MENTION_PATTERN.search(PURPOSE_CLAUSE_PATTERN.sub(PURPOSE_CLAUSE_STAND_IN, footer_item)) is not None
+        or DECISION_DEPENDENCY_PATTERN.search(footer_item) is not None
         or bool(marked_open_lines([status_item], math.inf))
     )
 

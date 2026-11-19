@@ -762,6 +762,30 @@ def test_should_count_a_footer_only_when_no_record_of_its_message_called_a_tool(
         assert reason is None
 
 
+def test_should_hold_a_job_that_started_after_its_footer_was_sent_with_no_jobs(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_footer_records, all_records = _footer_then_work()
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_footer_records, footer_stop_fields([{"id": "ledger"}])) is None
+    assert str(
+        held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "ledger"}]})
+    ).startswith(FOOTER_MISSING_REASON_LEAD)
+
+
+def test_should_tell_apart_the_same_footer_on_each_side_of_an_answered_question(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    write_tasks(tmp_path, [{"id": "28", "subject": LIST_READER_SUBJECT, "status": "in_progress"}])
+    all_first_round = [typed_prompt_record(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_second_round = [*all_first_round, *answered_card_records(), *edit_records(), reply_record(LEDGER_FOOTER_REPLY)]
+    all_records = [*all_second_round, *edit_records(), reply_record("The flag reads well.")]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_first_round, footer_stop_fields([{"id": "ledger"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_second_round, footer_stop_fields([{"id": "tests"}])) is None
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records, {"background_tasks": [{"id": "tests"}]}) is None
+
+
 def test_should_keep_the_first_snapshot_when_a_later_stop_carries_the_same_footer_reply(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

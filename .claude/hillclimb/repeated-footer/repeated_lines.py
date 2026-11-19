@@ -137,10 +137,11 @@ def repeat_report(all_replies: list[str]) -> RepeatReport:
         all_replies: The replies in the order they were sent.
 
     Returns:
-        The counts, with the five lines sent most often when they were sent more than once.
+        The counts, with the five lines that the most replies sent, when more than one reply sent them.
     """
     all_seen_lines: set[str] = set()
     line_counts: Counter[str] = Counter()
+    reply_counts: Counter[str] = Counter()
     repeated_line_count = 0
     for each_reply in all_replies:
         all_reply_lines = counted_lines(each_reply)
@@ -149,9 +150,10 @@ def repeat_report(all_replies: list[str]) -> RepeatReport:
         )
         all_seen_lines.update(all_reply_lines)
         line_counts.update(all_reply_lines)
+        reply_counts.update(set(all_reply_lines))
     all_top_lines = [
         (each_line, each_count)
-        for each_line, each_count in line_counts.most_common(TOP_LINE_COUNT)
+        for each_line, each_count in reply_counts.most_common(TOP_LINE_COUNT)
         if each_count > 1
     ]
     return RepeatReport(
