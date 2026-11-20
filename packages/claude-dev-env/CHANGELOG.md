@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.134.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.3...claude-dev-env-v8.134.0) (2026-11-20)
+
+
+### Features
+
+* **hooks:** skip usage-based thread routing per chat ([#2472](https://github.com/jl-cmd-projects/claude-dev-env/issues/2472)) ([c3d19fe](https://github.com/jl-cmd-projects/claude-dev-env/commit/c3d19feb7e7bcf8a8e488706d8a801b7cbed86f2))
+
 ## [8.133.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.2...claude-dev-env-v8.133.3) (2026-11-19)
 
 
