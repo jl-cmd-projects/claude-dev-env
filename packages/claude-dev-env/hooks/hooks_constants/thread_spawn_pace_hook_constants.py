@@ -6,6 +6,10 @@ spawn, and the hook output keys and messages.
 
 from __future__ import annotations
 
+import re
+
+IGNORE_USAGE_FLAG = "--ignore-usage"
+IGNORE_USAGE_PROMPT = re.compile(rf"^{IGNORE_USAGE_FLAG}(?:\s|$)")
 USAGE_PACE_SCRIPT_ENV_VAR = "COORDINATOR_USAGE_PACE_SCRIPT"
 USAGE_PACE_SCRIPT_FILE_NAME = "usage_pace.py"
 USAGE_PACE_TIMEOUT_SECONDS = 15
