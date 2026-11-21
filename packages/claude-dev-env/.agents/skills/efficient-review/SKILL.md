@@ -23,7 +23,7 @@ Every spawn names model and effort as an allowed pair from [Subagent model and e
 
 ## Loop
 
-Check each finding against the code. Fix every one that holds. Run the review again until a pass reports none. Before a merge, [the pr-lifecycle review loop](../pr-lifecycle/reference/review-loop-before-merge.md) sets how many full passes run. The steps are in [reference/criteria.md](reference/criteria.md).
+Check each finding against the code. Fix every one that holds. Before a pull request opens, one pass runs, its fixes go in new commits, and the pull request opens with no second pass. On the pull request, three full passes with fixes run, and findings a later pass still reports go into one issue. [The pr-lifecycle review loop](../pr-lifecycle/reference/review-loop-before-merge.md) holds both rules. The steps are in [reference/criteria.md](reference/criteria.md).
 
 ## Reading guide
 
