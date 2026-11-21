@@ -122,6 +122,6 @@ CLASSIFIER_REASON_PREFIX_PATTERN = (
 QUESTION_CONTEXT_TEMPLATE = """
 
 === AUTO MODE REFUSAL ===
-Do not write out the two fixes above, and do not ask the user about this refusal: send no AskUserQuestion and no decision card. Before you end the turn, file it on GitHub as the `File the refusal` section of {playbook_path} says. The issue or comment title is this line:
+Do not write out the two fixes above, and do not ask the user about this refusal: send no AskUserQuestion and no decision card. Do not file it yet. When the turn ends, the Stop hook lists its ledger ids and orders the filing, as the `File the refusal` section of {playbook_path} says. Its question line is:
 {question}
-The Stop hook lists the ledger ids to put in the body. Then go on with other work."""
+Go on with other work."""

@@ -21,8 +21,9 @@ step?`` claims the oldest pending, unasked group of that tool that has an
 entry with a question record at or before the card, and within it those
 entries. Each card claims one
 group, and the entry keeps the card's offset so a later Stop does not claim
-again with it. An entry also counts as asked once a GitHub filing that did not fail holds
-the entry's id in its ``body``: an ``*__issue_write`` call with ``method``
+again with it. An entry also counts as asked once a GitHub filing that did not fail holds,
+in its ``body``, the entry's id and the text of a question record that covers
+that id: an ``*__issue_write`` call with ``method``
 ``create``, or an ``*__add_issue_comment`` call. Filings are matched after
 cards, so a filing never changes which group an earlier card claimed. The question hold tells the agent to file the
 refusal as an issue and ask the user nothing. The asked mark stays on the entry. An add call
@@ -121,10 +122,17 @@ def _filed_body(call: TranscriptCall) -> str | None:
     return body if isinstance(body, str) else None
 
 
-def _filed_entry_ids(all_entry_ids: set[str], all_calls: list[TranscriptCall]) -> set[str]:
+def _filed_entry_ids(
+    all_entry_ids: set[str], all_records: list[QuestionRecord], all_calls: list[TranscriptCall]
+) -> set[str]:
     all_bodies = [each for each in map(_filed_body, all_calls) if each is not None]
     return {
-        each_id for each_id in all_entry_ids if any(each_id in each_body for each_body in all_bodies)
+        each_id
+        for each_record in all_records
+        for each_body in all_bodies
+        if each_record.question in each_body
+        for each_id in each_record.all_entry_ids
+        if each_id in all_entry_ids and each_id in each_body
     }
 
 
@@ -203,7 +211,7 @@ def _asked_entry_ids(
             {each.question_card_offset for each in all_entries},
         )
     )
-    for each_id in _filed_entry_ids(all_known_ids, all_calls):
+    for each_id in _filed_entry_ids(all_known_ids, all_records, all_calls):
         card_offset_by_id.setdefault(each_id, None)
     return card_offset_by_id
 

@@ -216,6 +216,7 @@ def test_should_append_the_question_only_when_the_flow_is_on(
     assert "=== AUTO MODE REFUSAL ===" in context_text
     assert "do not ask the user about this refusal" in context_text
     assert "AskUserQuestion call" not in context_text
+    assert "Do not file it yet" in context_text
     assert "Auto mode refused 1 Bash step under the Git Destructive rule." in context_text
 
 
