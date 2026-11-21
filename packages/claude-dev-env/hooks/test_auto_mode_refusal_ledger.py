@@ -127,15 +127,42 @@ def _refused_step(command: str, rule_label: str | None, **overrides: object) -> 
     return ledger.RefusedStep(**all_fields)
 
 
+def test_should_return_the_one_step_question_for_a_refusal_past_the_group_cap(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path / "agent-channels"
+    all_questions = [
+        ledger.record_refusal(
+            _refused_step(f"git push -f origin x{each_index}", "Git Destructive"), repository_root
+        )
+        for each_index in range(6)
+    ]
+    assert all_questions[-1] is not None
+    assert all_questions[-1].question == ledger.question_text_for("Bash", "Git Destructive", 1)
+    assert len(_answers(ledger.ledger_directory_for("s1"))) == 6
+
+
 def test_should_record_a_labelled_refusal_once_and_return_its_question(tmp_path: Path) -> None:
     repository_root = tmp_path / "agent-channels"
     expected_question = ledger.question_text_for("Bash", "Git Destructive", 1)
     for _ in range(2):
-        question = ledger.record_refusal(
+        recorded = ledger.record_refusal(
             _refused_step("git push -f", "Git Destructive"), repository_root
         )
-        assert question == expected_question
+        assert recorded is not None
+        assert recorded.question == expected_question
     assert _answers(ledger.ledger_directory_for("s1")) == [None]
+    assert recorded.entry_id == ledger.load_entries(ledger.ledger_directory_for("s1"))[0].entry_id
+
+
+def test_should_return_nothing_for_an_answered_step_refused_again(tmp_path: Path) -> None:
+    repository_root = tmp_path / "agent-channels"
+    refused_step = _refused_step("git push -f", "Git Destructive")
+    first_record = ledger.record_refusal(refused_step, repository_root)
+    assert first_record is not None
+    ledger_directory = ledger.ledger_directory_for("s1")
+    ledger.merge_entry_fields(ledger_directory, {first_record.entry_id: {"answer": "allowed"}})
+    assert ledger.record_refusal(refused_step, repository_root) is None
 
 
 @pytest.mark.parametrize(
