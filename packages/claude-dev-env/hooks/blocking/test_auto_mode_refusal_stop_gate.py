@@ -112,7 +112,7 @@ def test_should_hold_with_an_issue_order_that_asks_the_user_nothing(tmp_path: Pa
         "Do not ask the user",
         "send no AskUserQuestion and no decision card",
         "`File the refusal`",
-        "with `<redacted>`",
+        "Never post the raw step input",
         "This is the one reminder for them",
         "When auto mode refuses the GitHub write",
         "`Keep refusing`",

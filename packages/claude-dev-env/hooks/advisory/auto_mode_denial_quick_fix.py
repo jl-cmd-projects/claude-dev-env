@@ -53,12 +53,6 @@ if _hooks_root_directory not in sys.path:
     sys.path.insert(0, _hooks_root_directory)
 
 import auto_mode_refusal_ledger
-from hooks_constants.shell_command_pipeline import (
-    join_line_continuations,
-    operator_aware_tokens,
-    scannable_command_lines,
-    segments_with_following_operator,
-)
 from hooks_constants.auto_mode_denial_quick_fix_constants import (
     ALL_COMMAND_INPUT_KEYS,
     ALL_NO_VERDICT_REASON_PREFIXES,
@@ -80,24 +74,6 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     ISSUE_WRITE_TOOL_SUFFIX,
     ISSUE_COMMENT_TOOL_SUFFIX,
     ISSUE_CREATE_METHOD,
-    SHELL_TOOL_NAME,
-    ALL_CLI_ISSUE_COMMAND_WORDS,
-    ALL_CLI_FILING_SUBCOMMANDS,
-    INLINE_BODY_FLAG,
-    BODY_FILE_FLAG,
-    ALL_LONG_FLAG_BY_SHORT_FLAG,
-    TRUE_FLAG_VALUE,
-    ALL_TRUE_FLAG_VALUES,
-    FLAG_VALUE_SEPARATOR,
-    SHORT_FLAG_LENGTH,
-    REPORT_BODY_SEPARATOR,
-    ALL_CLI_BOOLEAN_FLAGS,
-    ALL_COMMENT_EDIT_FLAGS,
-    CREATE_IF_NONE_FLAG,
-    COMMENT_SUBCOMMAND,
-    OPTION_PREFIX,
-    LONG_OPTION_PREFIX,
-    MAXIMUM_BODY_FILE_CHARACTERS,
     FILING_USER_MESSAGE_TEMPLATE,
     REFUSED_REPORT_USER_MESSAGE,
     RULE_LABEL_DISALLOWED_CHARACTER_PATTERN,
@@ -384,98 +360,7 @@ def _report_text_for(refused_step: auto_mode_refusal_ledger.RefusedStep) -> str 
         return tool_input.get("body") if is_create else None
     if tool_name.endswith(ISSUE_COMMENT_TOOL_SUFFIX):
         return tool_input.get("body")
-    command = tool_input.get("command")
-    if tool_name != SHELL_TOOL_NAME or not isinstance(command, str):
-        return None
-    return _cli_report_text_for(command, refused_step.working_folder)
-
-
-def _cli_report_text_for(command: str, working_folder: str | None) -> str | None:
-    all_bodies = [
-        each_body
-        for each_words in _cli_filing_segments(command)
-        if (each_body := _effective_body_of(each_words, working_folder)) is not None
-    ]
-    return REPORT_BODY_SEPARATOR.join(all_bodies) if all_bodies else None
-
-
-def _cli_filing_segments(command: str) -> list[list[str]]:
-    all_segments: list[list[str]] = []
-    for each_line in scannable_command_lines(join_line_continuations(command)):
-        all_tokens = operator_aware_tokens(each_line, True) or []
-        all_segments.extend(
-            each_segment for each_segment, _ in segments_with_following_operator(all_tokens)
-        )
-    return [each_segment for each_segment in all_segments if _is_cli_filing(each_segment)]
-
-
-def _is_cli_filing(all_words: list[str]) -> bool:
-    prefix_length = len(ALL_CLI_ISSUE_COMMAND_WORDS)
-    return (
-        tuple(all_words[:prefix_length]) == ALL_CLI_ISSUE_COMMAND_WORDS
-        and len(all_words) > prefix_length
-        and all_words[prefix_length] in ALL_CLI_FILING_SUBCOMMANDS
-    )
-
-
-def _effective_body_of(all_words: list[str], working_folder: str | None) -> str | None:
-    option_by_flag = _options_in(all_words)
-    if _is_comment_edit(all_words, option_by_flag):
-        return None
-    body_file_name = option_by_flag.get(BODY_FILE_FLAG)
-    if body_file_name is not None:
-        return _body_file_text(body_file_name, working_folder)
-    return option_by_flag.get(INLINE_BODY_FLAG, "")
-
-
-def _is_true_flag(option_by_flag: dict[str, str], flag: str) -> bool:
-    return option_by_flag.get(flag, "").lower() in ALL_TRUE_FLAG_VALUES
-
-
-def _is_comment_edit(all_words: list[str], option_by_flag: dict[str, str]) -> bool:
-    is_comment = all_words[len(ALL_CLI_ISSUE_COMMAND_WORDS)] == COMMENT_SUBCOMMAND
-    is_edit = any(_is_true_flag(option_by_flag, each) for each in ALL_COMMENT_EDIT_FLAGS)
-    return is_comment and is_edit and not _is_true_flag(option_by_flag, CREATE_IF_NONE_FLAG)
-
-
-def _option_at(all_words: list[str], word_index: int) -> tuple[str | None, str | None, int]:
-    each_word = all_words[word_index]
-    if not each_word.startswith(OPTION_PREFIX):
-        return None, None, word_index + 1
-    if each_word.startswith(LONG_OPTION_PREFIX):
-        flag, separator, attached_value = each_word.partition(FLAG_VALUE_SEPARATOR)
-        if separator:
-            return flag, attached_value, word_index + 1
-    elif len(each_word) > SHORT_FLAG_LENGTH:
-        attached_value = each_word[SHORT_FLAG_LENGTH:].removeprefix(FLAG_VALUE_SEPARATOR)
-        return each_word[:SHORT_FLAG_LENGTH], attached_value, word_index + 1
-    if each_word in ALL_CLI_BOOLEAN_FLAGS:
-        return each_word, TRUE_FLAG_VALUE, word_index + 1
-    has_value = word_index + 1 < len(all_words)
-    return each_word, all_words[word_index + 1] if has_value else None, word_index + 2
-
-
-def _options_in(all_words: list[str]) -> dict[str, str]:
-    option_by_flag: dict[str, str] = {}
-    word_index = len(ALL_CLI_ISSUE_COMMAND_WORDS) + 1
-    while word_index < len(all_words):
-        flag, flag_value, word_index = _option_at(all_words, word_index)
-        if flag is not None and flag_value is not None:
-            option_by_flag[ALL_LONG_FLAG_BY_SHORT_FLAG.get(flag, flag)] = flag_value
-    return option_by_flag
-
-
-def _body_file_text(body_file_name: str, working_folder: str | None) -> str:
-    body_file_path = Path(body_file_name)
-    if not body_file_path.is_absolute() and working_folder is not None:
-        body_file_path = Path(working_folder) / body_file_path
-    if not body_file_path.is_file():
-        return ""
-    try:
-        with body_file_path.open(encoding="utf-8", errors="replace") as body_file:
-            return body_file.read(MAXIMUM_BODY_FILE_CHARACTERS)
-    except OSError:
-        return ""
+    return None
 
 
 def _is_refusal_report(refused_step: auto_mode_refusal_ledger.RefusedStep) -> bool:
@@ -559,11 +444,9 @@ def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, o
         flow on, a refused refusal report -> only the one-line fallback, no ledger entry
         any ledger or transcript error    -> build_hook_output
 
-    A refusal report is an issue create or comment whose body names a ledger
-    id of this session, or a command whose words start ``gh issue create``
-    or ``gh issue comment`` and whose ``--body`` or regular ``--body-file``
-    file names one. On the flow paths the user message says the
-    refusal is filed in place of the quick fix.
+    A refusal report is an issue create or comment through a GitHub MCP
+    issue tool whose body names a ledger id of this session. On the flow
+    paths the user message says the refusal is filed in place of the quick fix.
 
     Args:
         all_denial_fields: The hook input JSON.
