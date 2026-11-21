@@ -22,7 +22,7 @@ from blocking.gate_run_reads import (
 )
 from hooks_constants.merge_review_gate_constants import (
     ALL_BRANCH_REFERENCE_PREFIXES,
-    ALL_FIRST_PARENT_LISTING_ARGUMENTS,
+    ALL_ANCESTRY_WALK_ARGUMENTS,
     ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
     ALL_NON_INTERACTIVE_GIT_SETTINGS,
     ALL_ORIGIN_URL_ARGUMENTS,
@@ -220,7 +220,8 @@ def first_parent_ancestors(head: str, folder: str | None) -> tuple[str, ...]:
         reviewed abc123, fix def456, fix 789abc; head 789abc -> (def456, abc123, ...)
         a head the folder has no history for                 -> ()
 
-    The walk stops after OPEN_REVIEW_ANCESTOR_LIMIT commits.
+    The walk stops after OPEN_REVIEW_ANCESTOR_LIMIT commits, and it reads the
+    parents git stores, never a replace ref.
 
     Args:
         head: The commit the pull request would open with.
@@ -231,7 +232,7 @@ def first_parent_ancestors(head: str, folder: str | None) -> tuple[str, ...]:
     """
     listing = _run_git(
         [
-            *ALL_FIRST_PARENT_LISTING_ARGUMENTS,
+            *ALL_ANCESTRY_WALK_ARGUMENTS,
             MAX_COUNT_OPTION_TEMPLATE.format(count=OPEN_REVIEW_ANCESTOR_LIMIT + 1),
             head,
         ],
@@ -252,8 +253,9 @@ def is_held_by_another_line(commit: str, head: str, folder: str | None) -> bool:
         second stacks on feature at abc123, head def456    -> True, feature lacks def456
         main holds abc123, the head branches off main      -> True
 
-    Local branches and remote branches are both read. A read that fails
-    reads as no other branch.
+    Local branches and remote branches are both read, and replace refs are
+    not. A read that fails or runs out of time counts as held, so the open
+    is denied.
 
     Args:
         commit: The commit a review pass saw.
@@ -263,16 +265,19 @@ def is_held_by_another_line(commit: str, head: str, folder: str | None) -> bool:
     Returns:
         True when some branch holds ``commit`` and not ``head``.
     """
-    listing = _run_git(
+    listing = child_stdout(
         [
+            "git",
             *ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
             CONTAINS_OPTION_TEMPLATE.format(commit=commit),
             NO_CONTAINS_OPTION_TEMPLATE.format(commit=head),
             *ALL_BRANCH_REFERENCE_PREFIXES,
         ],
+        GIT_TIMEOUT_SECONDS,
+        ReadSlice.FOLLOWUP,
         folder,
     )
-    return listing is not None
+    return listing is None or bool(listing.strip())
 
 
 def _tool_open_call(all_tool_input: dict[object, object], folder: str | None) -> ToolOpenCall:
