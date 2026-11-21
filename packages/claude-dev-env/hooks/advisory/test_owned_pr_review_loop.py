@@ -297,7 +297,8 @@ def test_should_name_every_step_and_skill_in_the_context() -> None:
     assert "in this session" in context
     assert "In Codex, load the efficient-review skill" in context
     assert "three full passes" in context
-    assert "/code-review low --fix 42" in context
+    assert "/code-review low 42" in context
+    assert "--filed <issue url>" in context
     assert "gh pr ready 42 --repo jl-cmd-projects/claude-dev-env" in context
     assert "poteto-mode/playbooks/babysit.md" in context
     assert "poteto-mode/playbooks/shipping.md" in context

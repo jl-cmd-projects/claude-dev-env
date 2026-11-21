@@ -3,7 +3,9 @@
 The agent reviews its branch before it opens the pull request, and loops a
 code review on the pull request, fixing and pushing each finding, until one
 pass reports zero findings or every finding it reports is ruled out with a
-link to the posted rulings. The open and the merge then name that exact head::
+link to the posted rulings. After three full passes with fixes, a later pass
+whose findings the agent filed in one issue of the same repository also lets
+the merge go on. The open and the merge then name that exact head::
 
     open, open receipt says 0 findings at abc123, branch head abc123 -> allow
     open, no open receipt for the branch head                        -> deny, review first
@@ -12,6 +14,8 @@ link to the posted rulings. The open and the merge then name that exact head::
     merge, receipt says 0 findings at abc123, merge pinned to abc123 -> allow
     merge, open receipt clean at abc123, merge pinned to abc123      -> allow
     merge, receipt rules out all 3 findings with a link, pinned       -> allow
+    merge, pass 4 filed its findings in an issue, pinned to its head -> allow
+    merge, pass 3 names an issue for its findings                    -> deny, fix them
     merge, receipt at abc123, merge pinned to def456                 -> deny, review again
     merge, receipt at abc123, merge names no head                    -> deny, pin it
     merge, no receipt or the receipt counts open findings            -> deny, run the loop
@@ -29,7 +33,6 @@ or ``/code-review high --max-findings all`` when it is unset.
 
 from __future__ import annotations
 
-import json
 import os
 import shlex
 import sys
@@ -52,6 +55,8 @@ from blocking.merge_review_gate_parts.receipts import (
     has_clean_open_review,
     has_zero_finding_open_review,
     is_clean_receipt,
+    is_filed_receipt,
+    read_receipt,
     receipt_path,
     same_commit,
 )
@@ -346,13 +351,7 @@ def _is_exempt(slug: str) -> bool:
 def _numbered_receipt(request: MergeRequest) -> dict[str, object] | None:
     if request.number is None:
         return None
-    try:
-        receipt = json.loads(
-            receipt_path(request.owner, request.repo, request.number).read_text(encoding="utf-8")
-        )
-    except (OSError, ValueError):
-        return None
-    return receipt if isinstance(receipt, dict) else None
+    return read_receipt(receipt_path(request.owner, request.repo, request.number))
 
 
 def _receipt_head(all_receipt_fields: dict[str, object] | None) -> str | None:
@@ -360,12 +359,15 @@ def _receipt_head(all_receipt_fields: dict[str, object] | None) -> str | None:
     return head if isinstance(head, str) and head else None
 
 
-def _clean_head(request: MergeRequest, all_receipt_fields: dict[str, object] | None) -> str | None:
+def _accepted_head(
+    request: MergeRequest, all_receipt_fields: dict[str, object] | None
+) -> str | None:
     if all_receipt_fields is None or request.number is None:
         return None
-    if not is_clean_receipt(all_receipt_fields, request.owner, request.repo, request.number):
-        return None
-    return _receipt_head(all_receipt_fields)
+    is_accepted = is_clean_receipt(
+        all_receipt_fields, request.owner, request.repo, request.number
+    ) or is_filed_receipt(all_receipt_fields, request.owner, request.repo, request.number)
+    return _receipt_head(all_receipt_fields) if is_accepted else None
 
 
 def _review_command() -> str:
@@ -399,16 +401,16 @@ def deny_reason(request: MergeRequest) -> str | None:
     ):
         return None
     fields = {"slug": request.slug, "number": request.number}
-    clean_head = _clean_head(request, numbered_receipt)
-    if clean_head is None:
+    accepted_head = _accepted_head(request, numbered_receipt)
+    if accepted_head is None:
         return NO_CLEAN_REVIEW_REASON_TEMPLATE.format(review_command=_review_command(), **fields)
     if request.pinned_head is None and request.is_auto_merge:
-        return AUTO_MERGE_REASON_TEMPLATE.format(head=clean_head, **fields)
+        return AUTO_MERGE_REASON_TEMPLATE.format(head=accepted_head, **fields)
     if request.pinned_head is None:
-        return UNPINNED_MERGE_REASON_TEMPLATE.format(head=clean_head, **fields)
-    if not same_commit(clean_head, request.pinned_head):
+        return UNPINNED_MERGE_REASON_TEMPLATE.format(head=accepted_head, **fields)
+    if not same_commit(accepted_head, request.pinned_head):
         return STALE_REVIEW_REASON_TEMPLATE.format(
-            head=clean_head, pinned=request.pinned_head, **fields
+            head=accepted_head, pinned=request.pinned_head, **fields
         )
     return None
 
