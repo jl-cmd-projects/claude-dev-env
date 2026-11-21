@@ -85,6 +85,19 @@ class QuestionGroup:
 
 
 @dataclass(frozen=True)
+class RecordedRefusal:
+    """One pending refusal as the ledger recorded it.
+
+    Attributes:
+        question: The exact question for the group that holds the step.
+        entry_id: The step's ledger id, which also names its file.
+    """
+
+    question: str
+    entry_id: str
+
+
+@dataclass(frozen=True)
 class RefusedStep:
     """One refusal as the PermissionDenied hook hands it to the ledger.
 
@@ -435,14 +448,15 @@ def ledger_lock(ledger_directory: Path) -> Iterator[None]:
             lock_path.unlink(missing_ok=True)
 
 
-def record_refusal(step: RefusedStep, repository_root: Path) -> str | None:
+def record_refusal(step: RefusedStep, repository_root: Path) -> RecordedRefusal | None:
     """Keep the refusal ledger for one denial and return the question to ask.
 
     ::
 
-        "[Git Destructive] force push", new step -> entry written,
+        "[Git Destructive] force push", new step -> entry written, its id and
             "Auto mode refused 1 Bash step under the Git Destructive rule. ..."
-        same step again                          -> no new entry, same question
+        same step again, still pending           -> no new entry, same question
+        same step again, already answered        -> None
         step past its group's five-step cap      -> its one-step question
         prose reason, or a rule flow step        -> None
 
@@ -454,8 +468,8 @@ def record_refusal(step: RefusedStep, repository_root: Path) -> str | None:
         repository_root: The repository that holds the rule playbook.
 
     Returns:
-        The exact question for the group that holds this step while the
-        step is pending, else None.
+        The question for the group that holds this step and the step's
+        ledger id while the step is pending, else None.
     """
     ledger_directory = ledger_directory_for(step.session_id)
     apply_transcript_answers(ledger_directory, step.transcript_path)
@@ -467,16 +481,21 @@ def record_refusal(step: RefusedStep, repository_root: Path) -> str | None:
     setting = RuleFlowSetting(repository_root, has_allowed_entry)
     if is_rule_flow_step(step.tool_name, step.tool_input, step.working_folder, setting):
         return None
-    entry_fields = _entry_fields_for(step, step.rule_label)
+    entry_id = str(_entry_fields_for(step, step.rule_label)["id"])
     with ledger_lock(ledger_directory):
-        add_entry(ledger_directory, entry_fields)
-        all_groups = question_groups(load_entries(ledger_directory))
+        add_entry(ledger_directory, _entry_fields_for(step, step.rule_label))
+        all_entries = load_entries(ledger_directory)
+        all_groups = question_groups(all_entries)
         write_question_records(ledger_directory, all_groups, step.transcript_path)
+    if any(each.entry_id == entry_id and each.answer is not None for each in all_entries):
+        return None
+    return RecordedRefusal(_group_question_for(entry_id, all_groups, step), entry_id)
+
+
+def _group_question_for(
+    entry_id: str, all_groups: list[QuestionGroup], step: RefusedStep
+) -> str:
     return next(
-        (
-            each_group.question
-            for each_group in all_groups
-            if entry_fields["id"] in each_group.all_entry_ids
-        ),
-        question_text_for(step.tool_name, step.rule_label, 1),
+        (each_group.question for each_group in all_groups if entry_id in each_group.all_entry_ids),
+        question_text_for(step.tool_name, str(step.rule_label), 1),
     )

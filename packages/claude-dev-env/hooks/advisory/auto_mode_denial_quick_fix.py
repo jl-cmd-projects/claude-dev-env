@@ -70,7 +70,12 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     NO_VERDICT_CONTEXT_TEMPLATE,
     POWERSHELL_BLOCK_TEMPLATE,
     QUESTION_CONTEXT_TEMPLATE,
-    ALL_ISSUE_FILING_TOOL_SUFFIXES,
+    REFUSED_REPORT_CONTEXT,
+    ISSUE_WRITE_TOOL_SUFFIX,
+    ISSUE_COMMENT_TOOL_SUFFIX,
+    ISSUE_CREATE_METHOD,
+    SHELL_TOOL_NAME,
+    ALL_CLI_FILING_COMMANDS,
     REFUSAL_REPORT_MARKER,
     RULE_LABEL_DISALLOWED_CHARACTER_PATTERN,
     SENTENCE_END_PATTERN,
@@ -346,15 +351,38 @@ def _refused_step_from(
     )
 
 
-def _is_refusal_report(refused_step: auto_mode_refusal_ledger.RefusedStep) -> bool:
-    if not refused_step.tool_name.endswith(ALL_ISSUE_FILING_TOOL_SUFFIXES):
-        return False
+def _report_text_for(refused_step: auto_mode_refusal_ledger.RefusedStep) -> str | None:
     tool_input = refused_step.tool_input
-    report_text = tool_input.get("body") if isinstance(tool_input, dict) else None
-    return isinstance(report_text, str) and REFUSAL_REPORT_MARKER in report_text
+    if not isinstance(tool_input, dict):
+        return None
+    tool_name = refused_step.tool_name
+    if tool_name.endswith(ISSUE_WRITE_TOOL_SUFFIX):
+        is_create = tool_input.get("method") == ISSUE_CREATE_METHOD
+        return tool_input.get("body") if is_create else None
+    if tool_name.endswith(ISSUE_COMMENT_TOOL_SUFFIX):
+        return tool_input.get("body")
+    command = tool_input.get("command")
+    if tool_name != SHELL_TOOL_NAME or not isinstance(command, str):
+        return None
+    return command if any(each in command for each in ALL_CLI_FILING_COMMANDS) else None
 
 
-def _question_context_for(all_denial_fields: dict[str, object]) -> str | None:
+def _is_refusal_report(refused_step: auto_mode_refusal_ledger.RefusedStep) -> bool:
+    report_text = _report_text_for(refused_step)
+    if not isinstance(report_text, str):
+        return False
+    if refused_step.tool_name == SHELL_TOOL_NAME and REFUSAL_REPORT_MARKER in report_text:
+        return True
+    ledger_directory = auto_mode_refusal_ledger.ledger_directory_for(refused_step.session_id)
+    return any(
+        each.entry_id in report_text
+        for each in auto_mode_refusal_ledger.load_entries(ledger_directory)
+    )
+
+
+def _flow_step_for(
+    all_denial_fields: dict[str, object],
+) -> tuple[auto_mode_refusal_ledger.RefusedStep, Path, Path] | None:
     playbook_path = auto_mode_refusal_ledger.playbook_path_from_environment()
     if playbook_path is None:
         return None
@@ -362,12 +390,32 @@ def _question_context_for(all_denial_fields: dict[str, object]) -> str | None:
     refused_step = _refused_step_from(all_denial_fields)
     if repository_root is None or refused_step is None:
         return None
+    return refused_step, playbook_path, repository_root
+
+
+def _with_context(all_hook_output_fields: dict[str, object], context_text: str) -> dict[str, object]:
+    hook_specific_output = dict(all_hook_output_fields["hookSpecificOutput"])
+    hook_specific_output["additionalContext"] = context_text
+    return {**all_hook_output_fields, "hookSpecificOutput": hook_specific_output}
+
+
+def _ledger_output_for(
+    all_denial_fields: dict[str, object], all_hook_output_fields: dict[str, object]
+) -> dict[str, object]:
+    flow_step = _flow_step_for(all_denial_fields)
+    if flow_step is None:
+        return all_hook_output_fields
+    refused_step, playbook_path, repository_root = flow_step
     if _is_refusal_report(refused_step):
-        return None
-    question = auto_mode_refusal_ledger.record_refusal(refused_step, repository_root)
-    if question is None:
-        return None
-    return QUESTION_CONTEXT_TEMPLATE.format(question=question, playbook_path=playbook_path)
+        return _with_context(all_hook_output_fields, REFUSED_REPORT_CONTEXT)
+    recorded = auto_mode_refusal_ledger.record_refusal(refused_step, repository_root)
+    if recorded is None:
+        return all_hook_output_fields
+    question_context = QUESTION_CONTEXT_TEMPLATE.format(
+        question=recorded.question, entry_id=recorded.entry_id, playbook_path=playbook_path
+    )
+    prior_context = str(dict(all_hook_output_fields["hookSpecificOutput"])["additionalContext"])
+    return _with_context(all_hook_output_fields, prior_context + question_context)
 
 
 def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, object]:
@@ -378,8 +426,12 @@ def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, o
         flow off or playbook missing      -> build_hook_output, byte for byte
         playbook with no repository above -> build_hook_output
         flow on, question returned        -> same, plus the AUTO MODE REFUSAL block
-        flow on, a refused refusal report -> build_hook_output, no ledger entry
+        flow on, a refused refusal report -> only the one-line fallback, no ledger entry
         any ledger or transcript error    -> build_hook_output
+
+    A refusal report is an issue create or comment whose body names a ledger
+    id of this session, or a ``gh issue create`` or ``gh issue comment``
+    command that names one or holds ``Auto mode refused ``.
 
     Args:
         all_denial_fields: The hook input JSON.
@@ -389,16 +441,9 @@ def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, o
     """
     hook_output = build_hook_output(all_denial_fields)
     try:
-        question_context = _question_context_for(all_denial_fields)
+        return _ledger_output_for(all_denial_fields, hook_output)
     except Exception:
         return hook_output
-    if question_context is None:
-        return hook_output
-    hook_specific_output = dict(hook_output["hookSpecificOutput"])
-    hook_specific_output["additionalContext"] = (
-        str(hook_specific_output["additionalContext"]) + question_context
-    )
-    return {**hook_output, "hookSpecificOutput": hook_specific_output}
 
 
 def main() -> int:
