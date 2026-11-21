@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.135.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.1...claude-dev-env-v8.135.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* **scripts:** check the filed issue and rulings link of a filed review pass ([#2481](https://github.com/jl-cmd-projects/claude-dev-env/issues/2481)) ([a3ba6cb](https://github.com/jl-cmd-projects/claude-dev-env/commit/a3ba6cbc3bd950ae18dd7c19d08b5ac4d657eb56))
+
 ## [8.135.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.0...claude-dev-env-v8.135.1) (2026-11-21)
 
 
