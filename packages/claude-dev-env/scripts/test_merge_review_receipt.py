@@ -457,6 +457,28 @@ def test_should_file_only_the_findings_left_after_the_ruled_out_ones() -> None:
     )
 
 
+def test_should_report_reviewed_when_a_filed_pass_links_rulings_on_another_pull_request() -> None:
+    _record_passes_with_findings(3)
+    verdict_stream = StringIO()
+    exit_code = merge_review_receipt.main(
+        [
+            "acme/tools",
+            "12",
+            HEAD,
+            "3",
+            "--ruled-out",
+            "1",
+            "--rulings",
+            "https://github.com/acme/tools/pull/99#issuecomment-1",
+            "--filed",
+            ISSUE_LINK,
+        ],
+        verdict_stream,
+    )
+    assert exit_code == 1
+    assert verdict_stream.getvalue().startswith(f"REVIEWED acme/tools#12 {HEAD} 3 findings")
+
+
 @pytest.mark.parametrize(
     "filed_link",
     [

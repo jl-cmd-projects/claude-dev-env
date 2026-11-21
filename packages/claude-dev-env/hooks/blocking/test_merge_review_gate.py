@@ -192,6 +192,14 @@ def test_should_deny_a_merge_pinned_past_the_head_of_a_filed_pass() -> None:
             "filed": "https://github.com/acme/tools/issues/12",
         },
         {"head": CLEAN_HEAD, "findings": "2", "pass": 4, "filed": ISSUE_LINK},
+        {
+            "head": CLEAN_HEAD,
+            "findings": 3,
+            "pass": 4,
+            "ruled_out": 1,
+            "rulings": "https://github.com/acme/tools/pull/99#issuecomment-1",
+            "filed": ISSUE_LINK,
+        },
     ],
 )
 def test_should_deny_a_merge_on_a_filed_receipt_it_cannot_back(
