@@ -365,7 +365,7 @@ def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, o
 
         flow off or playbook missing      -> build_hook_output, byte for byte
         playbook with no repository above -> build_hook_output
-        flow on, question returned        -> same, plus the AUTO MODE QUESTION block
+        flow on, question returned        -> same, plus the AUTO MODE REFUSAL block
         any ledger or transcript error    -> build_hook_output
 
     Args:

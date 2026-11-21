@@ -21,9 +21,10 @@ step?`` claims the oldest pending, unasked group of that tool that has an
 entry with a question record at or before the card, and within it those
 entries. Each card claims one
 group, and the entry keeps the card's offset so a later Stop does not claim
-again with it. An entry also counts as asked once a GitHub issue call, a tool
-named ``*__issue_write`` or ``*__add_issue_comment`` that did not fail, holds
-the entry's id in its input text. The question hold tells the agent to file the
+again with it. An entry also counts as asked once a GitHub filing that did not fail holds
+the entry's id in its ``body``: an ``*__issue_write`` call with ``method``
+``create``, or an ``*__add_issue_comment`` call. Filings are matched after
+cards, so a filing never changes which group an earlier card claimed. The question hold tells the agent to file the
 refusal as an issue and ask the user nothing. The asked mark stays on the entry. An add call
 is a Bash call that did not fail whose command holds ``add_auto_mode_rule.py
 add`` and the entry's id, which its ledger file name carries. The gate keeps
@@ -64,12 +65,16 @@ from hooks_constants.auto_mode_refusal_ledger_constants import (
 )
 from hooks_constants.auto_mode_refusal_stop_gate_constants import (
     ALL_CARD_TOOL_NAMES,
-    ALL_ISSUE_TOOL_SUFFIXES,
     ALLOW_EXIT_CODE,
     BASH_TOOL_NAME,
     CARD_QUESTION_TEMPLATE,
     COMMAND_INPUT_KEY,
     ENTRYPOINT_ENVIRONMENT_VARIABLE,
+    ISSUE_BODY_INPUT_KEY,
+    ISSUE_COMMENT_TOOL_SUFFIX,
+    ISSUE_CREATE_METHOD,
+    ISSUE_METHOD_INPUT_KEY,
+    ISSUE_WRITE_TOOL_SUFFIX,
     LIST_LINE_TEMPLATE,
     MAXIMUM_HOLDS_PER_KIND,
     MAXIMUM_QUESTIONS_PER_HOLD,
@@ -104,17 +109,22 @@ def _is_card_for(call: TranscriptCall, tool_name: str) -> bool:
     )
 
 
+def _filed_body(call: TranscriptCall) -> str | None:
+    if call.is_error or not isinstance(call.tool_input, dict):
+        return None
+    if call.tool_name.endswith(ISSUE_WRITE_TOOL_SUFFIX):
+        if call.tool_input.get(ISSUE_METHOD_INPUT_KEY) != ISSUE_CREATE_METHOD:
+            return None
+    elif not call.tool_name.endswith(ISSUE_COMMENT_TOOL_SUFFIX):
+        return None
+    body = call.tool_input.get(ISSUE_BODY_INPUT_KEY)
+    return body if isinstance(body, str) else None
+
+
 def _filed_entry_ids(all_entry_ids: set[str], all_calls: list[TranscriptCall]) -> set[str]:
-    all_filed_texts = [
-        each_text
-        for each_call in all_calls
-        if each_call.tool_name.endswith(ALL_ISSUE_TOOL_SUFFIXES) and not each_call.is_error
-        for each_text in _all_text_values(each_call.tool_input)
-    ]
+    all_bodies = [each for each in map(_filed_body, all_calls) if each is not None]
     return {
-        each_id
-        for each_id in all_entry_ids
-        if any(each_id in each_text for each_text in all_filed_texts)
+        each_id for each_id in all_entry_ids if any(each_id in each_body for each_body in all_bodies)
     }
 
 
@@ -178,7 +188,6 @@ def _asked_entry_ids(
         for each_id in each_record.all_entry_ids
         if each_id in all_known_ids
     }
-    card_offset_by_id.update(dict.fromkeys(_filed_entry_ids(all_known_ids, all_calls)))
     all_unasked_entries = [
         each
         for each in all_entries
@@ -194,6 +203,8 @@ def _asked_entry_ids(
             {each.question_card_offset for each in all_entries},
         )
     )
+    for each_id in _filed_entry_ids(all_known_ids, all_calls):
+        card_offset_by_id.setdefault(each_id, None)
     return card_offset_by_id
 
 

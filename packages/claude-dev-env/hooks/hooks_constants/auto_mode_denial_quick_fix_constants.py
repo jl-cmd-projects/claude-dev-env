@@ -121,7 +121,7 @@ CLASSIFIER_REASON_PREFIX_PATTERN = (
 
 QUESTION_CONTEXT_TEMPLATE = """
 
-=== AUTO MODE QUESTION ===
-Ask this question in place of the two fixes above, and do not write them out. Before you end the turn, ask the user this question with one AskUserQuestion call. Copy the question word for word, use the header `Auto mode`, and give the options `Keep refusing` and `Allow it`:
+=== AUTO MODE REFUSAL ===
+Do not write out the two fixes above, and do not ask the user about this refusal: send no AskUserQuestion and no decision card. Before you end the turn, file it on GitHub as the `File the refusal` section of {playbook_path} says. The issue or comment title is this line:
 {question}
-On Allow it, follow {playbook_path}: retry the step once and add one allow rule for this kind of step. On Keep refusing, go on with other work."""
+The Stop hook lists the ledger ids to put in the body. Then go on with other work."""
