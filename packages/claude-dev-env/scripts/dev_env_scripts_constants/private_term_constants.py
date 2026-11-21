@@ -85,4 +85,12 @@ COMMIT_RECORD_SEPARATOR = "\x1e"
 COMMIT_FIELD_SPLIT_LIMIT = 2
 GITHUB_NOREPLY_ADDRESS_PATTERN = r"<[^<>]*@users\.noreply\.github\.com>"
 MASKED_ADDRESS = "<>"
+ATTRIBUTION_MARKER_OBJECT_KEY = "pull_request"
+ATTRIBUTION_MARKER_FIELD = "body"
+LEADING_ATTRIBUTION_MARKER_PATTERN = (
+    r'\A(\s*\n)?<!-- claude-projects-attribution: \{"github_login":"'
+    r'(?=[A-Za-z0-9-]{1,39}"\})[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*'
+    r'"\} -->[ \t]*\r?(?=\n|\Z)'
+)
+LEADING_BLANK_LINES_GROUP = r"\1"
 COMMIT_LOG_FORMAT = "--format=%H%x1f%an <%ae> %cn <%ce>%x1f%B%x1e"

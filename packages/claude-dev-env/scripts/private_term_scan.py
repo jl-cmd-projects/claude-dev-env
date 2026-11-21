@@ -25,6 +25,8 @@ from dev_env_scripts_constants.private_term_constants import (
     ALL_EVENT_TEXT_FIELDS,
     ALL_PRIVATE_TERM_DIGESTS,
     ANGLE_BRACKET_ADDRESS_PATTERN,
+    ATTRIBUTION_MARKER_FIELD,
+    ATTRIBUTION_MARKER_OBJECT_KEY,
     COMMIT_FIELD_SEPARATOR,
     COMMIT_FIELD_SPLIT_LIMIT,
     COMMIT_IDENTITY_PART,
@@ -34,6 +36,8 @@ from dev_env_scripts_constants.private_term_constants import (
     COMMIT_RECORD_SEPARATOR,
     FINDING_LINE_TEMPLATE,
     GITHUB_NOREPLY_ADDRESS_PATTERN,
+    LEADING_ATTRIBUTION_MARKER_PATTERN,
+    LEADING_BLANK_LINES_GROUP,
     MASKED_ADDRESS,
     PRIVATE_TERM_MESSAGE_TEMPLATE,
     PRIVATE_TERM_TEXT_ENCODING,
@@ -66,7 +70,16 @@ def scan_event(event_path: Path) -> list[str]:
         event_path: Path of the event JSON the runner writes.
 
     Returns:
-        One finding per line that names a private organization.
+        One finding per line that names a private organization. The first
+        non-blank line of a pull request body is left out of the scan when
+        it is the whole platform attribution marker, since that login is
+        already public as the pull request author::
+
+            <!-- claude-projects-attribution: {"github_login":"pat"} -->
+
+        The line keeps its place, so later line numbers do not move. The same
+        login on any other line, in any other field, or beside other text on
+        that line still fails.
     """
     event = json.loads(event_path.read_text(encoding=PRIVATE_TERM_TEXT_ENCODING))
     all_findings: list[str] = []
@@ -75,10 +88,16 @@ def scan_event(event_path: Path) -> list[str]:
         if not isinstance(event_object, dict):
             continue
         text = event_object.get(each_field)
-        if isinstance(text, str):
-            all_findings.extend(
-                _findings_for(each_label, text, ALL_PRIVATE_TERM_DIGESTS)
+        if not isinstance(text, str):
+            continue
+        if (
+            each_object_key == ATTRIBUTION_MARKER_OBJECT_KEY
+            and each_field == ATTRIBUTION_MARKER_FIELD
+        ):
+            text = re.sub(
+                LEADING_ATTRIBUTION_MARKER_PATTERN, LEADING_BLANK_LINES_GROUP, text
             )
+        all_findings.extend(_findings_for(each_label, text, ALL_PRIVATE_TERM_DIGESTS))
     return all_findings
 
 
