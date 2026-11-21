@@ -385,10 +385,7 @@ def _checked_filed_link(
         return filed
     owner, repo = parsed.slug.split("/", 1)
     if not is_issue_link_in(filed, owner, repo):
-        parser.error(
-            f"--filed needs a link to an issue in {parsed.slug}, such as "
-            f"https://github.com/{parsed.slug}/issues/<number>"
-        )
+        parser.error(f"--filed needs the link of an issue in {parsed.slug}")
     if parsed.findings - parsed.ruled_out < 1:
         parser.error("--filed needs findings left after --ruled-out to file")
     if not is_past_full_passes(pass_number):
@@ -400,9 +397,7 @@ def _checked_filed_link(
     return filed
 
 
-def _record_numbered_pass(
-    parser: argparse.ArgumentParser, parsed: argparse.Namespace, stdout: TextIO
-) -> int:
+def _checked_rulings_link(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> str:
     rulings = parsed.rulings.strip()
     if parsed.ruled_out < 0 or parsed.ruled_out > parsed.findings:
         parser.error("--ruled-out must be between 0 and the finding count")
@@ -410,6 +405,13 @@ def _record_numbered_pass(
         parser.error("--ruled-out needs --rulings, a link to the posted rulings")
     if rulings and not parsed.ruled_out:
         parser.error("--rulings needs --ruled-out, the count of findings it rules out")
+    return rulings
+
+
+def _record_numbered_pass(
+    parser: argparse.ArgumentParser, parsed: argparse.Namespace, stdout: TextIO
+) -> int:
+    rulings = _checked_rulings_link(parser, parsed)
     pass_number = _next_pass_number(parsed.slug, parsed.number, parsed.head)
     filed = _checked_filed_link(parser, parsed, pass_number)
     receipt = _numbered_receipt(
@@ -425,8 +427,7 @@ def _record_numbered_pass(
         stdout.write(f"CLEAN {target}{ruled_out_note}\n")
         return 0
     if is_filed_receipt(receipt, owner, repo):
-        filed_count = parsed.findings - parsed.ruled_out
-        stdout.write(f"FILED {target} ({filed_count} findings filed: {filed})\n")
+        stdout.write(f"FILED {target} ({parsed.findings - parsed.ruled_out} findings filed: {filed})\n")
         return 0
     filed_route = (
         f" (pass {pass_number}: {FULL_REVIEW_PASS_COUNT} full passes are done, so file "
