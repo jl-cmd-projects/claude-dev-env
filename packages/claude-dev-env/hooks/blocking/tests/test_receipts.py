@@ -189,13 +189,14 @@ def test_should_put_only_pass_four_and_later_past_the_full_passes() -> None:
         ("https://github.com/acme/other/issues/40", False),
         ("https://github.com/acme/tools/pull/40", False),
         ("https://github.com/acme/tools/issues/40#issuecomment-1", False),
+        ("https://github.com/acme/tools/issues/12", False),
         (40, False),
     ],
 )
 def test_should_match_only_an_issue_link_in_the_named_repository(
     link: object, is_expected_match: bool
 ) -> None:
-    assert is_issue_link_in(link, "acme", "tools") is is_expected_match
+    assert is_issue_link_in(link, "acme", "tools", 12) is is_expected_match
 
 
 @pytest.mark.parametrize(
@@ -206,9 +207,12 @@ def test_should_match_only_an_issue_link_in_the_named_repository(
         ({"findings": 2, "pass": 4}, False),
         ({"findings": 2, "pass": 4, "filed": "https://github.com/acme/other/issues/40"}, False),
         ({"findings": "2", "pass": 4, "filed": ISSUE_LINK}, False),
+        ({"findings": 2, "pass": 4, "filed": "https://github.com/acme/tools/issues/12"}, False),
     ],
 )
 def test_should_count_a_pass_as_filed_only_after_three_full_passes(
     receipt_fields: dict[str, object], is_expected_filed: bool
 ) -> None:
-    assert is_filed_receipt({"head": HEAD, **receipt_fields}, "acme", "tools") is is_expected_filed
+    assert (
+        is_filed_receipt({"head": HEAD, **receipt_fields}, "acme", "tools", 12) is is_expected_filed
+    )

@@ -1,6 +1,6 @@
 # The review loop runs before the merge
 
-A pull request the agent made gets three full review passes with fixes, then merges. Loop it:
+A pull request the agent made merges once a pass is clean. After three full passes with fixes, a later pass files its remaining findings in one issue, and the pull request merges. Loop it:
 
 1. Review the head with the command `CLAUDE_MERGE_REVIEW_COMMAND` names. Where it is unset, run `/code-review high --max-findings all` against the base. This is a full pass.
 2. Record the pass: `python3 ~/.claude/scripts/merge_review_receipt.py <owner>/<name> <number> <head sha> <finding count>`. The receipt counts the pass. Each new head is the next pass, and recording the same head again keeps its pass.

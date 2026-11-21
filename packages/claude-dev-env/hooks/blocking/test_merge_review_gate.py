@@ -185,6 +185,12 @@ def test_should_deny_a_merge_pinned_past_the_head_of_a_filed_pass() -> None:
             "pass": 4,
             "filed": "https://github.com/acme/tools/pull/40",
         },
+        {
+            "head": CLEAN_HEAD,
+            "findings": 2,
+            "pass": 4,
+            "filed": "https://github.com/acme/tools/issues/12",
+        },
         {"head": CLEAN_HEAD, "findings": "2", "pass": 4, "filed": ISSUE_LINK},
     ],
 )

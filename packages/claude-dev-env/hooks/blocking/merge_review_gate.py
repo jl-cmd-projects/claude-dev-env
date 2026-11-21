@@ -366,7 +366,7 @@ def _accepted_head(
         return None
     is_accepted = is_clean_receipt(
         all_receipt_fields, request.owner, request.repo, request.number
-    ) or is_filed_receipt(all_receipt_fields, request.owner, request.repo)
+    ) or is_filed_receipt(all_receipt_fields, request.owner, request.repo, request.number)
     return _receipt_head(all_receipt_fields) if is_accepted else None
 
 

@@ -384,8 +384,10 @@ def _checked_filed_link(
     if not filed:
         return filed
     owner, repo = parsed.slug.split("/", 1)
-    if not is_issue_link_in(filed, owner, repo):
-        parser.error(f"--filed needs the link of an issue in {parsed.slug}")
+    if not is_issue_link_in(filed, owner, repo, parsed.number):
+        parser.error(
+            f"--filed needs the link of an issue in {parsed.slug}, and not this pull request's own number"
+        )
     if parsed.findings - parsed.ruled_out < 1:
         parser.error("--filed needs findings left after --ruled-out to file")
     if not is_past_full_passes(pass_number):
@@ -426,7 +428,7 @@ def _record_numbered_pass(
         )
         stdout.write(f"CLEAN {target}{ruled_out_note}\n")
         return 0
-    if is_filed_receipt(receipt, owner, repo):
+    if is_filed_receipt(receipt, owner, repo, parsed.number):
         stdout.write(f"FILED {target} ({parsed.findings - parsed.ruled_out} findings filed: {filed})\n")
         return 0
     filed_route = (

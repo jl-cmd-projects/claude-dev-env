@@ -463,6 +463,7 @@ def test_should_file_only_the_findings_left_after_the_ruled_out_ones() -> None:
         "https://github.com/acme/other/issues/40",
         "https://github.com/acme/tools/pull/40",
         "https://github.com/acme/tools/issues/40#issuecomment-1",
+        "https://github.com/acme/tools/issues/12",
         "acme/tools#40",
     ],
 )

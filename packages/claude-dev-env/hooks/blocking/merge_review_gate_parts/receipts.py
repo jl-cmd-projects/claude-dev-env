@@ -135,26 +135,36 @@ def is_past_full_passes(pass_number: int) -> bool:
     return pass_number > FULL_REVIEW_PASS_COUNT
 
 
-def is_issue_link_in(link: object, owner: str, repo: str) -> bool:
-    """Return whether a link names an issue in one repository.
+def is_issue_link_in(link: object, owner: str, repo: str, number: int) -> bool:
+    """Return whether a link names an issue in one repository, apart from the pull request.
+
+    GitHub serves a pull request under its own number as an issue link, so that
+    number names no filed issue::
+
+        pull request 12, link .../acme/tools/issues/40 -> an issue
+        pull request 12, link .../acme/tools/issues/12 -> the pull request itself
 
     Args:
         link: The link a receipt or a command gives.
         owner: Repository owner.
         repo: Repository name.
+        number: Number of the pull request the findings come from.
 
     Returns:
-        True for ``https://github.com/<owner>/<repo>/issues/<number>`` and nothing else.
+        True for ``https://github.com/<owner>/<repo>/issues/<other number>`` and nothing else.
     """
     issue_match = FILED_ISSUE_LINK_PATTERN.fullmatch(link) if isinstance(link, str) else None
     return (
         issue_match is not None
         and issue_match["owner"].casefold() == owner.casefold()
         and issue_match["repo"].casefold() == repo.casefold()
+        and int(issue_match["number"]) != number
     )
 
 
-def is_filed_receipt(all_receipt_fields: dict[str, object], owner: str, repo: str) -> bool:
+def is_filed_receipt(
+    all_receipt_fields: dict[str, object], owner: str, repo: str, number: int
+) -> bool:
     """Return whether a recorded pass filed its findings in one issue after three full passes.
 
     The loop runs three full passes with fixes. Findings a later pass still
@@ -164,11 +174,13 @@ def is_filed_receipt(all_receipt_fields: dict[str, object], owner: str, repo: st
         findings 2, pass 3, filed .../acme/tools/issues/40 -> not filed, a full pass
         findings 2, pass 4, filed .../acme/other/issues/40 -> not filed
         findings 2, pass 4, filed .../acme/tools/pull/40   -> not filed
+        findings 2, pass 4, filed .../acme/tools/issues/12 -> not filed for pull request 12
 
     Args:
         all_receipt_fields: The parsed receipt of one review pass.
         owner: Owner of the pull request the merge targets.
         repo: Repository of the pull request the merge targets.
+        number: Number of the pull request the merge targets.
 
     Returns:
         True when the pass counts as filed.
@@ -176,7 +188,7 @@ def is_filed_receipt(all_receipt_fields: dict[str, object], owner: str, repo: st
     return (
         _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY))
         and is_past_full_passes(recorded_pass_number(all_receipt_fields))
-        and is_issue_link_in(all_receipt_fields.get(RECEIPT_FILED_KEY), owner, repo)
+        and is_issue_link_in(all_receipt_fields.get(RECEIPT_FILED_KEY), owner, repo, number)
     )
 
 
