@@ -387,9 +387,82 @@ def test_should_pass_the_attribution_marker_on_the_first_line_of_a_pull_request_
     tmp_path: Path, body: str
 ) -> None:
     event_path = _write_event(
-        tmp_path, {"pull_request": {"title": "fix: one", "body": body}}
+        tmp_path,
+        {
+            "pull_request": {
+                "title": "fix: one",
+                "body": body,
+                "user": {"login": _FIXTURE_OWNER_HANDLE},
+            }
+        },
     )
     assert private_term_scan.scan_event(event_path) == []
+
+
+def test_should_pass_the_attribution_marker_when_the_author_login_differs_in_case(
+    tmp_path: Path,
+) -> None:
+    event_path = _write_event(
+        tmp_path,
+        {
+            "pull_request": {
+                "title": "fix: one",
+                "body": f"{_ATTRIBUTION_MARKER}\nWhy\n",
+                "user": {"login": _FIXTURE_OWNER_HANDLE.upper()},
+            }
+        },
+    )
+    assert private_term_scan.scan_event(event_path) == []
+
+
+def test_should_flag_a_marker_whose_login_is_another_private_term(
+    tmp_path: Path,
+) -> None:
+    other_term_marker = _ATTRIBUTION_MARKER.replace(
+        _FIXTURE_OWNER_HANDLE, _FIXTURE_TERM
+    )
+    event_path = _write_event(
+        tmp_path,
+        {
+            "pull_request": {
+                "title": "fix: one",
+                "body": f"{other_term_marker}\nWhy\n",
+                "user": {"login": _FIXTURE_OWNER_HANDLE},
+            }
+        },
+    )
+    assert private_term_scan.scan_event(event_path) == [
+        "pull request body: Line 1 names a private organization. "
+        "Describe it in general terms and drop any link to it."
+    ]
+
+
+@pytest.mark.parametrize(
+    "pull_request_author",
+    [
+        {"user": {"login": "someone-else"}},
+        {"user": {}},
+        {"user": None},
+        {},
+    ],
+)
+def test_should_flag_the_marker_when_the_event_names_no_matching_author(
+    tmp_path: Path, pull_request_author: dict[str, object]
+) -> None:
+    event_path = _write_event(
+        tmp_path,
+        {
+            "pull_request": {
+                "title": "fix: one",
+                "body": f"{_ATTRIBUTION_MARKER}\nWhy\n",
+                **pull_request_author,
+            }
+        },
+    )
+    assert private_term_scan.scan_event(event_path) == [
+        "pull request body: Line 1 names a private organization. "
+        "Describe it in general terms and drop any link to it."
+    ]
 
 
 @pytest.mark.usefixtures("shipped_private_terms")
@@ -400,7 +473,14 @@ def test_should_pass_the_owner_attribution_marker_on_the_first_line_of_a_pull_re
         f'<!-- claude-projects-attribution: {{"github_login":"{_OWNER_HANDLE}"}} -->'
     )
     event_path = _write_event(
-        tmp_path, {"pull_request": {"title": "fix: one", "body": f"{owner_marker}\nWhy\n"}}
+        tmp_path,
+        {
+            "pull_request": {
+                "title": "fix: one",
+                "body": f"{owner_marker}\nWhy\n",
+                "user": {"login": _OWNER_HANDLE},
+            }
+        },
     )
     assert private_term_scan.scan_event(event_path) == []
 
@@ -414,6 +494,7 @@ def test_should_flag_the_marker_handle_on_a_later_line_of_a_pull_request_body(
             "pull_request": {
                 "title": "fix: one",
                 "body": f"{_ATTRIBUTION_MARKER}\nWhy\nAsked by {_FIXTURE_OWNER_HANDLE}\n",
+                "user": {"login": _FIXTURE_OWNER_HANDLE},
             }
         },
     )

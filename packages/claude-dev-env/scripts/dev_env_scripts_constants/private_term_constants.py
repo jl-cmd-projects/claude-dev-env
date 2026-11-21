@@ -89,8 +89,11 @@ ATTRIBUTION_MARKER_OBJECT_KEY = "pull_request"
 ATTRIBUTION_MARKER_FIELD = "body"
 LEADING_ATTRIBUTION_MARKER_PATTERN = (
     r'\A(\s*\n)?<!-- claude-projects-attribution: \{"github_login":"'
-    r'(?=[A-Za-z0-9-]{1,39}"\})[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*'
+    r'(?=[A-Za-z0-9-]{1,39}"\})(?P<login>[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)'
     r'"\} -->[ \t]*\r?(?=\n|\Z)'
 )
+ATTRIBUTION_MARKER_LOGIN_GROUP = "login"
 LEADING_BLANK_LINES_GROUP = r"\1"
+PULL_REQUEST_OPENER_FIELD = "user"
+PULL_REQUEST_OPENER_HANDLE_FIELD = "login"
 COMMIT_LOG_FORMAT = "--format=%H%x1f%an <%ae> %cn <%ce>%x1f%B%x1e"

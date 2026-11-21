@@ -26,6 +26,7 @@ from dev_env_scripts_constants.private_term_constants import (
     ALL_PRIVATE_TERM_DIGESTS,
     ANGLE_BRACKET_ADDRESS_PATTERN,
     ATTRIBUTION_MARKER_FIELD,
+    ATTRIBUTION_MARKER_LOGIN_GROUP,
     ATTRIBUTION_MARKER_OBJECT_KEY,
     COMMIT_FIELD_SEPARATOR,
     COMMIT_FIELD_SPLIT_LIMIT,
@@ -41,6 +42,8 @@ from dev_env_scripts_constants.private_term_constants import (
     MASKED_ADDRESS,
     PRIVATE_TERM_MESSAGE_TEMPLATE,
     PRIVATE_TERM_TEXT_ENCODING,
+    PULL_REQUEST_OPENER_FIELD,
+    PULL_REQUEST_OPENER_HANDLE_FIELD,
     SHORT_SHA_LENGTH,
     PrivateTermDigest,
 )
@@ -63,6 +66,22 @@ def _findings_for(
     ]
 
 
+def _blank_author_attribution_marker(
+    body: str, all_pull_request_fields: dict[str, object]
+) -> str:
+    marker_match = re.match(LEADING_ATTRIBUTION_MARKER_PATTERN, body)
+    if marker_match is None:
+        return body
+    author = all_pull_request_fields.get(PULL_REQUEST_OPENER_FIELD)
+    author_login = (
+        author.get(PULL_REQUEST_OPENER_HANDLE_FIELD) if isinstance(author, dict) else None
+    )
+    marker_login = marker_match.group(ATTRIBUTION_MARKER_LOGIN_GROUP)
+    if not isinstance(author_login, str) or marker_login.lower() != author_login.lower():
+        return body
+    return marker_match.expand(LEADING_BLANK_LINES_GROUP) + body[marker_match.end() :]
+
+
 def scan_event(event_path: Path) -> list[str]:
     """Return findings for the texts a GitHub event payload carries.
 
@@ -72,14 +91,15 @@ def scan_event(event_path: Path) -> list[str]:
     Returns:
         One finding per line that names a private organization. The first
         non-blank line of a pull request body is left out of the scan when
-        it is the whole platform attribution marker, since that login is
-        already public as the pull request author::
+        it is the whole platform attribution marker and its login matches
+        the pull request author's ``user.login``, ignoring case, since that
+        login is already public as the author::
 
             <!-- claude-projects-attribution: {"github_login":"pat"} -->
 
-        The line keeps its place, so later line numbers do not move. The same
-        login on any other line, in any other field, or beside other text on
-        that line still fails.
+        The line keeps its place, so later line numbers do not move. A marker
+        whose login is not the author, the same login on any other line, in
+        any other field, or beside other text on that line still fails.
     """
     event = json.loads(event_path.read_text(encoding=PRIVATE_TERM_TEXT_ENCODING))
     all_findings: list[str] = []
@@ -94,9 +114,7 @@ def scan_event(event_path: Path) -> list[str]:
             each_object_key == ATTRIBUTION_MARKER_OBJECT_KEY
             and each_field == ATTRIBUTION_MARKER_FIELD
         ):
-            text = re.sub(
-                LEADING_ATTRIBUTION_MARKER_PATTERN, LEADING_BLANK_LINES_GROUP, text
-            )
+            text = _blank_author_attribution_marker(text, event_object)
         all_findings.extend(_findings_for(each_label, text, ALL_PRIVATE_TERM_DIGESTS))
     return all_findings
 
