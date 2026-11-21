@@ -22,6 +22,7 @@ from blocking.gate_run_reads import (
 )
 from hooks_constants.merge_review_gate_constants import (
     ALL_BRANCH_REFERENCE_PREFIXES,
+    ALL_STORED_HISTORY_GIT_SETTINGS,
     ALL_ANCESTRY_WALK_ARGUMENTS,
     ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
     ALL_NON_INTERACTIVE_GIT_SETTINGS,
@@ -221,7 +222,7 @@ def first_parent_ancestors(head: str, folder: str | None) -> tuple[str, ...]:
         a head the folder has no history for                 -> ()
 
     The walk stops after OPEN_REVIEW_ANCESTOR_LIMIT commits, and it reads the
-    parents git stores, never a replace ref.
+    parents git stores, never a replace ref or a grafts file.
 
     Args:
         head: The commit the pull request would open with.
@@ -230,7 +231,7 @@ def first_parent_ancestors(head: str, folder: str | None) -> tuple[str, ...]:
     Returns:
         The full commit names, the head itself left out.
     """
-    listing = _run_git(
+    listing = _stored_history_read(
         [
             *ALL_ANCESTRY_WALK_ARGUMENTS,
             MAX_COUNT_OPTION_TEMPLATE.format(count=OPEN_REVIEW_ANCESTOR_LIMIT + 1),
@@ -239,6 +240,16 @@ def first_parent_ancestors(head: str, folder: str | None) -> tuple[str, ...]:
         folder,
     )
     return tuple(listing.split()[1:]) if listing else ()
+
+
+def _stored_history_read(all_arguments: list[str], folder: str | None) -> str | None:
+    return child_stdout(
+        ["git", *all_arguments],
+        GIT_TIMEOUT_SECONDS,
+        ReadSlice.FOLLOWUP,
+        folder,
+        {**os.environ, **ALL_STORED_HISTORY_GIT_SETTINGS},
+    )
 
 
 def is_held_by_another_line(commit: str, head: str, folder: str | None) -> bool:
@@ -253,8 +264,8 @@ def is_held_by_another_line(commit: str, head: str, folder: str | None) -> bool:
         second stacks on feature at abc123, head def456    -> True, feature lacks def456
         main holds abc123, the head branches off main      -> True
 
-    Local branches and remote branches are both read, and replace refs are
-    not. A read that fails or runs out of time counts as held, so the open
+    Local branches and remote branches are both read, and replace refs and
+    grafts are not. A read that fails or runs out of time counts as held, so the open
     is denied.
 
     Args:
@@ -265,16 +276,13 @@ def is_held_by_another_line(commit: str, head: str, folder: str | None) -> bool:
     Returns:
         True when some branch holds ``commit`` and not ``head``.
     """
-    listing = child_stdout(
+    listing = _stored_history_read(
         [
-            "git",
             *ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
             CONTAINS_OPTION_TEMPLATE.format(commit=commit),
             NO_CONTAINS_OPTION_TEMPLATE.format(commit=head),
             *ALL_BRANCH_REFERENCE_PREFIXES,
         ],
-        GIT_TIMEOUT_SECONDS,
-        ReadSlice.FOLLOWUP,
         folder,
     )
     return listing is None or bool(listing.strip())

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import re
 
 HOOK_EVENT_NAME = "PreToolUse"
@@ -140,15 +141,10 @@ REPOSITORY_SLUG_PATTERN = re.compile(r"[\w.-]+/[\w.-]+")
 REMOTE_BRANCH_PREFIX = "origin/"
 CURRENT_HEAD_REFERENCE = "HEAD"
 OPEN_REVIEW_ANCESTOR_LIMIT = 100
-NO_REPLACE_OBJECTS_OPTION = "--no-replace-objects"
-ALL_ANCESTRY_WALK_ARGUMENTS = (NO_REPLACE_OBJECTS_OPTION, "rev-list", "--first-parent")
+ALL_STORED_HISTORY_GIT_SETTINGS = {"GIT_GRAFT_FILE": os.devnull, "GIT_NO_REPLACE_OBJECTS": "1"}
+ALL_ANCESTRY_WALK_ARGUMENTS = ("rev-list", "--first-parent")
 MAX_COUNT_OPTION_TEMPLATE = "--max-count={count}"
-ALL_OTHER_LINE_REFERENCE_ARGUMENTS = (
-    NO_REPLACE_OBJECTS_OPTION,
-    "for-each-ref",
-    "--count=1",
-    "--format=%(refname)",
-)
+ALL_OTHER_LINE_REFERENCE_ARGUMENTS = ("for-each-ref", "--count=1", "--format=%(refname)")
 CONTAINS_OPTION_TEMPLATE = "--contains={commit}"
 NO_CONTAINS_OPTION_TEMPLATE = "--no-contains={commit}"
 ALL_BRANCH_REFERENCE_PREFIXES = ("refs/heads", "refs/remotes")

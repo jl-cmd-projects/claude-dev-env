@@ -304,6 +304,17 @@ def test_should_read_the_first_parents_git_stores_and_not_a_replace_graft(tmp_pa
     assert is_held_by_another_line(reviewed, head, str(checkout)) is True
 
 
+def test_should_read_the_first_parents_git_stores_and_not_a_grafts_file(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    reviewed = _commit(checkout, "reviewed")
+    _git(checkout, "checkout", "--quiet", "--orphan", "unrelated")
+    head = _commit(checkout, "unrelated work")
+    (checkout / ".git" / "info").mkdir(exist_ok=True)
+    (checkout / ".git" / "info" / "grafts").write_text(f"{head} {reviewed}\n", encoding="utf-8")
+    assert reviewed not in first_parent_ancestors(head, str(checkout))
+    assert is_held_by_another_line(reviewed, head, str(checkout)) is True
+
+
 def test_should_read_no_open_from_a_merge_command(tmp_path: Path) -> None:
     assert open_calls_from(_shell_payload("gh pr merge 12", tmp_path)) == []
 
