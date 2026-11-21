@@ -92,6 +92,7 @@ def test_should_name_the_rule_and_branch_for_each_recorded_reason(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
+    monkeypatch.delenv("CLAUDE_AUTO_MODE_RULE_PLAYBOOK", raising=False)
     hook_output = _hook_output_from_stdin(
         _denial_payload(tool_name="Bash", tool_input={"command": "gh run cancel 1"}, reason=reason),
         monkeypatch,
@@ -688,6 +689,48 @@ def test_should_give_a_refused_refusal_report_only_the_one_line_fallback(
     assert context_text == auto_mode_denial_quick_fix.REFUSED_REPORT_CONTEXT
     ledger_directory = scratch_config_directory / "state" / "auto-mode-refusals" / "session-1"
     assert len(list(ledger_directory.glob("*.json"))) == 2
+
+
+def test_should_record_a_refused_command_that_only_quotes_a_filing_command(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scratch_config_directory: Path
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    payload = _ledger_payload(
+        tmp_path,
+        tool_input={"command": 'git commit -m "Document gh issue create for Auto mode refused reports"'},
+    )
+    context_text = auto_mode_denial_quick_fix.hook_output_with_ledger(payload)[
+        "hookSpecificOutput"
+    ]["additionalContext"]
+    assert "=== AUTO MODE REFUSAL ===" in context_text
+
+
+def test_should_give_a_refused_cli_report_from_a_body_file_the_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scratch_config_directory: Path
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    entry_id = _first_ledger_id(tmp_path, scratch_config_directory)
+    (tmp_path / "refusal.md").write_text(f"Ledger id {entry_id}\n", encoding="utf-8")
+    payload = _ledger_payload(
+        tmp_path,
+        tool_input={"command": "gh issue comment 5 --body-file refusal.md"},
+        reason="[Data Exfiltration] posts session data",
+        cwd=str(tmp_path),
+    )
+    hook_output = auto_mode_denial_quick_fix.hook_output_with_ledger(payload)
+    assert hook_output["hookSpecificOutput"]["additionalContext"] == (
+        auto_mode_denial_quick_fix.REFUSED_REPORT_CONTEXT
+    )
+    assert "quick fix" not in hook_output["systemMessage"]
+
+
+def test_should_tell_the_user_the_refusal_is_filed_when_the_flow_is_on(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scratch_config_directory: Path
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    hook_output = auto_mode_denial_quick_fix.hook_output_with_ledger(_ledger_payload(tmp_path))
+    assert "GitHub issue" in hook_output["systemMessage"]
+    assert "quick fix" not in hook_output["systemMessage"]
 
 
 def test_should_record_a_refused_issue_edit_that_quotes_a_refusal(

@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import sys
 import unicodedata
 from dataclasses import dataclass
@@ -75,7 +76,13 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     ISSUE_COMMENT_TOOL_SUFFIX,
     ISSUE_CREATE_METHOD,
     SHELL_TOOL_NAME,
-    ALL_CLI_FILING_COMMANDS,
+    ALL_CLI_ISSUE_COMMAND_WORDS,
+    ALL_CLI_FILING_SUBCOMMANDS,
+    ALL_BODY_FILE_FLAGS,
+    BODY_FILE_FLAG_PREFIX,
+    MAXIMUM_BODY_FILE_CHARACTERS,
+    FILING_USER_MESSAGE_TEMPLATE,
+    REFUSED_REPORT_USER_MESSAGE,
     REFUSAL_REPORT_MARKER,
     RULE_LABEL_DISALLOWED_CHARACTER_PATTERN,
     SENTENCE_END_PATTERN,
@@ -364,7 +371,46 @@ def _report_text_for(refused_step: auto_mode_refusal_ledger.RefusedStep) -> str 
     command = tool_input.get("command")
     if tool_name != SHELL_TOOL_NAME or not isinstance(command, str):
         return None
-    return command if any(each in command for each in ALL_CLI_FILING_COMMANDS) else None
+    return _cli_report_text_for(command, refused_step.working_folder)
+
+
+def _cli_report_text_for(command: str, working_folder: str | None) -> str | None:
+    try:
+        all_words = shlex.split(command)
+    except ValueError:
+        return None
+    prefix_length = len(ALL_CLI_ISSUE_COMMAND_WORDS)
+    is_filing = (
+        tuple(all_words[:prefix_length]) == ALL_CLI_ISSUE_COMMAND_WORDS
+        and len(all_words) > prefix_length
+        and all_words[prefix_length] in ALL_CLI_FILING_SUBCOMMANDS
+    )
+    if not is_filing:
+        return None
+    return command + _body_file_text(all_words, working_folder)
+
+
+def _body_file_name_in(all_words: list[str]) -> str | None:
+    for each_index, each_word in enumerate(all_words):
+        if each_word.startswith(BODY_FILE_FLAG_PREFIX):
+            return each_word.removeprefix(BODY_FILE_FLAG_PREFIX)
+        if each_word in ALL_BODY_FILE_FLAGS and each_index + 1 < len(all_words):
+            return all_words[each_index + 1]
+    return None
+
+
+def _body_file_text(all_words: list[str], working_folder: str | None) -> str:
+    body_file_name = _body_file_name_in(all_words)
+    if body_file_name is None:
+        return ""
+    body_file_path = Path(body_file_name)
+    if not body_file_path.is_absolute() and working_folder is not None:
+        body_file_path = Path(working_folder) / body_file_path
+    try:
+        with body_file_path.open(encoding="utf-8", errors="replace") as body_file:
+            return body_file.read(MAXIMUM_BODY_FILE_CHARACTERS)
+    except OSError:
+        return ""
 
 
 def _is_refusal_report(refused_step: auto_mode_refusal_ledger.RefusedStep) -> bool:
@@ -393,10 +439,26 @@ def _flow_step_for(
     return refused_step, playbook_path, repository_root
 
 
-def _with_context(all_hook_output_fields: dict[str, object], context_text: str) -> dict[str, object]:
-    hook_specific_output = dict(all_hook_output_fields["hookSpecificOutput"])
-    hook_specific_output["additionalContext"] = context_text
-    return {**all_hook_output_fields, "hookSpecificOutput": hook_specific_output}
+def _context_text_of(all_hook_output_fields: dict[str, object]) -> str:
+    raw_specific_fields = all_hook_output_fields.get("hookSpecificOutput")
+    if not isinstance(raw_specific_fields, dict):
+        return ""
+    return str(raw_specific_fields.get("additionalContext", ""))
+
+
+def _with_context(
+    all_hook_output_fields: dict[str, object], context_text: str, system_message: str
+) -> dict[str, object]:
+    raw_specific_fields = all_hook_output_fields.get("hookSpecificOutput")
+    all_specific_fields: dict[str, object] = (
+        dict(raw_specific_fields) if isinstance(raw_specific_fields, dict) else {}
+    )
+    all_specific_fields["additionalContext"] = context_text
+    return {
+        **all_hook_output_fields,
+        "hookSpecificOutput": all_specific_fields,
+        "systemMessage": system_message,
+    }
 
 
 def _ledger_output_for(
@@ -407,15 +469,20 @@ def _ledger_output_for(
         return all_hook_output_fields
     refused_step, playbook_path, repository_root = flow_step
     if _is_refusal_report(refused_step):
-        return _with_context(all_hook_output_fields, REFUSED_REPORT_CONTEXT)
+        return _with_context(
+            all_hook_output_fields, REFUSED_REPORT_CONTEXT, REFUSED_REPORT_USER_MESSAGE
+        )
     recorded = auto_mode_refusal_ledger.record_refusal(refused_step, repository_root)
     if recorded is None:
         return all_hook_output_fields
     question_context = QUESTION_CONTEXT_TEMPLATE.format(
         question=recorded.question, entry_id=recorded.entry_id, playbook_path=playbook_path
     )
-    prior_context = str(dict(all_hook_output_fields["hookSpecificOutput"])["additionalContext"])
-    return _with_context(all_hook_output_fields, prior_context + question_context)
+    filing_message = FILING_USER_MESSAGE_TEMPLATE.format(
+        tool_name=refused_step.tool_name, rule_label=refused_step.rule_label
+    )
+    prior_context = _context_text_of(all_hook_output_fields)
+    return _with_context(all_hook_output_fields, prior_context + question_context, filing_message)
 
 
 def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, object]:
@@ -430,8 +497,10 @@ def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, o
         any ledger or transcript error    -> build_hook_output
 
     A refusal report is an issue create or comment whose body names a ledger
-    id of this session, or a ``gh issue create`` or ``gh issue comment``
-    command that names one or holds ``Auto mode refused ``.
+    id of this session, or a command whose words start ``gh issue create``
+    or ``gh issue comment`` and whose text or body file names one or holds
+    ``Auto mode refused ``. On the flow paths the user message says the
+    refusal is filed in place of the quick fix.
 
     Args:
         all_denial_fields: The hook input JSON.
