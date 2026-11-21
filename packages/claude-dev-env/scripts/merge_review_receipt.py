@@ -490,15 +490,25 @@ def _record_numbered_pass(
     if is_filed_receipt(receipt, owner, repo, parsed.number):
         stdout.write(f"FILED {target} ({parsed.findings - parsed.ruled_out} findings filed: {filed})\n")
         return 0
-    filed_route = (
+    unfiled_note = _unfiled_note(pass_number, filed, rulings)
+    stdout.write(f"REVIEWED {target} {parsed.findings} findings{unfiled_note}\n")
+    return 1
+
+
+def _unfiled_note(pass_number: int, filed: str, rulings: str) -> str:
+    if not is_past_full_passes(pass_number):
+        return ""
+    if filed and rulings:
+        return (
+            f" (pass {pass_number}: not filed, because --rulings {rulings} is not a comment "
+            "or review on this pull request; post the rulings on this pull request and "
+            "record this pass again with that link)"
+        )
+    return (
         f" (pass {pass_number}: {FULL_REVIEW_PASS_COUNT} full passes are done, so file "
         "these findings in one issue and record this pass again with --filed <issue url>; "
         "fix a security finding in this pull request instead)"
-        if is_past_full_passes(pass_number)
-        else ""
     )
-    stdout.write(f"REVIEWED {target} {parsed.findings} findings{filed_route}\n")
-    return 1
 
 
 if __name__ == "__main__":
