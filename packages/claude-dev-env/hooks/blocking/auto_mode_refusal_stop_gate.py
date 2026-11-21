@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stop gate that holds a turn while a refused step waits on the user or on its rule.
+"""Stop gate that holds a turn until a refused step is filed as an issue or gets its rule.
 
 At each turn end the gate reads the refusal ledger the PermissionDenied hook
 keeps, and the session transcript::
@@ -21,7 +21,10 @@ step?`` claims the oldest pending, unasked group of that tool that has an
 entry with a question record at or before the card, and within it those
 entries. Each card claims one
 group, and the entry keeps the card's offset so a later Stop does not claim
-again with it. The asked mark stays on the entry. An add call
+again with it. An entry also counts as asked once a GitHub issue call, a tool
+named ``*__issue_write`` or ``*__add_issue_comment`` that did not fail, holds
+the entry's id in its input text. The question hold tells the agent to file the
+refusal as an issue and ask the user nothing. The asked mark stays on the entry. An add call
 is a Bash call that did not fail whose command holds ``add_auto_mode_rule.py
 add`` and the entry's id, which its ledger file name carries. The gate keeps
 its own counts in each entry file, so it acts the same whether or not
@@ -61,6 +64,7 @@ from hooks_constants.auto_mode_refusal_ledger_constants import (
 )
 from hooks_constants.auto_mode_refusal_stop_gate_constants import (
     ALL_CARD_TOOL_NAMES,
+    ALL_ISSUE_TOOL_SUFFIXES,
     ALLOW_EXIT_CODE,
     BASH_TOOL_NAME,
     CARD_QUESTION_TEMPLATE,
@@ -72,7 +76,7 @@ from hooks_constants.auto_mode_refusal_stop_gate_constants import (
     PRINT_MODE_ENTRYPOINT,
     QUESTION_BLOCK_TEMPLATE,
     QUESTION_SECTION_FOOTER_TEMPLATE,
-    QUESTION_SECTION_HEADER,
+    QUESTION_SECTION_HEADER_TEMPLATE,
     RULE_ADD_COMMAND_MARKER,
     RULE_SECTION_HEADER_TEMPLATE,
     SECTION_SEPARATOR,
@@ -98,6 +102,20 @@ def _is_card_for(call: TranscriptCall, tool_name: str) -> bool:
         and not call.is_error
         and CARD_QUESTION_TEMPLATE.format(tool_name=tool_name) in _all_text_values(call.tool_input)
     )
+
+
+def _filed_entry_ids(all_entry_ids: set[str], all_calls: list[TranscriptCall]) -> set[str]:
+    all_filed_texts = [
+        each_text
+        for each_call in all_calls
+        if each_call.tool_name.endswith(ALL_ISSUE_TOOL_SUFFIXES) and not each_call.is_error
+        for each_text in _all_text_values(each_call.tool_input)
+    ]
+    return {
+        each_id
+        for each_id in all_entry_ids
+        if any(each_id in each_text for each_text in all_filed_texts)
+    }
 
 
 def _is_text_asked(record: QuestionRecord, all_asked: list[AskedQuestions]) -> bool:
@@ -160,6 +178,7 @@ def _asked_entry_ids(
         for each_id in each_record.all_entry_ids
         if each_id in all_known_ids
     }
+    card_offset_by_id.update(dict.fromkeys(_filed_entry_ids(all_known_ids, all_calls)))
     all_unasked_entries = [
         each
         for each in all_entries
@@ -235,7 +254,7 @@ def hold_reason_for(
     """
     all_sections: list[str] = []
     if all_groups:
-        question_text = QUESTION_SECTION_HEADER
+        question_text = QUESTION_SECTION_HEADER_TEMPLATE.format(playbook_path=playbook_path)
         for each_group in all_groups:
             question_text += QUESTION_BLOCK_TEMPLATE.format(question=each_group.question)
             question_text += "".join(
