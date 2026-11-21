@@ -774,6 +774,10 @@ def test_should_skip_a_body_file_that_is_not_a_regular_file(
         "gh issue create -t -F{id} --body 'Update the docs'",
         "gh issue comment 5 --edit-last --body 'Ledger id {id}'",
         "gh issue comment 5 --delete-last --body 'Ledger id {id}'",
+        "gh issue comment 5 --edit-last=true --body 'Ledger id {id}'",
+        "gh issue comment 5 --body 'Update the docs' # {id}",
+        "gh issue comment 5 --body 'Ledger id {id}' --body 'Update the docs'",
+        "gh issue comment 5 --body 'Ledger id {id}' --body-file other.md",
     ],
 )
 def test_should_record_a_cli_write_that_files_no_refusal_report(
@@ -793,6 +797,33 @@ def test_should_record_a_cli_write_that_files_no_refusal_report(
         "hookSpecificOutput"
     ]["additionalContext"]
     assert "=== AUTO MODE REFUSAL ===" in context_text
+
+
+@pytest.mark.parametrize(
+    "command_template",
+    [
+        "gh issue comment 5 --body \\\n  'Ledger id {id}'",
+        "gh issue comment 5 --edit-last=true --create-if-none=true --body 'Ledger id {id}'",
+        "cd /scratch && gh issue comment 5 --body 'Ledger id {id}'",
+    ],
+)
+def test_should_give_a_parsed_cli_refusal_report_the_fallback(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    scratch_config_directory: Path,
+    command_template: str,
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    entry_id = _first_ledger_id(tmp_path, scratch_config_directory)
+    payload = _ledger_payload(
+        tmp_path,
+        tool_input={"command": command_template.format(id=entry_id)},
+        reason="[Data Exfiltration] posts session data",
+    )
+    context_text = auto_mode_denial_quick_fix.hook_output_with_ledger(payload)[
+        "hookSpecificOutput"
+    ]["additionalContext"]
+    assert context_text == auto_mode_denial_quick_fix.REFUSED_REPORT_CONTEXT
 
 
 def test_should_give_a_comment_edit_that_creates_when_none_the_fallback(
