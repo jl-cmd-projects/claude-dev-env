@@ -59,8 +59,8 @@ QUESTION_SECTION_HEADER_TEMPLATE = (
 QUESTION_BLOCK_TEMPLATE = "\n\nQuestion: {question}\nSteps:"
 LIST_LINE_TEMPLATE = "\n- {text}"
 QUESTION_SECTION_FOOTER_TEMPLATE = (
-    "\n\nWhen the user later answers `Allow it` on the issue, a session follows the playbook "
-    "at {playbook_path} to add the rule.\n"
+    "\n\nThe playbook at {playbook_path} says what an answer on the issue changes. "
+    "An answer on the issue adds no rule.\n"
     "Ledger files, each named for its ledger id:"
 )
 RULE_SECTION_HEADER_TEMPLATE = (

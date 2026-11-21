@@ -127,6 +127,20 @@ def _refused_step(command: str, rule_label: str | None, **overrides: object) -> 
     return ledger.RefusedStep(**all_fields)
 
 
+def test_should_return_the_one_step_question_for_a_refusal_past_the_group_cap(
+    tmp_path: Path,
+) -> None:
+    repository_root = tmp_path / "agent-channels"
+    all_questions = [
+        ledger.record_refusal(
+            _refused_step(f"git push -f origin x{each_index}", "Git Destructive"), repository_root
+        )
+        for each_index in range(6)
+    ]
+    assert all_questions[-1] == ledger.question_text_for("Bash", "Git Destructive", 1)
+    assert len(_answers(ledger.ledger_directory_for("s1"))) == 6
+
+
 def test_should_record_a_labelled_refusal_once_and_return_its_question(tmp_path: Path) -> None:
     repository_root = tmp_path / "agent-channels"
     expected_question = ledger.question_text_for("Bash", "Git Destructive", 1)

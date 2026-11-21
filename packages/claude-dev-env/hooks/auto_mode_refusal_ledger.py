@@ -443,6 +443,7 @@ def record_refusal(step: RefusedStep, repository_root: Path) -> str | None:
         "[Git Destructive] force push", new step -> entry written,
             "Auto mode refused 1 Bash step under the Git Destructive rule. ..."
         same step again                          -> no new entry, same question
+        step past its group's five-step cap      -> its one-step question
         prose reason, or a rule flow step        -> None
 
     The user's answers are read from the transcript before the skip rule, so
@@ -477,5 +478,5 @@ def record_refusal(step: RefusedStep, repository_root: Path) -> str | None:
             for each_group in all_groups
             if entry_fields["id"] in each_group.all_entry_ids
         ),
-        None,
+        question_text_for(step.tool_name, step.rule_label, 1),
     )

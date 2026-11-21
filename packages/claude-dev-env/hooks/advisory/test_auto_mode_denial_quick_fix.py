@@ -656,7 +656,7 @@ def test_should_record_no_entry_for_a_refused_issue_filing(
     payload = _ledger_payload(
         tmp_path,
         tool_name=tool_name,
-        tool_input={"owner": "o", "repo": "r", "body": "Auto mode refused 1 Bash step"},
+        tool_input={"owner": "o", "repo": "r", "body": "Auto mode refused 1 Bash step under X"},
         reason="[Data Exfiltration] posts session data",
     )
     assert auto_mode_denial_quick_fix.hook_output_with_ledger(
@@ -664,3 +664,32 @@ def test_should_record_no_entry_for_a_refused_issue_filing(
     ) == auto_mode_denial_quick_fix.build_hook_output(payload)
     ledger_directory = scratch_config_directory / "state" / "auto-mode-refusals" / "session-1"
     assert list(ledger_directory.glob("*.json")) == []
+
+
+def test_should_record_an_unrelated_refused_issue_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scratch_config_directory: Path
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    payload = _ledger_payload(
+        tmp_path,
+        tool_name="mcp__github__issue_write",
+        tool_input={"method": "update", "issue_number": 4, "state": "closed"},
+        reason="[Destructive or Unwanted Actions] closes an issue",
+    )
+    context_text = auto_mode_denial_quick_fix.hook_output_with_ledger(payload)[
+        "hookSpecificOutput"
+    ]["additionalContext"]
+    assert "=== AUTO MODE REFUSAL ===" in context_text
+
+
+def test_should_give_a_filing_notice_for_a_refusal_past_the_group_cap(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scratch_config_directory: Path
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    all_contexts = [
+        auto_mode_denial_quick_fix.hook_output_with_ledger(
+            _ledger_payload(tmp_path, tool_input={"command": f"git push -f origin claude/x{index}"})
+        )["hookSpecificOutput"]["additionalContext"]
+        for index in range(7)
+    ]
+    assert all("=== AUTO MODE REFUSAL ===" in each for each in all_contexts)

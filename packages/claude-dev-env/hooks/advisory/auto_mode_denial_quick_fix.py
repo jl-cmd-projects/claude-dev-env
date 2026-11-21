@@ -71,6 +71,7 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     POWERSHELL_BLOCK_TEMPLATE,
     QUESTION_CONTEXT_TEMPLATE,
     ALL_ISSUE_FILING_TOOL_SUFFIXES,
+    REFUSAL_REPORT_MARKER,
     RULE_LABEL_DISALLOWED_CHARACTER_PATTERN,
     SENTENCE_END_PATTERN,
     SUMMARY_WORD_SEPARATOR,
@@ -345,6 +346,14 @@ def _refused_step_from(
     )
 
 
+def _is_refusal_report(refused_step: auto_mode_refusal_ledger.RefusedStep) -> bool:
+    if not refused_step.tool_name.endswith(ALL_ISSUE_FILING_TOOL_SUFFIXES):
+        return False
+    tool_input = refused_step.tool_input
+    report_text = tool_input.get("body") if isinstance(tool_input, dict) else None
+    return isinstance(report_text, str) and REFUSAL_REPORT_MARKER in report_text
+
+
 def _question_context_for(all_denial_fields: dict[str, object]) -> str | None:
     playbook_path = auto_mode_refusal_ledger.playbook_path_from_environment()
     if playbook_path is None:
@@ -353,7 +362,7 @@ def _question_context_for(all_denial_fields: dict[str, object]) -> str | None:
     refused_step = _refused_step_from(all_denial_fields)
     if repository_root is None or refused_step is None:
         return None
-    if refused_step.tool_name.endswith(ALL_ISSUE_FILING_TOOL_SUFFIXES):
+    if _is_refusal_report(refused_step):
         return None
     question = auto_mode_refusal_ledger.record_refusal(refused_step, repository_root)
     if question is None:
@@ -369,7 +378,7 @@ def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, o
         flow off or playbook missing      -> build_hook_output, byte for byte
         playbook with no repository above -> build_hook_output
         flow on, question returned        -> same, plus the AUTO MODE REFUSAL block
-        flow on, a refused issue filing   -> build_hook_output, no ledger entry
+        flow on, a refused refusal report -> build_hook_output, no ledger entry
         any ledger or transcript error    -> build_hook_output
 
     Args:
