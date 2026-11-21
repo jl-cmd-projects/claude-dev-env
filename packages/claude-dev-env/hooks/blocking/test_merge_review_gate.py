@@ -147,9 +147,7 @@ def _record_passes_with_findings(pass_count: int) -> None:
 
 def test_should_allow_a_merge_pinned_to_the_head_of_a_filed_pass_after_three_full_passes() -> None:
     _record_passes_with_findings(3)
-    merge_review_receipt.main(
-        ["acme/tools", "12", CLEAN_HEAD, "2", "--filed", ISSUE_LINK], io.StringIO()
-    )
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 2, filed=ISSUE_LINK)
     assert _reason(_merge_tool(CLEAN_HEAD)) is None
 
 
