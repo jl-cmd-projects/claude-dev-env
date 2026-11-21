@@ -553,8 +553,20 @@ def test_should_flag_the_marker_in_the_pull_request_body_of_a_comment_event_from
             }
         },
         {"comment": {"body": f"{_ATTRIBUTION_MARKER}\nWhy\n"}},
-        {"pull_request": {"title": "t", "body": f"{_ATTRIBUTION_MARKER} done\nWhy\n"}},
-        {"pull_request": {"title": "t", "body": f" {_ATTRIBUTION_MARKER}\nWhy\n"}},
+        {
+            "pull_request": {
+                "title": "t",
+                "body": f"{_ATTRIBUTION_MARKER} done\nWhy\n",
+                "user": {"login": _FIXTURE_OWNER_HANDLE},
+            }
+        },
+        {
+            "pull_request": {
+                "title": "t",
+                "body": f" {_ATTRIBUTION_MARKER}\nWhy\n",
+                "user": {"login": _FIXTURE_OWNER_HANDLE},
+            }
+        },
         {
             "pull_request": {
                 "title": "t",
@@ -562,6 +574,7 @@ def test_should_flag_the_marker_in_the_pull_request_body_of_a_comment_event_from
                     _FIXTURE_OWNER_HANDLE, f"{_FIXTURE_OWNER_HANDLE} x"
                 )
                 + "\nWhy\n",
+                "user": {"login": _FIXTURE_OWNER_HANDLE},
             }
         },
     ],
@@ -583,6 +596,7 @@ def test_should_flag_the_marker_when_it_is_not_the_first_line_of_a_pull_request_
             "pull_request": {
                 "title": "fix: one",
                 "body": f"One\nTwo\nThree\nFour\n{_ATTRIBUTION_MARKER}\n",
+                "user": {"login": _FIXTURE_OWNER_HANDLE},
             }
         },
     )
