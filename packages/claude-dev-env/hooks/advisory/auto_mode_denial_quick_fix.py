@@ -83,6 +83,12 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     FLAG_VALUE_SEPARATOR,
     SHORT_FLAG_LENGTH,
     REPORT_BODY_SEPARATOR,
+    ALL_CLI_BOOLEAN_FLAGS,
+    ALL_COMMENT_EDIT_FLAGS,
+    CREATE_IF_NONE_FLAG,
+    COMMENT_SUBCOMMAND,
+    OPTION_PREFIX,
+    LONG_OPTION_PREFIX,
     MAXIMUM_BODY_FILE_CHARACTERS,
     FILING_USER_MESSAGE_TEMPLATE,
     REFUSED_REPORT_USER_MESSAGE,
@@ -387,47 +393,46 @@ def _cli_report_text_for(command: str, working_folder: str | None) -> str | None
         and len(all_words) > prefix_length
         and all_words[prefix_length] in ALL_CLI_FILING_SUBCOMMANDS
     )
-    if not is_filing:
+    if not is_filing or _is_comment_edit(all_words):
         return None
-    all_inline_bodies = _flag_values_in(all_words, ALL_INLINE_BODY_FLAGS)
+    all_inline_bodies, all_body_file_names = _body_parts_in(all_words)
     all_file_bodies = [
-        _body_file_text(each_name, working_folder)
-        for each_name in _flag_values_in(all_words, ALL_BODY_FILE_FLAGS)
+        _body_file_text(each_name, working_folder) for each_name in all_body_file_names
     ]
     return REPORT_BODY_SEPARATOR.join(all_inline_bodies + all_file_bodies)
 
 
-def _flag_value_of(all_words: list[str], word_index: int, flag: str) -> str | None:
+def _is_comment_edit(all_words: list[str]) -> bool:
+    is_comment = all_words[len(ALL_CLI_ISSUE_COMMAND_WORDS)] == COMMENT_SUBCOMMAND
+    is_edit = any(each_word in ALL_COMMENT_EDIT_FLAGS for each_word in all_words)
+    return is_comment and is_edit and CREATE_IF_NONE_FLAG not in all_words
+
+
+def _option_at(all_words: list[str], word_index: int) -> tuple[str | None, str | None, int]:
     each_word = all_words[word_index]
-    if each_word == flag:
-        return all_words[word_index + 1] if word_index + 1 < len(all_words) else None
-    if each_word.startswith(flag + FLAG_VALUE_SEPARATOR):
-        return each_word[len(flag) + len(FLAG_VALUE_SEPARATOR) :]
-    is_short_flag = len(flag) == SHORT_FLAG_LENGTH
-    if is_short_flag and each_word.startswith(flag) and len(each_word) > SHORT_FLAG_LENGTH:
-        return each_word[SHORT_FLAG_LENGTH:]
-    return None
+    if not each_word.startswith(OPTION_PREFIX) or each_word in ALL_CLI_BOOLEAN_FLAGS:
+        return None, None, word_index + 1
+    if each_word.startswith(LONG_OPTION_PREFIX) and FLAG_VALUE_SEPARATOR in each_word:
+        flag, _, flag_value = each_word.partition(FLAG_VALUE_SEPARATOR)
+        return flag, flag_value, word_index + 1
+    if not each_word.startswith(LONG_OPTION_PREFIX) and len(each_word) > SHORT_FLAG_LENGTH:
+        attached_value = each_word[SHORT_FLAG_LENGTH:].removeprefix(FLAG_VALUE_SEPARATOR)
+        return each_word[:SHORT_FLAG_LENGTH], attached_value, word_index + 1
+    has_value = word_index + 1 < len(all_words)
+    return each_word, all_words[word_index + 1] if has_value else None, word_index + 2
 
 
-def _first_flag_value_at(
-    all_words: list[str], word_index: int, all_flags: frozenset[str]
-) -> str | None:
-    return next(
-        (
-            flag_value
-            for each_flag in sorted(all_flags)
-            if (flag_value := _flag_value_of(all_words, word_index, each_flag)) is not None
-        ),
-        None,
-    )
-
-
-def _flag_values_in(all_words: list[str], all_flags: frozenset[str]) -> list[str]:
-    all_values_by_index = (
-        _first_flag_value_at(all_words, each_index, all_flags)
-        for each_index in range(len(all_words))
-    )
-    return [each_value for each_value in all_values_by_index if each_value is not None]
+def _body_parts_in(all_words: list[str]) -> tuple[list[str], list[str]]:
+    all_inline_bodies: list[str] = []
+    all_body_file_names: list[str] = []
+    word_index = len(ALL_CLI_ISSUE_COMMAND_WORDS) + 1
+    while word_index < len(all_words):
+        flag, flag_value, word_index = _option_at(all_words, word_index)
+        if flag_value is not None and flag in ALL_INLINE_BODY_FLAGS:
+            all_inline_bodies.append(flag_value)
+        if flag_value is not None and flag in ALL_BODY_FILE_FLAGS:
+            all_body_file_names.append(flag_value)
+    return all_inline_bodies, all_body_file_names
 
 
 def _body_file_text(body_file_name: str, working_folder: str | None) -> str:

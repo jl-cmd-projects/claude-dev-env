@@ -47,6 +47,12 @@ __all__ = [
     "FLAG_VALUE_SEPARATOR",
     "SHORT_FLAG_LENGTH",
     "REPORT_BODY_SEPARATOR",
+    "ALL_CLI_BOOLEAN_FLAGS",
+    "ALL_COMMENT_EDIT_FLAGS",
+    "CREATE_IF_NONE_FLAG",
+    "COMMENT_SUBCOMMAND",
+    "OPTION_PREFIX",
+    "LONG_OPTION_PREFIX",
     "MAXIMUM_BODY_FILE_CHARACTERS",
     "FILING_USER_MESSAGE_TEMPLATE",
     "REFUSED_REPORT_USER_MESSAGE",
@@ -155,6 +161,14 @@ ALL_INLINE_BODY_FLAGS = frozenset({"--body", "-b"})
 FLAG_VALUE_SEPARATOR = "="
 SHORT_FLAG_LENGTH = 2
 REPORT_BODY_SEPARATOR = "\n"
+ALL_CLI_BOOLEAN_FLAGS = frozenset(
+    {"--web", "-w", "--editor", "-e", "--edit-last", "--delete-last", "--create-if-none", "--yes"}
+)
+ALL_COMMENT_EDIT_FLAGS = frozenset({"--edit-last", "--delete-last"})
+CREATE_IF_NONE_FLAG = "--create-if-none"
+COMMENT_SUBCOMMAND = "comment"
+OPTION_PREFIX = "-"
+LONG_OPTION_PREFIX = "--"
 MAXIMUM_BODY_FILE_CHARACTERS = 65536
 FILING_USER_MESSAGE_TEMPLATE = (
     "Auto mode blocked {tool_name} [{rule_label}]. Claude will file it as a GitHub issue and go on."
