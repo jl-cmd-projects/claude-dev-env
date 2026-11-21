@@ -15,8 +15,13 @@ from blocking.merge_review_gate_parts.receipts import (
     has_clean_open_review,
     has_zero_finding_open_review,
     is_clean_open_pass,
+    is_filed_receipt,
+    is_issue_link_in,
+    is_past_full_passes,
     open_receipt_path,
+    read_receipt,
     receipt_path,
+    recorded_pass_number,
     same_commit,
 )
 
@@ -148,3 +153,62 @@ def test_should_lowercase_owner_and_repo_in_the_numbered_receipt_path(receipt_fo
 def test_should_match_commits_by_prefix_in_either_order() -> None:
     assert same_commit(HEAD[:7].upper(), HEAD) is True
     assert same_commit(HEAD, "def5678") is False
+
+
+ISSUE_LINK = "https://github.com/acme/tools/issues/40"
+
+
+def test_should_read_a_receipt_object_and_nothing_else(receipt_folder: Path) -> None:
+    path = receipt_folder / "receipt.json"
+    assert read_receipt(path) is None
+    path.write_text("[1, 2]", encoding="utf-8")
+    assert read_receipt(path) is None
+    path.write_text('{"head": "abc1234", "findings": 0}', encoding="utf-8")
+    assert read_receipt(path) == {"head": "abc1234", "findings": 0}
+
+
+@pytest.mark.parametrize(
+    ("pass_field", "expected_pass"),
+    [({"pass": 4}, 4), ({}, 1), ({"pass": "4"}, 1), ({"pass": 0}, 1), ({"pass": True}, 1)],
+)
+def test_should_count_a_receipt_without_a_pass_number_as_pass_one(
+    pass_field: dict[str, object], expected_pass: int
+) -> None:
+    assert recorded_pass_number({"head": HEAD, "findings": 2, **pass_field}) == expected_pass
+
+
+def test_should_put_only_pass_four_and_later_past_the_full_passes() -> None:
+    assert is_past_full_passes(3) is False
+    assert is_past_full_passes(4) is True
+
+
+@pytest.mark.parametrize(
+    ("link", "is_expected_match"),
+    [
+        ("https://github.com/Acme/Tools/issues/40", True),
+        ("https://github.com/acme/other/issues/40", False),
+        ("https://github.com/acme/tools/pull/40", False),
+        ("https://github.com/acme/tools/issues/40#issuecomment-1", False),
+        (40, False),
+    ],
+)
+def test_should_match_only_an_issue_link_in_the_named_repository(
+    link: object, is_expected_match: bool
+) -> None:
+    assert is_issue_link_in(link, "acme", "tools") is is_expected_match
+
+
+@pytest.mark.parametrize(
+    ("receipt_fields", "is_expected_filed"),
+    [
+        ({"findings": 2, "pass": 4, "filed": ISSUE_LINK}, True),
+        ({"findings": 2, "pass": 3, "filed": ISSUE_LINK}, False),
+        ({"findings": 2, "pass": 4}, False),
+        ({"findings": 2, "pass": 4, "filed": "https://github.com/acme/other/issues/40"}, False),
+        ({"findings": "2", "pass": 4, "filed": ISSUE_LINK}, False),
+    ],
+)
+def test_should_count_a_pass_as_filed_only_after_three_full_passes(
+    receipt_fields: dict[str, object], is_expected_filed: bool
+) -> None:
+    assert is_filed_receipt({"head": HEAD, **receipt_fields}, "acme", "tools") is is_expected_filed

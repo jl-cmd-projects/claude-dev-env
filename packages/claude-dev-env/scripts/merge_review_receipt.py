@@ -13,6 +13,18 @@ clean once the rulings are posted and linked::
     python3 merge_review_receipt.py owner/name 12 def5678 2 --ruled-out 2 --rulings <url>
         -> CLEAN owner/name#12 def5678 (2 findings ruled out: <url>)
 
+Each numbered receipt counts its pass on the pull request. A new head is the
+next pass, and recording the same head again keeps its pass. The loop runs
+three full passes with fixes. When pass 4 or a later one still reports
+findings, they go into one issue in the same repository, and the pass is
+recorded with the issue link. Findings it rules out are left out of that
+issue::
+
+    python3 merge_review_receipt.py owner/name 12 aaa9999 3 --ruled-out 1 --rulings <url> --filed <issue url>
+        -> FILED owner/name#12 aaa9999 (2 findings filed: <issue url>)
+
+Before pass 4, ``--filed`` is refused.
+
 A pass run before the pull request exists names ``open`` in place of the
 number, and records the head it reviewed::
 
@@ -26,7 +38,7 @@ that holds the head. Each line must exist in the file at that head::
         -> CLEAN owner/name open def5678 (2 findings ruled out: a.py:1,b.py:20)
 
 ``hooks/blocking/merge_review_gate.py`` allows a merge pinned to the head of
-the newest pass only when that pass is clean. It allows a pull request open
+the newest pass only when that pass is clean or filed. It allows a pull request open
 whose head has a clean ``open`` pass. It allows a merge pinned to that same
 head only when the ``open`` pass found zero findings. Ruled-out findings need
 a numbered pass that links the rulings comment on the pull request.
@@ -49,14 +61,23 @@ if hooks_directory not in sys.path:
 from blocking.merge_review_gate_parts.receipts import (
     is_clean_open_pass,
     is_clean_receipt,
+    is_filed_receipt,
+    is_issue_link_in,
+    is_past_full_passes,
     open_receipt_path,
+    read_receipt,
     receipt_path,
+    recorded_pass_number,
+    same_commit,
 )
 from hooks_constants.merge_review_gate_constants import (
+    FULL_REVIEW_PASS_COUNT,
     OPEN_RECEIPT_HEAD_PATTERN,
     OPEN_TARGET_WORD,
+    RECEIPT_FILED_KEY,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
+    RECEIPT_PASS_KEY,
     RECEIPT_RULED_OUT_KEY,
     RECEIPT_RULING_LINES_KEY,
     RECEIPT_RULINGS_KEY,
@@ -74,6 +95,7 @@ def record_review(
     finding_count: int,
     ruled_out_count: int = 0,
     rulings: str = "",
+    filed: str = "",
 ) -> Path:
     """Write the receipt for one review pass, replacing the previous pass.
 
@@ -84,14 +106,67 @@ def record_review(
         finding_count: How many findings the pass reported.
         ruled_out_count: How many of those findings were ruled out.
         rulings: Link to the posted rulings, empty when none were ruled out.
+        filed: Link to the issue that lists the findings left open, empty when none were filed.
 
     Returns:
         The receipt path written.
     """
-    receipt = _receipt_fields(
-        head, finding_count, ruled_out_count, RECEIPT_RULINGS_KEY, rulings
+    receipt = _numbered_receipt(
+        head,
+        finding_count,
+        ruled_out_count,
+        rulings,
+        filed,
+        _next_pass_number(slug, number, head),
     )
     return _write_receipt(slug, number, receipt)
+
+
+def _next_pass_number(slug: str, number: int, head: str) -> int:
+    """Return which review pass on the pull request a record of ``head`` is.
+
+    A new head is the next pass. Recording the head the previous receipt names
+    again, such as after posting rulings or filing an issue, keeps its pass::
+
+        no receipt yet                         -> 1
+        previous receipt pass 3 at abc1234, head def5678 -> 4
+        previous receipt pass 3 at abc1234, head abc1234 -> 3
+
+    A previous receipt that cannot be read counts as no receipt.
+
+    Args:
+        slug: Repository as ``owner/name``.
+        number: Pull request number.
+        head: The commit the pass reviewed.
+
+    Returns:
+        The pass number, from 1.
+    """
+    owner, repo = slug.split("/", 1)
+    previous_receipt = read_receipt(receipt_path(owner, repo, number))
+    if previous_receipt is None:
+        return 1
+    previous_pass_number = recorded_pass_number(previous_receipt)
+    previous_head = previous_receipt.get(RECEIPT_HEAD_KEY)
+    is_same_pass = isinstance(previous_head, str) and bool(previous_head) and same_commit(
+        previous_head, head
+    )
+    return previous_pass_number if is_same_pass else previous_pass_number + 1
+
+
+def _numbered_receipt(
+    head: str,
+    finding_count: int,
+    ruled_out_count: int,
+    rulings: str,
+    filed: str,
+    pass_number: int,
+) -> dict[str, object]:
+    receipt = _receipt_fields(head, finding_count, ruled_out_count, RECEIPT_RULINGS_KEY, rulings)
+    receipt[RECEIPT_PASS_KEY] = pass_number
+    if filed:
+        receipt[RECEIPT_FILED_KEY] = filed
+    return receipt
 
 
 def record_open_review(
@@ -227,6 +302,11 @@ def _record_open_pass(
 ) -> int:
     if parsed.findings < 0:
         parser.error("findings must be zero or more")
+    if parsed.filed.strip():
+        parser.error(
+            f"an {OPEN_TARGET_WORD} pass cannot take --filed: findings are filed only after "
+            f"{FULL_REVIEW_PASS_COUNT} full passes with fixes on the pull request"
+        )
     if not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(parsed.head):
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
     all_rulings = _checked_open_rulings(parser, parsed)
@@ -256,7 +336,8 @@ def main(all_arguments: Sequence[str], stdout: TextIO = sys.stdout) -> int:
         stdout: Stream that receives the verdict.
 
     Returns:
-        0 for a clean pass, and 1 for a pass with findings still open.
+        0 for a clean pass or a pass whose open findings were filed after three full
+        passes, and 1 for a pass with findings still open.
     """
     parser = argparse.ArgumentParser(prog="merge_review_receipt")
     parser.add_argument("slug", help="Repository as owner/name.")
@@ -276,8 +357,16 @@ def main(all_arguments: Sequence[str], stdout: TextIO = sys.stdout) -> int:
             "ruled out finding, comma separated."
         ),
     )
+    parser.add_argument(
+        "--filed",
+        default="",
+        help=(
+            "Link to the one issue in this repository that lists the findings this pass "
+            f"left open. Only from pass {FULL_REVIEW_PASS_COUNT + 1}, after "
+            f"{FULL_REVIEW_PASS_COUNT} full passes with fixes."
+        ),
+    )
     parsed = parser.parse_args(all_arguments)
-    rulings = parsed.rulings.strip()
     if not REPOSITORY_SLUG_PATTERN.fullmatch(parsed.slug) or ".." in parsed.slug:
         parser.error("slug must be owner/name")
     if parsed.number == OPEN_TARGET_WORD:
@@ -285,26 +374,68 @@ def main(all_arguments: Sequence[str], stdout: TextIO = sys.stdout) -> int:
     if not parsed.number.isdigit():
         parser.error(f"number must be a pull request number or {OPEN_TARGET_WORD}")
     parsed.number = int(parsed.number)
+    return _record_numbered_pass(parser, parsed, stdout)
+
+
+def _checked_filed_link(
+    parser: argparse.ArgumentParser, parsed: argparse.Namespace, pass_number: int
+) -> str:
+    filed = parsed.filed.strip()
+    if not filed:
+        return filed
+    owner, repo = parsed.slug.split("/", 1)
+    if not is_issue_link_in(filed, owner, repo):
+        parser.error(
+            f"--filed needs a link to an issue in {parsed.slug}, such as "
+            f"https://github.com/{parsed.slug}/issues/<number>"
+        )
+    if parsed.findings - parsed.ruled_out < 1:
+        parser.error("--filed needs findings left after --ruled-out to file")
+    if not is_past_full_passes(pass_number):
+        parser.error(
+            f"--filed is for pass {FULL_REVIEW_PASS_COUNT + 1} or later, and this is pass "
+            f"{pass_number}. The first {FULL_REVIEW_PASS_COUNT} full passes with fixes come "
+            "first: fix and push every finding, then review the new head."
+        )
+    return filed
+
+
+def _record_numbered_pass(
+    parser: argparse.ArgumentParser, parsed: argparse.Namespace, stdout: TextIO
+) -> int:
+    rulings = parsed.rulings.strip()
     if parsed.ruled_out < 0 or parsed.ruled_out > parsed.findings:
         parser.error("--ruled-out must be between 0 and the finding count")
     if parsed.ruled_out and not rulings:
         parser.error("--ruled-out needs --rulings, a link to the posted rulings")
     if rulings and not parsed.ruled_out:
         parser.error("--rulings needs --ruled-out, the count of findings it rules out")
-    receipt = _receipt_fields(
-        parsed.head, parsed.findings, parsed.ruled_out, RECEIPT_RULINGS_KEY, rulings
+    pass_number = _next_pass_number(parsed.slug, parsed.number, parsed.head)
+    filed = _checked_filed_link(parser, parsed, pass_number)
+    receipt = _numbered_receipt(
+        parsed.head, parsed.findings, parsed.ruled_out, rulings, filed, pass_number
     )
     _write_receipt(parsed.slug, parsed.number, receipt)
     owner, repo = parsed.slug.split("/", 1)
+    target = f"{parsed.slug}#{parsed.number} {parsed.head}"
     if is_clean_receipt(receipt, owner, repo, parsed.number):
         ruled_out_note = (
             f" ({parsed.ruled_out} findings ruled out: {rulings})" if parsed.ruled_out else ""
         )
-        stdout.write(f"CLEAN {parsed.slug}#{parsed.number} {parsed.head}{ruled_out_note}\n")
+        stdout.write(f"CLEAN {target}{ruled_out_note}\n")
         return 0
-    stdout.write(
-        f"REVIEWED {parsed.slug}#{parsed.number} {parsed.head} {parsed.findings} findings\n"
+    if is_filed_receipt(receipt, owner, repo):
+        filed_count = parsed.findings - parsed.ruled_out
+        stdout.write(f"FILED {target} ({filed_count} findings filed: {filed})\n")
+        return 0
+    filed_route = (
+        f" (pass {pass_number}: {FULL_REVIEW_PASS_COUNT} full passes are done, so file "
+        "these findings in one issue and record this pass again with --filed <issue url>; "
+        "fix a security finding in this pull request instead)"
+        if is_past_full_passes(pass_number)
+        else ""
     )
+    stdout.write(f"REVIEWED {target} {parsed.findings} findings{filed_route}\n")
     return 1
 
 

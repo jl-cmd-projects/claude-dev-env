@@ -1,6 +1,6 @@
 """Read the review receipts ``scripts/merge_review_receipt.py`` writes.
 
-A numbered receipt covers one pull request. An open receipt covers one head
+A numbered receipt covers one pull request and counts its review passes. An open receipt covers one head
 reviewed before its pull request opened.
 """
 
@@ -18,6 +18,8 @@ if hooks_directory not in sys.path:
 
 from hooks_constants.merge_review_gate_constants import (
     ALL_RECEIPT_DIRECTORY_SEGMENTS,
+    FILED_ISSUE_LINK_PATTERN,
+    FULL_REVIEW_PASS_COUNT,
     OPEN_HEAD_PATTERN,
     OPEN_RECEIPT_DIRECTORY_NAME,
     OPEN_RECEIPT_FILE_NAME_TEMPLATE,
@@ -25,8 +27,10 @@ from hooks_constants.merge_review_gate_constants import (
     OPEN_RECEIPT_HEAD_PATTERN,
     RECEIPT_DIRECTORY_ENVIRONMENT_VARIABLE,
     RECEIPT_FILE_NAME_TEMPLATE,
+    RECEIPT_FILED_KEY,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
+    RECEIPT_PASS_KEY,
     RECEIPT_RULED_OUT_KEY,
     RECEIPT_RULING_LINES_KEY,
     RECEIPT_RULINGS_KEY,
@@ -80,6 +84,99 @@ def open_receipt_path(owner: str, repo: str, head: str) -> Path:
         / OPEN_RECEIPT_FILE_NAME_TEMPLATE.format(
             owner=owner.casefold(), repo=repo.casefold(), head=head.casefold()
         )
+    )
+
+
+def read_receipt(path: Path) -> dict[str, object] | None:
+    """Return the parsed receipt at a path, or None when it is missing or unreadable.
+
+    Args:
+        path: The receipt file.
+
+    Returns:
+        The receipt fields, or None when the file is absent, unreadable, or not a JSON object.
+    """
+    try:
+        all_receipt_fields = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return all_receipt_fields if isinstance(all_receipt_fields, dict) else None
+
+
+def recorded_pass_number(all_receipt_fields: dict[str, object]) -> int:
+    """Return which review pass on the pull request a numbered receipt records.
+
+    A receipt written before passes were counted, or one whose count is not a
+    whole number from 1, counts as pass 1::
+
+        {head: abc1234, findings: 2, pass: 4} -> 4
+        {head: abc1234, findings: 2}          -> 1
+        {head: abc1234, findings: 2, pass: "4"} -> 1
+
+    Args:
+        all_receipt_fields: The parsed receipt of one review pass.
+
+    Returns:
+        The pass number, 1 or more.
+    """
+    pass_number = all_receipt_fields.get(RECEIPT_PASS_KEY)
+    return pass_number if _is_count(pass_number) and pass_number >= 1 else 1
+
+
+def is_past_full_passes(pass_number: int) -> bool:
+    """Return whether a pass comes after the three full passes with fixes.
+
+    Args:
+        pass_number: Which review pass on the pull request this is, from 1.
+
+    Returns:
+        True from pass 4 on, where findings may be filed in one issue.
+    """
+    return pass_number > FULL_REVIEW_PASS_COUNT
+
+
+def is_issue_link_in(link: object, owner: str, repo: str) -> bool:
+    """Return whether a link names an issue in one repository.
+
+    Args:
+        link: The link a receipt or a command gives.
+        owner: Repository owner.
+        repo: Repository name.
+
+    Returns:
+        True for ``https://github.com/<owner>/<repo>/issues/<number>`` and nothing else.
+    """
+    issue_match = FILED_ISSUE_LINK_PATTERN.fullmatch(link) if isinstance(link, str) else None
+    return (
+        issue_match is not None
+        and issue_match["owner"].casefold() == owner.casefold()
+        and issue_match["repo"].casefold() == repo.casefold()
+    )
+
+
+def is_filed_receipt(all_receipt_fields: dict[str, object], owner: str, repo: str) -> bool:
+    """Return whether a recorded pass filed its findings in one issue after three full passes.
+
+    The loop runs three full passes with fixes. Findings a later pass still
+    reports go into one issue in the same repository, and the merge goes on::
+
+        findings 2, pass 4, filed .../acme/tools/issues/40 -> filed
+        findings 2, pass 3, filed .../acme/tools/issues/40 -> not filed, a full pass
+        findings 2, pass 4, filed .../acme/other/issues/40 -> not filed
+        findings 2, pass 4, filed .../acme/tools/pull/40   -> not filed
+
+    Args:
+        all_receipt_fields: The parsed receipt of one review pass.
+        owner: Owner of the pull request the merge targets.
+        repo: Repository of the pull request the merge targets.
+
+    Returns:
+        True when the pass counts as filed.
+    """
+    return (
+        _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY))
+        and is_past_full_passes(recorded_pass_number(all_receipt_fields))
+        and is_issue_link_in(all_receipt_fields.get(RECEIPT_FILED_KEY), owner, repo)
     )
 
 
@@ -149,11 +246,8 @@ def _reports_no_findings(all_receipt_fields: dict[str, object]) -> bool:
 def _is_open_receipt_for(
     path: Path, head: str, is_acceptable_pass: Callable[[dict[str, object]], bool]
 ) -> bool:
-    try:
-        all_receipt_fields = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return False
-    if not isinstance(all_receipt_fields, dict):
+    all_receipt_fields = read_receipt(path)
+    if all_receipt_fields is None:
         return False
     recorded_head = all_receipt_fields.get(RECEIPT_HEAD_KEY)
     return (

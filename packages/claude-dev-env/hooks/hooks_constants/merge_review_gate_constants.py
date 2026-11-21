@@ -152,6 +152,9 @@ RULINGS_LINK_PATTERN = re.compile(
     r"https://github\.com/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/pull/(?P<number>\d+)"
     r"#issuecomment-\d+"
 )
+FILED_ISSUE_LINK_PATTERN = re.compile(
+    r"https://github\.com/(?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)/issues/(?P<number>\d+)"
+)
 RULING_PATH_SEGMENT = r"(?!\.{1,2}(?![^\x00-\x1f:,/\\]))[^\x00-\x1f:,/\\]+"
 RULING_REFERENCE_PATTERN = re.compile(
     r"(?P<path>" + RULING_PATH_SEGMENT + r"(?:/" + RULING_PATH_SEGMENT + r")*):(?P<line>[1-9]\d*)"
@@ -212,31 +215,34 @@ RECEIPT_FINDINGS_KEY = "findings"
 RECEIPT_RULED_OUT_KEY = "ruled_out"
 RECEIPT_RULINGS_KEY = "rulings"
 RECEIPT_RULING_LINES_KEY = "ruling_lines"
+RECEIPT_PASS_KEY = "pass"
+RECEIPT_FILED_KEY = "filed"
+FULL_REVIEW_PASS_COUNT = 3
 RECORD_COMMAND = "python3 ~/.claude/scripts/merge_review_receipt.py"
 
 NO_CLEAN_REVIEW_REASON_TEMPLATE = (
     "{slug}#{number} has no clean review on the head you are merging. Run the review "
-    "loop: review the pull request head with `{review_command}`, fix and push every "
-    "finding, and review again. After three full passes, each later pass is "
-    "`/code-review low --fix {number}`, which names the pull request so the diff "
-    "covers its base: commit and push its fixes, then review the new head. "
-    "Repeat until a pass reports zero findings or every finding is ruled out with file:line "
-    "evidence. Record that pass with `"
+    "loop, three full passes with fixes: review the pull request head with "
+    "`{review_command}`, fix and push every finding, record the pass, and review the new "
+    "head. Rule a finding out only with file:line evidence. A pass that reports zero "
+    "findings, or rules out every one, is clean: record it with `"
     + RECORD_COMMAND
     + " {slug} {number} <head sha> <finding count>`, adding `--ruled-out <finding count> "
     "--rulings <link to the rulings comment on this pull request>` when every finding is "
-    "ruled out, then merge "
-    "pinned to that head."
+    "ruled out. After the third pass, review the new head with `/code-review low {number}`, "
+    "which names the pull request so the diff covers its base. If that pass still reports "
+    "findings, do not loop again: file one issue in {slug} that lists them, record the pass "
+    "with `--filed <issue url>`, and merge. Fix a security finding in this pull request or "
+    "rule it out with evidence; never file it. Then merge pinned to the recorded head."
 )
 UNPINNED_MERGE_REASON_TEMPLATE = (
-    "{slug}#{number} has a clean review for {head}, but this merge names no head. "
-    "Pass expectedHeadSha (merge tool) or --match-head-commit (gh pr merge) set to "
-    "{head}, so a push after the review cannot ride the merge."
+    "{slug}#{number} has a recorded review that lets the merge go on at {head}, but this "
+    "merge names no head. Pass expectedHeadSha (merge tool) or --match-head-commit "
+    "(gh pr merge) set to {head}, so a push after the review cannot ride the merge."
 )
 STALE_REVIEW_REASON_TEMPLATE = (
-    "{slug}#{number} was reviewed clean at {head}, and this merge names {pinned}. "
-    "Review the new head until a pass reports zero findings or every finding is ruled "
-    "out, record it, then merge."
+    "{slug}#{number} was reviewed at {head}, and this merge names {pinned}. "
+    "Review the new head, record that pass, then merge pinned to it."
 )
 AUTO_MERGE_REASON_TEMPLATE = (
     "Auto-merge on {slug}#{number} names no head, so it could merge a head no review "
