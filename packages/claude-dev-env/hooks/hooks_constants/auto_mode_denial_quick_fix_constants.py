@@ -35,6 +35,7 @@ __all__ = [
     "USER_MESSAGE_TEMPLATE",
     "CLASSIFIER_REASON_PREFIX_PATTERN",
     "QUESTION_CONTEXT_TEMPLATE",
+    "ALL_ISSUE_FILING_TOOL_SUFFIXES",
     "DEFAULT_TOOL_NAME",
 ]
 
@@ -122,6 +123,7 @@ CLASSIFIER_REASON_PREFIX_PATTERN = (
 QUESTION_CONTEXT_TEMPLATE = """
 
 === AUTO MODE REFUSAL ===
-Do not write out the two fixes above, and do not ask the user about this refusal: send no AskUserQuestion and no decision card. Do not file it yet. When the turn ends, the Stop hook lists its ledger ids and orders the filing, as the `File the refusal` section of {playbook_path} says. Its question line is:
+Do not write out the two fixes above, and do not ask the user about this refusal: send no AskUserQuestion and no decision card. Before the turn ends, file it as a GitHub issue, as the `File the refusal` section of {playbook_path} says. Its question line is:
 {question}
-Go on with other work."""
+When auto mode refuses the GitHub write, say so in one line and do not try again. Go on with other work."""
+ALL_ISSUE_FILING_TOOL_SUFFIXES = ("__issue_write", "__add_issue_comment")

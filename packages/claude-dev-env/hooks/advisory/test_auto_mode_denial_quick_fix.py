@@ -216,7 +216,7 @@ def test_should_append_the_question_only_when_the_flow_is_on(
     assert "=== AUTO MODE REFUSAL ===" in context_text
     assert "do not ask the user about this refusal" in context_text
     assert "AskUserQuestion call" not in context_text
-    assert "Do not file it yet" in context_text
+    assert "When auto mode refuses the GitHub write" in context_text
     assert "Auto mode refused 1 Bash step under the Git Destructive rule." in context_text
 
 
@@ -639,3 +639,26 @@ def test_should_skip_only_a_rule_branch_commit_or_push_in_a_rule_worktree(
     )
     auto_mode_denial_quick_fix.hook_output_with_ledger(payload)
     assert _entry_file_count(ledger_directory) == (2 if is_entry_expected else 1)
+
+
+@pytest.mark.parametrize(
+    "tool_name", ["mcp__github__issue_write", "mcp__github__add_issue_comment"]
+)
+def test_should_record_no_entry_for_a_refused_issue_filing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    scratch_config_directory: Path,
+    tool_name: str,
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    payload = _ledger_payload(
+        tmp_path,
+        tool_name=tool_name,
+        tool_input={"owner": "o", "repo": "r", "body": "Auto mode refused 1 Bash step"},
+        reason="[Data Exfiltration] posts session data",
+    )
+    assert auto_mode_denial_quick_fix.hook_output_with_ledger(
+        payload
+    ) == auto_mode_denial_quick_fix.build_hook_output(payload)
+    ledger_directory = scratch_config_directory / "state" / "auto-mode-refusals" / "session-1"
+    assert list(ledger_directory.glob("*.json")) == []

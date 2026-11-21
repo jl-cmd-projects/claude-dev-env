@@ -70,6 +70,7 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     NO_VERDICT_CONTEXT_TEMPLATE,
     POWERSHELL_BLOCK_TEMPLATE,
     QUESTION_CONTEXT_TEMPLATE,
+    ALL_ISSUE_FILING_TOOL_SUFFIXES,
     RULE_LABEL_DISALLOWED_CHARACTER_PATTERN,
     SENTENCE_END_PATTERN,
     SUMMARY_WORD_SEPARATOR,
@@ -352,6 +353,8 @@ def _question_context_for(all_denial_fields: dict[str, object]) -> str | None:
     refused_step = _refused_step_from(all_denial_fields)
     if repository_root is None or refused_step is None:
         return None
+    if refused_step.tool_name.endswith(ALL_ISSUE_FILING_TOOL_SUFFIXES):
+        return None
     question = auto_mode_refusal_ledger.record_refusal(refused_step, repository_root)
     if question is None:
         return None
@@ -366,6 +369,7 @@ def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, o
         flow off or playbook missing      -> build_hook_output, byte for byte
         playbook with no repository above -> build_hook_output
         flow on, question returned        -> same, plus the AUTO MODE REFUSAL block
+        flow on, a refused issue filing   -> build_hook_output, no ledger entry
         any ledger or transcript error    -> build_hook_output
 
     Args:
