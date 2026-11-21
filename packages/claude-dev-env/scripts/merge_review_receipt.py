@@ -500,9 +500,9 @@ def _unfiled_note(pass_number: int, filed: str, rulings: str) -> str:
         return ""
     if filed and rulings:
         return (
-            f" (pass {pass_number}: not filed, because --rulings {rulings} is not a comment "
-            "or review on this pull request; post the rulings on this pull request and "
-            "record this pass again with that link)"
+            f" (pass {pass_number}: not filed, because --rulings {rulings} is not an issue "
+            "comment link (#issuecomment-) on this pull request; post the rulings as a comment "
+            "on this pull request and record this pass again with that link)"
         )
     return (
         f" (pass {pass_number}: {FULL_REVIEW_PASS_COUNT} full passes are done, so file "

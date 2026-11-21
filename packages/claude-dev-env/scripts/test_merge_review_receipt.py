@@ -518,7 +518,7 @@ def test_should_report_reviewed_when_a_filed_pass_links_rulings_on_another_pull_
     assert exit_code == 1
     verdict = verdict_stream.getvalue()
     assert verdict.startswith(f"REVIEWED acme/tools#12 {HEAD} 3 findings")
-    assert "--rulings https://github.com/acme/tools/pull/99#issuecomment-1 is not a comment" in verdict
+    assert "--rulings https://github.com/acme/tools/pull/99#issuecomment-1 is not an issue comment link" in verdict
     assert "--filed <issue url>" not in verdict
 
 
