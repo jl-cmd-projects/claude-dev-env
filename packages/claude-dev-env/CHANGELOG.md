@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.135.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.0...claude-dev-env-v8.135.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **private-terms:** skip the author's attribution marker line in a pull request body ([#2479](https://github.com/jl-cmd-projects/claude-dev-env/issues/2479)) ([795a091](https://github.com/jl-cmd-projects/claude-dev-env/commit/795a0916c2cc189c20fd1f531ce17b90a71b043f))
+
 ## [8.135.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.134.1...claude-dev-env-v8.135.0) (2026-11-21)
 
 
