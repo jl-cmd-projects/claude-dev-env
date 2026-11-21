@@ -155,12 +155,6 @@ def test_record_open_review_should_refuse_a_ruling_the_head_lacks(receipt_folder
     assert not (receipt_folder / "heads").exists()
 
 
-def test_should_exit_one_for_an_open_pass_with_findings() -> None:
-    verdict_stream = StringIO()
-    assert merge_review_receipt.main(["acme/tools", "open", HEAD, "2"], verdict_stream) == 1
-    assert verdict_stream.getvalue() == f"REVIEWED acme/tools open {HEAD} 2 findings\n"
-
-
 @pytest.mark.parametrize(
     "all_arguments",
     [
@@ -260,7 +254,7 @@ def test_should_report_reviewed_and_keep_the_rulings_when_some_open_findings_sta
         verdict_stream,
     )
     assert exit_code == 1
-    assert verdict_stream.getvalue() == f"REVIEWED acme/tools open {head} 3 findings\n"
+    assert verdict_stream.getvalue().startswith(f"REVIEWED acme/tools open {head} 3 findings (")
     receipt = json.loads((receipt_folder / "heads" / f"acme__tools__{head}.json").read_text())
     assert receipt == {
         "head": head,
@@ -492,12 +486,24 @@ def test_should_refuse_filed_when_no_finding_is_left_to_file(
     assert _stored_receipt(receipt_folder)["pass"] == 3
 
 
-def test_should_refuse_filed_on_an_open_pass(receipt_folder: Path) -> None:
+def test_should_refuse_filed_on_an_open_pass(
+    receipt_folder: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with pytest.raises(SystemExit):
         merge_review_receipt.main(
             ["acme/tools", "open", HEAD, "2", "--filed", ISSUE_LINK], StringIO()
         )
+    assert "fix its findings in new commits and open the pull request" in capsys.readouterr().err
     assert list(receipt_folder.iterdir()) == []
+
+
+def test_should_name_the_fix_commits_route_when_an_open_pass_reports_findings() -> None:
+    verdict_stream = StringIO()
+    assert merge_review_receipt.main(["acme/tools", "open", HEAD, "2"], verdict_stream) == 1
+    assert verdict_stream.getvalue() == (
+        f"REVIEWED acme/tools open {HEAD} 2 findings (fix them in new commits on top of "
+        f"{HEAD}, then open the pull request; the fix commits need no second pass)\n"
+    )
 
 
 def test_should_name_the_filed_route_when_a_pass_after_the_third_reports_findings() -> None:

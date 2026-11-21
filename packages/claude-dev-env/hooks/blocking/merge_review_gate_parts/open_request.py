@@ -21,10 +21,14 @@ from blocking.gate_run_reads import (
     child_stdout,
 )
 from hooks_constants.merge_review_gate_constants import (
+    ALL_BRANCH_REFERENCE_PREFIXES,
+    ALL_FIRST_PARENT_LISTING_ARGUMENTS,
+    ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
     ALL_NON_INTERACTIVE_GIT_SETTINGS,
     ALL_ORIGIN_URL_ARGUMENTS,
     ALL_SHELL_TOOL_NAMES,
     CHANGE_FOLDER_PATTERN,
+    CONTAINS_OPTION_TEMPLATE,
     CREATE_TEXT_OPTION_PATTERN,
     CREATE_TOOL_SUFFIX,
     CURRENT_HEAD_REFERENCE,
@@ -39,6 +43,9 @@ from hooks_constants.merge_review_gate_constants import (
     LONG_HEAD_OPTION,
     LONG_REPOSITORY_OPTION,
     LS_REMOTE_FIELD_SEPARATOR,
+    MAX_COUNT_OPTION_TEMPLATE,
+    NO_CONTAINS_OPTION_TEMPLATE,
+    OPEN_REVIEW_ANCESTOR_LIMIT,
     ORIGIN_URL_PATTERN,
     ORIGIN_URL_QUESTION,
     OWNER_FIELD,
@@ -61,11 +68,13 @@ class OpenRequest:
         owner: Repository owner, or empty when it could not be read.
         repo: Repository name, or empty when it could not be read.
         head: The commit the pull request would open with, or None.
+        folder: The folder the open runs in, where git reads the head's history.
     """
 
     owner: str
     repo: str
     head: str | None
+    folder: str | None = field(default=None, compare=False)
 
     @property
     def slug(self) -> str:
@@ -188,7 +197,7 @@ def _tool_open_request(call: ToolOpenCall) -> OpenRequest:
         if call.branch
         else None
     )
-    return OpenRequest(owner=call.owner, repo=call.repo, head=head)
+    return OpenRequest(owner=call.owner, repo=call.repo, head=head, folder=call.folder)
 
 
 def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
@@ -196,7 +205,74 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         owner, repo = call.repository or ("", "")
         return OpenRequest(owner=owner, repo=repo, head=None)
     owner, repo = call.repository or _origin_repository(call.folder)
-    return OpenRequest(owner=owner, repo=repo, head=_branch_commit(call.branch, call.folder))
+    return OpenRequest(
+        owner=owner, repo=repo, head=_branch_commit(call.branch, call.folder), folder=call.folder
+    )
+
+
+def first_parent_ancestors(head: str, folder: str | None) -> tuple[str, ...]:
+    """Return the commits before a head along its first parents, newest first.
+
+    Fix commits on a branch sit on top of the head a review pass saw, so that
+    head is among them. A side branch merged in is left out, since only first
+    parents are followed::
+
+        reviewed abc123, fix def456, fix 789abc; head 789abc -> (def456, abc123, ...)
+        a head the folder has no history for                 -> ()
+
+    The walk stops after OPEN_REVIEW_ANCESTOR_LIMIT commits.
+
+    Args:
+        head: The commit the pull request would open with.
+        folder: The folder git reads the history in.
+
+    Returns:
+        The full commit names, the head itself left out.
+    """
+    listing = _run_git(
+        [
+            *ALL_FIRST_PARENT_LISTING_ARGUMENTS,
+            MAX_COUNT_OPTION_TEMPLATE.format(count=OPEN_REVIEW_ANCESTOR_LIMIT + 1),
+            head,
+        ],
+        folder,
+    )
+    return tuple(listing.split()[1:]) if listing else ()
+
+
+def is_held_by_another_line(commit: str, head: str, folder: str | None) -> bool:
+    """Return whether a branch that lacks the head holds a commit.
+
+    A review pass on the branch's own earlier commit covers the fix commits
+    on top of it. A commit some other branch holds without the head, such as
+    a commit of ``main`` or of the branch this one stacks on, is not this
+    branch's review::
+
+        feature holds reviewed abc123 and head def456      -> False
+        second stacks on feature at abc123, head def456    -> True, feature lacks def456
+        main holds abc123, the head branches off main      -> True
+
+    Local branches and remote branches are both read. A read that fails
+    reads as no other branch.
+
+    Args:
+        commit: The commit a review pass saw.
+        head: The commit the pull request would open with.
+        folder: The folder git reads the branches in.
+
+    Returns:
+        True when some branch holds ``commit`` and not ``head``.
+    """
+    listing = _run_git(
+        [
+            *ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
+            CONTAINS_OPTION_TEMPLATE.format(commit=commit),
+            NO_CONTAINS_OPTION_TEMPLATE.format(commit=head),
+            *ALL_BRANCH_REFERENCE_PREFIXES,
+        ],
+        folder,
+    )
+    return listing is not None
 
 
 def _tool_open_call(all_tool_input: dict[object, object], folder: str | None) -> ToolOpenCall:

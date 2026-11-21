@@ -20,6 +20,8 @@ from blocking.merge_review_gate_parts import open_request
 from blocking.merge_review_gate_parts.open_request import (
     OpenRequest,
     ShellOpenCall,
+    first_parent_ancestors,
+    is_held_by_another_line,
     open_calls_from,
     open_request_for,
 )
@@ -251,6 +253,37 @@ def test_should_read_a_shell_open_branch_from_the_checkout(tmp_path: Path) -> No
     head = _commit(checkout, "first")
     payload = _shell_payload("gh pr create --repo acme/tools --head feature", checkout)
     assert _only_request(payload) == OpenRequest(owner="acme", repo="tools", head=head)
+
+
+def test_should_list_the_first_parent_commits_before_a_head_newest_first(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    first = _commit(checkout, "first")
+    second = _commit(checkout, "second")
+    head = _commit(checkout, "third")
+    assert first_parent_ancestors(head, str(checkout)) == (second, first)
+
+
+def test_should_list_no_commits_before_a_head_the_folder_cannot_read(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    assert first_parent_ancestors("1" * 40, str(checkout)) == ()
+
+
+def test_should_find_a_commit_another_branch_holds_without_the_head(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    reviewed = _commit(checkout, "reviewed")
+    _git(checkout, "checkout", "--quiet", "-b", "second")
+    head = _commit(checkout, "second work")
+    assert is_held_by_another_line(reviewed, head, str(checkout)) is True
+
+
+def test_should_not_count_the_branch_that_holds_both_the_commit_and_the_head(
+    tmp_path: Path,
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    reviewed = _commit(checkout, "reviewed")
+    head = _commit(checkout, "fix")
+    assert is_held_by_another_line(reviewed, head, str(checkout)) is False
 
 
 def test_should_read_no_open_from_a_merge_command(tmp_path: Path) -> None:

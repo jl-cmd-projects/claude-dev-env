@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from blocking.merge_review_gate_parts.receipts import (
     has_clean_open_review,
+    open_reviewed_heads_among,
     has_zero_finding_open_review,
     is_clean_open_pass,
     is_filed_receipt,
@@ -65,6 +66,27 @@ def test_should_find_an_open_review_whose_findings_are_ruled_out_at_file_and_lin
 def test_should_reject_an_open_review_whose_rulings_cover_fewer_findings() -> None:
     _write_open_receipt(2, {"ruled_out": 2, "ruling_lines": ["a.py:1"]})
     assert has_clean_open_review("tools", HEAD[:7]) is False
+
+
+@pytest.mark.parametrize("finding_count", [0, 2])
+def test_should_find_an_open_review_on_an_earlier_commit_whatever_it_found(
+    finding_count: int,
+) -> None:
+    _write_open_receipt(finding_count)
+    assert open_reviewed_heads_among("Tools", ["1" * 40, HEAD.upper()]) == [HEAD]
+
+
+def test_should_find_no_open_review_among_commits_it_did_not_review() -> None:
+    _write_open_receipt(2)
+    assert open_reviewed_heads_among("tools", ["1" * 40]) == []
+    assert open_reviewed_heads_among("other", [HEAD]) == []
+
+
+def test_should_skip_an_open_review_whose_finding_count_is_not_a_count() -> None:
+    path = open_receipt_path("acme", "tools", HEAD)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"head": HEAD, "findings": "two"}), encoding="utf-8")
+    assert open_reviewed_heads_among("tools", [HEAD]) == []
 
 
 def test_should_find_a_zero_finding_open_review_by_short_head() -> None:

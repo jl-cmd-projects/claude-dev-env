@@ -428,7 +428,7 @@ def test_should_deny_a_pull_request_open_with_no_review(branch_checkout: tuple[P
     folder, head = branch_checkout
     reason = _deny_reason(_create_tool(folder))
     assert f"no clean review for head {head}" in reason
-    assert f"acme/tools open {head} 0" in reason
+    assert "acme/tools open <reviewed head sha> <finding count>" in reason
     assert "--ruled-out" in reason
     assert "--rulings" in reason
 
@@ -471,6 +471,100 @@ def test_should_deny_a_pull_request_open_after_a_push_past_the_review(
     folder, _head = branch_checkout
     merge_review_receipt.record_open_review("acme/tools", NEW_HEAD, 0)
     assert "no clean review" in _deny_reason(_create_tool(folder))
+
+
+def _commit_and_push(folder: Path, github_repository: Path, message: str) -> str:
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        message,
+    )
+    _git(folder, "push", "--quiet", "--force", str(github_repository), "HEAD:feature")
+    return _git(folder, "rev-parse", "HEAD")
+
+
+def test_should_allow_a_pull_request_open_after_fix_commits_on_one_review_pass_with_findings(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix one")
+    _commit_and_push(folder, github_repository, "fix two")
+    assert _reason(_create_tool(folder)) is None
+    assert _reason(_bash_in(folder, "gh pr create --fill")) is None
+
+
+def test_should_deny_a_pull_request_open_whose_earlier_review_names_another_repository(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/other", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    assert "no clean review" in _deny_reason(_create_tool(folder))
+
+
+def test_should_deny_a_pull_request_open_whose_review_sits_only_on_a_merged_side_branch(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, _head = branch_checkout
+    _git(folder, "checkout", "--quiet", "-b", "side")
+    side_head = _commit_and_push(folder, github_repository, "side")
+    _git(folder, "checkout", "--quiet", "feature")
+    _commit_and_push(folder, github_repository, "feature work")
+    merge_review_receipt.record_open_review("acme/tools", side_head, 0)
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "merge",
+        "--quiet",
+        "--no-ff",
+        "-m",
+        "merge side",
+        "side",
+    )
+    _git(folder, "branch", "--quiet", "-D", "side")
+    _git(folder, "push", "--quiet", "--force", str(github_repository), "HEAD:feature")
+    assert "no clean review" in _deny_reason(_create_tool(folder))
+
+
+def test_should_deny_a_pull_request_open_whose_only_review_sits_on_the_branch_it_stacks_on(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, base_branch_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", base_branch_head, 0)
+    _git(folder, "checkout", "--quiet", "-b", "stacked")
+    _commit_and_push(folder, github_repository, "stacked work")
+    assert "no clean review" in _deny_reason(_create_tool(folder))
+
+
+def test_should_name_one_review_pass_then_fixes_when_an_open_is_denied(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, _head = branch_checkout
+    reason = _deny_reason(_create_tool(folder))
+    assert "one review pass" in reason
+    assert "no second pass" in reason
+    assert "until a pass reports zero findings" not in reason
+
+
+def test_should_deny_a_merge_pinned_to_a_fix_commit_after_an_open_pass_with_findings(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, reviewed_head = branch_checkout
+    monkeypatch.chdir(folder)
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    fixed_head = _commit_and_push(folder, github_repository, "fix")
+    assert "no clean review" in _deny_reason(_merge_tool(fixed_head))
 
 
 def test_should_read_gh_pr_create_with_repo_and_head(branch_checkout: tuple[Path, str]) -> None:

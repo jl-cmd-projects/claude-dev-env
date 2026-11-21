@@ -1,7 +1,7 @@
 """Read the review receipts ``scripts/merge_review_receipt.py`` writes.
 
 A numbered receipt covers one pull request and counts its review passes. An open receipt covers one head
-reviewed before its pull request opened.
+reviewed before its pull request opened, and the fix commits on top of it.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 hooks_directory = str(Path(__file__).resolve().parent.parent.parent)
@@ -203,6 +203,46 @@ def has_clean_open_review(repo: str, head: str) -> bool:
         True when a clean open receipt covers that head.
     """
     return _has_open_review(repo, head, is_clean_open_pass)
+
+
+def open_reviewed_heads_among(repo: str, all_earlier_heads: Sequence[str]) -> list[str]:
+    """Return which of some earlier commits a pass recorded before the pull request opened saw.
+
+    One review pass comes before the open, and its findings are fixed in new
+    commits on top of the head it saw. A recorded pass on an earlier commit
+    counts whatever it found::
+
+        open receipt {head: abc1234..., findings: 2}, earlier [def5678..., abc1234...] -> [abc1234...]
+        open receipt {head: abc1234..., findings: 0}, earlier [def5678...]             -> []
+        open receipt {head: abc1234..., findings: "two"}, earlier [abc1234...]          -> []
+
+    The owner is left out of the match, as in ``has_clean_open_review``.
+
+    Args:
+        repo: Repository name.
+        all_earlier_heads: Full commit names before the head the open names.
+
+    Returns:
+        The recorded heads, lowercased, in no set order.
+    """
+    all_wanted_heads = {each_head.casefold() for each_head in all_earlier_heads}
+    folder = receipt_directory() / OPEN_RECEIPT_DIRECTORY_NAME
+    pattern = OPEN_RECEIPT_GLOB_TEMPLATE.format(repo=repo.casefold())
+    all_found_heads = (
+        _recorded_pass_head(read_receipt(each_path)) for each_path in folder.glob(pattern)
+    )
+    return sorted(
+        {each_head for each_head in all_found_heads if each_head in all_wanted_heads}
+    )
+
+
+def _recorded_pass_head(all_receipt_fields: dict[str, object] | None) -> str | None:
+    if all_receipt_fields is None or not _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY)):
+        return None
+    recorded_head = all_receipt_fields.get(RECEIPT_HEAD_KEY)
+    if not isinstance(recorded_head, str) or not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(recorded_head):
+        return None
+    return recorded_head.casefold()
 
 
 def has_zero_finding_open_review(repo: str, head: str) -> bool:

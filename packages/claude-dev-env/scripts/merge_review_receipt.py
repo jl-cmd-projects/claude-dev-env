@@ -25,10 +25,14 @@ issue::
 
 Before pass 4, ``--filed`` is refused.
 
-A pass run before the pull request exists names ``open`` in place of the
-number, and records the head it reviewed::
+One review pass runs before the pull request exists. It names ``open`` in
+place of the number and records the head it reviewed. Its findings are fixed
+in new commits on top of that head, and the pull request opens with no
+second pass::
 
     python3 merge_review_receipt.py owner/name open def5678 0   -> CLEAN owner/name open def5678
+    python3 merge_review_receipt.py owner/name open def5678 2   -> REVIEWED owner/name open def5678 2 findings (fix them ...)
+    commit the fixes on top of def5678, then open the pull request
 
 No pull request exists to hold a rulings comment, so an ``open`` pass rules
 out its findings with a different ``path:line`` for each, run in the checkout
@@ -39,7 +43,9 @@ that holds the head. Each line must exist in the file at that head::
 
 ``hooks/blocking/merge_review_gate.py`` allows a merge pinned to the head of
 the newest pass only when that pass is clean or filed. It allows a pull request open
-whose head has a clean ``open`` pass. It allows a merge pinned to that same
+whose head has a clean ``open`` pass, or whose head sits on fix commits above the
+head of any ``open`` pass. An ``open`` pass does not take ``--filed`` and does
+not count toward the three full passes on the pull request. It allows a merge pinned to that same
 head only when the ``open`` pass found zero findings. Ruled-out findings need
 a numbered pass that links the rulings comment on the pull request.
 """
@@ -304,8 +310,9 @@ def _record_open_pass(
         parser.error("findings must be zero or more")
     if parsed.filed.strip():
         parser.error(
-            f"an {OPEN_TARGET_WORD} pass cannot take --filed: findings are filed only after "
-            f"{FULL_REVIEW_PASS_COUNT} full passes with fixes on the pull request"
+            f"an {OPEN_TARGET_WORD} pass cannot take --filed: one review pass comes before the "
+            "open, so fix its findings in new commits and open the pull request. Findings are "
+            f"filed only after {FULL_REVIEW_PASS_COUNT} full passes with fixes on the pull request"
         )
     if not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(parsed.head):
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
@@ -323,7 +330,9 @@ def _record_open_pass(
         stdout.write(f"CLEAN {parsed.slug} {OPEN_TARGET_WORD} {parsed.head}{ruled_out_note}\n")
         return 0
     stdout.write(
-        f"REVIEWED {parsed.slug} {OPEN_TARGET_WORD} {parsed.head} {parsed.findings} findings\n"
+        f"REVIEWED {parsed.slug} {OPEN_TARGET_WORD} {parsed.head} {parsed.findings} findings "
+        f"(fix them in new commits on top of {parsed.head}, then open the pull request; "
+        "the fix commits need no second pass)\n"
     )
     return 1
 

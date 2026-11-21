@@ -139,6 +139,13 @@ OPEN_RECEIPT_HEAD_PATTERN = re.compile(r"[0-9a-fA-F]{40}")
 REPOSITORY_SLUG_PATTERN = re.compile(r"[\w.-]+/[\w.-]+")
 REMOTE_BRANCH_PREFIX = "origin/"
 CURRENT_HEAD_REFERENCE = "HEAD"
+OPEN_REVIEW_ANCESTOR_LIMIT = 100
+ALL_FIRST_PARENT_LISTING_ARGUMENTS = ("rev-list", "--first-parent")
+MAX_COUNT_OPTION_TEMPLATE = "--max-count={count}"
+ALL_OTHER_LINE_REFERENCE_ARGUMENTS = ("for-each-ref", "--count=1", "--format=%(refname)")
+CONTAINS_OPTION_TEMPLATE = "--contains={commit}"
+NO_CONTAINS_OPTION_TEMPLATE = "--no-contains={commit}"
+ALL_BRANCH_REFERENCE_PREFIXES = ("refs/heads", "refs/remotes")
 
 GH_PR_MERGE_PATTERN = re.compile(r"(?:^|[\s;&|(])gh(?:\.exe)?\s+pr\s+merge\b(?P<rest>[^;&|]*)")
 GH_API_MERGE_PATTERN = re.compile(
@@ -254,20 +261,19 @@ UNKNOWN_TARGET_REASON = (
     "Name both, such as `gh pr merge 12 --repo owner/name --match-head-commit <sha>`."
 )
 NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE = (
-    "{slug} has no clean review for head {head}, which this pull request would open with. "
-    "Review the branch diff with `{review_command}`, fix and push every finding, and review "
-    "again until a pass reports zero findings or every finding is ruled out with file:line "
-    "evidence. Record a pass with zero findings with `"
+    "{slug} has no clean review for head {head}, which this pull request would open with, "
+    "and no review pass on a commit before it on this branch. Run one review pass on the "
+    "branch diff with `{review_command}`, and `/security-review` where it is installed, then "
+    "record that pass with `"
     + RECORD_COMMAND
     + " {slug} "
     + OPEN_TARGET_WORD
-    + " {head} 0`. Record a pass whose every finding is ruled out with `"
-    + RECORD_COMMAND
-    + " {slug} "
-    + OPEN_TARGET_WORD
-    + " {head} <finding count> --ruled-out <finding count> --rulings <path:line for each "
-    "finding, comma separated>`, each path:line a line this head holds. Then open the pull "
-    "request. A merge pinned to {head} accepts an open pass only at zero findings."
+    + " <reviewed head sha> <finding count>`. Fix each valid finding in a new commit on top "
+    "of the reviewed head, then open the pull request: the fix commits need no second pass. "
+    "A pass with zero findings opens at the reviewed head itself, and so does a pass whose "
+    "every finding is ruled out with `--ruled-out <finding count> --rulings <path:line for "
+    "each finding, comma separated>`, each path:line a line this head holds. A merge pinned "
+    "to {head} accepts an open pass only at zero findings."
 )
 PREFIX_ORIGIN_CHECK_SENTENCE = (
     " This create names its repository only with a `GH_REPO=` prefix, and a wrapper such as "

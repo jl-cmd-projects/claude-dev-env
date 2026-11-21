@@ -1,13 +1,19 @@
-"""Deny an agent's pull request open or merge until a review of that head came back clean.
+"""Deny an agent's pull request open until one review pass, and a merge until a review came back clean.
 
-The agent reviews its branch before it opens the pull request, and loops a
-code review on the pull request, fixing and pushing each finding, until one
+The agent runs one review pass on its branch before it opens the pull
+request and fixes its findings in new commits. It then loops a code review
+on the pull request, fixing and pushing each finding, until one
 pass reports zero findings or every finding it reports is ruled out with a
 link to the posted rulings. After three full passes with fixes, a later pass
 whose findings the agent filed in one issue of the same repository also lets
-the merge go on. The open and the merge then name that exact head::
+the merge go on. The merge names that exact head. The open names the head
+the pass saw or a fix commit on top of it::
 
     open, open receipt says 0 findings at abc123, branch head abc123 -> allow
+    open, open receipt says 2 findings at abc123, fix commits on top -> allow, no second pass
+    open, open receipt says 2 findings at abc123, branch head abc123 -> deny, fix them first
+    open, the only open receipt is on a merged side branch           -> deny, review first
+    open, the only open receipt is on the branch this one stacks on  -> deny, review first
     open, no open receipt for the branch head                        -> deny, review first
     two chained opens, the second head has no clean open receipt      -> deny, review it first
     open whose head the reads could not answer in time                -> deny, head unknown, rerun may pass
@@ -48,12 +54,15 @@ from blocking.merge_review_gate_parts.open_request import (
     OpenCall,
     OpenRequest,
     ShellOpenCall,
+    first_parent_ancestors,
+    is_held_by_another_line,
     open_calls_from,
     open_request_for,
 )
 from blocking.merge_review_gate_parts.receipts import (
     has_clean_open_review,
     has_zero_finding_open_review,
+    open_reviewed_heads_among,
     is_clean_receipt,
     is_filed_receipt,
     read_receipt,
@@ -148,7 +157,11 @@ class MergeRequest:
 
 
 def open_deny_reason(request: OpenRequest) -> str | None:
-    """Return why a pull request open must wait for a clean review, or None to allow it.
+    """Return why a pull request open must wait for a review pass, or None to allow it.
+
+    The open goes on when a clean pass covers its head, or when any recorded
+    pass covers a commit before it along the head's first parents that no
+    other branch holds without the head.
 
     Args:
         request: The open the tool call asks for.
@@ -163,6 +176,14 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     if not request.head:
         return UNKNOWN_OPEN_TARGET_REASON
     if has_clean_open_review(request.repo, request.head):
+        return None
+    all_reviewed_heads = open_reviewed_heads_among(
+        request.repo, first_parent_ancestors(request.head, request.folder)
+    )
+    if any(
+        not is_held_by_another_line(each_reviewed_head, request.head, request.folder)
+        for each_reviewed_head in all_reviewed_heads
+    ):
         return None
     return NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE.format(
         slug=request.slug, head=request.head, review_command=_review_command()
