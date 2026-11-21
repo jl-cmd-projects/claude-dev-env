@@ -11,6 +11,7 @@ import os
 import sys
 from collections.abc import Callable
 from pathlib import Path
+from typing import TypeGuard
 
 hooks_directory = str(Path(__file__).resolve().parent.parent.parent)
 if hooks_directory not in sys.path:
@@ -178,6 +179,12 @@ def is_filed_receipt(
         findings 2, pass 4, filed .../acme/tools/pull/40   -> not filed
         findings 2, pass 4, filed .../acme/tools/issues/12 -> not filed for pull request 12
 
+    Findings the pass rules out stay out of the issue, and need the same
+    rulings link a clean pass needs::
+
+        findings 3, ruled out 1, .../acme/tools/pull/12#issuecomment-9, pass 4, filed -> filed
+        findings 3, ruled out 1, .../acme/tools/pull/99#issuecomment-9, pass 4, filed -> not filed
+
     Args:
         all_receipt_fields: The parsed receipt of one review pass.
         owner: Owner of the pull request the merge targets.
@@ -187,10 +194,23 @@ def is_filed_receipt(
     Returns:
         True when the pass counts as filed.
     """
+    finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
     return (
-        _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY))
+        _is_count(finding_count)
         and is_past_full_passes(recorded_pass_number(all_receipt_fields))
         and is_issue_link_in(all_receipt_fields.get(RECEIPT_FILED_KEY), owner, repo, number)
+        and _leaves_findings_to_file(all_receipt_fields, finding_count, owner, repo, number)
+    )
+
+
+def _leaves_findings_to_file(
+    all_receipt_fields: dict[str, object], finding_count: int, owner: str, repo: str, number: int
+) -> bool:
+    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY, 0)
+    if not _is_count(ruled_out_count) or ruled_out_count >= finding_count:
+        return False
+    return ruled_out_count == 0 or _links_rulings_on(
+        all_receipt_fields.get(RECEIPT_RULINGS_KEY), owner, repo, number
     )
 
 
@@ -359,7 +379,7 @@ def same_commit(first: str, second: str) -> bool:
     return longer.startswith(shorter)
 
 
-def _is_count(candidate: object) -> bool:
+def _is_count(candidate: object) -> TypeGuard[int]:
     return isinstance(candidate, int) and not isinstance(candidate, bool) and candidate >= 0
 
 

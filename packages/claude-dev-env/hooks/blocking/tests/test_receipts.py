@@ -208,6 +208,29 @@ def test_should_match_only_an_issue_link_in_the_named_repository(
         ({"findings": 2, "pass": 4, "filed": "https://github.com/acme/other/issues/40"}, False),
         ({"findings": "2", "pass": 4, "filed": ISSUE_LINK}, False),
         ({"findings": 2, "pass": 4, "filed": "https://github.com/acme/tools/issues/12"}, False),
+        (
+            {"findings": 3, "pass": 4, "ruled_out": 1, "rulings": RULINGS_LINK, "filed": ISSUE_LINK},
+            True,
+        ),
+        (
+            {
+                "findings": 3,
+                "pass": 4,
+                "ruled_out": 1,
+                "rulings": "https://github.com/acme/tools/pull/99#issuecomment-1",
+                "filed": ISSUE_LINK,
+            },
+            False,
+        ),
+        ({"findings": 3, "pass": 4, "ruled_out": 1, "filed": ISSUE_LINK}, False),
+        (
+            {"findings": 3, "pass": 4, "ruled_out": "1", "rulings": RULINGS_LINK, "filed": ISSUE_LINK},
+            False,
+        ),
+        (
+            {"findings": 3, "pass": 4, "ruled_out": 3, "rulings": RULINGS_LINK, "filed": ISSUE_LINK},
+            False,
+        ),
     ],
 )
 def test_should_count_a_pass_as_filed_only_after_three_full_passes(
