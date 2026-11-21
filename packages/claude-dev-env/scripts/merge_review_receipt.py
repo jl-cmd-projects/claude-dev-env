@@ -77,6 +77,8 @@ from hooks_constants.merge_review_gate_constants import (
     FILED_ISSUE_API_PATH_TEMPLATE,
     FILED_ISSUE_API_SUBCOMMAND,
     FILED_ISSUE_CLIENT_NAME,
+    FILED_ISSUE_HOST,
+    FILED_ISSUE_HOST_OPTION,
     FILED_ISSUE_LINK_PATTERN,
     FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS,
     FILED_ISSUE_PAGE_KEY,
@@ -442,9 +444,14 @@ def _is_served_issue(link: str, owner: str, repo: str) -> bool:
     )
     try:
         completed = subprocess.run(
-            [client_path, FILED_ISSUE_API_SUBCOMMAND, api_path],
+            [
+                client_path,
+                FILED_ISSUE_API_SUBCOMMAND,
+                FILED_ISSUE_HOST_OPTION,
+                FILED_ISSUE_HOST,
+                api_path,
+            ],
             capture_output=True,
-            text=True,
             timeout=FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS,
             check=False,
         )

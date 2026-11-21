@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import re
 
-from hooks_constants.merge_review_gate_constants import DEFAULT_REVIEW_COMMAND, RECORD_COMMAND
+from hooks_constants.merge_review_gate_constants import DEFAULT_REVIEW_COMMAND
 
 __all__ = [
     "NAME_DIGEST_TEXT_ENCODING",
@@ -129,14 +129,13 @@ REVIEW_LOOP_CONTEXT_TEMPLATE: str = (
     f"1. Review loop. In Claude Code, run {DEFAULT_REVIEW_COMMAND} {{number}}\n"
     "   in this session. In Codex, load the efficient-review skill (/efficient-review).\n"
     "   Read pr-lifecycle/reference/review-loop-before-merge.md before the first pass.\n"
-    "   Record every pass, from the first, with\n"
-    f"   {RECORD_COMMAND} {{owner}}/{{repository}} {{number}} <head sha> <finding count>,\n"
-    "   since the receipt counts the passes. Check each finding against the code,\n"
-    "   fix every one that holds, push, and review again, for three full passes with\n"
-    "   fixes. Then review the new head with /code-review low {number}. If that pass\n"
-    "   still reports findings, do not loop again: file one issue that lists them,\n"
-    "   record the pass again with --filed <issue url>, and go on to merge. Fix a\n"
-    "   security finding in the PR; never file it.\n"
+    "   Record every pass, from the first, as that reference shows, since the\n"
+    "   receipt counts the passes. Check each finding against the code, fix every\n"
+    "   one that holds, push, and review again, for three full passes with fixes.\n"
+    "   Then review the new head with /code-review low {number}. If that pass still\n"
+    "   reports findings, do not loop again: file one issue that lists them, record\n"
+    "   the pass again with --filed <issue url>, and go on to merge. Fix a security\n"
+    "   finding in the PR; never file it.\n"
     "2. Mark ready. Once the last pass records CLEAN or FILED, CI is green, and no\n"
     "   review thread is open, mark the PR ready for review\n"
     "   (gh pr ready {number} --repo {owner}/{repository}, or update_pull_request\n"

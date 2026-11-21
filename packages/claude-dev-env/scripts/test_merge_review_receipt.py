@@ -23,10 +23,10 @@ GH_STUB_SCRIPT = """#!{python}
 import json, os, sys
 all_responses = json.loads(open(os.environ["GH_ISSUE_STUB"], encoding="utf-8").read())
 api_path = sys.argv[-1]
-if sys.argv[1:2] != ["api"] or api_path not in all_responses:
+if sys.argv[1:4] != ["api", "--hostname", "github.com"] or api_path not in all_responses:
     sys.stderr.write("gh: Not Found (HTTP 404)\\n")
     sys.exit(1)
-sys.stdout.write(json.dumps(all_responses[api_path]))
+sys.stdout.buffer.write(json.dumps(all_responses[api_path], ensure_ascii=False).encode("utf-8"))
 """
 
 
@@ -495,6 +495,30 @@ def test_should_file_only_the_findings_left_after_the_ruled_out_ones() -> None:
     assert verdict_stream.getvalue() == (
         f"FILED acme/tools#12 {HEAD} (2 findings filed: {ISSUE_LINK})\n"
     )
+
+
+def test_should_file_under_an_issue_whose_title_the_local_code_page_cannot_decode(
+    gh_issues: dict[str, object],
+) -> None:
+    gh_issues[ISSUE_API_PATH] = {"html_url": ISSUE_LINK, "number": 40, "title": "Fix \u00c1 view"}
+    _serve_issues(gh_issues)
+    _record_passes_with_findings(3)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(Path(merge_review_receipt.__file__)),
+            "acme/tools",
+            "12",
+            HEAD,
+            "1",
+            "--filed",
+            ISSUE_LINK,
+        ],
+        env={**os.environ, "LC_ALL": "C", "PYTHONCOERCECLOCALE": "0", "PYTHONUTF8": "0"},
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0
 
 
 def test_should_report_reviewed_when_a_filed_pass_links_rulings_on_another_pull_request() -> None:
