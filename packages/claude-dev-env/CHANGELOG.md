@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.135.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.134.1...claude-dev-env-v8.135.0) (2026-11-21)
+
+
+### Features
+
+* **hooks:** merge after three full review passes and file later findings ([#2477](https://github.com/jl-cmd-projects/claude-dev-env/issues/2477)) ([9764e2c](https://github.com/jl-cmd-projects/claude-dev-env/commit/9764e2c39c7e5ff5e1aa1602f90df0852fa974d8))
+
 ## [8.134.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.134.0...claude-dev-env-v8.134.1) (2026-11-21)
 
 
