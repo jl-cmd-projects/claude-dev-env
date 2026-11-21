@@ -504,10 +504,54 @@ def test_should_flag_the_marker_handle_on_a_later_line_of_a_pull_request_body(
     ]
 
 
+def test_should_pass_the_attribution_marker_in_the_pull_request_body_of_a_comment_event(
+    tmp_path: Path,
+) -> None:
+    event_path = _write_event(
+        tmp_path,
+        {
+            "comment": {"body": "Looks good."},
+            "issue": {
+                "title": "fix: one",
+                "body": f"{_ATTRIBUTION_MARKER}\nWhy\n",
+                "user": {"login": _FIXTURE_OWNER_HANDLE},
+                "pull_request": {"html_url": "https://github.com/o/r/pull/1"},
+            },
+        },
+    )
+    assert private_term_scan.scan_event(event_path) == []
+
+
+def test_should_flag_the_marker_in_the_pull_request_body_of_a_comment_event_from_another_author(
+    tmp_path: Path,
+) -> None:
+    event_path = _write_event(
+        tmp_path,
+        {
+            "issue": {
+                "title": "fix: one",
+                "body": f"{_ATTRIBUTION_MARKER}\nWhy\n",
+                "user": {"login": "someone-else"},
+                "pull_request": {"html_url": "https://github.com/o/r/pull/1"},
+            },
+        },
+    )
+    assert private_term_scan.scan_event(event_path) == [
+        "issue body: Line 1 names a private organization. "
+        "Describe it in general terms and drop any link to it."
+    ]
+
+
 @pytest.mark.parametrize(
     "event",
     [
-        {"issue": {"title": "t", "body": f"{_ATTRIBUTION_MARKER}\nWhy\n"}},
+        {
+            "issue": {
+                "title": "t",
+                "body": f"{_ATTRIBUTION_MARKER}\nWhy\n",
+                "user": {"login": _FIXTURE_OWNER_HANDLE},
+            }
+        },
         {"comment": {"body": f"{_ATTRIBUTION_MARKER}\nWhy\n"}},
         {"pull_request": {"title": "t", "body": f"{_ATTRIBUTION_MARKER} done\nWhy\n"}},
         {"pull_request": {"title": "t", "body": f" {_ATTRIBUTION_MARKER}\nWhy\n"}},

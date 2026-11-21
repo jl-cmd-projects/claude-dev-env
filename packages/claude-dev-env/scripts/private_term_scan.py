@@ -42,6 +42,8 @@ from dev_env_scripts_constants.private_term_constants import (
     MASKED_ADDRESS,
     PRIVATE_TERM_MESSAGE_TEMPLATE,
     PRIVATE_TERM_TEXT_ENCODING,
+    PULL_REQUEST_ISSUE_LINK_FIELD,
+    PULL_REQUEST_ISSUE_OBJECT_KEY,
     PULL_REQUEST_OPENER_FIELD,
     PULL_REQUEST_OPENER_HANDLE_FIELD,
     SHORT_SHA_LENGTH,
@@ -82,6 +84,19 @@ def _blank_author_attribution_marker(
     return marker_match.expand(LEADING_BLANK_LINES_GROUP) + body[marker_match.end() :]
 
 
+def _is_pull_request_body(
+    object_key: str, field: str, all_event_object_fields: dict[str, object]
+) -> bool:
+    if field != ATTRIBUTION_MARKER_FIELD:
+        return False
+    if object_key == ATTRIBUTION_MARKER_OBJECT_KEY:
+        return True
+    return (
+        object_key == PULL_REQUEST_ISSUE_OBJECT_KEY
+        and PULL_REQUEST_ISSUE_LINK_FIELD in all_event_object_fields
+    )
+
+
 def scan_event(event_path: Path) -> list[str]:
     """Return findings for the texts a GitHub event payload carries.
 
@@ -97,6 +112,11 @@ def scan_event(event_path: Path) -> list[str]:
 
             <!-- claude-projects-attribution: {"github_login":"pat"} -->
 
+        A comment event on a pull request carries that body as
+        ``issue.body``, with a ``pull_request`` key on the issue, so the
+        same rule applies there with ``issue.user.login`` as the author.
+        A plain issue body is scanned in full.
+
         The line keeps its place, so later line numbers do not move. A marker
         whose login is not the author, the same login on any other line, in
         any other field, or beside other text on that line still fails.
@@ -110,10 +130,7 @@ def scan_event(event_path: Path) -> list[str]:
         text = event_object.get(each_field)
         if not isinstance(text, str):
             continue
-        if (
-            each_object_key == ATTRIBUTION_MARKER_OBJECT_KEY
-            and each_field == ATTRIBUTION_MARKER_FIELD
-        ):
+        if _is_pull_request_body(each_object_key, each_field, event_object):
             text = _blank_author_attribution_marker(text, event_object)
         all_findings.extend(_findings_for(each_label, text, ALL_PRIVATE_TERM_DIGESTS))
     return all_findings

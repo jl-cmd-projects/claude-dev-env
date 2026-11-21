@@ -87,6 +87,8 @@ GITHUB_NOREPLY_ADDRESS_PATTERN = r"<[^<>]*@users\.noreply\.github\.com>"
 MASKED_ADDRESS = "<>"
 ATTRIBUTION_MARKER_OBJECT_KEY = "pull_request"
 ATTRIBUTION_MARKER_FIELD = "body"
+PULL_REQUEST_ISSUE_OBJECT_KEY = "issue"
+PULL_REQUEST_ISSUE_LINK_FIELD = "pull_request"
 LEADING_ATTRIBUTION_MARKER_PATTERN = (
     r'\A(\s*\n)?<!-- claude-projects-attribution: \{"github_login":"'
     r'(?=[A-Za-z0-9-]{1,39}"\})(?P<login>[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*)'
