@@ -301,7 +301,7 @@ def test_should_name_every_step_and_skill_in_the_context() -> None:
     assert "--filed <issue url>" in context
     assert "pr-lifecycle/reference/review-loop-before-merge.md" in context
     assert "Record every pass, from the first" in context
-    assert "merge_review_receipt.py jl-cmd-projects/claude-dev-env 42" in context
+    assert "merge_review_receipt.py" not in context
     assert "Once the last pass records CLEAN or FILED" in context
     assert "gh pr ready 42 --repo jl-cmd-projects/claude-dev-env" in context
     assert "poteto-mode/playbooks/babysit.md" in context
