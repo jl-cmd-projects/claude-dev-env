@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -660,7 +661,7 @@ def _first_ledger_id(tmp_path: Path, scratch_config_directory: Path) -> str:
             {"method": "create", "title": "Auto mode refused 1 Bash step", "body": "id {id}"},
         ),
         ("mcp__github__add_issue_comment", {"issue_number": 5, "body": "Ledger id {id}"}),
-        ("Bash", {"command": 'gh issue create --title "Auto mode refused 1 Bash step" --body-file b.md'}),
+        ("Bash", {"command": 'gh issue create --title "Auto mode refused 1 Bash step" --body "id {id}"'}),
         ("Bash", {"command": 'gh issue comment 5 --body "ledger id {id}"'}),
     ],
 )
@@ -705,15 +706,22 @@ def test_should_record_a_refused_command_that_only_quotes_a_filing_command(
     assert "=== AUTO MODE REFUSAL ===" in context_text
 
 
+@pytest.mark.parametrize(
+    "body_file_words",
+    ["--body-file refusal.md", "--body-file=refusal.md", "-F refusal.md", "-F=refusal.md", "-Frefusal.md"],
+)
 def test_should_give_a_refused_cli_report_from_a_body_file_the_fallback(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scratch_config_directory: Path
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    scratch_config_directory: Path,
+    body_file_words: str,
 ) -> None:
     _flow_on(tmp_path, monkeypatch)
     entry_id = _first_ledger_id(tmp_path, scratch_config_directory)
     (tmp_path / "refusal.md").write_text(f"Ledger id {entry_id}\n", encoding="utf-8")
     payload = _ledger_payload(
         tmp_path,
-        tool_input={"command": "gh issue comment 5 --body-file refusal.md"},
+        tool_input={"command": f"gh issue comment 5 {body_file_words}"},
         reason="[Data Exfiltration] posts session data",
         cwd=str(tmp_path),
     )
@@ -722,6 +730,42 @@ def test_should_give_a_refused_cli_report_from_a_body_file_the_fallback(
         auto_mode_denial_quick_fix.REFUSED_REPORT_CONTEXT
     )
     assert "quick fix" not in hook_output["systemMessage"]
+
+
+def test_should_record_an_unrelated_cli_issue_whose_title_quotes_a_refusal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scratch_config_directory: Path
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    _first_ledger_id(tmp_path, scratch_config_directory)
+    payload = _ledger_payload(
+        tmp_path,
+        tool_input={
+            "command": 'gh issue create --title "Auto mode refused a deployment" --body "Update the docs"'
+        },
+        reason="[Data Exfiltration] posts session data",
+    )
+    context_text = auto_mode_denial_quick_fix.hook_output_with_ledger(payload)[
+        "hookSpecificOutput"
+    ]["additionalContext"]
+    assert "=== AUTO MODE REFUSAL ===" in context_text
+
+
+def test_should_skip_a_body_file_that_is_not_a_regular_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, scratch_config_directory: Path
+) -> None:
+    _flow_on(tmp_path, monkeypatch)
+    _first_ledger_id(tmp_path, scratch_config_directory)
+    os.mkfifo(tmp_path / "refusal.md")
+    payload = _ledger_payload(
+        tmp_path,
+        tool_input={"command": "gh issue comment 5 --body-file refusal.md"},
+        reason="[Data Exfiltration] posts session data",
+        cwd=str(tmp_path),
+    )
+    context_text = auto_mode_denial_quick_fix.hook_output_with_ledger(payload)[
+        "hookSpecificOutput"
+    ]["additionalContext"]
+    assert "=== AUTO MODE REFUSAL ===" in context_text
 
 
 def test_should_tell_the_user_the_refusal_is_filed_when_the_flow_is_on(

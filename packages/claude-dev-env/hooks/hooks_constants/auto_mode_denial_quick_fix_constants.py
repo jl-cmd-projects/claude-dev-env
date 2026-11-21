@@ -43,11 +43,13 @@ __all__ = [
     "ALL_CLI_ISSUE_COMMAND_WORDS",
     "ALL_CLI_FILING_SUBCOMMANDS",
     "ALL_BODY_FILE_FLAGS",
-    "BODY_FILE_FLAG_PREFIX",
+    "ALL_INLINE_BODY_FLAGS",
+    "FLAG_VALUE_SEPARATOR",
+    "SHORT_FLAG_LENGTH",
+    "REPORT_BODY_SEPARATOR",
     "MAXIMUM_BODY_FILE_CHARACTERS",
     "FILING_USER_MESSAGE_TEMPLATE",
     "REFUSED_REPORT_USER_MESSAGE",
-    "REFUSAL_REPORT_MARKER",
     "DEFAULT_TOOL_NAME",
 ]
 
@@ -149,7 +151,10 @@ SHELL_TOOL_NAME = "Bash"
 ALL_CLI_ISSUE_COMMAND_WORDS = ("gh", "issue")
 ALL_CLI_FILING_SUBCOMMANDS = frozenset({"create", "comment"})
 ALL_BODY_FILE_FLAGS = frozenset({"--body-file", "-F"})
-BODY_FILE_FLAG_PREFIX = "--body-file="
+ALL_INLINE_BODY_FLAGS = frozenset({"--body", "-b"})
+FLAG_VALUE_SEPARATOR = "="
+SHORT_FLAG_LENGTH = 2
+REPORT_BODY_SEPARATOR = "\n"
 MAXIMUM_BODY_FILE_CHARACTERS = 65536
 FILING_USER_MESSAGE_TEMPLATE = (
     "Auto mode blocked {tool_name} [{rule_label}]. Claude will file it as a GitHub issue and go on."
@@ -157,4 +162,3 @@ FILING_USER_MESSAGE_TEMPLATE = (
 REFUSED_REPORT_USER_MESSAGE = (
     "Auto mode blocked the GitHub write that files a refusal. Claude will say so and go on."
 )
-REFUSAL_REPORT_MARKER = "Auto mode refused "

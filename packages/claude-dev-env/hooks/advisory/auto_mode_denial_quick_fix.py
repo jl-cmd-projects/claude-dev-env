@@ -79,11 +79,13 @@ from hooks_constants.auto_mode_denial_quick_fix_constants import (
     ALL_CLI_ISSUE_COMMAND_WORDS,
     ALL_CLI_FILING_SUBCOMMANDS,
     ALL_BODY_FILE_FLAGS,
-    BODY_FILE_FLAG_PREFIX,
+    ALL_INLINE_BODY_FLAGS,
+    FLAG_VALUE_SEPARATOR,
+    SHORT_FLAG_LENGTH,
+    REPORT_BODY_SEPARATOR,
     MAXIMUM_BODY_FILE_CHARACTERS,
     FILING_USER_MESSAGE_TEMPLATE,
     REFUSED_REPORT_USER_MESSAGE,
-    REFUSAL_REPORT_MARKER,
     RULE_LABEL_DISALLOWED_CHARACTER_PATTERN,
     SENTENCE_END_PATTERN,
     SUMMARY_WORD_SEPARATOR,
@@ -387,25 +389,53 @@ def _cli_report_text_for(command: str, working_folder: str | None) -> str | None
     )
     if not is_filing:
         return None
-    return command + _body_file_text(all_words, working_folder)
+    all_inline_bodies = _flag_values_in(all_words, ALL_INLINE_BODY_FLAGS)
+    all_file_bodies = [
+        _body_file_text(each_name, working_folder)
+        for each_name in _flag_values_in(all_words, ALL_BODY_FILE_FLAGS)
+    ]
+    return REPORT_BODY_SEPARATOR.join(all_inline_bodies + all_file_bodies)
 
 
-def _body_file_name_in(all_words: list[str]) -> str | None:
-    for each_index, each_word in enumerate(all_words):
-        if each_word.startswith(BODY_FILE_FLAG_PREFIX):
-            return each_word.removeprefix(BODY_FILE_FLAG_PREFIX)
-        if each_word in ALL_BODY_FILE_FLAGS and each_index + 1 < len(all_words):
-            return all_words[each_index + 1]
+def _flag_value_of(all_words: list[str], word_index: int, flag: str) -> str | None:
+    each_word = all_words[word_index]
+    if each_word == flag:
+        return all_words[word_index + 1] if word_index + 1 < len(all_words) else None
+    if each_word.startswith(flag + FLAG_VALUE_SEPARATOR):
+        return each_word[len(flag) + len(FLAG_VALUE_SEPARATOR) :]
+    is_short_flag = len(flag) == SHORT_FLAG_LENGTH
+    if is_short_flag and each_word.startswith(flag) and len(each_word) > SHORT_FLAG_LENGTH:
+        return each_word[SHORT_FLAG_LENGTH:]
     return None
 
 
-def _body_file_text(all_words: list[str], working_folder: str | None) -> str:
-    body_file_name = _body_file_name_in(all_words)
-    if body_file_name is None:
-        return ""
+def _first_flag_value_at(
+    all_words: list[str], word_index: int, all_flags: frozenset[str]
+) -> str | None:
+    return next(
+        (
+            flag_value
+            for each_flag in sorted(all_flags)
+            if (flag_value := _flag_value_of(all_words, word_index, each_flag)) is not None
+        ),
+        None,
+    )
+
+
+def _flag_values_in(all_words: list[str], all_flags: frozenset[str]) -> list[str]:
+    all_values_by_index = (
+        _first_flag_value_at(all_words, each_index, all_flags)
+        for each_index in range(len(all_words))
+    )
+    return [each_value for each_value in all_values_by_index if each_value is not None]
+
+
+def _body_file_text(body_file_name: str, working_folder: str | None) -> str:
     body_file_path = Path(body_file_name)
     if not body_file_path.is_absolute() and working_folder is not None:
         body_file_path = Path(working_folder) / body_file_path
+    if not body_file_path.is_file():
+        return ""
     try:
         with body_file_path.open(encoding="utf-8", errors="replace") as body_file:
             return body_file.read(MAXIMUM_BODY_FILE_CHARACTERS)
@@ -417,8 +447,6 @@ def _is_refusal_report(refused_step: auto_mode_refusal_ledger.RefusedStep) -> bo
     report_text = _report_text_for(refused_step)
     if not isinstance(report_text, str):
         return False
-    if refused_step.tool_name == SHELL_TOOL_NAME and REFUSAL_REPORT_MARKER in report_text:
-        return True
     ledger_directory = auto_mode_refusal_ledger.ledger_directory_for(refused_step.session_id)
     return any(
         each.entry_id in report_text
@@ -498,8 +526,8 @@ def hook_output_with_ledger(all_denial_fields: dict[str, object]) -> dict[str, o
 
     A refusal report is an issue create or comment whose body names a ledger
     id of this session, or a command whose words start ``gh issue create``
-    or ``gh issue comment`` and whose text or body file names one or holds
-    ``Auto mode refused ``. On the flow paths the user message says the
+    or ``gh issue comment`` and whose ``--body`` or regular ``--body-file``
+    file names one. On the flow paths the user message says the
     refusal is filed in place of the quick fix.
 
     Args:
