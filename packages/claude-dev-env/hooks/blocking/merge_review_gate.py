@@ -35,6 +35,12 @@ The deny reason names the review command CLAUDE_MERGE_REVIEW_COMMAND sets,
 or ``/code-review high --max-findings all`` when it is unset.
 
 ``scripts/merge_review_receipt.py`` writes the receipt this reads.
+
+The open check reads the head's history in the local repository, with
+grafts and replace refs off. That repository belongs to the agent the gate
+checks, so an agent that forges it, such as through a commit-graph file,
+can pass the check. Only a read of the history from the server would close
+that gap.
 """
 
 from __future__ import annotations
