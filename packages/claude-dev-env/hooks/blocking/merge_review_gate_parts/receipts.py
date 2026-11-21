@@ -120,7 +120,9 @@ def recorded_pass_number(all_receipt_fields: dict[str, object]) -> int:
         The pass number, 1 or more.
     """
     pass_number = all_receipt_fields.get(RECEIPT_PASS_KEY)
-    return pass_number if _is_count(pass_number) and pass_number >= 1 else 1
+    if isinstance(pass_number, int) and not isinstance(pass_number, bool) and pass_number >= 1:
+        return pass_number
+    return 1
 
 
 def is_past_full_passes(pass_number: int) -> bool:
