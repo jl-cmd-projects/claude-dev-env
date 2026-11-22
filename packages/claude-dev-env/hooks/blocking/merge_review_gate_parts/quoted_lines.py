@@ -9,15 +9,21 @@
 
 A line break ends a logical line only outside every quote, subshell and
 substitution. Inside a subshell or a substitution outside quotes it becomes
-``;``. A ``$'...'`` word becomes a single-quoted word. An escaped
-``\\$(`` outside quotes keeps its ``(`` in the word. Inside a substitution
-in a double-quoted word, each quote and backslash gets a backslash. So a POSIX
-``shlex`` split of each line gives the words bash gives. Comments and heredoc
-bodies are dropped.
+``;``. A ``$'...'`` word becomes a single-quoted word, with its escapes
+decoded as bash decodes them. An escaped ``\\$(`` outside quotes keeps its
+``(`` in the word. Inside a substitution in a double-quoted word, each quote
+and backslash gets a backslash. So a POSIX ``shlex`` split of each line gives
+the words bash gives. Comments and heredoc bodies are dropped.
+
+``expansion_marked_line`` reads the quotes of one such line and marks each
+character bash may expand, so each word can be judged on its own quoting.
+``holds_unquoted_expansion`` reads raw text to tell whether bash would expand
+a brace, a glob or a tilde anywhere in it.
 """
 
 from __future__ import annotations
 
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,7 +34,28 @@ if hooks_directory not in sys.path:
 
 from hooks_constants.merge_review_gate_constants import (
     ALL_ANSI_C_ESCAPES,
+    ALL_EXPANSION_OPENER_CHARACTERS,
+    ANSI_C_NUMERIC_ESCAPE_PATTERN,
+    ANSI_C_STRING_END_CHARACTER,
+    ASCII_MAXIMUM,
+    BYTE_MASK,
+    CONTROL_CHARACTER_MASK,
+    EXPANSION_START_CHARACTER,
+    HEX_BASE,
+    OCTAL_BASE,
+    PARAMETER_BRACE_CLOSE,
+    PARAMETER_BRACE_OPEN,
+    QUOTED_EXPANSION_MARK,
+    SPLITTING_PARAMETER_CHARACTER,
+    SURROGATE_FIRST,
+    SURROGATE_LAST,
+    UNREADABLE_WORD_MARK,
+    EXTENDED_GLOB_OPENER_PATTERN,
+    ALL_SHELL_EXPANSION_CHARACTERS,
+    ALL_SHELL_WORD_START_CHARACTERS,
     ANSI_C_QUOTE_OPENER,
+    ANSI_C_QUOTE_PREFIX,
+    TILDE_CHARACTER,
     CARRIAGE_RETURN,
     CARRIAGE_RETURN_LINE_BREAK,
     COMMENT_START_CHARACTER,
@@ -53,6 +80,7 @@ from hooks_constants.shell_command_pipeline import (
     pending_heredoc_opened_by,
 )
 from hooks_constants.shell_command_substitution_constants import (
+    BACKTICK,
     COMMAND_SUBSTITUTION_OPENER,
     DOUBLE_QUOTE,
     SHELL_ESCAPE_CHARACTER,
@@ -99,6 +127,160 @@ def quote_aware_lines(text: str) -> list[str] | None:
         _step(scan)
     _end_line(scan)
     return scan.all_lines if scan.all_frames == [_Frame()] else None
+
+
+@dataclass
+class _ExpansionScan:
+    text: str
+    index: int = 0
+    quote: str = ""
+    is_word_start: bool = True
+    is_after_dollar: bool = False
+
+
+def holds_unquoted_expansion(text: str) -> bool:
+    """Return whether bash would expand a brace, a glob or a tilde somewhere in shell text.
+
+    ::
+
+        gh pr create --ba{se=a,se=b}     -> True, two --base words reach gh
+        gh pr create --b?se=x            -> True, gh gets the name of a matching file
+        gh pr create --fill ~            -> True, gh gets $HOME
+        gh pr create --he@(ad=x)         -> True, an extended glob under bash -O extglob
+        gh pr create --title '[x] {y}?'  -> False, quoted
+        gh pr create --head \\{a,b\\}      -> False, escaped
+        gh pr create --base=~            -> False, the ~ starts no word
+
+    A quote that never closes also counts, since the reading is unsure.
+    Each level of nesting, such as the text of ``bash -c``, needs its own call.
+
+    Args:
+        text: One level of shell text.
+
+    Returns:
+        True when an unquoted ``{ } * ? [``, an ``@(``, ``+(`` or ``!(``, or a
+        word-leading ``~`` is found.
+    """
+    scan = _ExpansionScan(text)
+    while scan.index < len(text):
+        if _is_expansion_step(scan):
+            return True
+    return bool(scan.quote)
+
+
+def _is_expansion_step(scan: _ExpansionScan) -> bool:
+    if scan.quote:
+        _step_inside_expansion_quote(scan)
+        return False
+    return _is_unquoted_expansion_at(scan)
+
+
+def _step_inside_expansion_quote(scan: _ExpansionScan) -> None:
+    character = scan.text[scan.index]
+    if character == SHELL_ESCAPE_CHARACTER and scan.quote != SINGLE_QUOTE:
+        scan.index += ESCAPED_PAIR_LENGTH
+        return
+    if character == scan.quote[-1]:
+        scan.quote = ""
+    scan.index += 1
+    scan.is_word_start = False
+
+
+def _is_unquoted_expansion_at(scan: _ExpansionScan) -> bool:
+    character = scan.text[scan.index]
+    if character == SHELL_ESCAPE_CHARACTER:
+        scan.index += ESCAPED_PAIR_LENGTH
+        scan.is_word_start = scan.is_after_dollar = False
+        return False
+    if character in ALL_SHELL_EXPANSION_CHARACTERS or (character == TILDE_CHARACTER and scan.is_word_start):
+        return True
+    if _opens_extended_glob(scan):
+        return True
+    if character == SINGLE_QUOTE:
+        scan.quote = ANSI_C_QUOTE_OPENER if scan.is_after_dollar else SINGLE_QUOTE
+    elif character == DOUBLE_QUOTE:
+        scan.quote = DOUBLE_QUOTE
+    scan.is_word_start = character.isspace() or character in ALL_SHELL_WORD_START_CHARACTERS
+    scan.is_after_dollar = character == ANSI_C_QUOTE_PREFIX
+    scan.index += 1
+    return False
+
+
+def _opens_extended_glob(scan: _ExpansionScan) -> bool:
+    return EXTENDED_GLOB_OPENER_PATTERN.match(scan.text, scan.index) is not None
+
+
+def expansion_marked_line(line: str) -> str:
+    """Return one logical line with each character bash may expand put as a mark, at the same place.
+
+    The line comes from ``quote_aware_lines``, so its quotes are balanced and
+    a ``$'...'`` value is already a single-quoted word. Two marks stand in::
+
+        $X, $(x), `x`, $"x", { } * ? [, @( +( !(, a word-leading ~, outside quotes -> UNREADABLE_WORD_MARK
+        "$@", "${a[@]}" inside double quotes                                    -> UNREADABLE_WORD_MARK
+        "$X", "$(x)", "`x`" inside double quotes                                -> QUOTED_EXPANSION_MARK
+        'a $X {b}', \\$X, \\*                                                    -> left as written
+
+    An unreadable mark means bash may split the word or change it into
+    other words. A quoted mark means bash keeps one word whose text the
+    gate cannot read. Only marked characters change, and no mark is a quote,
+    a backslash, a space or an operator, so a POSIX split of the marked line
+    gives the same words, in the same places, as the line itself.
+
+    Args:
+        line: One logical line from ``quote_aware_lines``.
+
+    Returns:
+        The line with the same length, marks in place of the expanding characters.
+    """
+    all_characters = list(line)
+    quote = ""
+    index = 0
+    while index < len(line):
+        if line[index] == SHELL_ESCAPE_CHARACTER and quote != SINGLE_QUOTE:
+            index += ESCAPED_PAIR_LENGTH
+            continue
+        quote, mark = _marked_step(line, index, quote)
+        all_characters[index] = mark or line[index]
+        index += 1
+    return "".join(all_characters)
+
+
+def _marked_step(line: str, index: int, quote: str) -> tuple[str, str | None]:
+    character = line[index]
+    if quote == SINGLE_QUOTE:
+        return ("" if character == SINGLE_QUOTE else quote), None
+    if quote == DOUBLE_QUOTE:
+        return ("" if character == DOUBLE_QUOTE else quote), _quoted_expansion_mark(line, index)
+    if character in (SINGLE_QUOTE, DOUBLE_QUOTE):
+        return character, None
+    return quote, (UNREADABLE_WORD_MARK if _is_unquoted_expansion(line, index) else None)
+
+
+def _quoted_expansion_mark(line: str, index: int) -> str | None:
+    character = line[index]
+    if character == BACKTICK:
+        return QUOTED_EXPANSION_MARK
+    if character != EXPANSION_START_CHARACTER:
+        return None
+    following = line[index + 1 : index + ESCAPED_PAIR_LENGTH]
+    if following == SPLITTING_PARAMETER_CHARACTER:
+        return UNREADABLE_WORD_MARK
+    if following == PARAMETER_BRACE_OPEN:
+        brace_end = line.find(PARAMETER_BRACE_CLOSE, index)
+        parameter = line[index : brace_end if brace_end >= 0 else len(line)]
+        if SPLITTING_PARAMETER_CHARACTER in parameter:
+            return UNREADABLE_WORD_MARK
+    return QUOTED_EXPANSION_MARK
+
+
+def _is_unquoted_expansion(line: str, index: int) -> bool:
+    character = line[index]
+    if character in ALL_EXPANSION_OPENER_CHARACTERS or character in ALL_SHELL_EXPANSION_CHARACTERS:
+        return True
+    if character == TILDE_CHARACTER:
+        return index == 0 or line[index - 1].isspace() or line[index - 1] in ALL_SHELL_WORD_START_CHARACTERS
+    return EXTENDED_GLOB_OPENER_PATTERN.match(line, index) is not None
 
 
 def _step(scan: _Scan) -> None:
@@ -151,9 +333,51 @@ def _step_in_ansi_c_quotes(scan: _Scan, frame: _Frame) -> None:
     if _is_inside_double_quoted_word(scan):
         _emit(scan, _source(scan, ESCAPED_PAIR_LENGTH), ESCAPED_PAIR_LENGTH)
         return
-    escaped = _source(scan, ESCAPED_PAIR_LENGTH)[1:]
-    decoded = ALL_ANSI_C_ESCAPES.get(escaped, SHELL_ESCAPE_CHARACTER + escaped)
-    _emit(scan, decoded.replace(SINGLE_QUOTE, SINGLE_QUOTE_INSIDE_SINGLE_QUOTES), ESCAPED_PAIR_LENGTH)
+    decoded, length = _decoded_ansi_c_escape(scan.text, scan.index)
+    if decoded == ANSI_C_STRING_END_CHARACTER:
+        _skip_to_ansi_c_quote_end(scan)
+        return
+    _emit(scan, decoded.replace(SINGLE_QUOTE, SINGLE_QUOTE_INSIDE_SINGLE_QUOTES), length)
+
+
+def _decoded_ansi_c_escape(text: str, index: int) -> tuple[str, int]:
+    """Return the text bash makes of the backslash escape at ``index`` in a ``$'...'`` value, and its length.
+
+    ::
+
+        \\n, \\', \\\\        -> line break, quote, backslash; 2 characters
+        \\x61, \\101, \\u0041 -> "a", "A", "A"
+        \\cA                  -> the control character 0x01
+        \\x with no digit, \\q -> kept as written, backslash and all
+        \\xff, \\377, \\ud800   -> UNREADABLE_WORD_MARK, a byte or code point the gate does not spell
+
+    A ``\\0`` ends the value, as in bash; the caller drops the rest of it.
+    """
+    escaped = text[index + 1 : index + ESCAPED_PAIR_LENGTH]
+    if escaped in ALL_ANSI_C_ESCAPES:
+        return ALL_ANSI_C_ESCAPES[escaped], ESCAPED_PAIR_LENGTH
+    numeric_match = ANSI_C_NUMERIC_ESCAPE_PATTERN.match(text, index)
+    if numeric_match is None:
+        return SHELL_ESCAPE_CHARACTER + escaped, ESCAPED_PAIR_LENGTH
+    return _numeric_escape_text(numeric_match), numeric_match.end() - index
+
+
+def _numeric_escape_text(numeric_match: re.Match[str]) -> str:
+    if numeric_match["control"] is not None:
+        return chr(ord(numeric_match["control"]) & CONTROL_CHARACTER_MASK)
+    byte_digits = numeric_match["octal"] or numeric_match["hex"]
+    if byte_digits is not None:
+        byte_value = int(byte_digits, OCTAL_BASE if numeric_match["octal"] else HEX_BASE) & BYTE_MASK
+        return chr(byte_value) if byte_value <= ASCII_MAXIMUM else UNREADABLE_WORD_MARK
+    code_point = int(numeric_match["short_unicode"] or numeric_match["long_unicode"], HEX_BASE)
+    if code_point > sys.maxunicode or SURROGATE_FIRST <= code_point <= SURROGATE_LAST:
+        return UNREADABLE_WORD_MARK
+    return chr(code_point)
+
+
+def _skip_to_ansi_c_quote_end(scan: _Scan) -> None:
+    while scan.index < len(scan.text) and _source(scan, 1) != SINGLE_QUOTE:
+        scan.index += ESCAPED_PAIR_LENGTH if _source(scan, 1) == SHELL_ESCAPE_CHARACTER else 1
 
 
 def _step_in_double_quotes(scan: _Scan, frame: _Frame) -> None:

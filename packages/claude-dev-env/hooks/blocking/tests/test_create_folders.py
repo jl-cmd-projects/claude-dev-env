@@ -232,8 +232,92 @@ def test_should_leave_a_create_only_the_wrapped_reading_finds_unfollowed(
 ) -> None:
     monkeypatch.setattr(create_folders, "_walk_text", lambda _walk, _text, state, _depth: state)
     assert all_placed_creates('bash -c "cd sub && gh pr create --fill"', START) == [
-        PlacedCreate(("--fill",), None, False)
+        PlacedCreate(("--fill",), None, False, is_head_settled=False)
     ]
+
+
+@pytest.mark.parametrize(
+    ("command", "all_settled"),
+    [
+        ("cd sub && gh pr create --fill", [True]),
+        ("gh pr create --body \"$(cat body.md)\" --fill", [True]),
+        ("git push -f origin evil:feature && gh pr create --fill", [False]),
+        ("gh pr create --title \"$(git push -f origin evil:feature)\" --fill", [False]),
+        ("gh pr create --fill | git push -f origin evil:feature", [False]),
+        ("gh pr create --head a --fill && git push && gh pr create --head b --fill", [True, False]),
+        ("x=$(gh pr create --head a --fill\nls) ; gh pr create --head b --fill", [True, False]),
+        ("x=$(echo a) ; gh pr create --fill", [False]),
+        ("echo x $(cat f) && gh pr create --fill", [True]),
+        ("echo $(cat f) && gh pr create --fill", [False]),
+        ("printf $(echo -v) PATH %s /x && gh pr create --fill", [False]),
+        ("cd $(echo .) && gh pr create --fill", [False]),
+        ('echo "${b[X]}"; gh pr create --fill', [False]),
+        ('echo x "${b[X]}"; gh pr create --fill', [False]),
+        ('gh pr create --title "${b[X]}" --fill', [False]),
+        ("gh pr create --fill | tee .gi?/HEAD", [False]),
+        ("cat <(git push) && gh pr create --fill", [False]),
+        ("cat <<EOF\n$(git push)\nEOF\ngh pr create --fill", [False]),
+        ("cat <<'EOF'\n$(git push)\nEOF\ngh pr create --fill", [True]),
+        ("gh pr create --body \"$(cat <<EOF\n`git push`\nEOF\n)\"", [False]),
+        ("gh pr create --body \"$(cat <<'EOF'\n$X\nEOF\n)\"", [True]),
+        ("gh pr create --body \"$(head -n1 body.md)\"", [False]),
+        ("X=$(git push) gh pr create --fill", [False]),
+        ("X=1 gh pr create --fill", [True]),
+        ("echo a > .git/HEAD && gh pr create --fill", [False]),
+        ("echo a 2>&1 >/dev/null && gh pr create --fill", [True]),
+        ("echo a | tee .git/HEAD && gh pr create --fill", [False]),
+        ("printf -v GH_REPO x && gh pr create --fill", [False]),
+        ("./cat && gh pr create --fill", [False]),
+        ("p(){ echo; }; gh pr create --fill", [False]),
+        ("env gh pr create --fill", [False]),
+        ("BASH_ENV=x bash -c 'gh pr create --fill'", [False]),
+        ("gh pr create --fill > out.txt", [True]),
+        ("gh pr create --fill > .git/HEAD", [False]),
+        ("gh pr create --fill 2>&1 | tail -5", [True]),
+        ("gh pr create --fill | cat > .git/HEAD", [False]),
+        ("echo | gh pr create --fill", [False]),
+        ("(gh pr create --fill; echo) | cat", [False]),
+        ("{ gh pr create --fill; } & echo", [False]),
+        ("(cd sub && gh pr create --fill)", [True]),
+        ("gh pr create --fill; git push", [True]),
+        ('gh pr create --base main --title "$[PATH=0]" --fill', [False]),
+        ('gh pr create --base main --title "x$[PATH=0]" --fill', [False]),
+        ('gh pr create --base main --title "$[HOME=1]" --fill', [False]),
+        ('gh pr create --base main --title "${T:PATH=0}" --fill', [False]),
+        ("bash -c 'gh pr create --title \"$[PATH=0]\" --fill'", [False]),
+        ("gh pr create --base main --title '$[PATH=0]' --fill", [True]),
+        ('gh pr create --base main --title "${T:-x}" --fill', [True]),
+        ('gh pr create --base main --title "${BASH_COMMAND@P}" --fill', [False]),
+        ('gh pr create --base main --title "${T@E}" --fill', [False]),
+        ('gh pr create --base main --title "${GH_REPO:=x}" --fill', [False]),
+        ('gh pr create --base main --title "${!T}" --fill', [False]),
+        ('gh pr create --base main --title "${T/a/b}" --fill', [False]),
+        ('gh pr create --base main --title "${#T}" --fill', [False]),
+        ("bash -c 'gh pr create --title \"${BASH_COMMAND@P}\" --fill'", [False]),
+        ('gh pr create --head a --fill && gh pr create --head b --title "${T@P}" --fill', [False, False]),
+        ("gh pr create --base main --title '${BASH_COMMAND@P}' --fill", [True]),
+        ('gh pr create --base main --title "${T}" --fill', [True]),
+        ("cd .git && gh pr create --base main --fill > HEAD", [False]),
+        ("cd .git && gh pr create --base main --fill | tee HEAD", [False]),
+        ("cd .git && gh pr create --base main --fill | grep -o x > HEAD", [False]),
+        ("cd .git && gh pr create --base main --fill | tee -a config", [False]),
+        ("pushd .git && gh pr create --base main --fill > HEAD", [False]),
+        ("cd .git/ && gh pr create --base main --fill > HEAD", [False]),
+        ("cd ./.git && gh pr create --base main --fill > HEAD", [False]),
+        ('cd "./.git" && gh pr create --base main --fill > HEAD', [False]),
+        ("cd .git/refs/heads && gh pr create --base main --fill > feature", [False]),
+        ("cd sub && cd ../.git && gh pr create --base main --fill > HEAD", [False]),
+        ("cd .git; gh pr create --base main --fill", [False]),
+        ("pushd sub && popd && gh pr create --fill", [False]),
+        ("cd - && gh pr create --fill", [False]),
+        ("cd docs && gh pr create --fill", [True]),
+        ("cd sub/ && gh pr create --base main --fill > pr.txt", [True]),
+    ],
+)
+def test_should_mark_a_create_that_another_program_runs_before_or_beside(
+    command: str, all_settled: list[bool]
+) -> None:
+    assert [each_create.is_head_settled for each_create in all_placed_creates(command, START)] == all_settled
 
 
 def test_should_read_an_unbalanced_command_both_ways() -> None:
@@ -294,4 +378,20 @@ def test_should_keep_two_creates_apart_when_only_one_names_its_repository_with_a
     all_command_words = [each_create.all_command_words for each_create in all_placed_creates(command, START)]
     assert len(all_command_words) == 2
     assert all_command_words[1][0] == "GH_REPO=o/r"
+
+
+@pytest.mark.parametrize(
+    ("command", "is_plain_words"),
+    [
+        ("gh pr create --fill --he{ad=a,ad=b}", False),
+        ("bash -c 'gh pr create --fill --b?se=x'", False),
+        ("gh pr create --fill ~", False),
+        ("gh pr create --fill --title '{a,b} [c]?'", True),
+        ("ls *.txt && gh pr create --fill", True),
+    ],
+)
+def test_should_mark_a_create_whose_words_bash_expands(command: str, is_plain_words: bool) -> None:
+    all_creates = all_placed_creates(command, START)
+    assert all_creates
+    assert {each_create.is_plain_words for each_create in all_creates} == {is_plain_words}
 

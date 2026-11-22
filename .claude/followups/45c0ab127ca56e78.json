@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/merge_review_gate_parts/open_request.py",
+  "message": "packages/claude-dev-env/hooks/blocking/merge_review_gate_parts/open_request.py:465: Function '_placed_open_calls' is 36 lines (max 30)",
+  "check_id": "validators/function-line-cap",
+  "severity": "smell",
+  "origin_commit": "5b178beb7a9990cb6062aed8509c8a3993f200af"
+}

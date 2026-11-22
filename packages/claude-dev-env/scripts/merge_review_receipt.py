@@ -14,12 +14,13 @@ clean once the rulings are posted and linked::
         -> CLEAN owner/name#12 def5678 (2 findings ruled out: <url>)
 
 Each numbered receipt counts its pass on the pull request. A new head is the
-next pass, and recording the same head again keeps its pass. The pass is
-never lower than one more than the earlier pull request commits whose
-``Merge review`` status the review app posted as failure, so the count
+next pass, and recording the same head again keeps its pass. A record with
+``--filed`` also reads GitHub: its pass is never lower than one more than the
+earlier commits of the pull request whose review run failed, run by the
+review workflow for this repository, pull request and commit, so the count
 survives a new session::
 
-    no receipt, 3 earlier commits with a failing Merge review -> pass 4
+    --filed, no receipt, 3 earlier commits with a failing review run -> pass 4
 
 The loop runs
 three full passes with fixes. When pass 4 or a later one still reports
@@ -34,10 +35,14 @@ Before pass 4, ``--filed`` is refused. The script reads the issue through
 the GitHub command-line client and refuses a link that names no issue in
 that repository, such as a missing number or a pull request.
 
-A pass run before the pull request exists names ``open`` in place of the
-number, and records the head it reviewed::
+One review pass runs before the pull request exists. It names ``open`` in
+place of the number and records the head it reviewed. Its findings are fixed
+in new commits on top of that head, and the pull request opens with no
+second pass::
 
     python3 merge_review_receipt.py owner/name open def5678 0   -> CLEAN owner/name open def5678
+    python3 merge_review_receipt.py owner/name open def5678 2   -> REVIEWED owner/name open def5678 2 findings (fix them ...)
+    commit the fixes on top of def5678, then open the pull request
 
 No pull request exists to hold a rulings comment, so an ``open`` pass rules
 out its findings with a different ``path:line`` for each, run in the checkout
@@ -48,7 +53,12 @@ that holds the head. Each line must exist in the file at that head::
 
 ``hooks/blocking/merge_review_gate.py`` allows a merge pinned to the head of
 the newest pass only when that pass is clean or filed. It allows a pull request open
-whose head has a clean ``open`` pass. It allows a merge pinned to that same
+whose head has a clean ``open`` pass, or whose head sits on fix commits above the
+head of an ``open`` pass recorded on the same branch, under the checks
+``merge_review_gate.py`` lists. A pass recorded outside that branch's checkout
+names no branch, counts only at its own head, and its verdict line says to
+record it again from the checkout. An ``open`` pass does not take ``--filed`` and does
+not count toward the three full passes on the pull request. It allows a merge pinned to that same
 head only when the ``open`` pass found zero findings. Ruled-out findings need
 a numbered pass that links the rulings comment on the pull request.
 """
@@ -57,9 +67,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import re
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TextIO
@@ -81,27 +94,36 @@ from blocking.merge_review_gate_parts.receipts import (
     same_commit,
 )
 from hooks_constants.merge_review_gate_constants import (
+    ALL_BRANCH_REFERENCE_PREFIXES,
+    ALL_CHECKOUT_BRANCH_ARGUMENTS,
+    ALL_HOLDING_REFERENCE_ARGUMENTS,
+    ALL_STORED_HISTORY_GIT_SETTINGS,
     COMMIT_SHA_KEY,
     COMMIT_STATUSES_API_PATH_TEMPLATE,
+    CONTAINS_OPTION_TEMPLATE,
     CREATOR_LOGIN_KEY,
     CREATOR_TYPE_KEY,
+    EARLIER_COMMIT_READ_LIMIT,
     FAILED_REVIEW_STATUS_STATE,
     FILED_ISSUE_API_PATH_TEMPLATE,
-    FILED_ISSUE_API_SUBCOMMAND,
-    FILED_ISSUE_CLIENT_NAME,
-    FILED_ISSUE_HOST,
-    FILED_ISSUE_HOST_OPTION,
     FILED_ISSUE_LINK_PATTERN,
-    FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS,
     FILED_ISSUE_PAGE_KEY,
     FILED_ISSUE_PULL_REQUEST_KEY,
     FULL_REVIEW_PASS_COUNT,
+    GITHUB_API_CLIENT_NAME,
+    GITHUB_API_HOST,
+    GITHUB_API_HOST_OPTION,
+    GITHUB_API_READ_TIMEOUT_SECONDS,
+    GITHUB_API_SUBCOMMAND,
+    GITHUB_COUNT_DEADLINE_SECONDS,
+    LOCAL_BRANCH_REFERENCE_TEMPLATE,
     MERGE_REVIEW_STATUS_CONTEXT,
     OPEN_RECEIPT_HEAD_PATTERN,
     OPEN_TARGET_WORD,
     PULL_REQUEST_COMMITS_API_PATH_TEMPLATE,
     PULL_REQUEST_COMMITS_PAGE_LIMIT,
     PULL_REQUEST_COMMITS_PAGE_SIZE,
+    RECEIPT_BRANCH_KEY,
     RECEIPT_FILED_KEY,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
@@ -109,13 +131,24 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_RULED_OUT_KEY,
     RECEIPT_RULING_LINES_KEY,
     RECEIPT_RULINGS_KEY,
+    REMOTE_TRACKING_REFERENCE_PREFIX,
     REPOSITORY_SLUG_PATTERN,
+    REVIEW_RUN_API_PATH_TEMPLATE,
+    REVIEW_RUN_COMPLETED_STATUS,
+    REVIEW_RUN_SUCCESS_CONCLUSION,
+    REVIEW_RUN_TITLE_TEMPLATE,
+    REVIEW_RUN_WORKFLOW_FILE,
     REVIEW_STATUS_APP_LOGIN,
     REVIEW_STATUS_CREATOR_TYPE,
     REVIEW_STATUS_RUN_PAGE_PATTERN,
     RULING_LOOKUP_TIMEOUT_SECONDS,
     RULING_REFERENCE_PATTERN,
     RULING_SEPARATOR,
+    RUN_CONCLUSION_KEY,
+    RUN_ID_KEY,
+    RUN_PATH_KEY,
+    RUN_STATUS_KEY,
+    RUN_TITLE_KEY,
     STATUS_CONTEXT_KEY,
     STATUS_CREATOR_KEY,
     STATUS_STATE_KEY,
@@ -152,24 +185,28 @@ def record_review(
         ruled_out_count,
         rulings,
         filed,
-        _next_pass_number(slug, number, head),
+        _next_pass_number(slug, number, head, should_read_github=bool(filed.strip())),
     )
     return _write_receipt(slug, number, receipt)
 
 
-def _next_pass_number(slug: str, number: int, head: str) -> int:
+def _next_pass_number(
+    slug: str, number: int, head: str, should_read_github: bool = False
+) -> int:
     """Return which review pass on the pull request a record of ``head`` is.
 
     A new head is the next pass. Recording the head the previous receipt names
-    again, such as after posting rulings or filing an issue, keeps its pass.
-    The pass is never lower than one more than the earlier pull request commits
-    the review app marked failing, so a new session keeps the count::
+    again, such as after posting rulings or filing an issue, keeps its pass,
+    unless the GitHub count below raises it. A record that carries ``--filed``
+    also reads GitHub, so a new session keeps the count: the pass is never
+    lower than one more than the earlier commits of this pull request whose
+    review run GitHub shows as failing::
 
         no receipt yet                                   -> 1
         previous receipt pass 3 at abc1234, head def5678 -> 4
         previous receipt pass 3 at abc1234, head abc1234 -> 3
-        no receipt, 3 earlier failing review statuses    -> 4
-        previous receipt pass 1, 3 earlier failing ones  -> 4
+        --filed, no receipt, 3 earlier failing reviews   -> 4
+        --filed, previous receipt pass 1, 3 earlier ones -> 4
 
     A previous receipt that cannot be read counts as no receipt. A local pass
     past the full pass count already allows a filed pass, so GitHub is not
@@ -179,13 +216,14 @@ def _next_pass_number(slug: str, number: int, head: str) -> int:
         slug: Repository as ``owner/name``.
         number: Pull request number.
         head: The commit the pass reviewed.
+        should_read_github: True when the record carries ``--filed``.
 
     Returns:
         The pass number, from 1.
     """
     owner, repo = slug.split("/", 1)
     local_pass_number = _local_pass_number(read_receipt(receipt_path(owner, repo, number)), head)
-    if local_pass_number > FULL_REVIEW_PASS_COUNT:
+    if not should_read_github or local_pass_number > FULL_REVIEW_PASS_COUNT:
         return local_pass_number
     reviewed_pass_number = _failed_review_head_count(owner, repo, number, head) + 1
     return max(local_pass_number, reviewed_pass_number)
@@ -203,20 +241,23 @@ def _local_pass_number(all_previous_receipt_fields: dict[str, object] | None, he
 
 
 def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> int:
-    """Return how many earlier pull request commits carry a failing review status.
+    """Return how many earlier commits of the pull request had a failing review run.
 
-    Earlier commits are the ones the pull request lists before the head, or all
-    of them when the head is not listed. A commit counts when its newest
-    ``Merge review`` status is ``failure``, the review app posted it, and it
-    links a GitHub Actions run page. The walk starts at the newest
-    earlier commit and stops at the full pass count, the most the gate asks
-    about::
+    Earlier commits are the ones the pull request lists before the head. The
+    count is 0 when any page of the list cannot be read or the head is not in
+    it, so it only ever raises a pass. A commit counts when its newest
+    ``Merge review`` status is ``failure``, the review app posted it, and its
+    link is a GitHub Actions run of the review workflow that succeeded and is
+    titled for this repository, this pull request and that commit. The walk
+    starts at the newest earlier commit, reads at most a fixed number of them
+    within one deadline, and stops at the full pass count::
 
-        commits c1 (failure by review app), c2 (none), head -> 1
-        commits c1, head, c2 (failure by review app)        -> 0
-        commit c1 (failure by another app), head            -> 0
-        commit c1 (failure linking another page), head      -> 0
-        gh missing or unable to read the pull request       -> 0
+        commits c1 (failing review run), c2 (none), head -> 1
+        commits c1, head, c2 (failing review run)        -> 0
+        commit c1 (failure by another app), head         -> 0
+        commit c1 (run titled for another pull request)  -> 0
+        commit list page 2 unreadable                    -> 0
+        head missing from the commit list                -> 0
 
     Args:
         owner: Repository owner.
@@ -227,22 +268,37 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     Returns:
         The count, from 0 to the full pass count.
     """
+    deadline = time.monotonic() + GITHUB_COUNT_DEADLINE_SECONDS
+    all_earlier_shas = _commits_before_head(owner, repo, number, head, deadline)
     failed_count = 0
-    for each_sha in reversed(_commits_before_head(owner, repo, number, head)):
+    for each_sha in reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]):
         if failed_count >= FULL_REVIEW_PASS_COUNT:
             break
         all_statuses = _github_answer(
-            COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=each_sha)
+            COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=each_sha),
+            deadline,
         )
-        if isinstance(all_statuses, list) and _is_review_app_failure(all_statuses):
+        if isinstance(all_statuses, list) and _is_review_app_failure(
+            all_statuses, f"{owner}/{repo}", number, each_sha, deadline
+        ):
             failed_count += 1
     return failed_count
 
 
-def _commits_before_head(owner: str, repo: str, number: int, head: str) -> list[str]:
+def _commits_before_head(
+    owner: str, repo: str, number: int, head: str, deadline: float
+) -> list[str]:
     all_earlier_shas: list[str] = []
     for each_page in range(1, PULL_REQUEST_COMMITS_PAGE_LIMIT + 1):
-        all_page_shas = _commit_page_shas(owner, repo, number, each_page)
+        all_page_commits = _github_answer(
+            PULL_REQUEST_COMMITS_API_PATH_TEMPLATE.format(
+                owner=owner, repo=repo, number=number, page=each_page
+            ),
+            deadline,
+        )
+        if not isinstance(all_page_commits, list):
+            return []
+        all_page_shas = _commit_shas_in(all_page_commits)
         head_index = next(
             (
                 each_index
@@ -254,19 +310,12 @@ def _commits_before_head(owner: str, repo: str, number: int, head: str) -> list[
         if head_index is not None:
             return all_earlier_shas + all_page_shas[:head_index]
         all_earlier_shas.extend(all_page_shas)
-        if len(all_page_shas) < PULL_REQUEST_COMMITS_PAGE_SIZE:
-            break
-    return all_earlier_shas
+        if len(all_page_commits) < PULL_REQUEST_COMMITS_PAGE_SIZE:
+            return []
+    return []
 
 
-def _commit_page_shas(owner: str, repo: str, number: int, page: int) -> list[str]:
-    all_commits = _github_answer(
-        PULL_REQUEST_COMMITS_API_PATH_TEMPLATE.format(
-            owner=owner, repo=repo, number=number, page=page
-        )
-    )
-    if not isinstance(all_commits, list):
-        return []
+def _commit_shas_in(all_commits: list[object]) -> list[str]:
     return [
         each_commit[COMMIT_SHA_KEY]
         for each_commit in all_commits
@@ -274,7 +323,7 @@ def _commit_page_shas(owner: str, repo: str, number: int, page: int) -> list[str
     ]
 
 
-def _is_review_app_failure(all_statuses: list[object]) -> bool:
+def _review_run_page_of_failure(all_statuses: list[object]) -> re.Match[str] | None:
     newest = next(
         (
             each_status
@@ -285,32 +334,74 @@ def _is_review_app_failure(all_statuses: list[object]) -> bool:
         None,
     )
     if newest is None or newest.get(STATUS_STATE_KEY) != FAILED_REVIEW_STATUS_STATE:
-        return False
+        return None
     creator = newest.get(STATUS_CREATOR_KEY)
+    if (
+        not isinstance(creator, dict)
+        or creator.get(CREATOR_TYPE_KEY) != REVIEW_STATUS_CREATOR_TYPE
+        or creator.get(CREATOR_LOGIN_KEY) != REVIEW_STATUS_APP_LOGIN
+    ):
+        return None
+    return REVIEW_STATUS_RUN_PAGE_PATTERN.fullmatch(str(newest.get(STATUS_TARGET_URL_KEY, "")))
+
+
+def _is_review_app_failure(
+    all_statuses: list[object], repository: str, number: int, sha: str, deadline: float
+) -> bool:
+    run_page = _review_run_page_of_failure(all_statuses)
+    if run_page is None:
+        return False
+    review_run = _github_answer(
+        REVIEW_RUN_API_PATH_TEMPLATE.format(
+            repository=run_page["repository"], run_id=run_page["run_id"]
+        ),
+        deadline,
+    )
+    return _is_successful_review_run_for(
+        review_run, int(run_page["run_id"]), repository, number, sha
+    )
+
+
+def _is_successful_review_run_for(
+    review_run: object, run_id: int, repository: str, number: int, sha: str
+) -> bool:
+    if not isinstance(review_run, dict):
+        return False
+    workflow_path = review_run.get(RUN_PATH_KEY)
+    title_pattern = REVIEW_RUN_TITLE_TEMPLATE.format(
+        repository=re.escape(repository), number=number, head=re.escape(sha)
+    )
     return (
-        isinstance(creator, dict)
-        and creator.get(CREATOR_TYPE_KEY) == REVIEW_STATUS_CREATOR_TYPE
-        and creator.get(CREATOR_LOGIN_KEY) == REVIEW_STATUS_APP_LOGIN
-        and REVIEW_STATUS_RUN_PAGE_PATTERN.fullmatch(str(newest.get(STATUS_TARGET_URL_KEY, "")))
+        review_run.get(RUN_ID_KEY) == run_id
+        and isinstance(workflow_path, str)
+        and workflow_path.split("@", 1)[0].rsplit("/", 1)[-1] == REVIEW_RUN_WORKFLOW_FILE
+        and review_run.get(RUN_STATUS_KEY) == REVIEW_RUN_COMPLETED_STATUS
+        and review_run.get(RUN_CONCLUSION_KEY) == REVIEW_RUN_SUCCESS_CONCLUSION
+        and re.fullmatch(title_pattern, str(review_run.get(RUN_TITLE_KEY, "")), re.IGNORECASE)
         is not None
     )
 
 
-def _github_answer(api_path: str) -> object:
-    client_path = shutil.which(FILED_ISSUE_CLIENT_NAME)
+def _github_answer(api_path: str, deadline: float | None = None) -> object:
+    client_path = shutil.which(GITHUB_API_CLIENT_NAME)
     if client_path is None:
+        return None
+    timeout_seconds = GITHUB_API_READ_TIMEOUT_SECONDS
+    if deadline is not None:
+        timeout_seconds = min(timeout_seconds, deadline - time.monotonic())
+    if timeout_seconds <= 0:
         return None
     try:
         completed = subprocess.run(
             [
                 client_path,
-                FILED_ISSUE_API_SUBCOMMAND,
-                FILED_ISSUE_HOST_OPTION,
-                FILED_ISSUE_HOST,
+                GITHUB_API_SUBCOMMAND,
+                GITHUB_API_HOST_OPTION,
+                GITHUB_API_HOST,
                 api_path,
             ],
             capture_output=True,
-            timeout=FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS,
+            timeout=timeout_seconds,
             check=False,
         )
         return json.loads(completed.stdout) if completed.returncode == 0 else None
@@ -338,6 +429,16 @@ def record_open_review(
 ) -> Path:
     """Write the receipt for one review pass run before the pull request opens.
 
+    The receipt names the branch checked out in the current folder when
+    ``head`` is that branch's own work, so the gate credits fix commits on top
+    of ``head`` only to that branch::
+
+        on feature, no other branch holds head        -> branch: feature
+        on second, feature or origin/feature holds it -> no branch
+        detached checkout, or a branch read fails     -> no branch
+
+    A receipt with no branch counts only at ``head``.
+
     Args:
         slug: Repository as ``owner/name``.
         head: The commit the pass reviewed.
@@ -354,7 +455,56 @@ def record_open_review(
     problem = _ruling_problem(head, all_rulings)
     if problem:
         raise ValueError(problem)
-    return _write_open_receipt(slug, head, _open_receipt(head, finding_count, all_rulings))
+    all_receipt_fields = _open_receipt(head, finding_count, all_rulings)
+    branch = _checkout_branch()
+    if branch and _is_own_work_of(branch, head):
+        all_receipt_fields[RECEIPT_BRANCH_KEY] = branch
+    return _write_open_receipt(slug, head, all_receipt_fields)
+
+
+def _checkout_branch() -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", *ALL_CHECKOUT_BRANCH_ARGUMENTS],
+            capture_output=True,
+            text=True,
+            timeout=RULING_LOOKUP_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout.strip() if completed.returncode == 0 else None
+
+
+def _is_own_work_of(branch: str, head: str) -> bool:
+    try:
+        completed = subprocess.run(
+            [
+                "git",
+                *ALL_HOLDING_REFERENCE_ARGUMENTS,
+                CONTAINS_OPTION_TEMPLATE.format(commit=head),
+                *ALL_BRANCH_REFERENCE_PREFIXES,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=RULING_LOOKUP_TIMEOUT_SECONDS,
+            check=False,
+            env={**os.environ, **ALL_STORED_HISTORY_GIT_SETTINGS},
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if completed.returncode != 0:
+        return False
+    return all(
+        _is_reference_of(each_reference, branch) for each_reference in completed.stdout.split()
+    )
+
+
+def _is_reference_of(reference: str, branch: str) -> bool:
+    if reference == LOCAL_BRANCH_REFERENCE_TEMPLATE.format(branch=branch):
+        return True
+    remote_and_branch = reference.removeprefix(REMOTE_TRACKING_REFERENCE_PREFIX)
+    return remote_and_branch != reference and remote_and_branch.partition("/")[2] == branch
 
 
 def _write_open_receipt(slug: str, head: str, all_receipt_fields: dict[str, object]) -> Path:
@@ -468,14 +618,15 @@ def _record_open_pass(
         parser.error("findings must be zero or more")
     if parsed.filed.strip():
         parser.error(
-            f"an {OPEN_TARGET_WORD} pass cannot take --filed: findings are filed only after "
-            f"{FULL_REVIEW_PASS_COUNT} full passes with fixes on the pull request"
+            f"an {OPEN_TARGET_WORD} pass cannot take --filed: one review pass comes before the "
+            "open, so fix its findings in new commits and open the pull request. Findings are "
+            f"filed only after {FULL_REVIEW_PASS_COUNT} full passes with fixes on the pull request"
         )
     if not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(parsed.head):
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
     all_rulings = _checked_open_rulings(parser, parsed)
     try:
-        record_open_review(parsed.slug, parsed.head, parsed.findings, all_rulings)
+        receipt_written = record_open_review(parsed.slug, parsed.head, parsed.findings, all_rulings)
     except ValueError as problem:
         parser.error(str(problem))
     if is_clean_open_pass(_open_receipt(parsed.head, parsed.findings, all_rulings)):
@@ -486,8 +637,23 @@ def _record_open_pass(
         )
         stdout.write(f"CLEAN {parsed.slug} {OPEN_TARGET_WORD} {parsed.head}{ruled_out_note}\n")
         return 0
+    if not (read_receipt(receipt_written) or {}).get(RECEIPT_BRANCH_KEY):
+        stdout.write(
+            f"REVIEWED {parsed.slug} {OPEN_TARGET_WORD} {parsed.head} {parsed.findings} findings, "
+            f"recorded with no branch, so the pass counts only at {parsed.head} itself and fix "
+            "commits on top of it get no credit yet. This folder has no checkout branch whose own "
+            f"work {parsed.head} is: it is another folder, a detached HEAD, or another local or "
+            f"remote branch also holds {parsed.head}. Run this command again from the checkout "
+            "of the branch you will open, with that branch checked out. When another branch, "
+            f"such as a backup copy, holds {parsed.head}, delete that copy first; when it is the "
+            "branch this one stacks on, the pass covers that branch, so review this branch's own "
+            "commits\n"
+        )
+        return 1
     stdout.write(
-        f"REVIEWED {parsed.slug} {OPEN_TARGET_WORD} {parsed.head} {parsed.findings} findings\n"
+        f"REVIEWED {parsed.slug} {OPEN_TARGET_WORD} {parsed.head} {parsed.findings} findings "
+        f"(fix them in new commits on top of {parsed.head}, then open the pull request; "
+        "the fix commits need no second pass)\n"
     )
     return 1
 
@@ -615,7 +781,9 @@ def _record_numbered_pass(
     parser: argparse.ArgumentParser, parsed: argparse.Namespace, stdout: TextIO
 ) -> int:
     rulings = _checked_rulings_link(parser, parsed)
-    pass_number = _next_pass_number(parsed.slug, parsed.number, parsed.head)
+    pass_number = _next_pass_number(
+        parsed.slug, parsed.number, parsed.head, should_read_github=bool(parsed.filed.strip())
+    )
     filed = _checked_filed_link(parser, parsed, pass_number)
     receipt = _numbered_receipt(
         parsed.head, parsed.findings, parsed.ruled_out, rulings, filed, pass_number

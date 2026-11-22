@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.136.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.136.0...claude-dev-env-v8.136.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* **hooks:** open a pull request after one review pass and its fixes ([#2486](https://github.com/jl-cmd-projects/claude-dev-env/issues/2486)) ([ca26361](https://github.com/jl-cmd-projects/claude-dev-env/commit/ca263610d10a9a40905d4bf34d5daf72353c448a))
+
 ## [8.136.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.3...claude-dev-env-v8.136.0) (2026-11-22)
 
 

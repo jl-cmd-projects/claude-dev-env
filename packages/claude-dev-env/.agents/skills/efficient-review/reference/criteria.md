@@ -18,4 +18,4 @@ An empty list is a valid review. End with a json block. Each finding has `file`,
 
 ## Loop
 
-Fix every finding that holds, including a file the diff did not touch. Then run the review again. Stop when a pass reports no finding that holds. Before a merge, [the pr-lifecycle review loop](../../pr-lifecycle/reference/review-loop-before-merge.md) sets how many full passes run.
+Fix every finding that holds, including a file the diff did not touch. Before a pull request opens, one pass runs, its fix commits are pushed, and they need no second pass. On the pull request, the review stops after three full passes with fixes, and a later pass files what it still finds in one issue. [The pr-lifecycle review loop](../../pr-lifecycle/reference/review-loop-before-merge.md) holds both rules.

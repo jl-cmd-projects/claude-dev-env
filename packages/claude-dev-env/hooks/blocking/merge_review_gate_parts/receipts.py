@@ -1,7 +1,7 @@
 """Read the review receipts ``scripts/merge_review_receipt.py`` writes.
 
 A numbered receipt covers one pull request and counts its review passes. An open receipt covers one head
-reviewed before its pull request opened.
+reviewed before its pull request opened, and the fix commits on top of it.
 """
 
 from __future__ import annotations
@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import os
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TypeGuard
 
@@ -28,6 +28,7 @@ from hooks_constants.merge_review_gate_constants import (
     OPEN_RECEIPT_HEAD_PATTERN,
     RECEIPT_DIRECTORY_ENVIRONMENT_VARIABLE,
     RECEIPT_FILE_NAME_TEMPLATE,
+    RECEIPT_BRANCH_KEY,
     RECEIPT_FILED_KEY,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
@@ -239,6 +240,56 @@ def has_clean_open_review(repo: str, head: str) -> bool:
     return _has_open_review(repo, head, is_clean_open_pass)
 
 
+def open_reviewed_heads_among(
+    repo: str, all_earlier_heads: Sequence[str], branch: str | None
+) -> list[str]:
+    """Return which of some earlier commits a pass recorded on a branch before its open saw.
+
+    One review pass comes before the open, and its findings are fixed in new
+    commits on top of the head it saw. A recorded pass on an earlier commit
+    counts whatever it found, when its receipt names the branch being opened::
+
+        {head: abc1234..., findings: 2, branch: feature}, feature, earlier [def5678..., abc1234...] -> [abc1234...]
+        {head: abc1234..., findings: 2, branch: feature}, second, earlier [abc1234...]             -> []
+        {head: abc1234..., findings: 2}, feature, earlier [abc1234...]                             -> []
+        {head: abc1234..., findings: 0, branch: feature}, feature, earlier [def5678...]            -> []
+        {head: abc1234..., findings: 2}, None, earlier [abc1234...]                                -> [abc1234...]
+
+    A receipt with no branch counts only at its own head, through
+    ``has_clean_open_review``; ``branch`` None lists those receipts, so a deny
+    can name them. The owner is left out of the match, as there.
+
+    Args:
+        repo: Repository name.
+        all_earlier_heads: Full commit names before the head the open names.
+        branch: The branch the pull request opens from, or None for receipts
+            that name no branch.
+
+    Returns:
+        The recorded heads, lowercased and sorted.
+    """
+    all_wanted_heads = {each_head.casefold() for each_head in all_earlier_heads}
+    folder = receipt_directory() / OPEN_RECEIPT_DIRECTORY_NAME
+    pattern = OPEN_RECEIPT_GLOB_TEMPLATE.format(repo=repo.casefold())
+    all_found_heads = (
+        _recorded_pass_head(read_receipt(each_path), branch) for each_path in folder.glob(pattern)
+    )
+    return sorted(
+        {each_head for each_head in all_found_heads if each_head in all_wanted_heads}
+    )
+
+
+def _recorded_pass_head(all_receipt_fields: dict[str, object] | None, branch: str | None) -> str | None:
+    if all_receipt_fields is None or not _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY)):
+        return None
+    if all_receipt_fields.get(RECEIPT_BRANCH_KEY) != branch:
+        return None
+    recorded_head = all_receipt_fields.get(RECEIPT_HEAD_KEY)
+    if not isinstance(recorded_head, str) or not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(recorded_head):
+        return None
+    return recorded_head.casefold()
+
+
 def has_zero_finding_open_review(repo: str, head: str) -> bool:
     """Return whether a pass recorded before the pull request opened found zero findings at a head.
 
@@ -257,6 +308,41 @@ def has_zero_finding_open_review(repo: str, head: str) -> bool:
         True when an open receipt with zero findings covers that head.
     """
     return _has_open_review(repo, head, _reports_no_findings)
+
+
+def recorded_open_finding_count(repo: str, head: str) -> int | None:
+    """Return how many findings a pass recorded before the pull request opened counted at a head.
+
+    ::
+
+        open receipt {head: abc1234..., findings: 2}, head abc1234 -> 2
+        no open receipt at that head, or a head that is no commit  -> None
+
+    The owner and the branch are left out of the match, as in ``has_clean_open_review``.
+
+    Args:
+        repo: Repository name.
+        head: The commit the open names.
+
+    Returns:
+        The finding count of the first matching receipt, or None.
+    """
+    if not OPEN_HEAD_PATTERN.fullmatch(head):
+        return None
+    folder = receipt_directory() / OPEN_RECEIPT_DIRECTORY_NAME
+    pattern = OPEN_RECEIPT_GLOB_TEMPLATE.format(repo=repo.casefold())
+    for each_path in sorted(folder.glob(pattern)):
+        if not _is_open_receipt_for(each_path, head, _has_finding_count):
+            continue
+        all_receipt_fields = read_receipt(each_path) or {}
+        finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
+        if _is_count(finding_count):
+            return finding_count
+    return None
+
+
+def _has_finding_count(all_receipt_fields: dict[str, object]) -> bool:
+    return _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY))
 
 
 def _has_open_review(

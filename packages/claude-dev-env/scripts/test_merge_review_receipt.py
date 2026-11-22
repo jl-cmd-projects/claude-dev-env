@@ -35,6 +35,7 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     receipts = tmp_path / "receipts"
     receipts.mkdir()
     monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RECEIPT_DIR", str(receipts))
+    monkeypatch.chdir(tmp_path)
     return receipts
 
 
@@ -189,16 +190,38 @@ def test_should_leave_ruling_keys_out_of_an_open_pass_that_rules_nothing_out(
     assert receipt == {"head": HEAD, "findings": 2}
 
 
+def test_record_open_review_should_name_the_checkout_branch_in_the_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    path = merge_review_receipt.record_open_review("acme/tools", head, 2)
+    assert json.loads(path.read_text(encoding="utf-8"))["branch"] == "feature"
+
+
+def test_record_open_review_should_name_the_branch_when_only_its_upstream_also_holds_the_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/feature", head], check=True
+    )
+    path = merge_review_receipt.record_open_review("acme/tools", head, 2)
+    assert json.loads(path.read_text(encoding="utf-8"))["branch"] == "feature"
+
+
+def test_record_open_review_should_name_no_branch_when_another_branch_holds_the_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    subprocess.run(["git", "checkout", "--quiet", "-b", "second"], check=True)
+    path = merge_review_receipt.record_open_review("acme/tools", head, 2)
+    assert "branch" not in json.loads(path.read_text(encoding="utf-8"))
+
+
 def test_record_open_review_should_refuse_a_ruling_the_head_lacks(receipt_folder: Path) -> None:
     with pytest.raises(ValueError, match="no file and line at nowhere.py:3"):
         merge_review_receipt.record_open_review("acme/tools", HEAD, 1, ["nowhere.py:3"])
     assert not (receipt_folder / "heads").exists()
-
-
-def test_should_exit_one_for_an_open_pass_with_findings() -> None:
-    verdict_stream = StringIO()
-    assert merge_review_receipt.main(["acme/tools", "open", HEAD, "2"], verdict_stream) == 1
-    assert verdict_stream.getvalue() == f"REVIEWED acme/tools open {HEAD} 2 findings\n"
 
 
 @pytest.mark.parametrize(
@@ -220,7 +243,9 @@ def test_should_refuse_an_open_pass_it_cannot_record(
 def _checkout_with_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
-    subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch", "feature", str(checkout)], check=True
+    )
     (checkout / "a.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
     (checkout / "docs").mkdir()
     (checkout / "docs" / "notes.txt").write_text("note\n", encoding="utf-8")
@@ -276,6 +301,7 @@ def test_should_print_clean_for_an_open_pass_ruled_out_at_file_and_line(
         "findings": 2,
         "ruled_out": 2,
         "ruling_lines": ["a.py:1", "a.py:3"],
+        "branch": "feature",
     }
 
 
@@ -300,13 +326,14 @@ def test_should_report_reviewed_and_keep_the_rulings_when_some_open_findings_sta
         verdict_stream,
     )
     assert exit_code == 1
-    assert verdict_stream.getvalue() == f"REVIEWED acme/tools open {head} 3 findings\n"
+    assert verdict_stream.getvalue().startswith(f"REVIEWED acme/tools open {head} 3 findings (")
     receipt = json.loads((receipt_folder / "heads" / f"acme__tools__{head}.json").read_text())
     assert receipt == {
         "head": head,
         "findings": 3,
         "ruled_out": 2,
         "ruling_lines": ["a.py:1", "a.py:2"],
+        "branch": "feature",
     }
 
 
@@ -409,39 +436,78 @@ def test_should_count_each_new_head_as_the_next_pass(receipt_folder: Path) -> No
 
 EARLIER_COMMITS = ["1" * 40, "2" * 40, "3" * 40]
 COMMITS_API_PATH = "repos/acme/tools/pulls/12/commits?per_page=100&page=1"
+SECOND_COMMITS_API_PATH = "repos/acme/tools/pulls/12/commits?per_page=100&page=2"
 REVIEW_APP = {"login": "repo-rulefile-sync[bot]", "type": "Bot"}
-REVIEW_RUN_PAGE = "https://github.com/acme/reviews/actions/runs/45052844893"
+FIRST_RUN_ID = 45052844890
+REVIEW_WORKFLOW_PATH = ".github/workflows/efficient-review.yml@refs/heads/main"
+
+
+def _run_page(run_id: int) -> str:
+    return f"https://github.com/acme/reviews/actions/runs/{run_id}"
+
+
+def _run_api_path(run_id: int) -> str:
+    return f"repos/acme/reviews/actions/runs/{run_id}"
+
+
+def _statuses_api_path(sha: str) -> str:
+    return f"repos/acme/tools/commits/{sha}/statuses?per_page=100"
+
+
+def _review_run(run_id: int, sha: str, number: int = 12) -> dict[str, object]:
+    return {
+        "id": run_id,
+        "path": REVIEW_WORKFLOW_PATH,
+        "status": "completed",
+        "conclusion": "success",
+        "display_title": f"Merge review acme/tools#{number} {sha} base main",
+    }
 
 
 def _serve_review_statuses(
     gh_issues: dict[str, object],
-    all_creators: list[dict[str, str]],
-    all_target_urls: list[str] | None = None,
+    all_creators: list[dict[str, str]] | None = None,
+    run_changes_by_index: dict[int, dict[str, object]] | None = None,
+    target_url_by_index: dict[int, str] | None = None,
 ) -> None:
-    gh_issues[COMMITS_API_PATH] = [{"sha": each_sha} for each_sha in [*EARLIER_COMMITS, HEAD]]
-    target_urls = all_target_urls or [REVIEW_RUN_PAGE] * len(EARLIER_COMMITS)
-    for each_sha, each_creator, each_url in zip(EARLIER_COMMITS, all_creators, target_urls):
-        gh_issues[f"repos/acme/tools/commits/{each_sha}/statuses?per_page=100"] = [
+    gh_issues[COMMITS_API_PATH] = [
+        {"sha": each_sha} for each_sha in [*EARLIER_COMMITS, HEAD]
+    ]
+    all_creators = all_creators or [REVIEW_APP] * len(EARLIER_COMMITS)
+    for each_index, (each_sha, each_creator) in enumerate(
+        zip(EARLIER_COMMITS, all_creators)
+    ):
+        run_id = FIRST_RUN_ID + each_index
+        target_url = (target_url_by_index or {}).get(each_index, _run_page(run_id))
+        gh_issues[_statuses_api_path(each_sha)] = [
             {
                 "context": "Merge review",
                 "state": "failure",
                 "creator": each_creator,
-                "target_url": each_url,
+                "target_url": target_url,
             },
             {
                 "context": "Merge review",
                 "state": "success",
                 "creator": each_creator,
-                "target_url": each_url,
+                "target_url": target_url,
             },
         ]
+        review_run = _review_run(run_id, each_sha)
+        review_run.update((run_changes_by_index or {}).get(each_index, {}))
+        gh_issues[_run_api_path(run_id)] = review_run
     _serve_issues(gh_issues)
 
 
-def test_should_count_earlier_failing_review_statuses_when_no_receipt_is_kept(
+def _filed_pass(receipt_folder: Path, head: str = HEAD) -> object:
+    merge_review_receipt.record_review("acme/tools", 12, head, 2, filed=ISSUE_LINK)
+    return _stored_receipt(receipt_folder)["pass"]
+
+
+def test_should_count_earlier_failing_review_runs_when_no_receipt_is_kept(
     receipt_folder: Path, gh_issues: dict[str, object]
 ) -> None:
-    _serve_review_statuses(gh_issues, [REVIEW_APP] * 3)
+    _serve_review_statuses(gh_issues)
     verdict_stream = StringIO()
 
     exit_code = merge_review_receipt.main(
@@ -460,48 +526,111 @@ def test_should_leave_another_bot_review_status_out_of_the_pass_count(
     other_bot = {"login": other_login, "type": "Bot"}
     _serve_review_statuses(gh_issues, [REVIEW_APP, other_bot, other_bot])
 
-    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
-
-    assert _stored_receipt(receipt_folder)["pass"] == 2
+    assert _filed_pass(receipt_folder) == 2
 
 
 def test_should_leave_a_review_status_without_a_run_page_out_of_the_pass_count(
     receipt_folder: Path, gh_issues: dict[str, object]
 ) -> None:
     _serve_review_statuses(
-        gh_issues,
-        [REVIEW_APP] * 3,
-        [REVIEW_RUN_PAGE, "https://example.com/x", ""],
+        gh_issues, target_url_by_index={1: "https://example.com/x", 2: ""}
     )
 
-    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
+    assert _filed_pass(receipt_folder) == 2
 
-    assert _stored_receipt(receipt_folder)["pass"] == 2
+
+@pytest.mark.parametrize(
+    "run_change",
+    [
+        {"display_title": f"Merge review acme/tools#13 {'2' * 40} base main"},
+        {"display_title": f"Merge review acme/other#12 {'2' * 40} base main"},
+        {"display_title": f"Merge review acme/tools#12 {'9' * 40} base main"},
+        {"conclusion": "failure"},
+        {"status": "in_progress"},
+        {"path": ".github/workflows/other.yml@refs/heads/main"},
+        {"id": 7},
+    ],
+)
+def test_should_leave_a_run_that_is_not_this_reviews_out_of_the_pass_count(
+    run_change: dict[str, object], receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(
+        gh_issues, run_changes_by_index={1: run_change, 2: run_change}
+    )
+
+    assert _filed_pass(receipt_folder) == 2
 
 
 def test_should_leave_review_statuses_after_the_recorded_head_out_of_the_pass_count(
     receipt_folder: Path, gh_issues: dict[str, object]
 ) -> None:
-    _serve_review_statuses(gh_issues, [REVIEW_APP] * 3)
+    _serve_review_statuses(gh_issues)
 
-    merge_review_receipt.main(["acme/tools", "12", EARLIER_COMMITS[1], "2"], StringIO())
-
-    assert _stored_receipt(receipt_folder)["pass"] == 2
+    assert _filed_pass(receipt_folder, EARLIER_COMMITS[1]) == 2
 
 
 def test_should_read_the_next_page_of_pull_request_commits(
     receipt_folder: Path, gh_issues: dict[str, object]
 ) -> None:
-    _serve_review_statuses(gh_issues, [REVIEW_APP] * 3)
-    gh_issues["repos/acme/tools/pulls/12/commits?per_page=100&page=2"] = gh_issues[
-        COMMITS_API_PATH
+    _serve_review_statuses(gh_issues)
+    gh_issues[SECOND_COMMITS_API_PATH] = gh_issues[COMMITS_API_PATH]
+    gh_issues[COMMITS_API_PATH] = [
+        {"sha": f"{each_index:040d}"} for each_index in range(4, 104)
     ]
-    gh_issues[COMMITS_API_PATH] = [{"sha": f"{each_index:040d}"} for each_index in range(4, 104)]
     _serve_issues(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 4
+
+
+def test_should_count_nothing_when_a_later_page_of_commits_cannot_be_read(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+    gh_issues[COMMITS_API_PATH] = [
+        {"sha": f"{each_index:040d}"} for each_index in range(4, 104)
+    ]
+    _serve_issues(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 1
+
+
+def test_should_count_nothing_when_the_head_is_not_in_the_commit_list(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+    gh_issues[COMMITS_API_PATH] = [{"sha": each_sha} for each_sha in EARLIER_COMMITS]
+    _serve_issues(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 1
+
+
+def test_should_read_only_the_newest_earlier_commits(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+    all_newer_shas = [f"{each_index:040d}" for each_index in range(4, 54)]
+    gh_issues[COMMITS_API_PATH] = [
+        {"sha": each_sha} for each_sha in [*EARLIER_COMMITS, *all_newer_shas, HEAD]
+    ]
+    _serve_issues(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 1
+
+
+def test_should_not_read_github_for_a_record_without_filed(
+    receipt_folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_read_paths: list[str] = []
+    monkeypatch.setattr(
+        merge_review_receipt,
+        "_github_answer",
+        lambda api_path, deadline=None: all_read_paths.append(api_path),
+    )
 
     merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
 
-    assert _stored_receipt(receipt_folder)["pass"] == 4
+    assert _stored_receipt(receipt_folder)["pass"] == 1
+    assert all_read_paths == []
 
 
 @pytest.mark.parametrize(
@@ -512,22 +641,20 @@ def test_should_read_the_next_page_of_pull_request_commits(
         (4, HEAD, 4),
     ],
 )
-def test_should_take_the_higher_of_the_receipt_and_the_review_statuses(
+def test_should_take_the_higher_of_the_receipt_and_the_review_runs(
     previous_pass: int,
     previous_head: str,
     expected_pass: int,
     receipt_folder: Path,
     gh_issues: dict[str, object],
 ) -> None:
-    _serve_review_statuses(gh_issues, [REVIEW_APP] * 3)
+    _serve_review_statuses(gh_issues)
     (receipt_folder / "acme__tools__12.json").write_text(
         json.dumps({"head": previous_head, "findings": 2, "pass": previous_pass}),
         encoding="utf-8",
     )
 
-    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
-
-    assert _stored_receipt(receipt_folder)["pass"] == expected_pass
+    assert _filed_pass(receipt_folder) == expected_pass
 
 
 def test_should_skip_the_github_read_once_the_receipt_is_past_the_full_pass_count(
@@ -535,18 +662,25 @@ def test_should_skip_the_github_read_once_the_receipt_is_past_the_full_pass_coun
 ) -> None:
     all_read_paths: list[str] = []
     monkeypatch.setattr(
-        merge_review_receipt, "_github_answer", lambda api_path: all_read_paths.append(api_path)
+        merge_review_receipt,
+        "_github_answer",
+        lambda api_path, deadline=None: all_read_paths.append(api_path),
     )
     (receipt_folder / "acme__tools__12.json").write_text(
         json.dumps({"head": "0" * 40, "findings": 2, "pass": 3}), encoding="utf-8"
     )
 
-    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
-
-    assert _stored_receipt(receipt_folder)["pass"] == 4
+    assert _filed_pass(receipt_folder) == 4
     assert all_read_paths == []
 
 
+def test_should_read_nothing_after_the_deadline(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _serve_review_statuses(gh_issues)
+    monkeypatch.setattr(merge_review_receipt, "GITHUB_COUNT_DEADLINE_SECONDS", 0)
+
+    assert _filed_pass(receipt_folder) == 1
 def test_should_keep_the_pass_count_when_the_same_head_is_recorded_again(
     receipt_folder: Path,
 ) -> None:
@@ -749,12 +883,53 @@ def test_should_refuse_filed_when_no_finding_is_left_to_file(
     assert _stored_receipt(receipt_folder)["pass"] == 3
 
 
-def test_should_refuse_filed_on_an_open_pass(receipt_folder: Path) -> None:
+def test_should_refuse_filed_on_an_open_pass(
+    receipt_folder: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with pytest.raises(SystemExit):
         merge_review_receipt.main(
             ["acme/tools", "open", HEAD, "2", "--filed", ISSUE_LINK], StringIO()
         )
+    assert "fix its findings in new commits and open the pull request" in capsys.readouterr().err
     assert list(receipt_folder.iterdir()) == []
+
+
+def test_should_name_the_fix_commits_route_when_an_open_pass_reports_findings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    verdict_stream = StringIO()
+    assert merge_review_receipt.main(["acme/tools", "open", head, "2"], verdict_stream) == 1
+    assert verdict_stream.getvalue() == (
+        f"REVIEWED acme/tools open {head} 2 findings (fix them in new commits on top of "
+        f"{head}, then open the pull request; the fix commits need no second pass)\n"
+    )
+
+
+@pytest.mark.parametrize("place", ["outside any checkout", "detached HEAD"])
+def test_should_say_to_record_again_from_the_branch_checkout_when_a_pass_with_findings_names_no_branch(
+    place: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    if place == "detached HEAD":
+        subprocess.run(["git", "checkout", "--quiet", "--detach", head], check=True)
+    else:
+        outside_folder = tmp_path / "outside"
+        outside_folder.mkdir()
+        monkeypatch.chdir(outside_folder)
+    verdict_stream = StringIO()
+    assert merge_review_receipt.main(["acme/tools", "open", head, "2"], verdict_stream) == 1
+    verdict = verdict_stream.getvalue()
+    assert verdict.startswith(f"REVIEWED acme/tools open {head} 2 findings, recorded with no branch")
+    assert f"counts only at {head} itself" in verdict
+    assert "Run this command again from the checkout of the branch you will open" in verdict
+    assert "the fix commits need no second pass" not in verdict
+
+
+def test_should_describe_only_a_same_branch_pass_as_covering_fix_commits_in_the_module_docstring() -> None:
+    module_text = merge_review_receipt.__doc__ or ""
+    assert "above the\nhead of any ``open`` pass" not in module_text
+    assert "recorded on the same branch" in module_text
 
 
 def test_should_name_the_filed_route_when_a_pass_after_the_third_reports_findings() -> None:
