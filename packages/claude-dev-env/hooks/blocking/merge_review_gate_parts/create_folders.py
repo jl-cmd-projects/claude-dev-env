@@ -669,7 +669,7 @@ def _heredoc_substitution_by_key(text: str) -> dict[str, str]:
             -> {key of "cat <<'EOF' / git push": "cat <<'EOF' / hi / EOF / git push / "}
 
     The lines bash reads drop each heredoc body, so a substitution read from
-    a word no longer matches the text it came from. This map gives the walk
+    a word differs from the text it came from. This map gives the walk
     the substitution with its bodies, so each body is cut once.
     """
     all_texts_by_key: dict[str, str] = {}
