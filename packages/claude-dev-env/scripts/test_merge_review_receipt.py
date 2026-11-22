@@ -198,6 +198,26 @@ def test_record_open_review_should_name_the_checkout_branch_in_the_receipt(
     assert json.loads(path.read_text(encoding="utf-8"))["branch"] == "feature"
 
 
+def test_record_open_review_should_name_the_branch_when_only_its_upstream_also_holds_the_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/feature", head], check=True
+    )
+    path = merge_review_receipt.record_open_review("acme/tools", head, 2)
+    assert json.loads(path.read_text(encoding="utf-8"))["branch"] == "feature"
+
+
+def test_record_open_review_should_name_no_branch_when_another_branch_holds_the_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    subprocess.run(["git", "checkout", "--quiet", "-b", "second"], check=True)
+    path = merge_review_receipt.record_open_review("acme/tools", head, 2)
+    assert "branch" not in json.loads(path.read_text(encoding="utf-8"))
+
+
 def test_record_open_review_should_refuse_a_ruling_the_head_lacks(receipt_folder: Path) -> None:
     with pytest.raises(ValueError, match="no file and line at nowhere.py:3"):
         merge_review_receipt.record_open_review("acme/tools", HEAD, 1, ["nowhere.py:3"])

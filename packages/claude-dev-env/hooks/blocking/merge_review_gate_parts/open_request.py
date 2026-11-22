@@ -25,16 +25,21 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_CHECKOUT_BRANCH_ARGUMENTS,
     ALL_STORED_HISTORY_GIT_SETTINGS,
     ALL_ANCESTRY_WALK_ARGUMENTS,
+    ALL_OUTSIDE_BASE_ARGUMENTS,
     ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
     ALL_NON_INTERACTIVE_GIT_SETTINGS,
     ALL_ORIGIN_URL_ARGUMENTS,
     ALL_SHELL_TOOL_NAMES,
+    BASE_BRANCH_FIELD,
+    BASE_OPTION_PATTERN,
+    BASE_SHORT_LETTER,
     CHANGE_FOLDER_PATTERN,
     CONTAINS_OPTION_TEMPLATE,
     CREATE_TEXT_OPTION_PATTERN,
     CREATE_TOOL_SUFFIX,
     CURRENT_HEAD_REFERENCE,
     CWD_FIELD,
+    EXCLUDE_FROM_WALK_OPTION,
     GH_PR_CREATE_PATTERN,
     GH_PROGRAM_NAME,
     GITHUB_REMOTE_URL_TEMPLATE,
@@ -42,6 +47,7 @@ from hooks_constants.merge_review_gate_constants import (
     HEAD_BRANCH_FIELD,
     HEAD_OPTION_PATTERN,
     HEAD_SHORT_LETTER,
+    LONG_BASE_OPTION,
     LONG_HEAD_OPTION,
     LONG_REPOSITORY_OPTION,
     LS_REMOTE_FIELD_SEPARATOR,
@@ -73,6 +79,8 @@ class OpenRequest:
         folder: The folder the open runs in, where git reads the head's history.
         branch: The branch name the open names, or the folder's checkout
             branch for ``HEAD``, or None when it could not be read.
+        base: The base branch the open names, or None for the repository's
+            default branch.
     """
 
     owner: str
@@ -80,6 +88,7 @@ class OpenRequest:
     head: str | None
     folder: str | None = field(default=None, compare=False)
     branch: str | None = field(default=None, compare=False)
+    base: str | None = field(default=None, compare=False)
 
     @property
     def slug(self) -> str:
@@ -96,12 +105,14 @@ class ToolOpenCall:
         repo: Repository name the call names, or empty.
         branch: The head branch the call names, or None.
         folder: The payload's folder, or None.
+        base: The base branch the call names, or None.
     """
 
     owner: str
     repo: str
     branch: str | None
     folder: str | None
+    base: str | None = None
 
 
 @dataclass(frozen=True)
@@ -116,6 +127,7 @@ class ShellOpenCall:
             or when the create names no repository in a command that sets ``GH_REPO``.
         is_prefix_origin_check: True for the origin call a create gets when only a
             ``GH_REPO=`` prefix names its repository. Equal calls compare equal either way.
+        base: The branch its ``--base`` names, or None for the repository's default branch.
     """
 
     repository: tuple[str, str] | None
@@ -123,6 +135,7 @@ class ShellOpenCall:
     folder: str | None
     is_folder_followed: bool = True
     is_prefix_origin_check: bool = field(default=False, compare=False)
+    base: str | None = None
 
 
 OpenCall = ToolOpenCall | ShellOpenCall
@@ -208,6 +221,7 @@ def _tool_open_request(call: ToolOpenCall) -> OpenRequest:
         head=head,
         folder=call.folder,
         branch=_branch_name(call.branch, call.folder) if call.branch else None,
+        base=call.base,
     )
 
 
@@ -222,6 +236,7 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         head=_branch_commit(call.branch, call.folder),
         folder=call.folder,
         branch=_branch_name(call.branch, call.folder),
+        base=call.base,
     )
 
 
@@ -309,13 +324,71 @@ def is_held_by_another_line(commit: str, head: str, folder: str | None) -> bool:
     return listing is None or bool(listing.strip())
 
 
+def base_tip(request: OpenRequest) -> str | None:
+    """Return the commit the pull request's base branch holds on GitHub.
+
+    The base is read from the repository the open targets, never from a
+    local ref, so a clone that lacks the base branch still reads it::
+
+        base main, GitHub main at abc123        -> abc123
+        no base named, GitHub default at def456 -> def456
+        a base GitHub does not list, or a read that fails -> None
+
+    Args:
+        request: The open the tool call asks for.
+
+    Returns:
+        The full commit name, or None when the base could not be read.
+    """
+    if not request.owner or not request.repo:
+        return None
+    reference = (
+        REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=request.base)
+        if request.base
+        else CURRENT_HEAD_REFERENCE
+    )
+    remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=request.owner, repo=request.repo)
+    listing = _remote_listing(remote_url, reference)
+    return _listed_commit(listing, reference) if listing is not None else None
+
+
+def is_outside_base(commit: str, base_commit: str, folder: str | None) -> bool:
+    """Return whether a commit is missing from the history of the base.
+
+    A commit the base already holds is base work, so a review pass on it says
+    nothing about the branch's own commits::
+
+        feature commit abc123, base main at def456 below it -> True
+        base main at abc123 itself, or above it             -> False
+        a base commit the folder has no history for         -> False
+
+    Replace refs and grafts are not read. A read that fails or runs out of
+    time counts as inside the base, so the open is denied.
+
+    Args:
+        commit: The commit a review pass saw.
+        base_commit: The commit the base branch holds, from ``base_tip``.
+        folder: The folder git reads the history in.
+
+    Returns:
+        True when ``commit`` is not reachable from ``base_commit``.
+    """
+    listing = _stored_history_read(
+        [*ALL_OUTSIDE_BASE_ARGUMENTS, commit, EXCLUDE_FROM_WALK_OPTION, base_commit],
+        folder,
+    )
+    return bool(listing and listing.strip())
+
+
 def _tool_open_call(all_tool_input: dict[object, object], folder: str | None) -> ToolOpenCall:
     branch = all_tool_input.get(HEAD_BRANCH_FIELD)
+    base = all_tool_input.get(BASE_BRANCH_FIELD)
     return ToolOpenCall(
         owner=str(all_tool_input.get(OWNER_FIELD, "")),
         repo=str(all_tool_input.get(REPO_FIELD, "")),
         branch=branch if isinstance(branch, str) and branch else None,
         folder=folder,
+        base=base if isinstance(base, str) and base else None,
     )
 
 
@@ -336,6 +409,7 @@ def _placed_open_calls(placed_create: PlacedCreate, is_gh_repository_set: bool) 
     repository_value = flag_value if flag_value is not None else prefix_value
     repository = named_repository(repository_value) if repository_value is not None else None
     is_repository_read = repository is not None or not is_gh_repository_set
+    base = _placed_base(placed_create)
     all_calls: list[ShellOpenCall] = []
     for each_head in _placed_heads(placed_create) or [CURRENT_HEAD_REFERENCE]:
         all_calls.append(
@@ -345,6 +419,7 @@ def _placed_open_calls(placed_create: PlacedCreate, is_gh_repository_set: bool) 
                 folder=placed_create.folder,
                 is_folder_followed=placed_create.is_folder_followed and is_repository_read,
                 is_prefix_origin_check=prefix_value is not None and repository is None,
+                base=base,
             )
         )
         if prefix_value is not None:
@@ -355,6 +430,7 @@ def _placed_open_calls(placed_create: PlacedCreate, is_gh_repository_set: bool) 
                     folder=placed_create.folder,
                     is_folder_followed=placed_create.is_folder_followed,
                     is_prefix_origin_check=True,
+                    base=base,
                 )
             )
     return all_calls
@@ -373,6 +449,11 @@ def _flag_value(placed_create: PlacedCreate) -> str | None:
 def _placed_heads(placed_create: PlacedCreate) -> list[str]:
     all_heads = all_option_values(_option_words(placed_create), LONG_HEAD_OPTION, HEAD_SHORT_LETTER)
     return list(dict.fromkeys(each_head for each_head in all_heads if each_head))
+
+
+def _placed_base(placed_create: PlacedCreate) -> str | None:
+    all_bases = all_option_values(_option_words(placed_create), LONG_BASE_OPTION, BASE_SHORT_LETTER)
+    return all_bases[-1] if all_bases and all_bases[-1] else None
 
 
 def _floor_open_call(command: str, folder: str | None) -> ShellOpenCall | None:
@@ -397,10 +478,12 @@ def _floor_open_call(command: str, folder: str | None) -> ShellOpenCall | None:
     rest = create_match["rest"]
     repo_match = REPO_OPTION_PATTERN.search(rest)
     head_match = HEAD_OPTION_PATTERN.search(rest)
+    all_base_matches = list(BASE_OPTION_PATTERN.finditer(rest))
     return ShellOpenCall(
         repository=(repo_match["owner"], repo_match["repo"]) if repo_match else None,
         branch=head_match["head"] if head_match else CURRENT_HEAD_REFERENCE,
         folder=folder,
+        base=all_base_matches[-1]["base"] if all_base_matches else None,
     )
 
 

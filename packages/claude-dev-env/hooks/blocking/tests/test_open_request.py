@@ -20,8 +20,10 @@ from blocking.merge_review_gate_parts import open_request
 from blocking.merge_review_gate_parts.open_request import (
     OpenRequest,
     ShellOpenCall,
+    base_tip,
     first_parent_ancestors,
     is_held_by_another_line,
+    is_outside_base,
     open_calls_from,
     open_request_for,
 )
@@ -329,6 +331,85 @@ def test_should_read_the_first_parents_git_stores_and_not_a_grafts_file(tmp_path
     (checkout / ".git" / "info" / "grafts").write_text(f"{head} {reviewed}\n", encoding="utf-8")
     assert reviewed not in first_parent_ancestors(head, str(checkout))
     assert is_held_by_another_line(reviewed, head, str(checkout)) is True
+
+
+def test_should_read_the_base_a_shell_open_names(tmp_path: Path) -> None:
+    payload = _shell_payload("gh pr create --repo acme/tools --base release -H feature", tmp_path)
+    assert {open_request_for(each_call).base for each_call in open_calls_from(payload)} == {
+        "release"
+    }
+
+
+def test_should_read_no_base_for_a_shell_open_that_names_none(tmp_path: Path) -> None:
+    payload = _shell_payload("gh pr create --repo acme/tools -H feature", tmp_path)
+    assert {open_request_for(each_call).base for each_call in open_calls_from(payload)} == {None}
+
+
+def test_should_read_the_base_the_create_tool_names(tmp_path: Path) -> None:
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "acme", "repo": "tools", "base": "release"},
+        "cwd": str(tmp_path),
+    }
+    assert _only_request(payload).base == "release"
+
+
+def _pushed_base(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, str, str]:
+    checkout = _checkout_on(tmp_path, "main")
+    main_commit = _commit(checkout, "main work")
+    _git(checkout, "checkout", "--quiet", "-b", "release")
+    release_commit = _commit(checkout, "release work")
+    github = tmp_path / "github.com"
+    remote = _bare_remote(github, "acme")
+    _git(remote, "symbolic-ref", "HEAD", "refs/heads/main")
+    _git(checkout, "push", "--quiet", str(remote), "main", "release")
+    _redirect_github(monkeypatch, github)
+    return checkout, main_commit, release_commit
+
+
+def test_should_read_the_named_base_from_github(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _checkout, _main_commit, release_commit = _pushed_base(tmp_path, monkeypatch)
+    request = OpenRequest(owner="acme", repo="tools", head=None, base="release")
+    assert base_tip(request) == release_commit
+
+
+def test_should_read_the_default_branch_from_github_when_no_base_is_named(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _checkout, main_commit, _release_commit = _pushed_base(tmp_path, monkeypatch)
+    assert base_tip(OpenRequest(owner="acme", repo="tools", head=None)) == main_commit
+
+
+def test_should_read_no_base_commit_for_a_base_github_does_not_list(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _pushed_base(tmp_path, monkeypatch)
+    request = OpenRequest(owner="acme", repo="tools", head=None, base="missing")
+    assert base_tip(request) is None
+
+
+def test_should_find_a_branch_commit_outside_the_base_below_it(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "main")
+    base_commit = _commit(checkout, "base")
+    _git(checkout, "checkout", "--quiet", "-b", "feature")
+    reviewed = _commit(checkout, "reviewed")
+    assert is_outside_base(reviewed, base_commit, str(checkout)) is True
+
+
+def test_should_count_a_commit_the_base_holds_as_inside_the_base(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "main")
+    reviewed = _commit(checkout, "reviewed")
+    base_commit = _commit(checkout, "base moved on")
+    assert is_outside_base(reviewed, base_commit, str(checkout)) is False
+    assert is_outside_base(reviewed, reviewed, str(checkout)) is False
+
+
+def test_should_count_a_commit_as_inside_a_base_the_folder_cannot_read(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    reviewed = _commit(checkout, "reviewed")
+    assert is_outside_base(reviewed, "1" * 40, str(checkout)) is False
 
 
 def test_should_read_no_open_from_a_merge_command(tmp_path: Path) -> None:

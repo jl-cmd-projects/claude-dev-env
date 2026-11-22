@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -80,7 +81,11 @@ from blocking.merge_review_gate_parts.receipts import (
     same_commit,
 )
 from hooks_constants.merge_review_gate_constants import (
+    ALL_BRANCH_REFERENCE_PREFIXES,
     ALL_CHECKOUT_BRANCH_ARGUMENTS,
+    ALL_HOLDING_REFERENCE_ARGUMENTS,
+    ALL_STORED_HISTORY_GIT_SETTINGS,
+    CONTAINS_OPTION_TEMPLATE,
     FILED_ISSUE_API_PATH_TEMPLATE,
     FILED_ISSUE_API_SUBCOMMAND,
     FILED_ISSUE_CLIENT_NAME,
@@ -91,6 +96,7 @@ from hooks_constants.merge_review_gate_constants import (
     FILED_ISSUE_PAGE_KEY,
     FILED_ISSUE_PULL_REQUEST_KEY,
     FULL_REVIEW_PASS_COUNT,
+    LOCAL_BRANCH_REFERENCE_TEMPLATE,
     OPEN_RECEIPT_HEAD_PATTERN,
     OPEN_TARGET_WORD,
     RECEIPT_BRANCH_KEY,
@@ -101,6 +107,7 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_RULED_OUT_KEY,
     RECEIPT_RULING_LINES_KEY,
     RECEIPT_RULINGS_KEY,
+    REMOTE_TRACKING_REFERENCE_PREFIX,
     REPOSITORY_SLUG_PATTERN,
     RULING_LOOKUP_TIMEOUT_SECONDS,
     RULING_REFERENCE_PATTERN,
@@ -194,9 +201,15 @@ def record_open_review(
 ) -> Path:
     """Write the receipt for one review pass run before the pull request opens.
 
-    The receipt names the branch checked out in the current folder, so the
-    gate credits fix commits on top of ``head`` only to that branch. A
-    detached checkout records no branch, and its pass counts only at ``head``.
+    The receipt names the branch checked out in the current folder when
+    ``head`` is that branch's own work, so the gate credits fix commits on top
+    of ``head`` only to that branch::
+
+        on feature, no other branch holds head        -> branch: feature
+        on second, feature or origin/feature holds it -> no branch
+        detached checkout, or a branch read fails     -> no branch
+
+    A receipt with no branch counts only at ``head``.
 
     Args:
         slug: Repository as ``owner/name``.
@@ -216,7 +229,7 @@ def record_open_review(
         raise ValueError(problem)
     all_receipt_fields = _open_receipt(head, finding_count, all_rulings)
     branch = _checkout_branch()
-    if branch:
+    if branch and _is_own_work_of(branch, head):
         all_receipt_fields[RECEIPT_BRANCH_KEY] = branch
     return _write_open_receipt(slug, head, all_receipt_fields)
 
@@ -233,6 +246,37 @@ def _checkout_branch() -> str | None:
     except (OSError, subprocess.SubprocessError):
         return None
     return completed.stdout.strip() if completed.returncode == 0 else None
+
+
+def _is_own_work_of(branch: str, head: str) -> bool:
+    try:
+        completed = subprocess.run(
+            [
+                "git",
+                *ALL_HOLDING_REFERENCE_ARGUMENTS,
+                CONTAINS_OPTION_TEMPLATE.format(commit=head),
+                *ALL_BRANCH_REFERENCE_PREFIXES,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=RULING_LOOKUP_TIMEOUT_SECONDS,
+            check=False,
+            env={**os.environ, **ALL_STORED_HISTORY_GIT_SETTINGS},
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if completed.returncode != 0:
+        return False
+    return all(
+        _is_reference_of(each_reference, branch) for each_reference in completed.stdout.split()
+    )
+
+
+def _is_reference_of(reference: str, branch: str) -> bool:
+    if reference == LOCAL_BRANCH_REFERENCE_TEMPLATE.format(branch=branch):
+        return True
+    remote_and_branch = reference.removeprefix(REMOTE_TRACKING_REFERENCE_PREFIX)
+    return remote_and_branch != reference and remote_and_branch.partition("/")[2] == branch
 
 
 def _write_open_receipt(slug: str, head: str, all_receipt_fields: dict[str, object]) -> Path:

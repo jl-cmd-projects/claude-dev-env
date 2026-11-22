@@ -60,8 +60,10 @@ from blocking.merge_review_gate_parts.open_request import (
     OpenCall,
     OpenRequest,
     ShellOpenCall,
+    base_tip,
     first_parent_ancestors,
     is_held_by_another_line,
+    is_outside_base,
     open_calls_from,
     open_request_for,
 )
@@ -167,8 +169,10 @@ def open_deny_reason(request: OpenRequest) -> str | None:
 
     The open goes on when a clean pass covers its head, or when any recorded
     pass on the branch being opened covers a commit before it along the
-    head's first parents that no other branch holds without the head. A pass
-    whose receipt names another branch or no branch counts only at its head.
+    head's first parents that no other branch holds without the head and
+    that the base branch on GitHub does not hold. A pass whose receipt names
+    another branch or no branch counts only at its head. A base that cannot
+    be read gives no credit to an earlier pass.
 
     Args:
         request: The open the tool call asks for.
@@ -184,15 +188,24 @@ def open_deny_reason(request: OpenRequest) -> str | None:
         return UNKNOWN_OPEN_TARGET_REASON
     if has_clean_open_review(request.repo, request.head):
         return None
-    if request.branch and any(
-        not is_held_by_another_line(each_reviewed_head, request.head, request.folder)
-        for each_reviewed_head in open_reviewed_heads_among(
-            request.repo, first_parent_ancestors(request.head, request.folder), request.branch
-        )
-    ):
+    if request.branch and _has_earlier_own_pass(request, request.head, request.branch):
         return None
     return NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE.format(
         slug=request.slug, head=request.head, review_command=_review_command()
+    )
+
+
+def _has_earlier_own_pass(request: OpenRequest, head: str, branch: str) -> bool:
+    all_reviewed_heads = open_reviewed_heads_among(
+        request.repo, first_parent_ancestors(head, request.folder), branch
+    )
+    if not all_reviewed_heads:
+        return False
+    base_commit = base_tip(request)
+    return base_commit is not None and any(
+        not is_held_by_another_line(each_reviewed_head, head, request.folder)
+        and is_outside_base(each_reviewed_head, base_commit, request.folder)
+        for each_reviewed_head in all_reviewed_heads
     )
 
 

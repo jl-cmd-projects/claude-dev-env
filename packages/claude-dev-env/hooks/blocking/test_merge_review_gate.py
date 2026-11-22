@@ -37,7 +37,8 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("CLAUDE_MERGE_REVIEW_COMMAND", raising=False)
     remotes = tmp_path / "github.com"
     subprocess.run(
-        ["git", "init", "--quiet", "--bare", str(remotes / "acme" / "tools.git")], check=True
+        ["git", "init", "--quiet", "--bare", "--initial-branch", "main", str(remotes / "acme" / "tools.git")],
+        check=True,
     )
     index = int(os.environ.get("GIT_CONFIG_COUNT", "0"))
     monkeypatch.setenv("GIT_CONFIG_COUNT", str(index + 1))
@@ -370,6 +371,19 @@ def branch_checkout(
     monkeypatch.chdir(folder)
     _git(folder, "init", "--quiet", "--initial-branch", "main")
     _git(folder, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "base",
+    )
+    _git(folder, "push", "--quiet", str(github_repository), "main")
     _git(folder, "checkout", "--quiet", "-b", "feature")
     _git(
         folder,
@@ -584,6 +598,83 @@ def test_should_deny_a_stacked_open_after_the_branch_it_stacks_on_is_merged_and_
     _git(folder, "push", "--quiet", str(github_repository), "--delete", "feature")
     assert "no clean review" in _deny_reason(_create_tool(folder, "second"))
     assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
+
+
+def _commit_on(folder: Path, message: str) -> str:
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        message,
+    )
+    return _git(folder, "rev-parse", "HEAD")
+
+
+def test_should_deny_a_stacked_open_whose_pass_was_recorded_on_it_at_the_head_it_stacks_on(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, feature_head = branch_checkout
+    _git(folder, "checkout", "--quiet", "-b", "second")
+    merge_review_receipt.record_open_review("acme/tools", feature_head, 2)
+    _commit_on(folder, "second work")
+    _git(folder, "push", "--quiet", str(github_repository), "second")
+    feature_tree = _git(folder, "rev-parse", f"{feature_head}^{{tree}}")
+    squash_commit = _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit-tree",
+        feature_tree,
+        "-p",
+        "main",
+        "-m",
+        "squash feature",
+    )
+    _git(folder, "branch", "--quiet", "-f", "main", squash_commit)
+    _git(folder, "push", "--quiet", str(github_repository), "main")
+    _git(folder, "branch", "--quiet", "-D", "feature")
+    _git(folder, "push", "--quiet", str(github_repository), "--delete", "feature")
+    assert "no clean review" in _deny_reason(_create_tool(folder, "second"))
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
+
+
+def test_should_deny_an_open_whose_only_pass_sits_on_the_base_commit_no_local_ref_holds(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    folder, _feature_head = branch_checkout
+    base_commit = _git(folder, "rev-parse", "main")
+    _git(folder, "push", "--quiet", str(github_repository), "main:late")
+    single_branch_clone = tmp_path / "single branch clone"
+    subprocess.run(
+        [
+            "git",
+            "clone",
+            "--quiet",
+            "--single-branch",
+            "--branch",
+            "late",
+            "https://github.com/acme/tools.git",
+            str(single_branch_clone),
+        ],
+        check=True,
+    )
+    monkeypatch.chdir(single_branch_clone)
+    merge_review_receipt.record_open_review("acme/tools", base_commit, 2)
+    _commit_on(single_branch_clone, "late work")
+    _git(single_branch_clone, "push", "--quiet", "origin", "late")
+    assert "no clean review" in _deny_reason(_create_tool(single_branch_clone, "late"))
+    assert "no clean review" in _deny_reason(_bash_in(single_branch_clone, "gh pr create --fill"))
 
 
 def test_should_name_one_review_pass_then_fixes_when_an_open_is_denied(

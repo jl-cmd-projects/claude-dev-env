@@ -20,6 +20,7 @@ REPO_FIELD = "repo"
 NUMBER_FIELD = "pullNumber"
 EXPECTED_HEAD_FIELD = "expectedHeadSha"
 HEAD_BRANCH_FIELD = "head"
+BASE_BRANCH_FIELD = "base"
 CWD_FIELD = "cwd"
 
 ALL_HEAD_OPTIONS = frozenset({"-H", "--head"})
@@ -27,6 +28,8 @@ ALL_REPOSITORY_OPTIONS = frozenset({"-R", "--repo"})
 LONG_REPOSITORY_OPTION = "--repo"
 REPOSITORY_SHORT_LETTER = "R"
 HEAD_SHORT_LETTER = "H"
+LONG_BASE_OPTION = "--base"
+BASE_SHORT_LETTER = "B"
 SHORT_OPTION_PREFIX = "-"
 OPTION_AND_VALUE_WIDTH = 2
 GH_PROGRAM_NAME = "gh"
@@ -116,6 +119,7 @@ LOOSE_OPEN_WORD_PATTERN = re.compile(r"(?<![\w-])(?:create|new)(?![\w-])")
 LOOSE_OPEN_OR_MERGE_WORD_PATTERN = re.compile(r"(?<![\w-])(?:create|new|merge)(?![\w-])")
 LOOSE_PULL_REQUEST_SCRIPT_PATTERN = re.compile(r"pull_request\.py")
 HEAD_OPTION_PATTERN = re.compile(r"(?<!\S)(?:-H|--head)(?:=|\s+)[\"']?(?P<head>[^\s\"']+)")
+BASE_OPTION_PATTERN = re.compile(r"(?<!\S)(?:-B|--base)(?:=|\s+)[\"']?(?P<base>[^\s\"']+)")
 CHANGE_FOLDER_PATTERN = re.compile(
     r"(?:^|[;&|(]\s*)(?:cd|pushd|Set-Location|sl)\s+(?:-Path\s+|-LiteralPath\s+)?"
     r"(?P<folder>\"[^\"]*\"|'[^']*'|[^\s;&|)]+)",
@@ -149,6 +153,11 @@ CONTAINS_OPTION_TEMPLATE = "--contains={commit}"
 NO_CONTAINS_OPTION_TEMPLATE = "--no-contains={commit}"
 ALL_BRANCH_REFERENCE_PREFIXES = ("refs/heads", "refs/remotes")
 ALL_CHECKOUT_BRANCH_ARGUMENTS = ("symbolic-ref", "--quiet", "--short", "HEAD")
+ALL_HOLDING_REFERENCE_ARGUMENTS = ("for-each-ref", "--format=%(refname)")
+LOCAL_BRANCH_REFERENCE_TEMPLATE = "refs/heads/{branch}"
+REMOTE_TRACKING_REFERENCE_PREFIX = "refs/remotes/"
+ALL_OUTSIDE_BASE_ARGUMENTS = ("rev-list", "--max-count=1")
+EXCLUDE_FROM_WALK_OPTION = "--not"
 
 GH_PR_MERGE_PATTERN = re.compile(r"(?:^|[\s;&|(])gh(?:\.exe)?\s+pr\s+merge\b(?P<rest>[^;&|]*)")
 GH_API_MERGE_PATTERN = re.compile(
