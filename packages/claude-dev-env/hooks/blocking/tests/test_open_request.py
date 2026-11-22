@@ -453,6 +453,40 @@ def test_should_count_a_launcher_create_lone_only_when_its_script_is_the_managed
 
 
 @pytest.mark.parametrize(
+    ("program_word", "cause"),
+    [
+        ("python3 {home}/" + MANAGED_LAUNCHER_TAIL, None),
+        ("python {home}/" + MANAGED_LAUNCHER_TAIL, None),
+        ("./python3 {home}/" + MANAGED_LAUNCHER_TAIL, WithheldCredit.NOT_LONE),
+        ("./Python3 {home}/" + MANAGED_LAUNCHER_TAIL, WithheldCredit.NOT_LONE),
+        ("/tmp/x/python3 {home}/" + MANAGED_LAUNCHER_TAIL, WithheldCredit.NOT_LONE),
+        ("{checkout}/python3 {home}/" + MANAGED_LAUNCHER_TAIL, WithheldCredit.NOT_LONE),
+        ("gh pr", None),
+        ("./gh pr", WithheldCredit.NOT_LONE),
+        ("/tmp/x/gh pr", WithheldCredit.NOT_LONE),
+        ("bin/gh pr", WithheldCredit.NOT_LONE),
+    ],
+)
+def test_should_count_a_create_lone_only_when_its_program_word_is_a_bare_name(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, program_word: str, cause: WithheldCredit | None
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    _bare_remote(tmp_path / "github", "acme")
+    _redirect_github(monkeypatch, tmp_path / "github")
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    lead = program_word.format(home=home.as_posix(), checkout=checkout.as_posix())
+    command = f"{lead} create --repo acme/tools --base main --head feature {LAUNCHER_CREATE_TAIL}"
+    all_requests = [open_request_for(each_call) for each_call in open_calls_from(_shell_payload(command, checkout))]
+    assert all_requests
+    assert {each_request.unknown_base_cause for each_request in all_requests} == {cause}
+
+
+@pytest.mark.parametrize(
     "command",
     [
         "gh pr create --repo acme/tools --base main --head feature --head=",

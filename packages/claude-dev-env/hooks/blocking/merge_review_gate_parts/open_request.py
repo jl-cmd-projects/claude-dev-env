@@ -123,6 +123,7 @@ from hooks_constants.merge_review_gate_constants import (
     CURRENT_HEAD_REFERENCE,
     CWD_FIELD,
     EXCLUDE_FROM_WALK_OPTION,
+    FOLDER_PATH_SEPARATOR_PATTERN,
     GH_PR_CREATE_PATTERN,
     GH_HOST_VARIABLE,
     GH_PROGRAM_NAME,
@@ -1041,8 +1042,12 @@ def _is_lone_create(command: str) -> bool:
         gh pr create --fill # ; git config ...               -> False
         gh pr create --title a&b                             -> False
         python3 ~/x/pull_request.py create ...               -> False, the ~ is outside quotes
+        ./gh pr create --fill, /tmp/x/gh pr create --fill    -> False, gh is not a bare name
+        ./python3 <home>/.agents/.../pull_request.py create ... -> False, python3 is not a bare name
 
-    A ``$``, backtick or line break anywhere makes the command not lone. The
+    ``gh`` and the interpreter are bare words with no ``/`` or ``\\``, so
+    bash finds them on PATH; a word with a path runs whatever file sits
+    there. A ``$``, backtick or line break anywhere makes the command not lone. The
     rest is split as POSIX shell words, and each of ``( ) ; < > | & # { } *
     ? [ ~`` outside quotes and not escaped comes back as a word of its own,
     which makes the command not lone. A word made only of those characters
@@ -1064,12 +1069,29 @@ def _is_lone_create(command: str) -> bool:
     all_words = _lone_command_words(_with_managed_launcher_home(command))
     if not all_words:
         return False
-    program = token_basename(all_words[0]).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
+    program = _bare_program_name(all_words[0])
     if program != GH_PROGRAM_NAME:
         return _is_lone_launcher_create(program, all_words)
     subcommand_start = 1 + _root_repository_width(all_words[1:])
     all_subcommand_words = tuple(all_words[subcommand_start : subcommand_start + LONE_CREATE_SUBCOMMAND_WIDTH])
     return all_subcommand_words in ALL_LONE_CREATE_SUBCOMMANDS
+
+
+def _bare_program_name(program_word: str) -> str | None:
+    """Return the program name bash finds on PATH for a word, or None when the word names a path.
+
+    ::
+
+        gh, GH, gh.exe, python3     -> "gh", "gh", "gh", "python3"
+        ./gh, /tmp/x/gh, bin\\gh    -> None
+        ./python3, /tmp/x/python3  -> None
+
+    A word with a ``/`` or ``\\`` runs the file at that path, which may be
+    any script, so only a bare word names the program the gate trusts.
+    """
+    if FOLDER_PATH_SEPARATOR_PATTERN.search(program_word):
+        return None
+    return token_basename(program_word).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
 
 
 def _lone_command_words(command: str) -> list[str] | None:
@@ -1104,8 +1126,8 @@ def _with_managed_launcher_home(command: str) -> str:
     gate runs with the same home::
 
         python3 ~/.agents/skills/pull-request/scripts/pull_request.py create ...
-            -> python3 /home/u/.agents/skills/pull-request/scripts/pull_request.py create ...
-        $HOME/.agents/skills/pull-request/scripts/pull_request.py create ... -> /home/u/.agents/...
+            -> python3 <home>/.agents/skills/pull-request/scripts/pull_request.py create ...
+        $HOME/.agents/skills/pull-request/scripts/pull_request.py create ... -> <home>/.agents/...
         python3 ~/x/pull_request.py create ..., ~other/.agents/..., '~'/.agents/... -> unchanged
 
     Only the script word of the launcher changes, so any other ``~`` or
@@ -1122,8 +1144,8 @@ def _is_managed_launcher(script_word: str) -> bool:
 
     ::
 
-        /home/u/.agents/skills/pull-request/scripts/pull_request.py           -> True
-        /home/u/.agents/skills/pull-request/scripts/../scripts/pull_request.py -> True
+        <home>/.agents/skills/pull-request/scripts/pull_request.py           -> True
+        <home>/.agents/skills/pull-request/scripts/../scripts/pull_request.py -> True
         pull_request.py, ./pull_request.py, scripts/pull_request.py            -> False
         /tmp/x/pull_request.py, /repo/.agents/skills/pull-request/...          -> False
 
@@ -1139,25 +1161,30 @@ def _is_managed_launcher(script_word: str) -> bool:
     )
 
 
-def _is_lone_launcher_create(program: str, all_words: list[str]) -> bool:
+def _is_lone_launcher_create(program: str | None, all_words: list[str]) -> bool:
     """Return whether shell words run the managed ``pull_request.py create`` launcher with one repository, base and head.
 
     ::
 
-        /home/u/.agents/skills/pull-request/scripts/pull_request.py create --repo o/r --base main --head f -> True
-        python3 /home/u/.agents/.../pull_request.py create --repo=o/r --base main --head f            -> True
+        <home>/.agents/skills/pull-request/scripts/pull_request.py create --repo o/r --base main --head f -> True
+        python3 <home>/.agents/.../pull_request.py create --repo=o/r --base main --head f            -> True
         python3 /x/pull_request.py create ..., ./pull_request.py create ...                           -> False
-        python3 -X utf8 /home/u/.agents/.../pull_request.py create ...                                -> False
-        /home/u/.agents/.../pull_request.py create --repo o/r --base main                             -> False
+        ./python3 <home>/.agents/.../pull_request.py create ...                                      -> False
+        python3 -X utf8 <home>/.agents/.../pull_request.py create ...                                -> False
+        <home>/.agents/.../pull_request.py create --repo o/r --base main                             -> False
         ... --head f --head g, --head=, --title --head                                                -> False
 
     The script word must be the managed launcher, so a different script
     with the same name cannot change git config or open elsewhere and still
-    count. The words after ``create`` must read as the launcher's own
-    options, each in an option position, so the head and repository the
-    gate reads are the ones the launcher hands to gh.
+    count. An interpreter before it is a bare ``python`` or ``python3``
+    that bash finds on PATH; ``program`` is None for a word with a path, so
+    a file named ``python3`` in some folder does not count. The words after
+    ``create`` must read as the launcher's own options, each in an option
+    position, so the head and repository the gate reads are the ones the
+    launcher hands to gh.
     """
-    script_start = 1 if LONE_LAUNCHER_PYTHON_PATTERN.fullmatch(program) else 0
+    is_interpreter = program is not None and LONE_LAUNCHER_PYTHON_PATTERN.fullmatch(program) is not None
+    script_start = 1 if is_interpreter else 0
     all_launcher_words = all_words[script_start:]
     if len(all_launcher_words) < LONE_LAUNCHER_LEAD_WIDTH:
         return False

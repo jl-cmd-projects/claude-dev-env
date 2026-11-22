@@ -219,7 +219,8 @@ ALL_LONE_LAUNCHER_REQUIRED_OPTIONS = ("--repo", "--base", "--head")
 ALL_LONE_LAUNCHER_VALUE_OPTIONS = frozenset({"--repo", "--base", "--head", "--title", "--body-file"})
 ALL_LONE_LAUNCHER_FLAG_OPTIONS = frozenset({"--draft"})
 LONE_LAUNCHER_OPTION_PREFIX = "-"
-ALL_MANAGED_LAUNCHER_PATH_PARTS = (".agents", "skills", "pull-request", "scripts", "pull_request.py")
+LAUNCHER_SCRIPT_FILE_NAME = "pull_request.py"
+ALL_MANAGED_LAUNCHER_PATH_PARTS = (".agents", "skills", "pull-request", "scripts", LAUNCHER_SCRIPT_FILE_NAME)
 MANAGED_LAUNCHER_HOME_PREFIX_PATTERN = re.compile(
     r"\A(?P<lead>\s*(?:python3?\s+)?)(?:~|\$HOME)(?="
     + re.escape("/" + "/".join(ALL_MANAGED_LAUNCHER_PATH_PARTS))
@@ -508,7 +509,9 @@ SESSION_REPOSITORY_CAUSE = (
 NOT_LONE_CAUSE = (
     "the create is not the whole command. Run `gh pr create` as its own command, with no `cd`, "
     "variable prefix or other command beside it. Put a `--repo` before `pr` or after `create`, "
-    "never between them. The `pull_request.py create` launcher counts too when it runs alone "
+    "never between them. Write `gh`, `python` or `python3` as a bare name that bash finds on "
+    "PATH, never by a path such as `./gh` or `/tmp/x/python3`. The `pull_request.py create` "
+    "launcher counts too when it runs alone "
     "as `~/.agents/skills/pull-request/scripts/pull_request.py`, written with `~/`, `$HOME/` or "
     "the full home folder, with `--repo`, `--base` and `--head`; another script with that name "
     "does not count. Outside quotes, any of ( ) ; < > | "

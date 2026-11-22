@@ -818,6 +818,71 @@ def test_should_give_no_earlier_pass_credit_to_a_launcher_create_whose_script_is
     assert "no clean review" in _deny_reason(_bash_in(folder, _launcher_create(script_path)))
 
 
+ALL_PATH_QUALIFIED_PROGRAM_CREATES = [
+    "./python3 {launcher} create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "./Python3 {launcher} create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "/tmp/x/python3 {launcher} create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "./gh pr create --base main --head feature --fill",
+    "/tmp/x/gh pr create --base main --head feature --fill",
+    "bin/gh pr create --base main --head feature --fill",
+]
+ALL_BARE_PROGRAM_CREATES = [
+    "python3 {launcher} create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "python {launcher} create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "gh pr create --base main --head feature --fill",
+]
+
+
+@pytest.mark.parametrize("command_template", ALL_PATH_QUALIFIED_PROGRAM_CREATES)
+def test_should_give_no_earlier_pass_credit_to_a_create_whose_program_word_holds_a_path(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command_template: str,
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    command = command_template.format(launcher=_managed_launcher_path(tmp_path, monkeypatch))
+    reason = _deny_reason(_bash_in(folder, command))
+    assert "no clean review" in reason
+    assert "the create is not the whole command" in reason
+
+
+@pytest.mark.parametrize("command_template", ALL_BARE_PROGRAM_CREATES)
+def test_should_credit_an_earlier_pass_to_a_create_whose_program_word_is_a_bare_name(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command_template: str,
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    command = command_template.format(launcher=_managed_launcher_path(tmp_path, monkeypatch))
+    assert _reason(_bash_in(folder, command)) is None
+
+
+@pytest.mark.parametrize("command_template", ALL_PATH_QUALIFIED_PROGRAM_CREATES)
+def test_should_deny_a_clean_head_to_a_create_whose_program_word_holds_a_path(
+    branch_checkout: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command_template: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    command = command_template.format(launcher=_managed_launcher_path(tmp_path, monkeypatch))
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"acme/tools has a clean review for head {head}" in reason
+    assert "run the create on its own" in reason
+
+
+@pytest.mark.parametrize("command_template", ALL_BARE_PROGRAM_CREATES)
+def test_should_allow_a_clean_head_to_a_create_whose_program_word_is_a_bare_name(
+    branch_checkout: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command_template: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    command = command_template.format(launcher=_managed_launcher_path(tmp_path, monkeypatch))
+    assert _reason(_bash_in(folder, command)) is None
+
+
 @pytest.mark.parametrize(
     "launcher_options",
     [

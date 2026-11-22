@@ -51,6 +51,7 @@ from hooks_constants.merge_review_gate_constants import (
     FUNCTION_DEFINITION_TOKEN,
     GIT_FOLDER_NAME,
     HEREDOC_OPERATOR_TOKEN,
+    LAUNCHER_SCRIPT_FILE_NAME,
     LINE_FEED,
     NULL_DEVICE_PATH,
     OPTION_PREFIX,
@@ -283,12 +284,15 @@ def is_settled_create_segment(all_tokens: list[str], has_expanding_heredoc: bool
         X=$(git push) gh pr create, GIT_DIR=x gh pr create      -> False
         env gh pr create, command gh pr create, then gh ...     -> False
         gh pr create --fill > .git/HEAD                         -> False
+        ./gh pr create, /tmp/x/python3 pull_request.py create   -> False
 
     The words before the program are assignments whose values hold no ``$``
     or backtick, and whose names are not ``GIT_``, ``LD_``, ``DYLD_``,
     ``XDG_``, ``HOME``, ``PATH``, or a ``GH_`` name but the repository one. The first other word
     is the program, with no wrapper or compound word before it but a bare
-    ``uv run``, as in ``uv run pull_request.py create``. Names match in any
+    ``uv run``, as in ``uv run pull_request.py create``. The program is a
+    bare word with no ``/`` or ``\\``, which bash finds on PATH, unless it
+    is the ``pull_request.py`` script itself. Names match in any
     case, since Windows reads ``gh_repo`` as ``GH_REPO``, and only the upper
     case ``GH_REPO`` is kept. Output goes only to /dev/null, a descriptor
     copy, or a plain path outside ``.git``: one with no ``$``, backtick,
@@ -320,10 +324,11 @@ def is_settled_create_segment(all_tokens: list[str], has_expanding_heredoc: bool
         and program_index + launcher_width < len(all_tokens)
     ):
         program_index += launcher_width
-    program_word = token_basename(unquoted_token(all_tokens[program_index])).removesuffix(
-        WINDOWS_EXECUTABLE_SUFFIX
-    )
+    program_token = unquoted_token(all_tokens[program_index])
+    program_word = token_basename(program_token).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
     if program_word != segment_program_and_arguments(all_tokens)[0]:
+        return False
+    if FOLDER_PATH_SEPARATOR_PATTERN.search(program_token) and program_word != LAUNCHER_SCRIPT_FILE_NAME:
         return False
     return all(_is_kept_write_target(each_target) for each_target in _write_targets(all_tokens))
 
