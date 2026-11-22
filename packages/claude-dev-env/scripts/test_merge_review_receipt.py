@@ -59,6 +59,15 @@ def gh_issues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
     return all_responses
 
 
+@pytest.fixture(autouse=True)
+def no_github_reads(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Answer each GitHub read with nothing unless the test serves its own ``gh`` stub."""
+    if "gh_issues" not in request.fixturenames:
+        monkeypatch.setattr(
+            merge_review_receipt, "_github_answer", lambda api_path, deadline=None: None
+        )
+
+
 def _serve_issues(all_responses: dict[str, object]) -> None:
     Path(os.environ["GH_ISSUE_STUB"]).write_text(json.dumps(all_responses), encoding="utf-8")
 
@@ -542,6 +551,7 @@ def test_should_leave_a_review_status_without_a_run_page_out_of_the_pass_count(
 @pytest.mark.parametrize(
     "run_change",
     [
+        {"display_title": f"Merge review acme/tools# {'2' * 40} base main"},
         {"display_title": f"Merge review acme/tools#13 {'2' * 40} base main"},
         {"display_title": f"Merge review acme/other#12 {'2' * 40} base main"},
         {"display_title": f"Merge review acme/tools#12 {'9' * 40} base main"},
@@ -604,20 +614,35 @@ def test_should_count_nothing_when_the_head_is_not_in_the_commit_list(
     assert _filed_pass(receipt_folder) == 1
 
 
-def test_should_read_only_the_newest_earlier_commits(
-    receipt_folder: Path, gh_issues: dict[str, object]
+def _serve_failing_reviews_below_newer_commits(
+    gh_issues: dict[str, object], newer_commit_count: int
 ) -> None:
     _serve_review_statuses(gh_issues)
-    all_newer_shas = [f"{each_index:040d}" for each_index in range(4, 54)]
+    all_newer_shas = [f"{each_index:040d}" for each_index in range(4, 4 + newer_commit_count)]
     gh_issues[COMMITS_API_PATH] = [
         {"sha": each_sha} for each_sha in [*EARLIER_COMMITS, *all_newer_shas, HEAD]
     ]
     _serve_issues(gh_issues)
 
+
+def test_should_find_failing_reviews_below_a_long_series_of_fix_commits(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_failing_reviews_below_newer_commits(gh_issues, 150)
+
+    assert _filed_pass(receipt_folder) == 4
+
+
+def test_should_read_only_the_newest_earlier_commits(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _serve_failing_reviews_below_newer_commits(gh_issues, 10)
+    monkeypatch.setattr(merge_review_receipt, "EARLIER_COMMIT_READ_LIMIT", 5)
+
     assert _filed_pass(receipt_folder) == 1
 
 
-def test_should_not_read_github_for_a_record_without_filed(
+def test_should_not_read_github_for_a_later_record_without_filed(
     receipt_folder: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     all_read_paths: list[str] = []
@@ -626,11 +651,28 @@ def test_should_not_read_github_for_a_record_without_filed(
         "_github_answer",
         lambda api_path, deadline=None: all_read_paths.append(api_path),
     )
+    (receipt_folder / "acme__tools__12.json").write_text(
+        json.dumps({"head": "0" * 40, "findings": 2, "pass": 1}), encoding="utf-8"
+    )
 
     merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
 
-    assert _stored_receipt(receipt_folder)["pass"] == 1
+    assert _stored_receipt(receipt_folder)["pass"] == 2
     assert all_read_paths == []
+
+
+def test_should_recover_the_pass_count_on_the_first_record_without_filed(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+    verdict_stream = StringIO()
+
+    exit_code = merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], verdict_stream)
+
+    assert exit_code == 1
+    assert "pass 4" in verdict_stream.getvalue()
+    assert "--filed <issue url>" in verdict_stream.getvalue()
+    assert _stored_receipt(receipt_folder)["pass"] == 4
 
 
 @pytest.mark.parametrize(

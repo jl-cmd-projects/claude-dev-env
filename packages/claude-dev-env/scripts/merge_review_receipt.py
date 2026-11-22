@@ -14,13 +14,15 @@ clean once the rulings are posted and linked::
         -> CLEAN owner/name#12 def5678 (2 findings ruled out: <url>)
 
 Each numbered receipt counts its pass on the pull request. A new head is the
-next pass, and recording the same head again keeps its pass. A record with
-``--filed`` also reads GitHub: its pass is never lower than one more than the
-earlier commits of the pull request whose review run failed, run by the
-review workflow for this repository, pull request and commit, so the count
-survives a new session::
+next pass, and recording the same head again keeps its pass. The first record
+of a pull request with no receipt, and a record with ``--filed``, also read
+GitHub: the pass is never lower than one more than the earlier commits of the
+pull request whose Merge review status failed, run by the review workflow for
+this repository, pull request number and commit, so the count survives a new
+session::
 
-    --filed, no receipt, 3 earlier commits with a failing review run -> pass 4
+    no receipt, 3 earlier commits with a failing review status -> pass 4
+    REVIEWED owner/name#12 def5678 2 findings (pass 4: file these findings ...)
 
 The loop runs
 three full passes with fixes. When pass 4 or a later one still reports
@@ -197,15 +199,16 @@ def _next_pass_number(
 
     A new head is the next pass. Recording the head the previous receipt names
     again, such as after posting rulings or filing an issue, keeps its pass,
-    unless the GitHub count below raises it. A record that carries ``--filed``
-    also reads GitHub, so a new session keeps the count: the pass is never
-    lower than one more than the earlier commits of this pull request whose
-    review run GitHub shows as failing::
+    unless the GitHub count below raises it. A record with no receipt before
+    it, and a record that carries ``--filed``, also read GitHub, so a new
+    session keeps the count: the pass is never lower than one more than the
+    earlier commits of this pull request whose Merge review status GitHub
+    shows as failing::
 
-        no receipt yet                                   -> 1
+        no receipt, no failing reviews                   -> 1
         previous receipt pass 3 at abc1234, head def5678 -> 4
         previous receipt pass 3 at abc1234, head abc1234 -> 3
-        --filed, no receipt, 3 earlier failing reviews   -> 4
+        no receipt, 3 earlier failing reviews            -> 4
         --filed, previous receipt pass 1, 3 earlier ones -> 4
 
     A previous receipt that cannot be read counts as no receipt. A local pass
@@ -222,8 +225,10 @@ def _next_pass_number(
         The pass number, from 1.
     """
     owner, repo = slug.split("/", 1)
-    local_pass_number = _local_pass_number(read_receipt(receipt_path(owner, repo, number)), head)
-    if not should_read_github or local_pass_number > FULL_REVIEW_PASS_COUNT:
+    previous_receipt = read_receipt(receipt_path(owner, repo, number))
+    local_pass_number = _local_pass_number(previous_receipt, head)
+    is_fresh_session = previous_receipt is None
+    if not (should_read_github or is_fresh_session) or local_pass_number > FULL_REVIEW_PASS_COUNT:
         return local_pass_number
     reviewed_pass_number = _failed_review_head_count(owner, repo, number, head) + 1
     return max(local_pass_number, reviewed_pass_number)

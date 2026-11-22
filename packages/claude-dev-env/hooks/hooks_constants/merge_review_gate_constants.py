@@ -343,7 +343,7 @@ PULL_REQUEST_COMMITS_API_PATH_TEMPLATE = (
 )
 PULL_REQUEST_COMMITS_PAGE_SIZE = 100
 PULL_REQUEST_COMMITS_PAGE_LIMIT = 3
-EARLIER_COMMIT_READ_LIMIT = 40
+EARLIER_COMMIT_READ_LIMIT = 200
 GITHUB_COUNT_DEADLINE_SECONDS = 120
 COMMIT_STATUSES_API_PATH_TEMPLATE = "repos/{owner}/{repo}/commits/{sha}/statuses?per_page=100"
 COMMIT_SHA_KEY = "sha"
@@ -357,7 +357,7 @@ REVIEW_STATUS_RUN_PAGE_PATTERN = re.compile(
 )
 REVIEW_RUN_API_PATH_TEMPLATE = "repos/{repository}/actions/runs/{run_id}"
 REVIEW_RUN_WORKFLOW_FILE = "efficient-review.yml"
-REVIEW_RUN_TITLE_TEMPLATE = r"Merge review {repository}#(?:{number})? {head} base \S+"
+REVIEW_RUN_TITLE_TEMPLATE = r"Merge review {repository}#{number} {head} base \S+"
 REVIEW_RUN_COMPLETED_STATUS = "completed"
 REVIEW_RUN_SUCCESS_CONCLUSION = "success"
 RUN_ID_KEY = "id"
