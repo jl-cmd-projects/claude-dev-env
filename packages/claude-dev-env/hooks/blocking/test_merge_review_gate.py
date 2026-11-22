@@ -949,7 +949,8 @@ def test_should_give_no_earlier_pass_credit_to_a_managed_launcher_create_behind_
     assert f"acme/tools has a clean review for head {head}" in reason
     assert "run the create on its own" in reason
     assert "no `uv run`, `env` or other wrapper and no assignment" in reason
-    assert "Run the launcher after a bare `python` or `python3`, whichever is installed." in reason
+    assert "When the create uses the managed launcher, run it after a bare `python` or `python3`" in reason
+    assert "export that variable in the shell environment before the create" in reason
 
 
 @pytest.mark.parametrize(
