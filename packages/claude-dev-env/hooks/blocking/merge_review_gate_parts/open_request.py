@@ -202,6 +202,10 @@ class OpenRequest:
         is_head_read_on_github: False when GitHub did not answer the read of
             the head branch, so ``head`` is the clone's copy, which may not be
             the tip gh opens.
+        is_head_settled: False when the command holds a step the gate does
+            not count as settled, such as a ``git push``, a file write or a
+            process substitution, before the create or beside it, so the
+            head, branch or repository may change after the gate reads them.
     """
 
     owner: str
@@ -215,6 +219,7 @@ class OpenRequest:
     head_owner: str | None = field(default=None, compare=False)
     is_plain_words: bool = field(default=True, compare=False)
     is_head_read_on_github: bool = field(default=True, compare=False)
+    is_head_settled: bool = field(default=True, compare=False)
 
     @property
     def slug(self) -> str:
@@ -266,6 +271,11 @@ class ShellOpenCall:
             Only such a create gives an earlier pass credit.
         is_plain_words: False when bash may split or change a create word, or
             expand a flag or its value, before gh reads them.
+        is_head_settled: False when a step in the command that the gate
+            does not count as settled may move the head, branch or repository
+            before gh opens it. Equal calls compare equal
+            either way, and a command that gives two equal calls keeps False
+            when either is False.
     """
 
     repository: tuple[str, str] | None
@@ -277,6 +287,7 @@ class ShellOpenCall:
     is_base_readable: bool = field(default=True, compare=False)
     is_lone_create: bool = field(default=False, compare=False)
     is_plain_words: bool = True
+    is_head_settled: bool = field(default=True, compare=False)
 
 
 OpenCall = ToolOpenCall | ShellOpenCall
@@ -378,7 +389,13 @@ def _head_owner(branch: str) -> str | None:
 def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
     if not call.is_folder_followed:
         owner, repo = call.repository or ("", "")
-        return OpenRequest(owner=owner, repo=repo, head=None, is_plain_words=call.is_plain_words)
+        return OpenRequest(
+            owner=owner,
+            repo=repo,
+            head=None,
+            is_plain_words=call.is_plain_words,
+            is_head_settled=call.is_head_settled,
+        )
     owner, repo = call.repository or _origin_repository(call.folder)
     branch = _branch_name(call.branch, call.folder)
     settled_head = _settled_head(call.branch, branch, owner, repo, call.folder)
@@ -394,6 +411,7 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         head_owner=_head_owner(call.branch),
         is_plain_words=call.is_plain_words,
         is_head_read_on_github=settled_head.is_read_on_github,
+        is_head_settled=call.is_head_settled,
     )
 
 
@@ -889,18 +907,30 @@ def _tool_open_call(all_tool_input: dict[object, object], folder: str | None) ->
 
 
 def _shell_open_calls(command: str, folder: str | None) -> list[OpenCall]:
-    all_calls: list[OpenCall] = []
+    all_calls: list[ShellOpenCall] = []
     is_gh_repository_set = sets_gh_repository(command)
     is_lone_create = _is_lone_gh_create(command)
-    for each_create in all_placed_creates(command, folder):
+    all_creates = all_placed_creates(command, folder)
+    for each_create in all_creates:
         all_calls.extend(
-            replace(each_call, is_plain_words=each_create.is_plain_words)
+            replace(
+                each_call,
+                is_plain_words=each_create.is_plain_words,
+                is_head_settled=each_create.is_head_settled,
+            )
             for each_call in _placed_open_calls(each_create, is_gh_repository_set, is_lone_create)
         )
     floor_call = _floor_open_call(command, folder, is_lone_create)
     if floor_call is not None:
-        all_calls.append(floor_call)
-    return list(dict.fromkeys(all_calls))
+        is_first_create_settled = bool(all_creates) and all_creates[0].is_head_settled
+        all_calls.append(replace(floor_call, is_head_settled=is_lone_create or is_first_create_settled))
+    is_settled_by_call: dict[ShellOpenCall, bool] = {}
+    for each_call in all_calls:
+        is_settled_by_call[each_call] = is_settled_by_call.get(each_call, True) and each_call.is_head_settled
+    return [
+        replace(each_call, is_head_settled=each_is_settled)
+        for each_call, each_is_settled in is_settled_by_call.items()
+    ]
 
 
 def _is_lone_gh_create(command: str) -> bool:

@@ -155,6 +155,7 @@ from hooks_constants.merge_review_gate_constants import (
     UNKNOWN_OPEN_TARGET_REASON,
     UNKNOWN_TARGET_REASON,
     UNPINNED_MERGE_REASON_TEMPLATE,
+    UNSETTLED_HEAD_REASON_TEMPLATE,
     WITHHELD_CREDIT_REASON_PREFIX,
 )
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
@@ -203,7 +204,16 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     only earlier pass names no branch, the reason says to record it again
     from the branch's checkout. A head GitHub did not answer for gives no
     credit to an earlier pass. A create whose words bash expands is denied
-    before any receipt is read.
+    before any receipt is read. A clean pass at the head gives credit only
+    to a create whose head is settled: before it the command holds only
+    ``cd`` or ``pushd`` with one plain folder outside ``.git`` and bare ``cat``,
+    ``echo``, ``printf``, ``head`` or ``tail`` that write no file, its
+    substitutions run only ``cat``, ``echo`` or ``printf``, no arithmetic
+    expansion appears outside single quotes, and its output
+    goes only to /dev/null, a plain file outside ``.git`` or a pipe into a
+    reader. Any other shape, such as ``git push -f origin evil:feature &&
+    gh pr create``, may move the head after the gate reads it, so the reason
+    says to run the create on its own.
 
     Args:
         request: The open the tool call asks for.
@@ -220,7 +230,9 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     if not request.head:
         return UNKNOWN_OPEN_TARGET_REASON
     if has_clean_open_review(request.repo, request.head):
-        return None
+        if request.is_head_settled:
+            return None
+        return UNSETTLED_HEAD_REASON_TEMPLATE.format(slug=request.slug, head=request.head)
     no_pass_reason = _no_earlier_pass_reason(request, request.head)
     if not request.branch:
         return no_pass_reason
@@ -737,13 +749,29 @@ def _deny_decision(reason: str) -> dict[str, object]:
 
 
 def _first_open_deny_reason(all_open_calls: list[OpenCall]) -> str | None:
+    """Return the first deny reason among the opens, putting an unsettled head after every other reason.
+
+    ::
+
+        a create with no clean review, then one at an unsettled head  -> the missing review
+        only creates at an unsettled head                              -> run the create on its own
+
+    A missing review needs a review before any create can run, so that
+    reason comes first even when an earlier create shares its command with
+    an unsettled step.
+    """
+    unsettled_reason: str | None = None
     for each_call in all_open_calls:
-        reason = open_deny_reason(open_request_for(each_call))
-        if reason is not None and isinstance(each_call, ShellOpenCall) and each_call.is_prefix_origin_check:
-            return reason + PREFIX_ORIGIN_CHECK_SENTENCE
-        if reason is not None:
+        request = open_request_for(each_call)
+        reason = open_deny_reason(request)
+        if reason is None:
+            continue
+        if isinstance(each_call, ShellOpenCall) and each_call.is_prefix_origin_check:
+            reason += PREFIX_ORIGIN_CHECK_SENTENCE
+        if not reason.startswith(UNSETTLED_HEAD_REASON_TEMPLATE.format(slug=request.slug, head=request.head)):
             return reason
-    return None
+        unsettled_reason = unsettled_reason or reason
+    return unsettled_reason
 
 
 def main() -> int:

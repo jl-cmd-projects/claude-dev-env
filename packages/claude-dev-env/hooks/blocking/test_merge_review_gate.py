@@ -771,6 +771,12 @@ ALL_CREATES_BASH_EXPANDS = [
     "gh pr create --fill --base main --label $L",
     "gh pr create --fill --base main --body $(cat body.md)",
     "gh pr create --fill --base main --body \"$@\"",
+    "X=--head=evil; gh pr create --base main --title -t \"$X\" --body b",
+    "X=--head=evil; gh pr create --base main --body -b \"$X\" --title t",
+    "X=--repo=acme/other; gh pr create --base main --title -t \"$X\" --body b",
+    "gh pr create --base main --title -t \"--he$(printf ad)=evil\" --body b",
+    "gh pr create --base main --label -l \"--he`printf ad`=evil\" --title t --body b",
+    "gh pr create --base main --head --title=\"$X\" --fill",
 ]
 
 
@@ -789,15 +795,34 @@ def test_should_deny_a_create_whose_words_bash_expands_even_at_a_clean_head(
     "command",
     [
         "gh pr create --fill --base main --title 'a {b,c} [d]?'",
-        "git add *.txt && gh pr create --fill --base main",
         "gh pr create --fill --base main --title \\{a,b\\}",
         "gh pr create --title \"fix: glob\" --body \"$(cat <<'EOF'\n## Summary\n- Match \"*.py\" files\nEOF\n)\"",
-        "gh pr create --base main --title \"$(git log -1 --format=%s)\" --body=\"- [x] $USER\"",
+        "gh pr create --base main --title \"$(cat title.txt)\" --body=\"- [x] $USER\"",
+        "gh pr create --base main --title \"$T\" -b\"$(cat body.md)\" --label \"$L\"",
+        "gh pr create --fill --base main -dt \"$T\"",
         "gh pr create --fill --base main $'--head=feature'",
         "cd ~/checkout && gh pr create --title \"fix: checklist\" --body \"- [x] tests pass\"",
         "gh pr create --fill --base main --label \"$LABEL\"",
-        "gh pr create --fill --base main --reviewer \"$REVIEWER\" -a \"$(gh api user -q .login)\"",
+        "gh pr create --fill --base main --reviewer \"$REVIEWER\" -a \"$(printf '%s' me)\"",
+        "gh pr create --fill --base main 2>&1 | tail -5",
+        "gh pr create --fill --base main && git push origin feature",
         "gh pr create --fill --base main --milestone=\"${MILESTONE}\" --project \"$P\"",
+        "gh pr create --fill",
+        "gh pr create --base main --title \"$T\" --body \"$(cat body.md)\"",
+        "cd . && gh pr create --base main --fill",
+        "gh pr create --base main --fill --body-file body.md",
+        "X=1 gh pr create --base main --fill",
+        "gh pr create --base main --fill | tee out.txt",
+        "gh pr create --base main --fill > pr.txt",
+        "gh pr create --base main --fill; echo done",
+        "gh pr create --base main --fill || true",
+        "cd . 2>/dev/null && echo hi > /dev/null && gh pr create --base main --fill",
+        "cat body.md && gh pr create --base main --title t --body-file body.md",
+        "gh pr create --base main --fill 2>&1 | grep -o 'https.*'",
+        'gh pr create --base main --title "$(printf %s "$T")" --fill',
+        "gh pr create --base main --title '$[PATH=0]' --fill",
+        "gh pr create --base main --title '${BASH_COMMAND@P}' --fill",
+        'gh pr create --base main --title "${T}" --fill',
     ],
 )
 def test_should_allow_a_clean_head_whose_create_words_bash_leaves_as_written(
@@ -807,6 +832,76 @@ def test_should_allow_a_clean_head_whose_create_words_bash_leaves_as_written(
     monkeypatch.setenv("HOME", str(tmp_path))
     merge_review_receipt.record_open_review("acme/tools", head, 0)
     assert _reason(_bash_in(folder, command)) is None
+
+
+ALL_CREATES_A_PROGRAM_MAY_MOVE = [
+    "git push -q -f origin evil:feature && gh pr create --base main --fill",
+    "git push -q -f origin evil:feature; gh pr create --base main --fill",
+    "git push -q -f origin evil:feature && gh pr create --base main --fill --head feature",
+    "cd . && git push -q -f origin evil:feature && gh pr create --base main --fill",
+    "env git push -q -f origin evil:feature && gh pr create --base main --fill",
+    "bash -c 'git push -q -f origin evil:feature' && gh pr create --base main --fill",
+    "x=$(git push -q -f origin evil:feature); gh pr create --base main --fill",
+    "gh pr create --base main --title \"$(git push -q -f origin evil:feature)\" --fill",
+    "gh pr create --base main --fill | git push -q -f origin evil:feature",
+    "gh pr create --base main --fill & git push -q -f origin evil:feature",
+    "git add *.txt && gh pr create --fill --base main",
+    "gh pr create --base main --title \"$(git log -1 --format=%s)\" --fill",
+    "cat <(git push -q -f origin evil:feature) && gh pr create --base main --fill",
+    "head -n1 <(git push -q -f origin evil:feature) && gh pr create --base main --fill",
+    "cat <<EOF\n$(git push -q -f origin evil:feature)\nEOF\ngh pr create --base main --fill",
+    "gh pr create --base main --title t --body \"$(cat <<EOF\n$(git push -q -f origin evil:feature)\nEOF\n)\"",
+    "gh pr create --base main --title t --body \"$(cat <<'EOF'\nhi\nEOF\ngit push -q -f origin evil:feature\n)\"",
+    "X=$(git push -q -f origin evil:feature) gh pr create --base main --fill",
+    "echo 'ref: refs/heads/evil' > .git/HEAD && gh pr create --base main --fill",
+    "printf 'ref: refs/heads/evil\\n' | tee .git/HEAD && gh pr create --base main --fill",
+    "gh pr create --base main --title t --body-file <(git push -q -f origin evil:feature; echo b)",
+    "gh pr create --base main --fill > >(git push -q -f origin evil:feature)",
+    "gh pr create --base main --fill 2> >(git push -q -f origin evil:feature)",
+    "tee >(git push -q -f origin evil:feature) < /dev/null && gh pr create --base main --fill",
+    "./cat && gh pr create --base main --fill",
+    "/tmp/x/echo && gh pr create --base main --fill",
+    "printf '[branch \"feature\"]\\n\\tmerge = refs/heads/evil\\n' >> .git/config && gh pr create --base main --fill",
+    "export GH_REPO=a/b ; gh pr create --repo acme/tools --head feature",
+    "export GH_REPO=a/b ; GH_REPO=acme/tools gh pr create --head feature",
+    "gh pr create --base main --fill | tee .git/HEAD",
+    "(echo x; gh pr create --base main --fill) | git push -q -f origin evil:feature",
+    "GIT_DIR=../other/.git gh pr create --base main --fill",
+    "printf $(echo -v) X %s 'a[$(git push -q -f origin evil:feature)]'; echo ${b[X]}; gh pr create --base main --fill",
+    "printf ${Z:--v} X %s 'a[$(git push -q -f origin evil:feature)]'; echo ${b[X]}; gh pr create --base main --fill",
+    "printf $(echo -v) PATH %s /nonexist && gh pr create --base main --fill",
+    "gh pr create --base main --fill | tee .gi?/HEAD",
+    "gh_repo=acme/other gh pr create --base main --fill",
+    'gh pr create --base main --title "$[PATH=0]" --fill',
+    'gh pr create --base main --title "x$[PATH=0]" --fill',
+    'gh pr create --base main --title "$[HOME=1]" --fill',
+    'gh pr create --base main --title "${T:PATH=0}" --fill',
+    'echo x "${BASH_COMMAND@P}" && gh pr create --base main --fill',
+    'echo x "${T@E}" && gh pr create --base main --fill',
+    'gh pr create --base main --title "${GH_REPO:=x}" --fill',
+    'gh pr create --base main --title "${!T}" --fill',
+    'gh pr create --base main --title "${T/a/b}" --fill',
+    'gh pr create --base main --title "${#T}" --fill',
+    "cd .git && gh pr create --base main --fill > HEAD",
+    "cd .git && gh pr create --base main --fill | tee HEAD",
+    "cd .git && gh pr create --base main --fill | grep -o x > HEAD",
+    "cd .git && gh pr create --base main --fill | tee -a config",
+    "pushd .git && gh pr create --base main --fill > HEAD",
+    "cd .git/ && gh pr create --base main --fill > HEAD",
+    "cd ./.git && gh pr create --base main --fill > HEAD",
+    "cd .git/refs/heads && gh pr create --base main --fill > feature",
+]
+
+
+@pytest.mark.parametrize("command", ALL_CREATES_A_PROGRAM_MAY_MOVE)
+def test_should_deny_a_clean_head_when_another_program_in_the_command_may_move_it_first(
+    branch_checkout: tuple[Path, str], command: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"acme/tools has a clean review for head {head}" in reason
+    assert "run the create on its own" in reason
 
 
 @pytest.mark.parametrize(
@@ -1850,9 +1945,6 @@ def test_should_deny_as_unread_a_create_with_no_repository_when_the_command_sets
 @pytest.mark.parametrize(
     "command",
     [
-        "export GH_REPO=a/b ; gh pr create --repo acme/tools --head feature",
-        "export GH_REPO=a/b ; gh pr create -R acme/tools --head feature",
-        "export GH_REPO=a/b ; GH_REPO=acme/tools gh pr create --head feature",
         "GH_REPO=acme/tools gh pr create --head feature ; gh pr create --head feature",
         "echo GH_REPO=a/b ; gh pr create --head feature",
         "gh pr create --head feature --body 'export GH_REPO=a/b'",
@@ -2271,7 +2363,8 @@ def test_should_deny_an_unreviewed_first_create_a_shell_reads_from_its_input(
     folder, first_head, second_head = two_branch_checkout
     merge_review_receipt.record_open_review("acme/tools", first_head, 0)
     assert _reason(_bash_in(folder, "gh pr create --head feature")) is None
-    assert f"no clean review for head {second_head}" in _deny_reason(_bash_in(folder, command))
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"no clean review for head {second_head}" in reason or "run the create on its own" in reason
 
 
 def test_should_not_read_a_create_in_the_sibling_a_piped_brace_group_moves_to(
@@ -2432,7 +2525,8 @@ def test_should_deny_a_later_create_bash_runs_on_an_unreviewed_head(
 ) -> None:
     folder, first_head, second_head = two_branch_checkout
     merge_review_receipt.record_open_review("acme/tools", first_head, 0)
-    assert f"no clean review for head {second_head}" in _deny_reason(_bash_in(folder, command))
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"no clean review for head {second_head}" in reason or "run the create on its own" in reason
 
 
 def test_should_check_a_create_after_a_line_break_in_bash_c_in_the_folder_before_it(
@@ -2464,13 +2558,13 @@ def test_should_allow_a_reviewed_create_in_a_substitution_whose_body_holds_a_lin
     assert _reason(_bash_in(folder, command)) is None
 
 
-def test_should_allow_a_reviewed_create_after_an_eval_script_bash_cannot_parse(
+def test_should_read_the_reviewed_create_after_an_eval_script_bash_cannot_parse(
     branch_checkout: tuple[Path, str],
 ) -> None:
     folder, head = branch_checkout
     merge_review_receipt.record_open_review("acme/tools", head, 0)
     command = "bash -c \"eval 'gh pr create --title 'a b' --body \"x; gh pr create --head feature --body \"y\""
-    assert _reason(_bash_in(folder, command)) is None
+    assert f"acme/tools has a clean review for head {head}" in _deny_reason(_bash_in(folder, command))
 
 
 def test_should_allow_a_reviewed_create_a_wrapped_script_runs_before_another_line(

@@ -54,6 +54,37 @@ ALL_POP_FOLDER_PROGRAMS = frozenset({"popd", "pop-location"})
 ALL_FOLDER_CHANGE_WORDS = (
     ALL_CHANGE_FOLDER_PROGRAMS | ALL_PUSH_FOLDER_PROGRAMS | ALL_POP_FOLDER_PROGRAMS
 )
+ALL_SETTLED_FOLDER_PROGRAMS = frozenset({"cd", "pushd"})
+ALL_SETTLED_SUBSTITUTION_PROGRAMS = frozenset({"cat", "echo", "printf"})
+ALL_SETTLED_BEFORE_PROGRAMS = (
+    ALL_SETTLED_FOLDER_PROGRAMS | ALL_SETTLED_SUBSTITUTION_PROGRAMS | frozenset({"head", "tail"})
+)
+ALL_SETTLED_PIPE_READER_PROGRAMS = frozenset({"cat", "head", "tail", "tee", "grep"})
+ALL_OUTPUT_REDIRECT_OPERATORS = frozenset({">", ">>", ">|", "&>", "&>>", ">&", "<>"})
+ALL_REDIRECT_OPERATORS = ALL_OUTPUT_REDIRECT_OPERATORS | frozenset({"<", "<&", "<<<"})
+FILE_DESCRIPTOR_COPY_OPERATOR = ">&"
+FILE_DESCRIPTOR_COPY_TARGET_PATTERN = re.compile(r"\d+-?|-")
+NULL_DEVICE_PATH = "/dev/null"
+GIT_FOLDER_NAME = ".git"
+HEREDOC_OPERATOR_TOKEN = "<<"
+FUNCTION_DEFINITION_TOKEN = "()"
+PRINTF_PROGRAM_NAME = "printf"
+PRINTF_VARIABLE_OPTION_PREFIX = "-v"
+TEE_PROGRAM_NAME = "tee"
+ALL_UNSETTLED_WRITE_TARGET_CHARACTERS = frozenset("$`*?[{~")
+PROCESS_SUBSTITUTION_PATTERN = re.compile(r"[<>]\(")
+SUBSCRIPT_EXPANSION_PATTERN = re.compile(r"\$\{[!#]?\w+\[")
+UNSETTLED_EXPANSION_PATTERN = re.compile(r"\$\[|\$\(\(|\$\{(?![A-Za-z0-9_]+(?:\}|:?[-+?]))")
+FOLDER_PATH_SEPARATOR_PATTERN = re.compile(r"[/\\]")
+ALL_IGNORED_FOLDER_NAME_END_CHARACTERS = ". "
+FOLDER_STACK_ROTATION_PREFIX = "+"
+HOME_FOLDER_PREFIX = "~/"
+UNSETTLED_PREFIX_NAME_PATTERN = re.compile(
+    r"(?i:(?:GIT|LD|DYLD|XDG)_\w*|HOME|PATH)|(?!GH_REPO\Z)(?i:GH_\w*)"
+)
+ALL_SETTLED_CREATE_LAUNCHER_WORDS = ("uv", "run")
+ASSIGNMENT_SEPARATOR = "="
+APPEND_ASSIGNMENT_MARK = "+"
 ALL_PATH_PARAMETER_NAMES = frozenset({"-path", "-literalpath"})
 ALL_UNFOLLOWED_FOLDER_CHARACTERS = frozenset("$`*?[{%")
 PREVIOUS_FOLDER_ARGUMENT = "-"
@@ -177,26 +208,6 @@ ALL_CREATE_TEXT_OPTIONS = frozenset(
         "-T",
         "--template",
     }
-)
-ALL_JOINED_CREATE_TEXT_OPTION_PREFIXES = (
-    "--title=",
-    "--body=",
-    "--body-file=",
-    "--label=",
-    "--reviewer=",
-    "--assignee=",
-    "--milestone=",
-    "--project=",
-    "--template=",
-    "-t",
-    "-b",
-    "-F",
-    "-l",
-    "-r",
-    "-a",
-    "-m",
-    "-p",
-    "-T",
 )
 ALL_LONE_CREATE_REFUSED_CHARACTERS = (
     frozenset("();<>|&#$`\n\r") | ALL_SHELL_EXPANSION_CHARACTERS | {TILDE_CHARACTER}
@@ -443,6 +454,19 @@ EXPANDED_WORDS_REASON = (
     "(* ? [), an extended glob such as @(x) or a word that starts with ~. Write each flag as a "
     "plain word with a plain value, such as `--base main` or `--head feature`. Put title and body "
     "text in quotes, or pass the body with `--body-file <file>`, then open again."
+)
+UNSETTLED_HEAD_REASON_TEMPLATE = (
+    "{slug} has a clean review for head {head}, and this pull request create shares its command "
+    "with a step the gate does not count as settled, such as a `git push`, a file write, a "
+    "process substitution or a pipe into the create, that runs before the create or beside it. "
+    "That step may move the head, the branch or the repository after the gate reads it, so the "
+    "review does not cover the head gh opens. Run the other steps first, then run the create on "
+    "its own. Before it, the command may hold only `cd` or `pushd` with one plain folder outside "
+    ".git, or a bare `cat`, `echo`, `printf`, `head` or `tail` that writes no file. Title and "
+    "body substitutions may run only `cat`, `echo` or `printf`, with a quoted heredoc delimiter, "
+    "and no `$[`, `$((` or substring offset arithmetic may appear outside single quotes. "
+    "Output may go only to /dev/null, to a plain file outside .git, or through a pipe into "
+    "`cat`, `head`, `tail`, `tee` or `grep`."
 )
 WITHHELD_CREDIT_REASON_PREFIX = (
     "{slug} has no clean review for head {head}, which this pull request would open with. "

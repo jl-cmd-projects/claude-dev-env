@@ -936,6 +936,21 @@ def test_should_leave_unfollowed_a_create_with_no_repository_after_an_export_of_
     assert False in {getattr(each_call, "is_folder_followed", True) for each_call in all_calls}
 
 
+@pytest.mark.parametrize(
+    ("command", "is_settled"),
+    [
+        ("cd . && gh pr create --head two", True),
+        ("gh pr create --head two && git push && gh pr create --head two", False),
+    ],
+)
+def test_should_keep_an_open_unsettled_when_any_equal_create_runs_after_another_program(
+    command: str, is_settled: bool
+) -> None:
+    payload = {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": MAIN_FLOOR_START}
+    all_calls = [each_call for each_call in open_calls_from(payload) if each_call.branch == "two"]
+    assert {each_call.is_head_settled for each_call in all_calls} == {is_settled}
+
+
 def _repositories(command: str) -> set[tuple[str, str] | None]:
     payload = {"tool_name": "Bash", "tool_input": {"command": command}, "cwd": MAIN_FLOOR_START}
     return {each_call.repository for each_call in open_calls_from(payload)}
