@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": ".claude/hillclimb/repeated-footer/repeated_footer_eval_support/replay_session.py",
+  "message": ".claude/hillclimb/repeated-footer/repeated_footer_eval_support/replay_session.py:220: Function 'stop_reasons' is 38 lines (max 30)",
+  "check_id": "validators/function-line-cap",
+  "severity": "smell",
+  "origin_commit": "14b30c2557d676b6685b1057ae4d7f91fa441d2b"
+}

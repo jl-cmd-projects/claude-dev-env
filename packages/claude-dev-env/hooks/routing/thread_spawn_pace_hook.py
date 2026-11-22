@@ -8,6 +8,7 @@ beside it, or the script ``COORDINATOR_USAGE_PACE_SCRIPT`` names.
 
     under pace, allowed pair or no model -> no output; the call runs unchanged
     under pace, effort outside the rule  -> updatedInput with the allowed effort
+    chat opted out with --ignore-usage   -> skip the meter and apply the effort rule
     over pace (exit 0) or unreadable     -> updatedInput:
         model "claude-opus-5-5", effort "medium"
     input that cannot be reshaped        -> deny with a one-line reason
@@ -31,6 +32,7 @@ routing_directory = str(Path(__file__).resolve().parent)
 if routing_directory not in sys.path:
     sys.path.insert(0, routing_directory)
 
+from blocking.open_tasks_transcript_records import claude_prompt_text, parsed_object
 from hooks_constants.bash_pre_tool_use_dispatcher_constants import HOOK_EVENT_NAME
 from hooks_constants.hook_specific_output_keys import (
     HOOK_EVENT_NAME_KEY,
@@ -42,6 +44,8 @@ from hooks_constants.pre_tool_use_stdin import read_hook_input_dictionary_from_s
 from hooks_constants.thread_spawn_pace_hook_constants import (
     ADDITIONAL_CONTEXT_KEY,
     EFFORT_INPUT_KEY,
+    IGNORE_USAGE_FLAG,
+    IGNORE_USAGE_PROMPT,
     LAUNCH_FAILURE_ERROR_TEMPLATE,
     MODEL_INPUT_KEY,
     NOT_AN_OBJECT_REASON,
@@ -63,6 +67,7 @@ from hooks_constants.usage_pace_constants import (
     RESULT_KEY_ERROR,
     RESULT_KEY_OVER_PACE,
 )
+from open_task_asks import prompt_without_reminders
 from subagent_effort_route import load_effort_levels, route_spawn_input
 
 
@@ -181,15 +186,50 @@ def run_usage_pace() -> tuple[int, str]:
     return completed.returncode, completed.stdout
 
 
+def _is_opt_out_prompt(transcript_line: str, session_id: str) -> bool:
+    if IGNORE_USAGE_FLAG not in transcript_line:
+        return False
+    entry = parsed_object(transcript_line)
+    if (
+        entry is None
+        or entry.get("sessionId") != session_id
+        or entry.get("type") != "user"
+        or entry.get("forkedFrom") is not None
+    ):
+        return False
+    origin = entry.get("origin")
+    origin_kind = origin.get("kind") if isinstance(origin, dict) else None
+    if origin_kind not in (None, "human") or entry.get("turnOrigin", origin_kind) != "human":
+        return False
+    prompt = claude_prompt_text(entry)
+    return prompt is not None and bool(IGNORE_USAGE_PROMPT.match(prompt_without_reminders(prompt)))
+
+
+def _session_ignores_usage(all_hook_fields: dict[str, object]) -> bool:
+    session_id = all_hook_fields.get("session_id")
+    transcript_path = all_hook_fields.get("transcript_path")
+    if not isinstance(session_id, str) or not session_id:
+        return False
+    if not isinstance(transcript_path, str) or not transcript_path:
+        return False
+    try:
+        with Path(transcript_path).open(encoding="utf-8", errors="replace") as transcript:
+            return any(_is_opt_out_prompt(line, session_id) for line in transcript)
+    except (OSError, ValueError):
+        return False
+
+
 def main() -> int:
     """Read the PreToolUse payload, read the pace, and print the decision.
 
     Returns:
         0 in every case; a deny travels in the JSON output.
     """
-    hook_payload = read_hook_input_dictionary_from_stdin()
-    tool_input = hook_payload.get(TOOL_INPUT_KEY) if hook_payload is not None else None
-    pace_exit_code, pace_verdict_text = run_usage_pace()
+    hook_payload = read_hook_input_dictionary_from_stdin() or {}
+    tool_input = hook_payload.get(TOOL_INPUT_KEY)
+    pace_exit_code, pace_verdict_text = (
+        (EXIT_CODE_UNDER_PACE, "") if _session_ignores_usage(hook_payload) else run_usage_pace()
+    )
     hook_output = decide_hook_output(tool_input, pace_exit_code, pace_verdict_text)
     if hook_output is not None:
         sys.stdout.write(json.dumps(hook_output))

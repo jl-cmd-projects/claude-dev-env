@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/closing_question_round_transcript.py",
+  "message": "packages/claude-dev-env/hooks/blocking/closing_question_round_transcript.py:457: Function '_ends_in_list_item' has nesting depth 3 (max 2)",
+  "check_id": "validators/nesting-depth",
+  "severity": "smell",
+  "origin_commit": "c80b6d794ffac95ec439bb74bfe872353b89f1f7"
+}

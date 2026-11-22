@@ -59,5 +59,8 @@ NO_CLAUDE_MESSAGE = "no claude on PATH"
 ALL_DIGEST_SOURCES = (
     BLOCKING_DIRECTORY / "closing_reply_judge.py",
     BLOCKING_DIRECTORY / "closing_reply_shapes.py",
+    BLOCKING_DIRECTORY / "closing_question_round_footer.py",
+    BLOCKING_DIRECTORY / "closing_question_round_open_items.py",
+    HOOKS_DIRECTORY / "hooks_constants" / "closing_question_round_gate_constants.py",
     HOOKS_DIRECTORY / "hooks_constants" / "closing_reply_judge_constants.py",
 )

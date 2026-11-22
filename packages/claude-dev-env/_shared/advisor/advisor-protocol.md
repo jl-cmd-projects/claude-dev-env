@@ -47,7 +47,7 @@ Mechanical override for scripts:
 
 ### Shared effort, any host
 
-Astra reads `ADVISOR_EFFORT` (`low`, `medium`, `high`, `xhigh`, `max`) and uses the policy default, Medium. Opus always runs at high, the advisor exception in [Subagent model and effort](../../docs/rule-guides/subagent-model-effort.md).
+The Astra tier runs Sol (`gpt-6.2-sol`). It reads `ADVISOR_EFFORT` (`low`, `medium`, `high`, `xhigh`, `max`) and uses the policy default, Xhigh. `high` runs Sol at high, and every other value runs Sol at xhigh. Opus always runs at high, the advisor exception in [Subagent model and effort](../../docs/rule-guides/subagent-model-effort.md).
 Pass `--effort <level>` on the Astra helper to set effort for that Astra run.
 Pass `--effort high` on the Claude CLI bind for Opus, whatever `ADVISOR_EFFORT` holds.
 
@@ -93,7 +93,7 @@ On Codex the walk is Astra only, in-session.
 `Sonnet` and `Haiku` are executor tiers only.
 Consumer `own_tier` is recorded on the spawn-walk log; it does not change the advisor walk.
 Tier names are canonical Title Case; the validator accepts any letter case and normalizes to Title Case.
-Try binds top-down. Opus resolves to the short model alias in [`reference/cli-chain.md`](reference/cli-chain.md); Astra resolves through `resolve_codex_model_id("Astra")` to `gpt-6-astra`.
+Try binds top-down. Opus resolves to the short model alias in [`reference/cli-chain.md`](reference/cli-chain.md); Astra resolves through `resolve_codex_model_id("Astra")` to `gpt-6.2-sol`, the `advisorDefault` model in `rules/subagent-model-policy.json`.
 The advisor is created at `selected_tier`, the first ladder tier that binds.
 When Opus fails on a Claude host, try Astra if the flag is on, else fail closed. The CLI chain is the Opus bind path on a third-party host and the Claude-host fallback for Opus.
 On a Codex host a failed Astra spawn fails closed per **Host profiles → Codex host**.

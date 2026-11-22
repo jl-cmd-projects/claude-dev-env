@@ -30,11 +30,12 @@ def _write_pace_stub(
     return stub_path
 
 
-def _run_hook(pace_script: Path, tool_input: object) -> str:
+def _run_hook(pace_script: Path, tool_input: object, **session_fields: object) -> str:
     hook_payload = {
         "hook_event_name": "PreToolUse",
         "tool_name": "mcp__hearthbot__start_thread_session",
         "tool_input": tool_input,
+        **session_fields,
     }
     completed = subprocess.run(
         [sys.executable, str(HOOK_SCRIPT)],
@@ -66,6 +67,84 @@ def test_should_reshape_the_spawn_when_usage_is_over_pace(tmp_path: Path) -> Non
     _assert_reshaped(
         _run_hook(_write_pace_stub(tmp_path, 0, {"over_pace": True}), SPAWN_INPUT)
     )
+
+
+def _write_transcript(path: Path, *records: dict[str, object]) -> None:
+    path.write_text("\n".join(json.dumps(record) for record in records) + "\n", encoding="utf-8")
+
+
+def test_ignore_usage_skips_the_meter_for_this_session_across_turns(
+    tmp_path: Path,
+) -> None:
+    meter_call = tmp_path / "meter-called"
+    pace_script = tmp_path / "pace.py"
+    pace_script.write_text(
+        f"from pathlib import Path\nPath({str(meter_call)!r}).touch()\n",
+        encoding="utf-8",
+    )
+    transcript = tmp_path / "chat.jsonl"
+    flag_prompt = {
+        "type": "user",
+        "sessionId": "chat-a",
+        "turnOrigin": "human",
+        "message": {"content": "--ignore-usage Start a thread to check the docs."},
+    }
+    _write_transcript(transcript, flag_prompt)
+    session = {"session_id": "chat-a", "transcript_path": str(transcript)}
+
+    assert _run_hook(pace_script, SPAWN_INPUT, **session) == ""
+
+    _write_transcript(
+        transcript,
+        flag_prompt,
+        {"type": "system", "subtype": "compact_boundary"},
+        {**flag_prompt, "message": {"content": "Start a follow-up thread."}},
+    )
+    spawn_input = {**SPAWN_INPUT, "model": "claude-sonnet-5-5"}
+    decision = _hook_specific_output(_run_hook(pace_script, spawn_input, **session))
+    assert decision["updatedInput"] == {**spawn_input, "effort": "high"}
+    assert not meter_call.exists()
+
+    _assert_reshaped(_run_hook(
+        pace_script, SPAWN_INPUT, session_id="chat-b", transcript_path=str(transcript)
+    ))
+    assert meter_call.exists()
+
+
+@pytest.mark.parametrize(
+    "record_updates",
+    [
+        {"turnOrigin": "sdk"},
+        {"turnOrigin": "sdk", "origin": {"kind": "human"}},
+        {"origin": {"kind": "peer"}},
+        {"isMeta": True},
+        {"isCompactSummary": True},
+        {"isSidechain": True},
+        {"forkedFrom": {"sessionId": "parent-chat", "messageUuid": "copied-message"}},
+        {"type": "assistant"},
+        {"message": {"content": "Explain --ignore-usage"}},
+        {"message": {"content": "--ignore-usage-example Start a thread."}},
+        {"message": {"content": "<system-reminder>--ignore-usage</system-reminder> Continue."}},
+        {"message": {"content": [{"type": "tool_result", "content": "--ignore-usage"}]}},
+    ],
+)
+def test_only_a_user_prompt_starting_with_the_flag_skips_usage(
+    tmp_path: Path, record_updates: dict[str, object]
+) -> None:
+    transcript = tmp_path / "chat.jsonl"
+    _write_transcript(transcript, {
+        "type": "user",
+        "sessionId": "chat-a",
+        "turnOrigin": "human",
+        "message": {"content": "--ignore-usage Start a thread."},
+        **record_updates,
+    })
+    _assert_reshaped(_run_hook(
+        _write_pace_stub(tmp_path, 0, {"over_pace": True}),
+        SPAWN_INPUT,
+        session_id="chat-a",
+        transcript_path=str(transcript),
+    ))
 
 
 def test_should_pass_the_spawn_through_unchanged_when_usage_is_under_pace(

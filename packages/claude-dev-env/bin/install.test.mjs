@@ -3369,7 +3369,7 @@ test('a full install adds the pstack marketplace and plugin on both hosts', t =>
     const agents = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
     assert.match(sheet, /^session hook: on$/m);
     assert.match(agents, /^# pstack model configuration\n/);
-    assert.match(agents, /^feature, refactoring: gpt-6-sol$/m);
+    assert.match(agents, /^feature, refactoring: gpt-6\.2-sol$/m);
     assert.doesNotMatch(agents, /^session hook:/m);
     assertOmitsSkillLoadSentence(agents);
     assert.equal(existsSync(join(sandbox.homeDirectory, '.claude', 'pstack-models.md')), false);
@@ -3605,7 +3605,7 @@ test('a pstack install after a --no-pstack install seeds the Codex model sheet',
 
     assert.match(readFileSync(join(codexHome, 'pstack-models.md'), 'utf8'), /^session hook: on$/m);
     const codexGuidance = readFileSync(join(codexHome, 'AGENTS.md'), 'utf8');
-    assert.match(codexGuidance, /^feature, refactoring: gpt-6-sol$/m);
+    assert.match(codexGuidance, /^feature, refactoring: gpt-6\.2-sol$/m);
     assertOmitsSkillLoadSentence(codexGuidance);
     assertHoldsPackageGuidance(codexGuidance);
     assert.ok(codexGuidance.includes(QUESTION_PRESENTATION_BLOCK_START));

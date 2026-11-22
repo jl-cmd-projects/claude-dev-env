@@ -4,7 +4,8 @@ The open tasks Stop gate sends the turn's prompt and its closing reply to
 ``claude -p --model haiku --effort medium`` with the prompt on stdin, and reads
 back one JSON verdict::
 
-    in:  {"prompt_kind": "typed", "user_prompt": "...", "reply": "...", "question_tool_used": false}
+    in:  {"prompt_kind": "typed", "user_prompt": "...", "reply": "...", "question_tool_used": false,
+          "list_scope": "..."}
     out: {"promised_report": true, "promise_span": "...", "decisions_as_list": false, "list_span": ""}
 
 The prompt kind tells the model where the prompt came from::
@@ -15,6 +16,13 @@ The prompt kind tells the model where the prompt came from::
 
 A verdict counts only when it is the four-key object, bare or in one ``json``
 code fence, and each raised flag names a nonempty span found in the reply.
+The list lead counts only in ``list_scope``, the reply with a status-only In
+progress footer cut off by ``closing_question_round_footer.list_check_text``.
+A footer that asks the user something stays in the scope. A lead in a
+status-only footer,
+or an ``In progress:`` lead that the body holds only inside a sentence, drops
+the list flag and keeps the promise. An ``In progress:`` line in the body
+over a list of decisions keeps it.
 Two code gates then drop the list flag: the turn used the question tool, or
 the prompt asked for a list.
 
@@ -39,7 +47,11 @@ import tempfile
 from pathlib import Path
 from typing import NamedTuple
 
-from closing_reply_shapes import prompt_asks_for_list
+from closing_question_round_footer import list_check_text, split_footer
+from closing_reply_shapes import item_count_under, prompt_asks_for_list
+from hooks_constants.closing_question_round_gate_constants import FOOTER_HEADING_PATTERN, LIST_ITEM_LINE_PATTERN
+from hooks_constants.user_step_wording_constants import LINE_BREAK
+from hooks_constants.open_tasks_stop_gate_constants import OPEN_ITEM_LIST_MINIMUM
 from hooks_constants.closing_reply_judge_constants import (
     ALL_JUDGE_COMMAND_FLAGS,
     ALL_JUDGE_ENVIRONMENT_SETTINGS,
@@ -62,6 +74,7 @@ from hooks_constants.closing_reply_judge_constants import (
     JUDGE_DATA_PLACEHOLDER,
     JUDGE_PROMPT_TEMPLATE,
     JUDGE_TIMEOUT_SECONDS,
+    LIST_SCOPE_KEY,
     LIST_SPAN_KEY,
     LOG_LINE_TEMPLATE,
     NO_VERDICT_LOG_TEMPLATE,
@@ -138,13 +151,14 @@ def _prompt_kind_and_text(prompt_text: str) -> tuple[str, str]:
 
 
 def judge_input(prompt_text: str, reply_text: str, has_question_tool_call: bool) -> dict[str, object]:
-    """Return the data the judge reads: the prompt kind, the prompt text, the reply, and the question-tool flag.
+    """Return the data the judge reads: the prompt kind, the prompt text, the reply, the question-tool flag, and the list scope.
 
     ::
 
         "<task-notification>...<summary>Lint ended</summary>"  -> task_notification, "Lint ended"
         "<command-name>/review</command-name>"                -> slash_command, "/review"
         "Fix the build"                                       -> typed, "Fix the build"
+        a reply the list check leaves whole                   -> no "list_scope", the reply is sent once
 
     Args:
         prompt_text: The prompt that started the turn.
@@ -152,12 +166,16 @@ def judge_input(prompt_text: str, reply_text: str, has_question_tool_call: bool)
         has_question_tool_call: Whether the turn called the question tool.
     """
     prompt_kind, user_prompt = _prompt_kind_and_text(prompt_text)
-    return {
+    all_input_fields: dict[str, object] = {
         PROMPT_KIND_KEY: prompt_kind,
         USER_PROMPT_KEY: user_prompt,
         REPLY_KEY: reply_text,
         QUESTION_TOOL_USED_KEY: bool(has_question_tool_call),
     }
+    list_scope = list_check_text(reply_text)
+    if list_scope != reply_text:
+        all_input_fields[LIST_SCOPE_KEY] = list_scope
+    return all_input_fields
 
 
 def judge_prompt(prompt_text: str, reply_text: str, has_question_tool_call: bool) -> str:
@@ -247,6 +265,37 @@ def _raised_span(
     return span if span and span in reply_text else None
 
 
+def _is_heading_inside_prose(list_span: str, list_scope: str) -> bool:
+    if not FOOTER_HEADING_PATTERN.fullmatch(list_span.strip()):
+        return False
+    return not any(FOOTER_HEADING_PATTERN.fullmatch(each_line.strip()) for each_line in list_scope.splitlines())
+
+
+def _is_short_footer_list(list_span: str, list_scope: str) -> bool:
+    if not FOOTER_HEADING_PATTERN.fullmatch(list_span.strip()):
+        return False
+    split_scope = split_footer(list_scope)
+    if split_scope.footer_items is None or len(split_scope.footer_items) >= OPEN_ITEM_LIST_MINIMUM:
+        return False
+    all_scope_lines = list_scope.splitlines()
+    heading_position = max(
+        (
+            each_position
+            for each_position, each_line in enumerate(all_scope_lines)
+            if FOOTER_HEADING_PATTERN.fullmatch(each_line.strip())
+        ),
+        default=len(all_scope_lines),
+    )
+    all_footer_lines = all_scope_lines[heading_position:]
+    visible_item_count = sum(
+        LIST_ITEM_LINE_PATTERN.match(each_line.lstrip()) is not None for each_line in all_footer_lines[1:]
+    )
+    table_item_count = item_count_under(LINE_BREAK.join(all_footer_lines), all_footer_lines[0]) if all_footer_lines else 0
+    if max(visible_item_count, table_item_count) >= OPEN_ITEM_LIST_MINIMUM:
+        return False
+    return not any(FOOTER_HEADING_PATTERN.fullmatch(each_line.strip()) for each_line in split_scope.body.splitlines())
+
+
 def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
     """Return the verdict in the judge's result text, or None when it is not the verdict shape.
 
@@ -254,12 +303,19 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
 
         '{"promised_report": true, "promise_span": "I will report back", ...}'  -> JudgeVerdict("I will report back", "")
         the same object inside one json code fence                              -> the same verdict
-        a raised flag whose span is empty or not in the reply                    -> None
+        a raised flag whose span is empty or not in its scope                    -> None
+        a list span only in the In progress footer                               -> JudgeVerdict(<promise>, "")
+        "In progress:" as the span, where the body holds it only inside prose    -> JudgeVerdict(<promise>, "")
+        "In progress:" as the span, with fewer than three asks under it in scope -> JudgeVerdict(<promise>, "")
+        the same, with three numbered lines under one footer item          -> the verdict stands
+        the same, with a table of three rows under one footer item         -> the verdict stands
+        the same, while the body holds its own "In progress:" list            -> the verdict stands
         prose, an extra key, or a string in place of a bool                      -> None
 
     Args:
         result_text: The ``result`` string of the ``claude -p`` JSON answer.
-        reply_text: The closing reply the judge read.
+        reply_text: The closing reply the judge read. A list span counts only
+            above its In progress footer.
     """
     fence_match = ANSWER_FENCE_PATTERN.match(result_text)
     verdict_text = fence_match.group(1) if fence_match else result_text.strip()
@@ -275,6 +331,13 @@ def parsed_verdict(result_text: str, reply_text: str) -> JudgeVerdict | None:
     list_span = _raised_span(all_verdict_fields, DECISIONS_AS_LIST_KEY, LIST_SPAN_KEY, reply_text)
     if promise_span is None or list_span is None:
         return None
+    list_scope = list_check_text(reply_text)
+    if (
+        list_span not in list_scope
+        or _is_heading_inside_prose(list_span, list_scope)
+        or _is_short_footer_list(list_span, list_scope)
+    ):
+        return JudgeVerdict(promise_span, "")
     return JudgeVerdict(promise_span, list_span)
 
 

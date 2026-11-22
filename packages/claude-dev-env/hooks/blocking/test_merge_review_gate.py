@@ -1,6 +1,7 @@
 """Behavior tests for the clean-review merge gate."""
 
 import io
+import json
 import os
 import subprocess
 import sys
@@ -26,6 +27,7 @@ from hooks_constants.merge_review_gate_constants import UNKNOWN_OPEN_TARGET_REAS
 CLEAN_HEAD = "abc1234def5678abc1234def5678abc1234def56"
 NEW_HEAD = "9999999aaaaaaa9999999aaaaaaa9999999aaaaa"
 RULINGS_LINK = "https://github.com/acme/tools/pull/12#issuecomment-1"
+ISSUE_LINK = "https://github.com/acme/tools/issues/40"
 
 
 @pytest.fixture(autouse=True)
@@ -135,6 +137,81 @@ def test_is_clean_receipt_should_reject_a_receipt_it_cannot_back(
 
 def test_is_clean_receipt_should_accept_zero_findings() -> None:
     assert gate.is_clean_receipt({"head": CLEAN_HEAD, "findings": 0}, "acme", "tools", 12) is True
+
+
+
+def _record_passes_with_findings(pass_count: int) -> None:
+    for each_pass_number in range(1, pass_count + 1):
+        merge_review_receipt.record_review("acme/tools", 12, format(each_pass_number, "040x"), 2)
+
+
+def test_should_allow_a_merge_pinned_to_the_head_of_a_filed_pass_after_three_full_passes() -> None:
+    _record_passes_with_findings(3)
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 2, filed=ISSUE_LINK)
+    assert _reason(_merge_tool(CLEAN_HEAD)) is None
+
+
+def test_should_deny_a_merge_whose_pass_after_the_third_left_findings_unfiled() -> None:
+    _record_passes_with_findings(3)
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 2)
+    assert "no clean review" in _deny_reason(_merge_tool(CLEAN_HEAD))
+
+
+def test_should_deny_a_merge_pinned_past_the_head_of_a_filed_pass() -> None:
+    _record_passes_with_findings(3)
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 2, filed=ISSUE_LINK)
+    assert "Review the new head" in _deny_reason(_merge_tool(NEW_HEAD))
+
+
+@pytest.mark.parametrize(
+    "receipt",
+    [
+        {"head": CLEAN_HEAD, "findings": 2, "pass": 3, "filed": ISSUE_LINK},
+        {"head": CLEAN_HEAD, "findings": 2, "filed": ISSUE_LINK},
+        {"head": CLEAN_HEAD, "findings": 2, "pass": "4", "filed": ISSUE_LINK},
+        {"head": CLEAN_HEAD, "findings": 2, "pass": 4},
+        {"head": CLEAN_HEAD, "findings": 2, "pass": 4, "filed": "x"},
+        {
+            "head": CLEAN_HEAD,
+            "findings": 2,
+            "pass": 4,
+            "filed": "https://github.com/acme/other/issues/40",
+        },
+        {
+            "head": CLEAN_HEAD,
+            "findings": 2,
+            "pass": 4,
+            "filed": "https://github.com/acme/tools/pull/40",
+        },
+        {
+            "head": CLEAN_HEAD,
+            "findings": 2,
+            "pass": 4,
+            "filed": "https://github.com/acme/tools/issues/12",
+        },
+        {"head": CLEAN_HEAD, "findings": "2", "pass": 4, "filed": ISSUE_LINK},
+        {
+            "head": CLEAN_HEAD,
+            "findings": 3,
+            "pass": 4,
+            "ruled_out": 1,
+            "rulings": "https://github.com/acme/tools/pull/99#issuecomment-1",
+            "filed": ISSUE_LINK,
+        },
+    ],
+)
+def test_should_deny_a_merge_on_a_filed_receipt_it_cannot_back(
+    receipt: dict[str, object], receipt_folder: Path
+) -> None:
+    (receipt_folder / "acme__tools__12.json").write_text(json.dumps(receipt), encoding="utf-8")
+    assert "no clean review" in _deny_reason(_merge_tool(CLEAN_HEAD))
+
+
+def test_should_name_the_three_pass_rule_and_the_filed_route_in_the_deny_reason() -> None:
+    reason = _deny_reason(_merge_tool(CLEAN_HEAD))
+    assert "three full passes" in reason
+    assert "--filed" in reason
+    assert "security" in reason
 
 
 @pytest.mark.parametrize("rulings", ["x", "https://github.com/acme/tools/pull/13#issuecomment-1"])
@@ -257,7 +334,7 @@ def test_should_name_the_configured_review_command(monkeypatch: pytest.MonkeyPat
 def test_should_name_the_low_fix_pass_after_three_full_reviews_in_the_deny_reason() -> None:
     reason = _deny_reason(_merge_tool(CLEAN_HEAD))
     assert "three full passes" in reason
-    assert "`/code-review low --fix 12`" in reason
+    assert "`/code-review low 12`" in reason
 
 
 def test_should_allow_auto_merge_pinned_to_the_clean_head() -> None:

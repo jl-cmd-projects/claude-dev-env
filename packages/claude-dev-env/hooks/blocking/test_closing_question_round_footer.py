@@ -1,8 +1,12 @@
+import time
+
 import pytest
 
 from closing_question_round_footer import (
     footer_reason,
+    is_footer_ask,
     left_out_tasks,
+    list_check_text,
     split_footer,
     subject_key_words,
     task_key_words,
@@ -86,3 +90,291 @@ def test_footer_reason_should_lead_list_the_tasks_and_end_with_the_guidance() ->
     background_reason = footer_reason(FOOTER_MISSING_REASON_LEAD, [], [], [])
     assert background_reason.split("\n") == [FOOTER_MISSING_REASON_LEAD, FOOTER_INSTRUCTION]
     assert "brackets" not in background_reason
+
+
+def test_should_cut_only_a_status_footer_from_the_list_check_text() -> None:
+    status_reply = "Done.\n\nIn progress:\n- I am shipping pull request 8590. Its tests are pending."
+    question_reply = (
+        "Done.\n\nIn progress:\n- Should I delete the backup?\n- Should I merge 8590?\n- Should I close 8693?"
+    )
+    assert list_check_text(status_reply).strip() == "Done."
+    assert list_check_text(question_reply) == question_reply
+    assert list_check_text("Done.") == "Done."
+
+
+def test_should_keep_a_footer_of_asks_for_the_user_in_the_list_check_text() -> None:
+    ask_reply = "Done.\n\nIn progress:\n- Approve the release.\n- Pick a price.\n- Confirm the date."
+    mixed_reply = "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price."
+    assert list_check_text(ask_reply) == ask_reply
+    assert list_check_text(mixed_reply) == "Done.\n\nIn progress:\n- Pick a price."
+    assert list_check_text("Done.\n\nIn progress:\n- I\u2019m shipping 8590.").strip() == "Done."
+
+
+def test_should_keep_the_heading_and_ask_lines_as_the_reply_wrote_them_in_the_list_check_text() -> None:
+    bold_reply = (
+        "Done.\n\n**in progress:**\n- I am shipping 8590.\n* Pick a price\n  for the second plan."
+    )
+    kept_text = list_check_text(bold_reply)
+    assert kept_text == "Done.\n\n**in progress:**\n* Pick a price\n  for the second plan."
+    assert all(each_line in bold_reply for each_line in kept_text.splitlines())
+
+
+def test_should_read_a_long_footer_item_in_one_pass() -> None:
+    long_item = "I am waiting " + "for the want of a need " * 2000
+    started_at = time.process_time()
+    assert not is_footer_ask(long_item)
+    assert time.process_time() - started_at < 0.2
+
+
+def test_should_read_the_whole_reply_when_the_line_above_the_footer_asks_to_pick() -> None:
+    choice_reply = "Pick which option I should ship.\n\nIn progress:\n- I can ship the export first."
+    assert list_check_text(choice_reply) == choice_reply
+    asked_reply = "Which one ships first?\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(asked_reply) == asked_reply
+    status_reply = "Done.\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(status_reply) == "Done.\n"
+    decision_reply = "Pending your decision:\n\nIn progress:\n- I can ship the export first."
+    assert list_check_text(decision_reply) == decision_reply
+    label_reply = "Shipped so far:\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(label_reply) == "Shipped so far:\n"
+    wrapped_reply = (
+        "Please choose which of these options\nI should ship for the release:\n\nIn progress:\n"
+        "- I can ship the export.\n- I can ship the import.\n- I can ship the report."
+    )
+    assert list_check_text(wrapped_reply) == wrapped_reply
+    paragraph_reply = "Please pick one.\n\nShipped so far:\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(paragraph_reply) == "Please pick one.\n\nShipped so far:\n"
+    option_reply = (
+        "Done.\n\nIn progress:\n- I need your approval to ship the new build.\n"
+        "- I am watching the ledger.\n- I can keep the old build.\n- I could roll back the patch."
+    )
+    assert list_check_text(option_reply) == (
+        "Done.\n\nIn progress:\n- I need your approval to ship the new build.\n"
+        "- I can keep the old build.\n- I could roll back the patch."
+    )
+    assert list_check_text("Done.\n\nIn progress:\n- I can ship 8590.").strip() == "Done."
+    need_reply = "I need a decision.\n\nIn progress:\n- I can ship it today.\n- I can ship it Friday.\n- I can ship it next week."
+    assert list_check_text(need_reply) == need_reply
+    yours_reply = "The release date is yours to set.\n\nIn progress:\n- I can ship on Monday.\n- I can ship on Friday.\n- I can ship on the 30th."
+    assert list_check_text(yours_reply) == yours_reply
+    would_reply = "The date is yours to set.\n\nIn progress:\n- I would ship Monday.\n- I would ship Friday.\n- I would ship the 30th."
+    assert list_check_text(would_reply) == would_reply
+    status_for_you_reply = "Your build is ready.\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(status_for_you_reply) == "Your build is ready.\n"
+
+
+def test_should_keep_a_footer_line_that_waits_on_an_owner_decision_in_the_list_check_text() -> None:
+    owner_reply = (
+        "Done.\n\nIn progress:\n- I am shipping 8590.\n"
+        "- I am holding the release until the owner approves the price."
+    )
+    assert list_check_text(owner_reply) == (
+        "Done.\n\nIn progress:\n- I am holding the release until the owner approves the price."
+    )
+
+
+def test_should_keep_a_first_person_footer_that_waits_on_the_user_in_the_list_check_text() -> None:
+    approval_reply = (
+        "Done.\n\nIn progress:\n- I am shipping 8590.\n- I can proceed once you approve the release.\n"
+        "- I am watching the ledger."
+    )
+    status_reply = "Done.\n\nIn progress:\n- I am watching the discount ledger so you see its next update."
+    asking_reply = "Done.\n\nIn progress:\n- I am shipping 8590.\n- I am asking you to approve the release."
+    holding_reply = (
+        "Done.\n\nIn progress:\n- I am holding the release for your approval.\n"
+        "- I am holding the price change for your approval.\n- I am holding the date for your approval."
+    )
+    assert list_check_text(approval_reply) == (
+        "Done.\n\nIn progress:\n- I can proceed once you approve the release."
+    )
+    assert list_check_text(asking_reply) == "Done.\n\nIn progress:\n- I am asking you to approve the release."
+    assert list_check_text(holding_reply) == holding_reply
+    assert list_check_text(status_reply).strip() == "Done."
+
+
+def test_should_tell_a_footer_ask_from_a_status_line() -> None:
+    assert not is_footer_ask("I am shipping 8590.")
+    assert not is_footer_ask("I am watching the discount ledger so you see its next update.")
+    assert not is_footer_ask("I am shipping 8590. Its tests are pending.")
+    assert not is_footer_ask("I need to review the logs.")
+    assert not is_footer_ask("I am waiting for the tests to confirm the fix.")
+    assert not is_footer_ask("I am holding the release until the build confirms it.")
+    assert is_footer_ask("I need the owner to review the logs.")
+    assert is_footer_ask("I am merging 8790 once it has your approval.")
+    assert is_footer_ask("Approve the release.")
+    assert is_footer_ask("Should I merge 8590?")
+    assert is_footer_ask("I will release version A only with an OK from you.")
+    assert not is_footer_ask("I am running the automated tests so that you know it works.")
+    assert not is_footer_ask("I am watching the ledger so you can see its next update.")
+    assert is_footer_ask("I am holding the launch so you can approve it first.")
+    assert is_footer_ask("I am putting the dates in one place so you can see the options and pick a release date.")
+    assert not is_footer_ask("I am putting the dates in one place so you can see the options and track them.")
+    assert is_footer_ask("I am listing the dates so you can see them and **pick** one.")
+    assert not is_footer_ask("I am shipping **8590**.")
+    assert is_footer_ask("I am holding the release until the owner approves the price.")
+    assert is_footer_ask("I am waiting for a decision on the second vendor.")
+    assert is_footer_ask("I am preparing the rollout. Pick a release date.")
+    assert is_footer_ask("I need the owner to pick the release date.")
+    assert is_footer_ask("I am holding the sale until the owner picks a date.")
+    assert is_footer_ask("I am preparing the launch; please pick a date.")
+    assert is_footer_ask("I need a date from the owner.")
+    assert is_footer_ask("I am waiting for Jon to authorize the release.")
+    assert is_footer_ask("I am waiting for Jon's OK on the release date.")
+    assert is_footer_ask("I am waiting for Jon to give me a release date.")
+    assert is_footer_ask("I am holding the release until Jon confirms the date.")
+    assert is_footer_ask("I am holding the export until the lead reviews it.")
+    assert is_footer_ask("I am holding the launch until Jon tells me the price.")
+    assert not is_footer_ask("I am adding input validation.")
+    assert not is_footer_ask("I am checking the permission rules.")
+    assert not is_footer_ask("I am updating the decision log.")
+    assert is_footer_ask("I am preparing the release. Would Friday work for launch? The build is ready.")
+    assert is_footer_ask("I am preparing the launch: choose a date.")
+    assert is_footer_ask("I cannot ship without a date from Jon.")
+    assert not is_footer_ask("I am shipping without the old flag.")
+    for each_status in ("I've started the build.", "I’ve started the build.", "I'll merge once the tests pass.", "I’ll merge once the tests pass.", "I'd queued the export."):
+        assert not is_footer_ask(each_status)
+    assert is_footer_ask("I am holding the export until the client sends the logo.")
+    assert is_footer_ask("I am holding the rollout for a green light from the lead.")
+    assert is_footer_ask("I am preparing the launch. Next, choose its date.")
+    assert not is_footer_ask("I am preparing the launch. Next, it ships to the store.")
+    assert not is_footer_ask("I need the rows from the export before the release.")
+    assert not is_footer_ask("I am updating the discount ledger so your prices stay current.")
+    assert is_footer_ask("I am holding the launch so your team can approve it.")
+    assert not is_footer_ask("I need the build to finish before the release.")
+    assert not is_footer_ask("I am fixing the list reader in pull request 8801. I am waiting for the last tests.")
+
+
+
+def test_should_keep_every_option_when_the_lead_leaves_the_choice_to_the_user() -> None:
+    choice_reply = (
+        "The release date is yours to choose.\n\nIn progress:\n"
+        "- I will ship Friday under option A.\n- I will ship Monday under option B.\n- I will ship Wednesday under option C."
+    )
+    assert list_check_text(choice_reply) == choice_reply
+    status_reply = "The release is set.\n\nIn progress:\n- I will ship Friday.\n- I will ship the notes Monday."
+    assert list_check_text(status_reply).strip() == "The release is set."
+
+
+def test_should_keep_the_options_under_a_request_in_an_earlier_paragraph() -> None:
+    option_reply = (
+        "Pick a release date.\n\nAll three dates are available.\n\nIn progress:\n"
+        "- I can release on Monday.\n- I can release on Wednesday.\n- I can release on Friday."
+    )
+    assert list_check_text(option_reply) == option_reply
+    status_reply = "The release is ready.\n\nAll three dates are available.\n\nIn progress:\n- I can release on Monday."
+    assert list_check_text(status_reply).strip() == "The release is ready.\n\nAll three dates are available."
+
+
+def test_should_keep_the_choices_under_a_question_in_an_earlier_paragraph() -> None:
+    choice_reply = (
+        "Which of these release dates works for you?\n\nThe build is ready.\n\nIn progress:\n"
+        "- I am offering Monday.\n- I am offering Wednesday.\n- I am offering Friday."
+    )
+    assert list_check_text(choice_reply) == choice_reply
+
+
+def test_should_keep_a_status_item_whose_nested_lines_ask() -> None:
+    nested_reply = (
+        "Done.\n\nIn progress:\n- I am preparing the release\n"
+        "    - Pick Monday\n    - Confirm the price\n    - Approve the rollout"
+    )
+    assert list_check_text(nested_reply) == nested_reply
+    status_reply = "Done.\n\nIn progress:\n- I am preparing the release\n    - The notes are ready"
+    assert list_check_text(status_reply).strip() == "Done."
+
+
+def test_should_keep_every_choice_under_a_footer_ask_to_pick() -> None:
+    pick_reply = "Done.\n\nIn progress:\n- I need you to pick a date.\n- I have Monday free.\n- I have Friday free."
+    assert list_check_text(pick_reply) == pick_reply
+    bold_reply = "Done.\n\nIn progress:\n- I need you to **pick** a date.\n- I have Monday free.\n- I have Friday free."
+    assert list_check_text(bold_reply) == bold_reply
+    select_reply = "Done.\n\nIn progress:\n- I need you to select a date.\n- I have Monday free.\n- I have Friday free."
+    assert list_check_text(select_reply) == select_reply
+    status_reply = "Done.\n\nIn progress:\n- I need your approval.\n- I have Monday free."
+    assert list_check_text(status_reply) == "Done.\n\nIn progress:\n- I need your approval."
+
+
+def test_should_keep_every_choice_under_a_footer_item_that_leaves_a_choice_to_the_user() -> None:
+    leave_reply = (
+        "Done.\n\nIn progress:\n- I am leaving the release date to you.\n- I have Monday open.\n- I have Friday open."
+    )
+    assert list_check_text(leave_reply) == leave_reply
+    up_to_you_reply = "Done.\n\nIn progress:\n- The release date is up to you.\n- I have Monday open."
+    assert list_check_text(up_to_you_reply) == up_to_you_reply
+
+
+def test_should_keep_the_choices_that_follow_a_question_in_the_footer() -> None:
+    question_reply = (
+        "Done.\n\nIn progress:\n- I am shipping 8590.\n- Which date works for you?\n"
+        "- I have Monday free.\n- I have Friday free."
+    )
+    assert list_check_text(question_reply) == (
+        "Done.\n\nIn progress:\n- Which date works for you?\n- I have Monday free.\n- I have Friday free."
+    )
+    embedded_reply = (
+        "Done.\n\nIn progress:\n- I have two rollout slots. Which one works better? Both are available.\n"
+        "- I have a Friday slot.\n- I have a Monday slot."
+    )
+    assert list_check_text(embedded_reply) == embedded_reply
+    bold_reply = embedded_reply.replace("Which one works better?", "**Which one works better?**")
+    assert list_check_text(bold_reply) == bold_reply
+    code_reply = "Done.\n\nIn progress:\n- Please check the `ready?` flag.\n- I am running tests."
+    assert list_check_text(code_reply) == "Done.\n\nIn progress:\n- Please check the `ready?` flag."
+    escaped_reply = (
+        "Done.\n\nIn progress:\n- I have two slots, \\` Which one works better? \\` for you.\n"
+        "- I have a Friday slot.\n- I have a Monday slot."
+    )
+    assert list_check_text(escaped_reply) == escaped_reply
+    double_reply = "Done.\n\nIn progress:\n- Please check the ``ready`now?`` flag.\n- I am running tests."
+    assert list_check_text(double_reply) == "Done.\n\nIn progress:\n- Please check the ``ready`now?`` flag."
+
+
+def test_should_filter_a_long_mixed_footer_in_linear_time() -> None:
+    all_items = [
+        each_line
+        for each_index in range(20000)
+        for each_line in (f"- I am shipping build {each_index}.", f"- Confirm build {each_index}.")
+    ]
+    mixed_reply = "Done.\n\nIn progress:\n" + "\n".join(all_items)
+    started_at = time.process_time()
+    checked_text = list_check_text(mixed_reply)
+    assert time.process_time() - started_at < 3.0
+    assert "- Confirm build 19999." in checked_text
+    assert "- I am shipping build 19999." not in checked_text
+
+
+def test_should_keep_every_option_when_an_earlier_paragraph_asks_the_user_to_choose() -> None:
+    choice_reply = (
+        "Please choose a release date.\n\nThe build is ready.\n\nIn progress:\n"
+        "- I will ship on Monday.\n- I will ship on Wednesday.\n- I will ship on Friday."
+    )
+    assert list_check_text(choice_reply) == choice_reply
+
+
+def test_should_keep_the_options_when_a_paragraph_sits_between_them_and_the_question() -> None:
+    choice_reply = (
+        "Which implementation should I use?\n\nThe first is faster and the second is simpler.\n\nIn progress:\n"
+        "- I can keep the cache.\n- I can drop the cache.\n- I can make the cache optional."
+    )
+    assert list_check_text(choice_reply) == choice_reply
+
+
+def test_should_build_the_lead_paragraph_of_a_long_reply_in_linear_time() -> None:
+    long_body = "\n".join(f"Line {each_index} of the notes." for each_index in range(200000))
+    long_reply = f"{long_body}\n\nIn progress:\n- I am shipping 8590."
+    started_at = time.process_time()
+    checked_text = list_check_text(long_reply)
+    assert time.process_time() - started_at < 3.0
+    assert checked_text.strip() == long_body
+    ordered_reply = "The tests pass.\nWhich day should I ship it?\n\nIn progress:\n- I am shipping 8590."
+    assert list_check_text(ordered_reply) == ordered_reply
+
+
+def test_should_keep_recommended_alternatives_beside_an_ask_in_the_footer() -> None:
+    choice_reply = (
+        "Done.\n\nIn progress:\n- Pick the cache plan.\n"
+        "- I recommend keeping the cache.\n- I suggest dropping it.\n- I am shipping 8590."
+    )
+    assert list_check_text(choice_reply) == (
+        "Done.\n\nIn progress:\n- Pick the cache plan.\n- I recommend keeping the cache.\n- I suggest dropping it."
+    )

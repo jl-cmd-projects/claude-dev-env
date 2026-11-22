@@ -40,8 +40,14 @@ turn once when completed items sit beside open ones::
     allow: 13 pending               -> stop
 
 The list is the session's task store, or the transcript's list when the session
-has no store. A list that ``CLAUDE_CODE_TASK_LIST_ID`` shares with other
-sessions is left alone.
+has no store. The transcript's list is the newest desktop plan list, so a plan
+item that a later list carried does not count::
+
+    list 1: "Run the rerun" in_progress   list 2: "Fix the reader" completed
+        -> allow: the user sees 1 completed, none open
+
+A list that ``CLAUDE_CODE_TASK_LIST_ID`` shares with other sessions is left
+alone.
 
 A turn that tells the user something waits on them reads the live state first
 and hands over each step through the question tool. The gate reads the closing
@@ -72,6 +78,7 @@ once::
     block: "The benchmark table will be posted when you get back."  no typed prompt asked for a report
     block: "What I deferred:" over 3 or more items             no question tool call this turn
     allow: the same list after an AskUserQuestion call
+    allow: an "In progress:" footer over 9 items     the list check reads only the reply above the footer
     allow: the same promise after the prompt "report back when the run ends"
     allow: any reply when the transcript cannot be read
 
@@ -130,6 +137,7 @@ from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, p
 from user_step_wording import file_waiting_phrase, waiting_phrase
 from codex_continuation_review import continuation_review, user_requested_stop
 from hooks_constants.codex_continuation_constants import AGENT_TRANSCRIPT_KEY, CHILD_FLAG, CHILD_STOP_EVENT
+from closing_question_round_footer import list_check_text
 from closing_reply_shapes import item_count_under, open_item_list, promised_report_phrase
 from closing_reply_judge import JudgeVerdict, is_judge_available, judged_verdict, log_no_verdict
 from turn_review_transcript import _last_assistant_message_text, _ReversedTranscript
@@ -165,6 +173,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     TASK_ID_KEY,
     TASK_LIST_ID_ENVIRONMENT_VARIABLE,
     TASK_NUMBER_REFERENCE_TEMPLATE,
+    TASK_DESCRIPTION_KEY,
     TASK_STATUS_KEY,
     TASK_SUBJECT_KEY,
     TASKS_DIRECTORY_NAME,
@@ -191,6 +200,7 @@ def _task_file_item(task_file: Path) -> TaskItem | None:
         str(all_task_fields.get(TASK_ID_KEY, task_file.stem)),
         str(all_task_fields.get(TASK_SUBJECT_KEY, "")),
         str(all_task_fields.get(TASK_STATUS_KEY, "")),
+        str(all_task_fields.get(TASK_DESCRIPTION_KEY, "")),
     )
 
 
@@ -237,9 +247,13 @@ def is_untracked_work_turn(replay: TranscriptReplay) -> bool:
 
 
 def shown_task_items(session_id: object, replay: TranscriptReplay) -> list[TaskItem]:
-    """Return the task list the user sees: the task store when the session has one, else the transcript's list."""
+    """Return the task list the user sees: the task store when the session has one, else the transcript's list.
+
+    The transcript's list leaves out the desktop plan items a later list carried, because the user sees only
+    the newest list.
+    """
     all_store_items = task_store_items(session_id)
-    return all_store_items if all_store_items is not None else replay.items() or []
+    return all_store_items if all_store_items is not None else replay.shown_items() or []
 
 
 def stale_list_reason(all_items: list[TaskItem]) -> str | None:
@@ -362,8 +376,9 @@ def _verdict_findings(verdict: JudgeVerdict, reply_text: str) -> list[ClosingRep
     all_findings: list[ClosingReplyFinding] = []
     if verdict.promise_span:
         all_findings.append(_promise_finding(verdict.promise_span))
-    if verdict.list_span:
-        all_findings.append(_list_finding(verdict.list_span, item_count_under(reply_text, verdict.list_span)))
+    reply_body = list_check_text(reply_text)
+    if verdict.list_span and verdict.list_span in reply_body:
+        all_findings.append(_list_finding(verdict.list_span, item_count_under(reply_body, verdict.list_span)))
     return all_findings
 
 
@@ -403,7 +418,12 @@ def closing_reply_findings(
     transcript's last assistant text when that field is empty. A judge that
     gives no verdict gives no finding. Codex and Cursor stops, and a host with
     no ``claude``, use the phrase checks in ``closing_reply_shapes.py``. A
-    session whose transcript cannot be read gives no finding.
+    session whose transcript cannot be read gives no finding. The open-item
+    list finding reads the reply above an In progress footer that only says
+    where work stands, as ``closing_question_round_footer.list_check_text``
+    cuts it, because that footer is a status list that
+    ``closing_question_round_gate.py`` checks. A footer that asks the user
+    something stays in. The promised report finding reads the whole reply.
     """
     if is_judged_payload(all_hook_input_fields, replay):
         return _judged_findings(all_hook_input_fields, replay)
@@ -414,7 +434,11 @@ def closing_reply_findings(
     promise_phrase = promised_report_phrase(reply_text, replay.turn_prompt_text)
     if promise_phrase is not None:
         all_findings.append(_promise_finding(promise_phrase))
-    item_list = None if replay.has_turn_question_tool else open_item_list(reply_text, replay.turn_prompt_text)
+    item_list = (
+        None
+        if replay.has_turn_question_tool
+        else open_item_list(list_check_text(reply_text), replay.turn_prompt_text)
+    )
     if item_list is not None:
         all_findings.append(_list_finding(item_list.lead, item_list.item_count))
     return all_findings

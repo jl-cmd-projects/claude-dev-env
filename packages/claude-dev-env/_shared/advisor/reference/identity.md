@@ -19,7 +19,7 @@ When both `codex` and `claude` tokens appear, Codex wins. Empty text is ThirdPar
 
 **Claude.** Spawn `subagent_type: pstack:poteto-agent` at Opus through the Agent tool. When Opus is out of usage, bind Astra through the Codex helper if `ADVISOR_ASTRA` is on. Fail closed when neither binds.
 
-**Codex.** Spawn a native in-session Astra subagent at `resolve_codex_model_id("Astra")` (`gpt-6-astra`). Walk `candidate_tiers = ["Astra"]`. When the spawn tool has a `flags` field, pass `flags: ["--advisor"]` and record `fallback.advisor_flag: "passed"`. When it has none, as in `codex exec`, spawn `gpt-6-astra` plainly and record `fallback.advisor_flag: "unavailable"`. Both count as a bind. Record `{tier: "Astra", result: "spawned"}` on success. The `ADVISOR_ASTRA` flag is not required. Fail closed when Astra does not bind, or when the spawn skips a flag the host offers. Do not walk Opus on a Codex host.
+**Codex.** Spawn a native in-session Astra subagent at `resolve_codex_model_id("Astra")` (`gpt-6.2-sol`) with `reasoning_effort: "xhigh"`. Walk `candidate_tiers = ["Astra"]`. When the spawn tool has a `flags` field, pass `flags: ["--advisor"]` and record `fallback.advisor_flag: "passed"`. When it has none, as in `codex exec`, spawn `gpt-6.2-sol` at xhigh plainly and record `fallback.advisor_flag: "unavailable"`. Both count as a bind. Record `{tier: "Astra", result: "spawned"}` on success. The `ADVISOR_ASTRA` flag is not required. Fail closed when Astra does not bind, or when the spawn skips a flag the host offers. Do not walk Opus on a Codex host.
 
 **ThirdParty.** Bind Opus through the CLI Claude-chain. When Opus is out of usage, bind Astra through the Codex helper if `ADVISOR_ASTRA` is on. Fail closed when neither binds.
 

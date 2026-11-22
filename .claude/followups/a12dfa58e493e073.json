@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": ".claude/hillclimb/repeated-footer/repeated_lines.py",
+  "message": ".claude/hillclimb/repeated-footer/repeated_lines.py:169: Function 'transcript_replies' is 40 lines (max 30)",
+  "check_id": "validators/function-line-cap",
+  "severity": "smell",
+  "origin_commit": "e76a6bd1558fbcdd95fa8f6495172452bb7c2fc8"
+}

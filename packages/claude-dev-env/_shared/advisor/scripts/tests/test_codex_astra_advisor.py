@@ -122,9 +122,24 @@ def test_resolve_advisor_effort_uses_shared_setting_and_default() -> None:
     assert astra_advisor.resolve_advisor_effort({"ADVISOR_EFFORT": "HIGH"}) == "high"
     with pytest.raises(RuntimeError, match="effort is unknown"):
         astra_advisor.resolve_advisor_effort({"ADVISOR_EFFORT": "unknown"})
-    assert astra_advisor.resolve_advisor_effort({"ADVISOR_EFFORT": "Light"}) == "low"
-    assert astra_advisor.resolve_advisor_effort({"ADVISOR_EFFORT": "XHIGH"}) == "medium"
-    assert astra_advisor.resolve_advisor_effort({"ADVISOR_EFFORT": "MAX"}) == "medium"
+    assert astra_advisor.resolve_advisor_effort({"ADVISOR_EFFORT": "Light"}) == "xhigh"
+    assert astra_advisor.resolve_advisor_effort({"ADVISOR_EFFORT": "medium"}) == "xhigh"
+    assert astra_advisor.resolve_advisor_effort({"ADVISOR_EFFORT": "XHIGH"}) == "xhigh"
+    assert astra_advisor.resolve_advisor_effort({"ADVISOR_EFFORT": "MAX"}) == "xhigh"
+    assert astra_advisor.resolve_advisor_effort({}) == "xhigh"
+
+
+@pytest.mark.parametrize(
+    "all_settings",
+    [{}, {"ADVISOR_EFFORT": "low"}, {"ADVISOR_EFFORT": "medium"}, {"ADVISOR_EFFORT": "max"}],
+)
+def test_advisor_pair_defaults_to_sol_at_xhigh(all_settings: dict[str, str]) -> None:
+    assert astra_advisor.resolve_advisor_pair(all_settings, None) == ("gpt-6.2-sol", "xhigh")
+
+
+def test_advisor_constants_read_sol_at_xhigh_from_the_policy() -> None:
+    assert astra_advisor.ADVISOR_CODEX_MODEL_ID == "gpt-6.2-sol"
+    assert astra_advisor.ADVISOR_EFFORT_DEFAULT == "xhigh"
 
 
 def test_advisor_route_uses_edited_policy_model_and_effort(tmp_path: Path) -> None:
@@ -136,13 +151,13 @@ def test_advisor_route_uses_edited_policy_model_and_effort(tmp_path: Path) -> No
     for each_entry in policy["roleReplacements"]:
         if (
             each_entry["role"] == "advisor"
-            and each_entry["requested"] == {"model": "astra", "effort": "xhigh"}
+            and each_entry["requested"] == {"model": "sol", "effort": "low"}
         ):
             each_entry["selected"] = {"model": "luna", "effort": "high"}
     policy_path = tmp_path / "subagent-model-policy.json"
     policy_path.write_text(json.dumps(policy), encoding="utf-8")
     assert astra_advisor.resolve_advisor_pair(
-        {"ADVISOR_EFFORT": "xhigh"}, policy_path
+        {"ADVISOR_EFFORT": "low"}, policy_path
     ) == ("gpt-5.6-luna", "high")
 
 
@@ -172,7 +187,7 @@ def test_codex_arguments_apply_selected_effort(effort: str) -> None:
 
 def test_codex_arguments_use_astra_and_read_only_sandbox() -> None:
     arguments = astra_advisor.build_codex_arguments("codex", session_id="thread-1")
-    assert arguments[:4] == ["codex", "exec", "--model", "gpt-6-astra"]
+    assert arguments[:4] == ["codex", "exec", "--model", "gpt-6.2-sol"]
     assert ["--sandbox", "read-only"] == arguments[6:8]
     assert arguments[-3:] == ["resume", "thread-1", "-"]
 
@@ -353,8 +368,9 @@ def test_bind_routes_astra_xhigh_to_the_policy_effort() -> None:
         _two_step_runner(calls),
     )
     assert reply.successful
+    assert calls[1][:4] == ["codex", "exec", "--model", "gpt-6.2-sol"]
     config_index = calls[1].index("--config")
-    assert calls[1][config_index + 1] == 'model_reasoning_effort="medium"'
+    assert calls[1][config_index + 1] == 'model_reasoning_effort="xhigh"'
 
 
 def test_disabled_flag_returns_declined_fallback() -> None:

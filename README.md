@@ -278,6 +278,8 @@ Automated enforcement that runs on Claude Code events. The installer detects you
 | Bash\|PowerShell\|mcp__\*__create_pull_request | `pieces_per_level_note` | When a `git commit` subject or a pull request title joins verb-led clauses, or a pull request body holds several without/with proof pairs or bold-led topic bullets, adds one note that names the pieces and says each gets its own commit and stack level. Never blocks |
 | * | `step_note_gate` | Off by default; after `/step-notes on`, asks for a short status line before each tool call |
 
+Start a prompt in a Claude cloud chat with `--ignore-usage` to skip usage-based thread routing for that chat. For example, send `--ignore-usage Start a thread to check the docs.` The flag also applies to later turns and resumes of the same chat. Other chats still use usage-based routing. Provider limits and the model's allowed effort still apply.
+
 #### Other Events
 
 | Event | Hook | What it does |

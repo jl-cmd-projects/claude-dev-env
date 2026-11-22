@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Stop gate that holds a turn while a refused step waits on the user or on its rule.
+"""Stop gate that reminds the agent once to file each refused step as an issue.
 
 At each turn end the gate reads the refusal ledger the PermissionDenied hook
 keeps, and the session transcript::
 
     flow switch off, playbook missing, or print mode -> turn ends, no output
     answers read from transcript_path                -> answered entries leave the queue
-    pending entry, not asked, held under 2 times     -> question hold, 4 groups at most
+    pending entry, not asked, not held yet           -> question hold, 4 groups at most
     allowed entry, no add call names it, held under 2 times -> rule hold
     none left                                        -> turn ends, no output
     a transcript it cannot read                      -> no calls seen, holds as above
@@ -21,11 +21,12 @@ step?`` claims the oldest pending, unasked group of that tool that has an
 entry with a question record at or before the card, and within it those
 entries. Each card claims one
 group, and the entry keeps the card's offset so a later Stop does not claim
-again with it. The asked mark stays on the entry. An add call
+again with it. The question hold reminds the agent once per entry to file the refusal as
+an issue and ask the user nothing; it does not check the filing. The asked mark stays on the entry. An add call
 is a Bash call that did not fail whose command holds ``add_auto_mode_rule.py
 add`` and the entry's id, which its ledger file name carries. The gate keeps
 its own counts in each entry file, so it acts the same whether or not
-``stop_hook_active`` is set, and an entry holds four turns at most. A hold
+``stop_hook_active`` is set, and an entry holds three turns at most. A hold
 exits 2 with a block object, through ``hold_stop``.
 """
 
@@ -68,11 +69,12 @@ from hooks_constants.auto_mode_refusal_stop_gate_constants import (
     ENTRYPOINT_ENVIRONMENT_VARIABLE,
     LIST_LINE_TEMPLATE,
     MAXIMUM_HOLDS_PER_KIND,
+    MAXIMUM_QUESTION_HOLDS,
     MAXIMUM_QUESTIONS_PER_HOLD,
     PRINT_MODE_ENTRYPOINT,
     QUESTION_BLOCK_TEMPLATE,
     QUESTION_SECTION_FOOTER_TEMPLATE,
-    QUESTION_SECTION_HEADER,
+    QUESTION_SECTION_HEADER_TEMPLATE,
     RULE_ADD_COMMAND_MARKER,
     RULE_SECTION_HEADER_TEMPLATE,
     SECTION_SEPARATOR,
@@ -198,7 +200,7 @@ def _has_add_call(entry: LedgerEntry, all_calls: list[TranscriptCall]) -> bool:
 
 def _could_hold(entry: LedgerEntry) -> bool:
     if entry.answer is None:
-        return entry.question_holds < MAXIMUM_HOLDS_PER_KIND and not entry.is_question_asked
+        return entry.question_holds < MAXIMUM_QUESTION_HOLDS and not entry.is_question_asked
     return entry.answer == ALLOWED_ANSWER and entry.rule_holds < MAXIMUM_HOLDS_PER_KIND
 
 
@@ -235,7 +237,7 @@ def hold_reason_for(
     """
     all_sections: list[str] = []
     if all_groups:
-        question_text = QUESTION_SECTION_HEADER
+        question_text = QUESTION_SECTION_HEADER_TEMPLATE.format(playbook_path=playbook_path)
         for each_group in all_groups:
             question_text += QUESTION_BLOCK_TEMPLATE.format(question=each_group.question)
             question_text += "".join(

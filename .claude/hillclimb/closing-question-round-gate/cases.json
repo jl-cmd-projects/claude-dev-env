@@ -5211,5 +5211,329 @@
         "status": "in_progress"
       }
     ]
+  },
+  {
+    "id": "allow-task-update-after-another-hook-when-the-footer-already-went-out",
+    "group": "repeated footer",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Lift the holds you need to and keep shipping."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_r1",
+              "name": "SendMessage",
+              "input": {}
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_r1",
+              "content": "ok"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The hold is off.\n\nIn progress:\n- I am fixing the list reader so it reads your lists correctly."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": "Stop hook feedback:\nThis turn worked on the user's ask and left the task list unchanged. Update it now. Then end the turn. Leave the reply as it stands."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_r2",
+              "name": "TaskUpdate",
+              "input": {}
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_r2",
+              "content": "ok"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The task list now shows the hold being lifted."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ]
+  },
+  {
+    "id": "allow-reads-after-a-notice-when-the-footer-already-went-out",
+    "group": "repeated footer",
+    "expected": "allow",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Lift the holds you need to and keep shipping."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_r1",
+              "name": "SendMessage",
+              "input": {}
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_r1",
+              "content": "ok"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The hold is off.\n\nIn progress:\n- I am fixing the list reader so it reads your lists correctly."
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "turnOrigin": "task-notification",
+        "promptSource": "system",
+        "message": {
+          "role": "user",
+          "content": "<task-notification><summary>The worker on pull request 8678 is waiting.</summary></task-notification>"
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_r2",
+              "name": "Bash",
+              "input": {}
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_r2",
+              "content": "ok"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I read the live state of the list reader work; nothing changed."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      }
+    ]
+  },
+  {
+    "id": "hold-work-after-a-footer-that-misses-a-task-started-since",
+    "group": "repeated footer",
+    "expected": "hold",
+    "transcript": [
+      {
+        "type": "user",
+        "turnOrigin": "human",
+        "promptSource": "typed",
+        "message": {
+          "role": "user",
+          "content": "Lift the holds you need to and keep shipping."
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_r1",
+              "name": "SendMessage",
+              "input": {}
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_r1",
+              "content": "ok"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "The hold is off.\n\nIn progress:\n- I am fixing the list reader so it reads your lists correctly."
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "tool_use",
+              "id": "toolu_r2",
+              "name": "Bash",
+              "input": {}
+            }
+          ]
+        }
+      },
+      {
+        "type": "user",
+        "message": {
+          "role": "user",
+          "content": [
+            {
+              "type": "tool_result",
+              "tool_use_id": "toolu_r2",
+              "content": "ok"
+            }
+          ]
+        }
+      },
+      {
+        "type": "assistant",
+        "message": {
+          "role": "assistant",
+          "content": [
+            {
+              "type": "text",
+              "text": "I started on the ledger."
+            }
+          ]
+        }
+      }
+    ],
+    "tasks": [
+      {
+        "id": "28",
+        "subject": "Fix list reader lint finding",
+        "status": "in_progress"
+      },
+      {
+        "id": "29",
+        "subject": "Watch discount ledger scheduled wake",
+        "status": "in_progress"
+      }
+    ]
   }
 ]

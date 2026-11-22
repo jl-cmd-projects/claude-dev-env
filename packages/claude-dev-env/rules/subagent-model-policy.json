@@ -6,7 +6,7 @@
       "aliases": ["Astra"]
     },
     "sol": {
-      "id": "gpt-5.6-sol",
+      "id": "gpt-6.2-sol",
       "aliases": ["Sol"]
     },
     "terra": {
@@ -45,33 +45,32 @@
     {"model": "luna", "effort": "high"},
     {"model": "luna", "effort": "xhigh"},
     {"model": "luna", "effort": "max"},
-    {"model": "astra", "effort": "low"},
-    {"model": "astra", "effort": "medium"},
-    {"model": "astra", "effort": "high", "roles": ["advisor"]}
+    {"model": "sol", "effort": "high"},
+    {"model": "sol", "effort": "xhigh"}
   ],
   "selectorExclusions": [
     {"model": "sol", "effort": "medium"}
   ],
-  "advisorDefault": {"model": "astra", "effort": "medium"},
+  "advisorDefault": {"model": "sol", "effort": "xhigh"},
   "replacements": [
     {"requested": {"model": "luna", "effort": "low"}, "selected": {"model": "luna", "effort": "high"}},
     {"requested": {"model": "luna", "effort": "medium"}, "selected": {"model": "luna", "effort": "high"}},
-    {"requested": {"model": "sol", "effort": "low"}, "selected": {"model": "luna", "effort": "xhigh"}},
-    {"requested": {"model": "sol", "effort": "medium"}, "selected": {"model": "luna", "effort": "max"}},
     {"requested": {"model": "terra", "effort": "low"}, "selected": {"model": "luna", "effort": "xhigh"}},
     {"requested": {"model": "terra", "effort": "medium"}, "selected": {"model": "luna", "effort": "xhigh"}},
     {"requested": {"model": "terra", "effort": "high"}, "selected": {"model": "luna", "effort": "xhigh"}},
     {"requested": {"model": "terra", "effort": "xhigh"}, "selected": {"model": "luna", "effort": "max"}},
-    {"requested": {"model": "sol", "effort": "high"}, "selected": {"model": "astra", "effort": "low"}},
-    {"requested": {"model": "sol", "effort": "xhigh"}, "selected": {"model": "astra", "effort": "low"}},
-    {"requested": {"model": "sol", "effort": "max"}, "selected": {"model": "astra", "effort": "low"}},
-    {"requested": {"model": "terra", "effort": "max"}, "selected": {"model": "astra", "effort": "low"}}
+    {"requested": {"model": "sol", "effort": "max"}, "selected": {"model": "sol", "effort": "xhigh"}},
+    {"requested": {"model": "terra", "effort": "max"}, "selected": {"model": "sol", "effort": "xhigh"}},
+    {"requested": {"model": "astra", "effort": "low"}, "selected": {"model": "sol", "effort": "xhigh"}},
+    {"requested": {"model": "astra", "effort": "medium"}, "selected": {"model": "sol", "effort": "xhigh"}},
+    {"requested": {"model": "astra", "effort": "high"}, "selected": {"model": "sol", "effort": "xhigh"}},
+    {"requested": {"model": "astra", "effort": "xhigh"}, "selected": {"model": "sol", "effort": "xhigh"}},
+    {"requested": {"model": "astra", "effort": "max"}, "selected": {"model": "sol", "effort": "xhigh"}}
   ],
   "roleReplacements": [
-    {"role": "advisor", "requested": {"model": "astra", "effort": "xhigh"}, "selected": {"model": "astra", "effort": "medium"}},
-    {"role": "advisor", "requested": {"model": "astra", "effort": "max"}, "selected": {"model": "astra", "effort": "medium"}},
-    {"role": "worker", "requested": {"model": "astra", "effort": "xhigh"}, "selected": {"model": "astra", "effort": "low"}},
-    {"role": "worker", "requested": {"model": "astra", "effort": "max"}, "selected": {"model": "astra", "effort": "low"}},
-    {"role": "worker", "requested": {"model": "astra", "effort": "high"}, "selected": {"model": "astra", "effort": "low"}}
+    {"role": "worker", "requested": {"model": "sol", "effort": "low"}, "selected": {"model": "luna", "effort": "xhigh"}},
+    {"role": "worker", "requested": {"model": "sol", "effort": "medium"}, "selected": {"model": "luna", "effort": "max"}},
+    {"role": "advisor", "requested": {"model": "sol", "effort": "low"}, "selected": {"model": "sol", "effort": "xhigh"}},
+    {"role": "advisor", "requested": {"model": "sol", "effort": "medium"}, "selected": {"model": "sol", "effort": "xhigh"}}
   ]
 }

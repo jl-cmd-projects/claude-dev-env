@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import sys
 from io import StringIO
 from pathlib import Path
 
@@ -13,12 +15,51 @@ import merge_review_receipt
 
 HEAD = "abc1234def5678abc1234def5678abc1234def56"
 RULINGS_LINK = "https://github.com/acme/tools/pull/12#issuecomment-1"
+ISSUE_LINK = "https://github.com/acme/tools/issues/40"
+
+
+ISSUE_API_PATH = "repos/acme/tools/issues/40"
+GH_STUB_SCRIPT = """#!{python}
+import json, os, sys
+all_responses = json.loads(open(os.environ["GH_ISSUE_STUB"], encoding="utf-8").read())
+api_path = sys.argv[-1]
+if sys.argv[1:4] != ["api", "--hostname", "github.com"] or api_path not in all_responses:
+    sys.stderr.write("gh: Not Found (HTTP 404)\\n")
+    sys.exit(1)
+sys.stdout.buffer.write(json.dumps(all_responses[api_path], ensure_ascii=False).encode("utf-8"))
+"""
 
 
 @pytest.fixture(autouse=True)
 def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RECEIPT_DIR", str(tmp_path))
-    return tmp_path
+    receipts = tmp_path / "receipts"
+    receipts.mkdir()
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RECEIPT_DIR", str(receipts))
+    return receipts
+
+
+@pytest.fixture(autouse=True)
+def gh_issues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, object]:
+    """Put a stub ``gh`` first on PATH that answers each API path from a JSON map.
+
+    Issue 40 of acme/tools exists. A test changes the map and calls
+    ``_serve_issues`` to write it again. A path the map lacks answers 404.
+    """
+    executable_folder = tmp_path / "bin"
+    executable_folder.mkdir()
+    stub_path = executable_folder / "gh"
+    stub_path.write_text(GH_STUB_SCRIPT.format(python=sys.executable), encoding="utf-8")
+    stub_path.chmod(0o755)
+    (executable_folder / "gh.cmd").write_text(f'@"{sys.executable}" "%~dp0gh" %*\r\n')
+    monkeypatch.setenv("PATH", str(executable_folder) + os.pathsep + os.environ.get("PATH", ""))
+    monkeypatch.setenv("GH_ISSUE_STUB", str(tmp_path / "gh_issues.json"))
+    all_responses: dict[str, object] = {ISSUE_API_PATH: {"html_url": ISSUE_LINK, "number": 40}}
+    _serve_issues(all_responses)
+    return all_responses
+
+
+def _serve_issues(all_responses: dict[str, object]) -> None:
+    Path(os.environ["GH_ISSUE_STUB"]).write_text(json.dumps(all_responses), encoding="utf-8")
 
 
 def test_should_print_clean_and_exit_zero_for_a_pass_with_no_findings(receipt_folder: Path) -> None:
@@ -37,7 +78,7 @@ def test_record_review_replaces_the_previous_pass(receipt_folder: Path) -> None:
     merge_review_receipt.record_review("Acme/Tools", 12, "old", 4)
     path = merge_review_receipt.record_review("Acme/Tools", 12, HEAD, 0)
     assert path == receipt_folder / "acme__tools__12.json"
-    assert json.loads(path.read_text(encoding="utf-8")) == {"head": HEAD, "findings": 0}
+    assert json.loads(path.read_text(encoding="utf-8")) == {"head": HEAD, "findings": 0, "pass": 2}
 
 
 def test_should_print_clean_when_every_finding_is_ruled_out_with_a_link() -> None:
@@ -75,6 +116,7 @@ def test_should_keep_the_raw_finding_count_beside_the_ruled_out_count(
     assert json.loads(path.read_text(encoding="utf-8")) == {
         "head": HEAD,
         "findings": 2,
+        "pass": 1,
         "ruled_out": 2,
         "rulings": RULINGS_LINK,
     }
@@ -343,3 +385,250 @@ def test_should_refuse_a_slug_that_is_not_owner_and_name(
     with pytest.raises(SystemExit):
         merge_review_receipt.main([slug, number, HEAD, "0"], StringIO())
     assert list(receipt_folder.iterdir()) == []
+
+
+def _record_passes_with_findings(pass_count: int) -> None:
+    for each_pass_number in range(1, pass_count + 1):
+        merge_review_receipt.record_review("acme/tools", 12, format(each_pass_number, "040x"), 2)
+
+
+def _stored_receipt(receipt_folder: Path) -> dict[str, object]:
+    return json.loads((receipt_folder / "acme__tools__12.json").read_text(encoding="utf-8"))
+
+
+def test_should_count_the_first_record_as_pass_one(receipt_folder: Path) -> None:
+    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
+    assert _stored_receipt(receipt_folder)["pass"] == 1
+
+
+def test_should_count_each_new_head_as_the_next_pass(receipt_folder: Path) -> None:
+    _record_passes_with_findings(3)
+    merge_review_receipt.main(["acme/tools", "12", HEAD, "0"], StringIO())
+    assert _stored_receipt(receipt_folder)["pass"] == 4
+
+
+def test_should_keep_the_pass_count_when_the_same_head_is_recorded_again(
+    receipt_folder: Path,
+) -> None:
+    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
+    merge_review_receipt.main(
+        ["acme/tools", "12", HEAD[:7], "2", "--ruled-out", "2", "--rulings", RULINGS_LINK],
+        StringIO(),
+    )
+    assert _stored_receipt(receipt_folder)["pass"] == 1
+
+
+@pytest.mark.parametrize(
+    ("previous_text", "expected_pass"),
+    [
+        ("not json", 1),
+        ("[1, 2]", 1),
+        ('{"head": "' + "0" * 40 + '", "findings": 2}', 2),
+        ('{"head": "' + "0" * 40 + '", "findings": 2, "pass": "3"}', 2),
+    ],
+)
+def test_should_read_a_previous_receipt_it_cannot_count_as_at_most_one_pass(
+    previous_text: str, expected_pass: int, receipt_folder: Path
+) -> None:
+    (receipt_folder / "acme__tools__12.json").write_text(previous_text, encoding="utf-8")
+    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
+    assert _stored_receipt(receipt_folder)["pass"] == expected_pass
+
+
+@pytest.mark.parametrize("earlier_pass_count", [0, 1, 2])
+def test_should_refuse_filed_findings_before_three_full_passes(
+    earlier_pass_count: int, receipt_folder: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _record_passes_with_findings(earlier_pass_count)
+    all_files_before = {
+        each_path: each_path.read_text(encoding="utf-8") for each_path in receipt_folder.iterdir()
+    }
+    with pytest.raises(SystemExit):
+        merge_review_receipt.main(
+            ["acme/tools", "12", HEAD, "2", "--filed", ISSUE_LINK], StringIO()
+        )
+    assert "3 full passes with fixes come first" in capsys.readouterr().err
+    assert {
+        each_path: each_path.read_text(encoding="utf-8") for each_path in receipt_folder.iterdir()
+    } == all_files_before
+
+
+def test_should_print_filed_and_exit_zero_for_filed_findings_on_pass_four(
+    receipt_folder: Path,
+) -> None:
+    _record_passes_with_findings(3)
+    verdict_stream = StringIO()
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "12", HEAD, "2", "--filed", ISSUE_LINK], verdict_stream
+    )
+    assert exit_code == 0
+    assert verdict_stream.getvalue() == (
+        f"FILED acme/tools#12 {HEAD} (2 findings filed: {ISSUE_LINK})\n"
+    )
+    assert _stored_receipt(receipt_folder) == {
+        "head": HEAD,
+        "findings": 2,
+        "pass": 4,
+        "filed": ISSUE_LINK,
+    }
+
+
+def test_should_file_only_the_findings_left_after_the_ruled_out_ones() -> None:
+    _record_passes_with_findings(3)
+    verdict_stream = StringIO()
+    exit_code = merge_review_receipt.main(
+        [
+            "acme/tools",
+            "12",
+            HEAD,
+            "3",
+            "--ruled-out",
+            "1",
+            "--rulings",
+            RULINGS_LINK,
+            "--filed",
+            ISSUE_LINK,
+        ],
+        verdict_stream,
+    )
+    assert exit_code == 0
+    assert verdict_stream.getvalue() == (
+        f"FILED acme/tools#12 {HEAD} (2 findings filed: {ISSUE_LINK})\n"
+    )
+
+
+def test_should_file_under_an_issue_whose_title_the_local_code_page_cannot_decode(
+    gh_issues: dict[str, object],
+) -> None:
+    gh_issues[ISSUE_API_PATH] = {"html_url": ISSUE_LINK, "number": 40, "title": "Fix \u00c1 view"}
+    _serve_issues(gh_issues)
+    _record_passes_with_findings(3)
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(Path(merge_review_receipt.__file__)),
+            "acme/tools",
+            "12",
+            HEAD,
+            "1",
+            "--filed",
+            ISSUE_LINK,
+        ],
+        env={**os.environ, "LC_ALL": "C", "PYTHONCOERCECLOCALE": "0", "PYTHONUTF8": "0"},
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0
+
+
+def test_should_report_reviewed_when_a_filed_pass_links_rulings_on_another_pull_request() -> None:
+    _record_passes_with_findings(3)
+    verdict_stream = StringIO()
+    exit_code = merge_review_receipt.main(
+        [
+            "acme/tools",
+            "12",
+            HEAD,
+            "3",
+            "--ruled-out",
+            "1",
+            "--rulings",
+            "https://github.com/acme/tools/pull/99#issuecomment-1",
+            "--filed",
+            ISSUE_LINK,
+        ],
+        verdict_stream,
+    )
+    assert exit_code == 1
+    verdict = verdict_stream.getvalue()
+    assert verdict.startswith(f"REVIEWED acme/tools#12 {HEAD} 3 findings")
+    assert "--rulings https://github.com/acme/tools/pull/99#issuecomment-1 is not an issue comment link" in verdict
+    assert "--filed <issue url>" not in verdict
+
+
+@pytest.mark.parametrize(
+    "filed_link",
+    [
+        "https://github.com/acme/other/issues/40",
+        "https://github.com/acme/tools/pull/40",
+        "https://github.com/acme/tools/issues/40#issuecomment-1",
+        "https://github.com/acme/tools/issues/12",
+        "acme/tools#40",
+    ],
+)
+def test_should_refuse_a_filed_link_that_is_not_an_issue_in_this_repository(
+    filed_link: str, receipt_folder: Path
+) -> None:
+    _record_passes_with_findings(3)
+    with pytest.raises(SystemExit):
+        merge_review_receipt.main(
+            ["acme/tools", "12", HEAD, "2", "--filed", filed_link], StringIO()
+        )
+    assert _stored_receipt(receipt_folder)["pass"] == 3
+
+
+@pytest.mark.parametrize(
+    "issue_answer",
+    [
+        None,
+        {"html_url": "https://github.com/acme/tools/pull/40", "number": 40, "pull_request": {}},
+        {"html_url": "https://github.com/acme/elsewhere/issues/7", "number": 7},
+    ],
+)
+def test_should_refuse_a_filed_link_github_does_not_serve_as_that_issue(
+    issue_answer: object,
+    gh_issues: dict[str, object],
+    receipt_folder: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _record_passes_with_findings(3)
+    gh_issues.pop(ISSUE_API_PATH)
+    if issue_answer is not None:
+        gh_issues[ISSUE_API_PATH] = issue_answer
+    _serve_issues(gh_issues)
+    with pytest.raises(SystemExit):
+        merge_review_receipt.main(
+            ["acme/tools", "12", HEAD, "2", "--filed", ISSUE_LINK], StringIO()
+        )
+    assert "is not an issue GitHub serves in acme/tools" in capsys.readouterr().err
+    assert _stored_receipt(receipt_folder)["pass"] == 3
+
+
+@pytest.mark.parametrize(
+    "counts",
+    [["0"], ["2", "--ruled-out", "2", "--rulings", RULINGS_LINK]],
+)
+def test_should_refuse_filed_when_no_finding_is_left_to_file(
+    counts: list[str], receipt_folder: Path
+) -> None:
+    _record_passes_with_findings(3)
+    with pytest.raises(SystemExit):
+        merge_review_receipt.main(
+            ["acme/tools", "12", HEAD, *counts, "--filed", ISSUE_LINK], StringIO()
+        )
+    assert _stored_receipt(receipt_folder)["pass"] == 3
+
+
+def test_should_refuse_filed_on_an_open_pass(receipt_folder: Path) -> None:
+    with pytest.raises(SystemExit):
+        merge_review_receipt.main(
+            ["acme/tools", "open", HEAD, "2", "--filed", ISSUE_LINK], StringIO()
+        )
+    assert list(receipt_folder.iterdir()) == []
+
+
+def test_should_name_the_filed_route_when_a_pass_after_the_third_reports_findings() -> None:
+    _record_passes_with_findings(3)
+    verdict_stream = StringIO()
+    exit_code = merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], verdict_stream)
+    assert exit_code == 1
+    verdict = verdict_stream.getvalue()
+    assert verdict.startswith(f"REVIEWED acme/tools#12 {HEAD} 2 findings")
+    assert "--filed" in verdict
+
+
+def test_should_leave_the_filed_route_out_of_the_third_pass_verdict() -> None:
+    _record_passes_with_findings(2)
+    verdict_stream = StringIO()
+    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], verdict_stream)
+    assert verdict_stream.getvalue() == f"REVIEWED acme/tools#12 {HEAD} 2 findings\n"

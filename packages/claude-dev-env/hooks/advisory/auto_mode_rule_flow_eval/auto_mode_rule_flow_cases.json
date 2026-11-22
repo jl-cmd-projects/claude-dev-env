@@ -1785,7 +1785,7 @@
       "id": "Q10",
       "kind": "should stay quiet",
       "source": "eval inputs",
-      "summary": "An entry already held twice: the third Stop ends the turn.",
+      "summary": "An entry already reminded once: the second Stop ends the turn.",
       "events": [
         {
           "refusal": {
@@ -1797,12 +1797,6 @@
             "reason": "[Git Destructive] force push to a shared branch"
           },
           "name": "a"
-        },
-        {
-          "stop": {},
-          "expect": {
-            "held": true
-          }
         },
         {
           "stop": {},
@@ -2351,7 +2345,7 @@
       "id": "A7",
       "kind": "should act",
       "source": "eval inputs",
-      "summary": "The agent reworded the question and the answer is Allow it: no entry changes, held again with the exact question.",
+      "summary": "The agent reworded the question and the answer is Allow it: no entry changes, and the one reminder is spent, so the turn ends.",
       "events": [
         {
           "refusal": {
@@ -2382,10 +2376,7 @@
         {
           "stop": {},
           "expect": {
-            "held": true,
-            "reason_contains": [
-              "Auto mode refused 1 Bash step under the Git Destructive rule. Should auto mode have refused it?"
-            ],
+            "held": false,
             "answers": {
               "a": null
             }

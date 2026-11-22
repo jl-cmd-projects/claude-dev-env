@@ -1,5 +1,68 @@
 # Changelog
 
+## [8.135.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.2...claude-dev-env-v8.135.3) (2026-11-22)
+
+
+### Bug Fixes
+
+* **scripts:** read the filed issue from github.com as bytes ([#2484](https://github.com/jl-cmd-projects/claude-dev-env/issues/2484)) ([6da2e6c](https://github.com/jl-cmd-projects/claude-dev-env/commit/6da2e6cac8ce205ce7ff55cfd3a747059e68f216))
+
+## [8.135.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.1...claude-dev-env-v8.135.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* **scripts:** check the filed issue and rulings link of a filed review pass ([#2481](https://github.com/jl-cmd-projects/claude-dev-env/issues/2481)) ([a3ba6cb](https://github.com/jl-cmd-projects/claude-dev-env/commit/a3ba6cbc3bd950ae18dd7c19d08b5ac4d657eb56))
+
+## [8.135.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.0...claude-dev-env-v8.135.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **private-terms:** skip the author's attribution marker line in a pull request body ([#2479](https://github.com/jl-cmd-projects/claude-dev-env/issues/2479)) ([795a091](https://github.com/jl-cmd-projects/claude-dev-env/commit/795a0916c2cc189c20fd1f531ce17b90a71b043f))
+
+## [8.135.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.134.1...claude-dev-env-v8.135.0) (2026-11-21)
+
+
+### Features
+
+* **hooks:** merge after three full review passes and file later findings ([#2477](https://github.com/jl-cmd-projects/claude-dev-env/issues/2477)) ([9764e2c](https://github.com/jl-cmd-projects/claude-dev-env/commit/9764e2c39c7e5ff5e1aa1602f90df0852fa974d8))
+
+## [8.134.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.134.0...claude-dev-env-v8.134.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **hooks:** file auto mode refusals as issues and remind once, with no question cards ([#2475](https://github.com/jl-cmd-projects/claude-dev-env/issues/2475)) ([f6a01eb](https://github.com/jl-cmd-projects/claude-dev-env/commit/f6a01eb603f82431c2d4bba4c563eb222f48395d))
+
+## [8.134.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.3...claude-dev-env-v8.134.0) (2026-11-20)
+
+
+### Features
+
+* **hooks:** skip usage-based thread routing per chat ([#2472](https://github.com/jl-cmd-projects/claude-dev-env/issues/2472)) ([c3d19fe](https://github.com/jl-cmd-projects/claude-dev-env/commit/c3d19feb7e7bcf8a8e488706d8a801b7cbed86f2))
+
+## [8.133.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.2...claude-dev-env-v8.133.3) (2026-11-19)
+
+
+### Bug Fixes
+
+* **hooks:** ask the footer only for work on the list the user sees ([#2468](https://github.com/jl-cmd-projects/claude-dev-env/issues/2468)) ([b2ba09a](https://github.com/jl-cmd-projects/claude-dev-env/commit/b2ba09ac579c1531855dc5643c4fe18cf8c72cdb))
+
+## [8.133.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.1...claude-dev-env-v8.133.2) (2026-11-19)
+
+
+### Bug Fixes
+
+* **hooks:** send the In progress footer once per change ([#2466](https://github.com/jl-cmd-projects/claude-dev-env/issues/2466)) ([41a54f9](https://github.com/jl-cmd-projects/claude-dev-env/commit/41a54f914535ac570fd6943f08f057bb53da407f))
+
+## [8.133.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.133.0...claude-dev-env-v8.133.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **hooks:** refuse the first oversized create and pass the second ([#2463](https://github.com/jl-cmd-projects/claude-dev-env/issues/2463)) ([ec66a65](https://github.com/jl-cmd-projects/claude-dev-env/commit/ec66a654322d4af233bcb377f13dca893eb37fbe))
+
 ## [8.133.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.132.2...claude-dev-env-v8.133.0) (2026-11-18)
 
 

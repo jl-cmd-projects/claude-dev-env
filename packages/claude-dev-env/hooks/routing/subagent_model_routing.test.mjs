@@ -95,7 +95,7 @@ test('blocks malformed policy, unknown input, unavailable replacement, and untru
     );
     const unavailableReplacementResponse = buildSubagentModelRoutingResponse(
         buildHookPayload({ model: 'Sol', reasoning_effort: 'medium' }),
-        { availableModelIds: ['gpt-5.6-sol'] },
+        { availableModelIds: ['gpt-6.2-sol'] },
     );
     const untrustedAdvisorResponse = buildSubagentModelRoutingResponse(
         buildHookPayload({
@@ -122,11 +122,11 @@ test('blocks malformed policy, unknown input, unavailable replacement, and untru
     }
 });
 
-test('blocks a trusted session advisor route that resolves to Astra', () => {
+test('blocks a trusted session advisor route that resolves to Sol', () => {
     const hookResponse = buildSubagentModelRoutingResponse(
         buildHookPayload({
             agent_type: 'team-advisor',
-            model: 'Astra',
+            model: 'Sol',
             reasoning_effort: 'high',
         }),
         {
@@ -144,16 +144,17 @@ test('blocks a trusted session advisor route that resolves to Astra', () => {
     );
 });
 
-test('allows an Astra route when the explicit advisor flag is present', () => {
+test('sends an Astra request to Sol xhigh when the explicit advisor flag is present', () => {
     const toolInput = {
         model: 'Astra',
         reasoning_effort: 'high',
         flags: ['--advisor'],
     };
     const hookResponse = buildSubagentModelRoutingResponse(buildHookPayload(toolInput));
+    assert.equal(hookResponse.hookSpecificOutput.permissionDecision, 'allow');
     assert.deepEqual(hookResponse.hookSpecificOutput.updatedInput, {
-        model: 'gpt-6-astra',
-        reasoning_effort: 'low',
+        model: 'gpt-6.2-sol',
+        reasoning_effort: 'xhigh',
         flags: ['--advisor'],
     });
 });
@@ -189,7 +190,7 @@ test('the standalone hook silently remaps native Sol Medium and preserves other 
         {
             encoding: 'utf8',
             input: JSON.stringify(buildHookPayload({
-                model: 'gpt-5.6-sol',
+                model: 'gpt-6.2-sol',
                 effort: 'medium',
                 message: 'keep',
                 child_permissions: { shell: 'ask' },

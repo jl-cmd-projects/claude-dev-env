@@ -17,6 +17,7 @@ footer.
 
 from __future__ import annotations
 
+import math
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -29,17 +30,39 @@ blocking_directory = str(Path(__file__).resolve().parent)
 if blocking_directory not in sys.path:
     sys.path.insert(0, blocking_directory)
 
+from closing_question_round_open_items import marked_open_lines
+from final_reply_gate import code_spans_masked
 from open_tasks_transcript import TaskItem
 
 from hooks_constants.closing_question_round_gate_constants import (
     ALL_SUBJECT_SKIP_WORDS,
+    DECISION_DEPENDENCY_PATTERN,
+    DECISION_WORD_PATTERN,
+    LEAD_LABEL_END,
+    LEAD_PARAGRAPH_JOINER,
     FOOTER_CONTINUATION_LINE_PATTERN,
     FOOTER_GAP_LABEL,
     FOOTER_HEADING_PATTERN,
     FOOTER_INSTRUCTION,
     FOOTER_ITEM_LINE_PATTERN,
+    FOOTER_ITEM_PART_SEPARATOR,
     FOOTER_KEY_WORDS_INSTRUCTION,
+    FOOTER_STATUS_MARKER_PATTERN,
+    FOOTER_STATUS_STAND_IN,
+    FIRST_PERSON_ITEM_PATTERN,
+    LIST_ITEM_LINE_PATTERN,
     FOOTER_TASK_LINE_TEMPLATE,
+    OTHER_PARTY_REQUEST_PATTERN,
+    COORDINATED_REQUEST_PATTERN,
+    MARKDOWN_EMPHASIS_PATTERN,
+    NAMED_SOURCE_DEPENDENCY_PATTERN,
+    OPTION_ITEM_PATTERN,
+    PURPOSE_CLAUSE_PATTERN,
+    PURPOSE_CLAUSE_STAND_IN,
+    REQUEST_OPENER_PATTERN,
+    SENTENCE_BREAK_PATTERN,
+    USER_CHOICE_LEAD_PATTERN,
+    USER_MENTION_PATTERN,
     FOOTER_TASKS_LABEL,
     FOOTER_WORD_PATTERN,
     MATCH_PREFIX_LENGTH,
@@ -47,7 +70,8 @@ from hooks_constants.closing_question_round_gate_constants import (
     REASON_PART_SEPARATOR,
     TASK_KEY_WORD_SEPARATOR,
 )
-from hooks_constants.user_step_wording_constants import LINE_BREAK
+from hooks_constants.final_reply_gate_constants import QUESTION_MARK
+from hooks_constants.user_step_wording_constants import CODE_SPAN_STAND_IN, LINE_BREAK
 
 
 class SplitReply(NamedTuple):
@@ -78,25 +102,294 @@ def split_footer(closing_reply: str) -> SplitReply:
     one on, and at least one item must follow.
     """
     all_lines = closing_reply.rstrip().split(LINE_BREAK)
-    for each_position in range(len(all_lines) - 1, -1, -1):
-        if FOOTER_HEADING_PATTERN.fullmatch(all_lines[each_position].strip()) is None:
+    found_footer = _footer_item_lines(all_lines)
+    if found_footer is None:
+        return SplitReply(closing_reply, None)
+    heading_position, all_item_lines = found_footer
+    return SplitReply(
+        LINE_BREAK.join(all_lines[:heading_position]),
+        tuple(_item_text(each_item_lines) for each_item_lines in all_item_lines),
+    )
+
+
+def _footer_item_lines(all_lines: list[str]) -> tuple[int, list[list[str]]] | None:
+    heading_position = next(
+        (
+            each_position
+            for each_position in range(len(all_lines) - 1, -1, -1)
+            if FOOTER_HEADING_PATTERN.fullmatch(all_lines[each_position].strip()) is not None
+        ),
+        None,
+    )
+    if heading_position is None:
+        return None
+    all_item_lines = _item_line_groups(all_lines[heading_position + 1 :])
+    return (heading_position, all_item_lines) if all_item_lines else None
+
+
+def _item_line_groups(all_tail_lines: list[str]) -> list[list[str]]:
+    all_item_lines: list[list[str]] = []
+    for each_line in all_tail_lines:
+        if not each_line.strip():
             continue
-        all_tail_lines = [
-            each_line for each_line in all_lines[each_position + 1 :] if each_line.strip()
-        ]
-        all_items: list[str] = []
-        for each_line in all_tail_lines:
-            item_match = FOOTER_ITEM_LINE_PATTERN.match(each_line)
-            if item_match is not None:
-                all_items.append(item_match["item"])
-            elif all_items and FOOTER_CONTINUATION_LINE_PATTERN.match(each_line):
-                all_items[-1] = f"{all_items[-1]} {each_line.strip()}"
-            else:
-                return SplitReply(closing_reply, None)
-        if not all_items:
-            return SplitReply(closing_reply, None)
-        return SplitReply(LINE_BREAK.join(all_lines[:each_position]), tuple(all_items))
-    return SplitReply(closing_reply, None)
+        if FOOTER_ITEM_LINE_PATTERN.match(each_line) is not None:
+            all_item_lines.append([each_line])
+        elif all_item_lines and FOOTER_CONTINUATION_LINE_PATTERN.match(each_line):
+            all_item_lines[-1].append(each_line)
+        else:
+            return []
+    return all_item_lines
+
+
+def _item_text(all_item_lines: list[str]) -> str:
+    item_match = FOOTER_ITEM_LINE_PATTERN.match(all_item_lines[0])
+    first_text = item_match["item"].rstrip() if item_match is not None else all_item_lines[0].strip()
+    return FOOTER_ITEM_PART_SEPARATOR.join([first_text, *(each_line.strip() for each_line in all_item_lines[1:])])
+
+
+def _is_ask_item(all_item_lines: list[str]) -> bool:
+    if is_footer_ask(_item_text(all_item_lines)):
+        return True
+    for each_line in all_item_lines[1:]:
+        nested_line = each_line.lstrip()
+        if LIST_ITEM_LINE_PATTERN.match(nested_line) is not None and _is_nested_ask(nested_line.split(maxsplit=1)[1]):
+            return True
+    return False
+
+
+def _is_nested_ask(nested_text: str) -> bool:
+    plain_text = MARKDOWN_EMPHASIS_PATTERN.sub("", nested_text).strip()
+    if FIRST_PERSON_ITEM_PATTERN.match(plain_text):
+        return is_footer_ask(nested_text)
+    return REQUEST_OPENER_PATTERN.match(plain_text) is not None or plain_text.endswith(QUESTION_MARK)
+
+
+def is_footer_ask(footer_item: str) -> bool:
+    """Return True when a footer item asks something of the user, so it is no plain status line.
+
+    ::
+
+        "I am shipping 8590."                          -> False
+        "I am watching the ledger so you see it."      -> False
+        "I am merging 8590 once it has your approval." -> True, it names the user
+        "I will release it only with an OK from you."  -> True
+        "I am holding it until the owner approves."    -> True, it waits on a decision
+        "I am waiting for Jon to authorize the release." -> True, it waits on an authorization
+        "I am waiting for Jon's OK on the release date." -> True, it waits on an OK
+        "I need an answer on the price."               -> True, it waits on an answer
+        "I need the owner to pick the release date."   -> True, it asks someone to pick
+        "I am waiting for Jon to give me a release date." -> True, it asks someone to give
+        "I am holding it until the owner picks a date." -> True, it waits on a choice
+        "I need a date from the owner."                -> True, it waits on a person
+        "I cannot ship without a date from Jon."       -> True, it waits on a named person
+        "I am updating the ledger so your prices stay current." -> False, a benefit clause
+        "I am listing the dates so you can see them and pick one." -> True, a request after the benefit
+        "I am listing the dates so you can see them and **pick** one." -> True, emphasis is read past
+        "Approve the release."                         -> True, not first person
+        "I am preparing it. Pick a release date."      -> True, its second sentence is a request
+        "I am preparing the launch: choose a date."    -> True, a request after a colon
+        "I am shipping 8590. Its tests are pending."   -> False
+        "I am updating the decision log."              -> False, no wait before the word
+        "I need to review the logs."                   -> False, a step of its own
+        "I am waiting for the tests to confirm the fix." -> False, an automated check
+        "I am holding the release until Jon confirms the date." -> True, it waits on a confirmation
+        "Should I merge 8590?"                         -> True, a question
+        "I am preparing it. Would Friday work? The build is ready." -> True, a question inside
+
+    The rule writes each footer item in first person and says what the work
+    gets the user, as "so you see its next update" does. Only such a benefit
+    clause, "so you" or "so that you" with see, know, get, read, follow,
+    have, hear, learn, find, watch, or track, or "so your" and one or two
+    words with stays, remains, keeps, updates, shows, matches, loads, works,
+    runs, arrives, is, or are, leaves the user unnamed, so "so you can
+    approve it first" and "so your team can approve it" still name the user.
+    A benefit clause followed by and, or, or then and a request word, as
+    "so you can see the dates and pick one", counts as an ask, and so does
+    an item with a sentence that ends with a question mark. Each word
+    check reads the item with its asterisks, underscores, tildes, and
+    backticks left out, so "**pick**" reads as pick. An item that is not
+    first person, that names the user in any other way, that waits,
+    needs, holds, or is blocked, until, once, or after, within 40
+    characters before one of an approval, an authorization, a green light, a clearance, a decision, a sign-off, a go-ahead, permission, consent, an
+    answer, input, a choice, or a confirmation from anyone, or that holds an open-item line other than the status markers
+    "pending", "blocked", "not done", and "not run" may ask the user
+    something, so it counts as an ask. A later sentence or clause after a
+    semicolon that opens with a
+    request word such as please, pick, choose, approve, or confirm, alone or
+    after a word such as next, then, or finally, counts as an ask too, so a request after a status sentence is kept, and so does
+    an item that needs, wants, waits for, or asks someone to pick, choose,
+    approve, confirm, decide, answer, give, send, share, provide, or supply,
+    or that holds until, once, when, after, unless, or before someone
+    picks, chooses, approves, confirms, decides, answers, replies, reviews,
+    tells, says, signs off, gives, sends, shares, provides, or supplies, or that needs or waits for something
+    from a person such as the owner, a client, or a reviewer. Each such
+    match looks at most 80 characters past its first word, so a long item
+    costs one pass.
+    """
+    status_item = FOOTER_STATUS_MARKER_PATTERN.sub(FOOTER_STATUS_STAND_IN, footer_item)
+    plain_item = MARKDOWN_EMPHASIS_PATTERN.sub("", footer_item)
+    return (
+        FIRST_PERSON_ITEM_PATTERN.match(plain_item) is None
+        or any(
+            REQUEST_OPENER_PATTERN.match(each_sentence) is not None
+            for each_sentence in SENTENCE_BREAK_PATTERN.split(plain_item.strip())
+        )
+        or USER_MENTION_PATTERN.search(PURPOSE_CLAUSE_PATTERN.sub(PURPOSE_CLAUSE_STAND_IN, plain_item)) is not None
+        or COORDINATED_REQUEST_PATTERN.search(plain_item) is not None
+        or any(
+            each_sentence.rstrip().endswith(QUESTION_MARK)
+            for each_sentence in SENTENCE_BREAK_PATTERN.split(plain_item.strip())
+        )
+        or DECISION_DEPENDENCY_PATTERN.search(plain_item) is not None
+        or OTHER_PARTY_REQUEST_PATTERN.search(plain_item) is not None
+        or NAMED_SOURCE_DEPENDENCY_PATTERN.search(plain_item) is not None
+        or bool(marked_open_lines([status_item], math.inf))
+    )
+
+
+def list_check_text(closing_reply: str) -> str:
+    """Return the part of the reply an open-item list check reads.
+
+    ::
+
+        "Done.\n\nIn progress:\n- I am shipping 8590."                -> "Done.\n"
+        "Done.\n\nIn progress:\n- Pick a price.\n- Confirm the date."  -> the whole reply
+        "Done.\n\nIn progress:\n- I am shipping 8590.\n- Pick a price." -> "Done.\n\nIn progress:\n- Pick a price."
+        "Pick which option I should ship.\n\nIn progress:\n- I can ship A." -> the whole reply
+        "Pending your decision:\n\nIn progress:\n- I can ship A."         -> the whole reply
+        "Please choose which\nI should ship:\n\nIn progress:\n- I can ship A." -> the whole reply, a wrapped request
+        "The date is yours to set.\n\nIn progress:\n- I can ship Friday." -> the whole reply, a choice for the user
+        "Done.\n\nIn progress:\n- I need you to pick a date.\n- I have Monday free." -> the whole reply
+        "Done.\n\nIn progress:\n- I am preparing it\n    - Pick Monday." -> the whole reply, a nested ask
+        "Done."                                                       -> "Done."
+
+    A footer line that only says where work stands is required status, so
+    the check leaves it out and reads the body with the footer lines that ask
+    the user something, as ``is_footer_ask`` finds them, read for the
+    whole item and for each list line nested under it. When one line asks,
+    the lines that open with "I can", "I could", "I would", "I might",
+    "I may", "I recommend", "I suggest", "I propose", "I prefer", or
+    "I favor" stay too, so the options
+    beside the ask still reach the judge. Every item after an ask with a
+    sentence that ends with a question mark, outside inline code, stays
+    too, since those items answer it. An ask that leaves a choice to
+    the user, as "I need you to pick a date." and "I am leaving the date to
+    you." do, keeps the whole reply,
+    so the choices under it reach the judge whatever they open with. The heading and
+    each kept line stay as the reply wrote them, so a span the judge quotes
+    from them is still found in the reply. When the last body paragraph
+    above the footer opens a sentence with a request word, ends with a
+    question mark, waits on or needs a decision as "I need a decision."
+    does, or ends with a colon after a decision word or a word for the
+    user, or names the user above an item that opens with "I can", "I
+    could", "I would", "I might", or "I may", it gives the lines under it their meaning, so the
+    whole reply is read. A body that leaves a choice to the user, as "The
+    date is yours to choose." or "Please choose a date." do in any
+    paragraph, keeps a footer of two or more items whole too, and so does
+    a question in any paragraph above two or more items, or above an item
+    that opens with "I can" or another option opener, and so does a
+    sentence that opens with a request word, as "Pick a release date."
+    does, above such an option item.
+
+    Args:
+        closing_reply: The reply the turn ends with.
+
+    Returns:
+        The body with the footer's asks, or the whole reply when every item asks.
+    """
+    all_lines = closing_reply.rstrip().split(LINE_BREAK)
+    found_footer = _footer_item_lines(all_lines)
+    if found_footer is None:
+        return closing_reply
+    heading_position, all_item_lines = found_footer
+    if _is_asking_lead(all_lines[:heading_position]) or _is_user_choice(all_lines[:heading_position], all_item_lines):
+        return closing_reply
+    all_is_ask = [_is_ask_item(each_item_lines) for each_item_lines in all_item_lines]
+    all_ask_lines = [
+        each_item_lines
+        for each_item_lines, each_is_ask in zip(all_item_lines, all_is_ask, strict=True)
+        if each_is_ask
+    ]
+    if len(all_ask_lines) == len(all_item_lines) or any(
+        USER_CHOICE_LEAD_PATTERN.search(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines))) is not None
+        for each_item_lines in all_ask_lines
+    ):
+        return closing_reply
+    all_body_lines = all_lines[:heading_position]
+    if not all_ask_lines:
+        return LINE_BREAK.join(all_body_lines)
+    all_kept_lines = [
+        each_line for each_item_lines in _kept_items(all_item_lines, all_is_ask) for each_line in each_item_lines
+    ]
+    return LINE_BREAK.join([*all_body_lines, all_lines[heading_position], *all_kept_lines])
+
+
+def _kept_items(all_item_lines: list[list[str]], all_is_ask: list[bool]) -> list[list[str]]:
+    all_kept_items: list[list[str]] = []
+    is_after_question = False
+    for each_item_lines, each_is_ask in zip(all_item_lines, all_is_ask, strict=True):
+        item_text = _item_text(each_item_lines)
+        if each_is_ask or is_after_question or OPTION_ITEM_PATTERN.match(MARKDOWN_EMPHASIS_PATTERN.sub("", item_text)):
+            all_kept_items.append(each_item_lines)
+        is_after_question = is_after_question or (each_is_ask and _has_question(item_text))
+    return all_kept_items
+
+
+def _has_question(item_text: str) -> bool:
+    return any(
+        each_sentence.rstrip().endswith(QUESTION_MARK)
+        for each_sentence in SENTENCE_BREAK_PATTERN.split(
+            MARKDOWN_EMPHASIS_PATTERN.sub("", code_spans_masked(item_text, CODE_SPAN_STAND_IN))
+        )
+    )
+
+
+def _lead_paragraph(all_body_lines: list[str]) -> str:
+    all_paragraph_lines: list[str] = []
+    for each_line in reversed(all_body_lines):
+        if each_line.strip():
+            all_paragraph_lines.append(each_line.strip())
+        elif all_paragraph_lines:
+            break
+    return MARKDOWN_EMPHASIS_PATTERN.sub("", LEAD_PARAGRAPH_JOINER.join(reversed(all_paragraph_lines)))
+
+
+def _is_user_choice(all_body_lines: list[str], all_item_lines: list[list[str]]) -> bool:
+    has_option_item = any(
+        OPTION_ITEM_PATTERN.match(MARKDOWN_EMPHASIS_PATTERN.sub("", _item_text(each_item_lines)))
+        for each_item_lines in all_item_lines
+    )
+    lead_paragraph = _lead_paragraph(all_body_lines)
+    body_text = MARKDOWN_EMPHASIS_PATTERN.sub("", LEAD_PARAGRAPH_JOINER.join(all_body_lines))
+    if len(all_item_lines) > 1 and USER_CHOICE_LEAD_PATTERN.search(body_text) is not None:
+        return True
+    is_choice_list = has_option_item or len(all_item_lines) > 1
+    if is_choice_list and any(each_line.strip().endswith(QUESTION_MARK) for each_line in all_body_lines):
+        return True
+    if has_option_item and any(
+        REQUEST_OPENER_PATTERN.match(each_sentence) is not None
+        for each_sentence in SENTENCE_BREAK_PATTERN.split(body_text)
+    ):
+        return True
+    return has_option_item and USER_MENTION_PATTERN.search(lead_paragraph) is not None
+
+
+def _is_asking_lead(all_body_lines: list[str]) -> bool:
+    lead_line = _lead_paragraph(all_body_lines)
+    if not lead_line:
+        return False
+    is_decision_label = lead_line.endswith(LEAD_LABEL_END) and (
+        DECISION_WORD_PATTERN.search(lead_line) is not None or USER_MENTION_PATTERN.search(lead_line) is not None
+    )
+    return (
+        is_decision_label
+        or DECISION_DEPENDENCY_PATTERN.search(lead_line) is not None
+        or lead_line.endswith(QUESTION_MARK)
+        or any(
+            REQUEST_OPENER_PATTERN.match(each_sentence) is not None
+            for each_sentence in SENTENCE_BREAK_PATTERN.split(lead_line)
+        )
+    )
 
 
 def _stem(word: str) -> str:
