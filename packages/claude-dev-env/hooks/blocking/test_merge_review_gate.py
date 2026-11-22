@@ -913,8 +913,35 @@ def test_should_allow_a_clean_head_to_a_managed_launcher_create_behind_a_settled
     merge_review_receipt.record_open_review("acme/tools", head, 0)
     script_path = _managed_launcher_path(tmp_path, monkeypatch)
     assert _reason(_bash_in(folder, "cd . && " + _launcher_create(script_path))) is None
-    assert _reason(_bash_in(folder, "cd . && uv run " + _launcher_create(script_path))) is None
     assert _reason(_bash_in(folder, "cd . && " + _launcher_create(f"~/{MANAGED_LAUNCHER_TAIL}"))) is None
+
+
+@pytest.mark.parametrize(
+    "lead",
+    [
+        "uv run ",
+        "uv run --no-project ",
+        "VIRTUAL_ENV=/x ",
+        "CONDA_PREFIX=/x ",
+        "GH_REPO=acme/tools ",
+        "X=1 ",
+        "env ",
+        "exec ",
+        "command ",
+        "nice ",
+        "nohup ",
+        "time ",
+    ],
+)
+def test_should_give_no_earlier_pass_credit_to_a_managed_launcher_create_behind_a_prefix_or_a_lead_word(
+    branch_checkout: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, lead: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    script_path = _managed_launcher_path(tmp_path, monkeypatch)
+    reason = _deny_reason(_bash_in(folder, "cd . && " + lead + _launcher_create(script_path)))
+    assert f"acme/tools has a clean review for head {head}" in reason
+    assert "run the create on its own" in reason
 
 
 @pytest.mark.parametrize(

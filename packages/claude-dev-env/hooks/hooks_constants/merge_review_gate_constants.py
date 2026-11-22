@@ -82,7 +82,6 @@ HOME_FOLDER_PREFIX = "~/"
 UNSETTLED_PREFIX_NAME_PATTERN = re.compile(
     r"(?i:(?:GIT|LD|DYLD|XDG|UV)_\w*|PYTHON\w*|HOME|PATH)|(?!GH_REPO\Z)(?i:GH_\w*)"
 )
-ALL_SETTLED_CREATE_LAUNCHER_WORDS = ("uv", "run")
 ASSIGNMENT_SEPARATOR = "="
 APPEND_ASSIGNMENT_MARK = "+"
 ALL_PATH_PARAMETER_NAMES = frozenset({"-path", "-literalpath"})
