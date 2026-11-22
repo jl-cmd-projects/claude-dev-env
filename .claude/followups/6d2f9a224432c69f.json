@@ -1,0 +1,8 @@
+{
+  "rule_id": "test-pairing",
+  "file_path": "packages/claude-dev-env/hooks/blocking/merge_review_gate_parts/open_request.py",
+  "message": "Changed production file has no changed matching test",
+  "check_id": "test-pairing",
+  "severity": "smell",
+  "origin_commit": "e69add2f51210f8817c94971b16d347e369eb2d7"
+}

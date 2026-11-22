@@ -35,6 +35,7 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     receipts = tmp_path / "receipts"
     receipts.mkdir()
     monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RECEIPT_DIR", str(receipts))
+    monkeypatch.chdir(tmp_path)
     return receipts
 
 
@@ -189,16 +190,38 @@ def test_should_leave_ruling_keys_out_of_an_open_pass_that_rules_nothing_out(
     assert receipt == {"head": HEAD, "findings": 2}
 
 
+def test_record_open_review_should_name_the_checkout_branch_in_the_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    path = merge_review_receipt.record_open_review("acme/tools", head, 2)
+    assert json.loads(path.read_text(encoding="utf-8"))["branch"] == "feature"
+
+
+def test_record_open_review_should_name_the_branch_when_only_its_upstream_also_holds_the_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    subprocess.run(
+        ["git", "update-ref", "refs/remotes/origin/feature", head], check=True
+    )
+    path = merge_review_receipt.record_open_review("acme/tools", head, 2)
+    assert json.loads(path.read_text(encoding="utf-8"))["branch"] == "feature"
+
+
+def test_record_open_review_should_name_no_branch_when_another_branch_holds_the_head(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    subprocess.run(["git", "checkout", "--quiet", "-b", "second"], check=True)
+    path = merge_review_receipt.record_open_review("acme/tools", head, 2)
+    assert "branch" not in json.loads(path.read_text(encoding="utf-8"))
+
+
 def test_record_open_review_should_refuse_a_ruling_the_head_lacks(receipt_folder: Path) -> None:
     with pytest.raises(ValueError, match="no file and line at nowhere.py:3"):
         merge_review_receipt.record_open_review("acme/tools", HEAD, 1, ["nowhere.py:3"])
     assert not (receipt_folder / "heads").exists()
-
-
-def test_should_exit_one_for_an_open_pass_with_findings() -> None:
-    verdict_stream = StringIO()
-    assert merge_review_receipt.main(["acme/tools", "open", HEAD, "2"], verdict_stream) == 1
-    assert verdict_stream.getvalue() == f"REVIEWED acme/tools open {HEAD} 2 findings\n"
 
 
 @pytest.mark.parametrize(
@@ -220,7 +243,9 @@ def test_should_refuse_an_open_pass_it_cannot_record(
 def _checkout_with_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
-    subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch", "feature", str(checkout)], check=True
+    )
     (checkout / "a.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
     (checkout / "docs").mkdir()
     (checkout / "docs" / "notes.txt").write_text("note\n", encoding="utf-8")
@@ -276,6 +301,7 @@ def test_should_print_clean_for_an_open_pass_ruled_out_at_file_and_line(
         "findings": 2,
         "ruled_out": 2,
         "ruling_lines": ["a.py:1", "a.py:3"],
+        "branch": "feature",
     }
 
 
@@ -300,13 +326,14 @@ def test_should_report_reviewed_and_keep_the_rulings_when_some_open_findings_sta
         verdict_stream,
     )
     assert exit_code == 1
-    assert verdict_stream.getvalue() == f"REVIEWED acme/tools open {head} 3 findings\n"
+    assert verdict_stream.getvalue().startswith(f"REVIEWED acme/tools open {head} 3 findings (")
     receipt = json.loads((receipt_folder / "heads" / f"acme__tools__{head}.json").read_text())
     assert receipt == {
         "head": head,
         "findings": 3,
         "ruled_out": 2,
         "ruling_lines": ["a.py:1", "a.py:2"],
+        "branch": "feature",
     }
 
 
@@ -609,12 +636,53 @@ def test_should_refuse_filed_when_no_finding_is_left_to_file(
     assert _stored_receipt(receipt_folder)["pass"] == 3
 
 
-def test_should_refuse_filed_on_an_open_pass(receipt_folder: Path) -> None:
+def test_should_refuse_filed_on_an_open_pass(
+    receipt_folder: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     with pytest.raises(SystemExit):
         merge_review_receipt.main(
             ["acme/tools", "open", HEAD, "2", "--filed", ISSUE_LINK], StringIO()
         )
+    assert "fix its findings in new commits and open the pull request" in capsys.readouterr().err
     assert list(receipt_folder.iterdir()) == []
+
+
+def test_should_name_the_fix_commits_route_when_an_open_pass_reports_findings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    verdict_stream = StringIO()
+    assert merge_review_receipt.main(["acme/tools", "open", head, "2"], verdict_stream) == 1
+    assert verdict_stream.getvalue() == (
+        f"REVIEWED acme/tools open {head} 2 findings (fix them in new commits on top of "
+        f"{head}, then open the pull request; the fix commits need no second pass)\n"
+    )
+
+
+@pytest.mark.parametrize("place", ["outside any checkout", "detached HEAD"])
+def test_should_say_to_record_again_from_the_branch_checkout_when_a_pass_with_findings_names_no_branch(
+    place: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    if place == "detached HEAD":
+        subprocess.run(["git", "checkout", "--quiet", "--detach", head], check=True)
+    else:
+        outside_folder = tmp_path / "outside"
+        outside_folder.mkdir()
+        monkeypatch.chdir(outside_folder)
+    verdict_stream = StringIO()
+    assert merge_review_receipt.main(["acme/tools", "open", head, "2"], verdict_stream) == 1
+    verdict = verdict_stream.getvalue()
+    assert verdict.startswith(f"REVIEWED acme/tools open {head} 2 findings, recorded with no branch")
+    assert f"counts only at {head} itself" in verdict
+    assert "Run this command again from the checkout of the branch you will open" in verdict
+    assert "the fix commits need no second pass" not in verdict
+
+
+def test_should_describe_only_a_same_branch_pass_as_covering_fix_commits_in_the_module_docstring() -> None:
+    module_text = merge_review_receipt.__doc__ or ""
+    assert "above the\nhead of any ``open`` pass" not in module_text
+    assert "recorded on the same branch" in module_text
 
 
 def test_should_name_the_filed_route_when_a_pass_after_the_third_reports_findings() -> None:

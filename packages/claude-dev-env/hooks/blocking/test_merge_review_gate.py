@@ -3,6 +3,7 @@
 import io
 import json
 import os
+import re
 import subprocess
 import sys
 from collections.abc import Callable
@@ -22,7 +23,12 @@ from blocking import merge_review_gate as gate
 from blocking.gate_run_reads import read_deadlines_started
 from blocking.merge_review_gate_parts import open_request
 from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
-from hooks_constants.merge_review_gate_constants import UNKNOWN_OPEN_TARGET_REASON
+from hooks_constants.merge_review_gate_constants import (
+    ALL_LONE_CREATE_REFUSED_CHARACTERS,
+    LONE_CREATE_UNQUOTED_REFUSED_CHARACTERS,
+    NOT_LONE_CAUSE,
+    UNKNOWN_OPEN_TARGET_REASON,
+)
 
 CLEAN_HEAD = "abc1234def5678abc1234def5678abc1234def56"
 NEW_HEAD = "9999999aaaaaaa9999999aaaaaaa9999999aaaaa"
@@ -37,7 +43,8 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.delenv("CLAUDE_MERGE_REVIEW_COMMAND", raising=False)
     remotes = tmp_path / "github.com"
     subprocess.run(
-        ["git", "init", "--quiet", "--bare", str(remotes / "acme" / "tools.git")], check=True
+        ["git", "init", "--quiet", "--bare", "--initial-branch", "main", str(remotes / "acme" / "tools.git")],
+        check=True,
     )
     index = int(os.environ.get("GIT_CONFIG_COUNT", "0"))
     monkeypatch.setenv("GIT_CONFIG_COUNT", str(index + 1))
@@ -362,12 +369,14 @@ def _git(folder: Path, *all_arguments: str) -> str:
 
 
 @pytest.fixture
-def branch_checkout(tmp_path: Path, github_repository: Path) -> tuple[Path, str]:
+def branch_checkout(
+    tmp_path: Path, github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, str]:
     folder = tmp_path / "checkout"
     folder.mkdir()
+    monkeypatch.chdir(folder)
     _git(folder, "init", "--quiet", "--initial-branch", "main")
     _git(folder, "remote", "add", "origin", "https://github.com/acme/tools.git")
-    _git(folder, "checkout", "--quiet", "-b", "feature")
     _git(
         folder,
         "-c",
@@ -377,6 +386,21 @@ def branch_checkout(tmp_path: Path, github_repository: Path) -> tuple[Path, str]
         "commit",
         "--quiet",
         "--allow-empty",
+        "-m",
+        "base",
+    )
+    _git(folder, "push", "--quiet", str(github_repository), "main")
+    _git(folder, "checkout", "--quiet", "-b", "feature")
+    (folder / "feature.txt").write_text("feature work\n", encoding="utf-8")
+    _git(folder, "add", "feature.txt")
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
         "-m",
         "first",
     )
@@ -440,7 +464,7 @@ def test_should_deny_a_pull_request_open_with_no_review(branch_checkout: tuple[P
     folder, head = branch_checkout
     reason = _deny_reason(_create_tool(folder))
     assert f"no clean review for head {head}" in reason
-    assert f"acme/tools open {head} 0" in reason
+    assert "acme/tools open <reviewed head sha> <finding count>" in reason
     assert "--ruled-out" in reason
     assert "--rulings" in reason
 
@@ -483,6 +507,1177 @@ def test_should_deny_a_pull_request_open_after_a_push_past_the_review(
     folder, _head = branch_checkout
     merge_review_receipt.record_open_review("acme/tools", NEW_HEAD, 0)
     assert "no clean review" in _deny_reason(_create_tool(folder))
+
+
+def _commit_and_push(folder: Path, github_repository: Path, message: str) -> str:
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        message,
+    )
+    _git(folder, "push", "--quiet", "--force", str(github_repository), "HEAD:feature")
+    return _git(folder, "rev-parse", "HEAD")
+
+
+def test_should_allow_a_pull_request_open_after_fix_commits_on_one_review_pass_with_findings(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix one")
+    _commit_and_push(folder, github_repository, "fix two")
+    assert _reason(_create_tool(folder)) is None
+    assert _reason(_bash_in(folder, "gh pr create --fill")) is None
+
+
+def test_should_deny_a_pull_request_open_whose_earlier_review_names_another_repository(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/other", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    assert "no clean review" in _deny_reason(_create_tool(folder))
+
+
+def test_should_deny_a_pull_request_open_whose_review_sits_only_on_a_merged_side_branch(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, _head = branch_checkout
+    _git(folder, "checkout", "--quiet", "-b", "side")
+    side_head = _commit_and_push(folder, github_repository, "side")
+    _git(folder, "checkout", "--quiet", "feature")
+    _commit_and_push(folder, github_repository, "feature work")
+    merge_review_receipt.record_open_review("acme/tools", side_head, 0)
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "merge",
+        "--quiet",
+        "--no-ff",
+        "-m",
+        "merge side",
+        "side",
+    )
+    _git(folder, "branch", "--quiet", "-D", "side")
+    _git(folder, "push", "--quiet", "--force", str(github_repository), "HEAD:feature")
+    assert "no clean review" in _deny_reason(_create_tool(folder))
+
+
+def test_should_deny_a_pull_request_open_whose_only_review_sits_on_the_branch_it_stacks_on(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, base_branch_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", base_branch_head, 0)
+    _git(folder, "checkout", "--quiet", "-b", "stacked")
+    _commit_and_push(folder, github_repository, "stacked work")
+    assert "no clean review" in _deny_reason(_create_tool(folder))
+
+
+def test_should_deny_a_stacked_open_after_the_branch_it_stacks_on_is_merged_and_deleted(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, base_branch_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", base_branch_head, 2)
+    _git(folder, "checkout", "--quiet", "-b", "second")
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "second work",
+    )
+    _git(folder, "branch", "--quiet", "-D", "feature")
+    _git(folder, "push", "--quiet", str(github_repository), "--delete", "feature")
+    assert "no clean review" in _deny_reason(_create_tool(folder, "second"))
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
+
+
+def _commit_on(folder: Path, message: str) -> str:
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        message,
+    )
+    return _git(folder, "rev-parse", "HEAD")
+
+
+def test_should_deny_a_stacked_open_whose_pass_was_recorded_on_it_at_the_head_it_stacks_on(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, feature_head = branch_checkout
+    _git(folder, "checkout", "--quiet", "-b", "second")
+    merge_review_receipt.record_open_review("acme/tools", feature_head, 2)
+    _commit_on(folder, "second work")
+    _git(folder, "push", "--quiet", str(github_repository), "second")
+    feature_tree = _git(folder, "rev-parse", f"{feature_head}^{{tree}}")
+    squash_commit = _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit-tree",
+        feature_tree,
+        "-p",
+        "main",
+        "-m",
+        "squash feature",
+    )
+    _git(folder, "branch", "--quiet", "-f", "main", squash_commit)
+    _git(folder, "push", "--quiet", str(github_repository), "main")
+    _git(folder, "branch", "--quiet", "-D", "feature")
+    _git(folder, "push", "--quiet", str(github_repository), "--delete", "feature")
+    assert "no clean review" in _deny_reason(_create_tool(folder, "second"))
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
+
+
+def test_should_deny_an_open_whose_only_pass_sits_on_the_base_commit_no_local_ref_holds(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    folder, _feature_head = branch_checkout
+    base_commit = _git(folder, "rev-parse", "main")
+    _git(folder, "push", "--quiet", str(github_repository), "main:late")
+    single_branch_clone = tmp_path / "single branch clone"
+    subprocess.run(
+        [
+            "git",
+            "clone",
+            "--quiet",
+            "--single-branch",
+            "--branch",
+            "late",
+            "https://github.com/acme/tools.git",
+            str(single_branch_clone),
+        ],
+        check=True,
+    )
+    monkeypatch.chdir(single_branch_clone)
+    merge_review_receipt.record_open_review("acme/tools", base_commit, 2)
+    _commit_on(single_branch_clone, "late work")
+    _git(single_branch_clone, "push", "--quiet", "origin", "late")
+    assert "no clean review" in _deny_reason(_create_tool(single_branch_clone, "late"))
+    assert "no clean review" in _deny_reason(_bash_in(single_branch_clone, "gh pr create --fill"))
+
+
+def _fixed_after_a_pass_with_stack_at_the_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> Path:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _git(github_repository, "branch", "stack", reviewed_head)
+    _commit_and_push(folder, github_repository, "work on top of stack")
+    return folder
+
+
+def test_should_deny_an_open_whose_reviewed_commit_the_gh_merge_base_branch_holds(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    _git(folder, "config", "branch.feature.gh-merge-base", "stack")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill -H acme:feature"))
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+
+
+def test_should_allow_an_open_whose_gh_merge_base_branch_lacks_the_reviewed_commit(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    _git(folder, "push", "--quiet", str(github_repository), "main:release")
+    _git(folder, "config", "branch.feature.gh-merge-base", "release")
+    assert _reason(_bash_in(folder, "gh pr create --fill")) is None
+
+
+def test_should_deny_an_open_whose_command_sets_the_gh_merge_base_first(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    command = "git config branch.feature.gh-merge-base stack && gh pr create --fill"
+    assert "no clean review" in _deny_reason(_bash_in(folder, command))
+    environment_command = "GIT_CONFIG_GLOBAL=/elsewhere/gitconfig gh pr create --fill"
+    assert "no clean review" in _deny_reason(_bash_in(folder, environment_command))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git config \"branch.feature.gh-merge\"\"-base\" stack && gh pr create --fill",
+        "printf '[branch \"feature\"]\\n\\tgh-merge-%s = stack\\n' base >> .git/config && gh pr create --fill",
+        "LANG=C gh pr create --fill",
+        "gh pr create --fill > created.txt",
+        "gh pr create --fill #x\ngit config branch.feature.gh-merge-base stack",
+        "gh pr create --fill # ; git config branch.feature.gh-merge-base stack",
+        "GH_HOST=ghe.example.com gh pr create --base main --fill",
+        "git status && gh pr create --fill --base main",
+        "gh pr create --fill --title fix(x)",
+        "gh pr create --fill --title a&b",
+        "gh pr create --fill --title t >created.txt",
+    ],
+)
+def test_should_give_no_earlier_pass_credit_to_an_open_beside_any_other_shell_word(
+    branch_checkout: tuple[Path, str], github_repository: Path, command: str
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    assert "no clean review" in _deny_reason(_bash_in(folder, command))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'gh pr create --fill --title "Fix edge cases (Windows)"',
+        "gh pr create --fill --title 'a {b,c} d'",
+        "gh pr create --fill --title 'why?'",
+        "gh pr create --fill --title 'a*b'",
+        "gh pr create --fill --title '[WIP] gate'",
+        "gh pr create --fill --title '~5 percent'",
+        "gh pr create --fill --title 'a & b; c > d | e #f'",
+    ],
+)
+def test_should_credit_an_earlier_pass_to_a_lone_open_whose_title_punctuation_is_quoted(
+    branch_checkout: tuple[Path, str], github_repository: Path, command: str
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    assert _reason(_bash_in(folder, command)) is None
+
+
+def _launcher_create(script_path: str) -> str:
+    return (
+        f"python3 {script_path} create --repo acme/tools --base main --head feature "
+        "--title 'Fix edge cases (Windows)' --body-file body.md"
+    )
+
+
+MANAGED_LAUNCHER_TAIL = ".agents/skills/pull-request/scripts/pull_request.py"
+
+
+def _managed_launcher_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    return f"{home.as_posix()}/{MANAGED_LAUNCHER_TAIL}"
+
+
+def test_should_credit_an_earlier_pass_to_a_lone_pull_request_launcher_create(
+    branch_checkout: tuple[Path, str], github_repository: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    script_path = _managed_launcher_path(tmp_path, monkeypatch)
+    assert _reason(_bash_in(folder, _launcher_create(script_path))) is None
+    assert _reason(_bash_in(folder, _launcher_create(f"~/{MANAGED_LAUNCHER_TAIL}"))) is None
+    assert _reason(_bash_in(folder, _launcher_create(f"$HOME/{MANAGED_LAUNCHER_TAIL}"))) is None
+    assert "no clean review" in _deny_reason(_bash_in(folder, "cd . && " + _launcher_create(script_path)))
+    assert "no clean review" in _deny_reason(
+        _bash_in(folder, _launcher_create("~/pull-request/scripts/pull_request.py"))
+    )
+
+
+@pytest.mark.parametrize(
+    "script_path",
+    [
+        "./pull_request.py",
+        "/tmp/x/pull_request.py",
+        "scripts/pull_request.py",
+        f"/opt/lookalike/{MANAGED_LAUNCHER_TAIL}",
+    ],
+)
+def test_should_give_no_earlier_pass_credit_to_a_launcher_create_whose_script_is_not_the_managed_launcher(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    script_path: str,
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    _managed_launcher_path(tmp_path, monkeypatch)
+    assert "no clean review" in _deny_reason(_bash_in(folder, _launcher_create(script_path)))
+
+
+ALL_PATH_QUALIFIED_PROGRAM_CREATES = [
+    "./python3 {launcher} create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "./Python3 {launcher} create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "/tmp/x/python3 {launcher} create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "./gh pr create --base main --head feature --fill",
+    "/tmp/x/gh pr create --base main --head feature --fill",
+    "bin/gh pr create --base main --head feature --fill",
+]
+ALL_BARE_PROGRAM_CREATES = [
+    "python3 {launcher} create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "python {launcher} create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "gh pr create --base main --head feature --fill",
+]
+
+
+@pytest.mark.parametrize("command_template", ALL_PATH_QUALIFIED_PROGRAM_CREATES)
+def test_should_give_no_earlier_pass_credit_to_a_create_whose_program_word_holds_a_path(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command_template: str,
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    command = command_template.format(launcher=_managed_launcher_path(tmp_path, monkeypatch))
+    reason = _deny_reason(_bash_in(folder, command))
+    assert "no clean review" in reason
+    assert "the create is not the whole command" in reason
+
+
+@pytest.mark.parametrize("command_template", ALL_BARE_PROGRAM_CREATES)
+def test_should_credit_an_earlier_pass_to_a_create_whose_program_word_is_a_bare_name(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command_template: str,
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    command = command_template.format(launcher=_managed_launcher_path(tmp_path, monkeypatch))
+    assert _reason(_bash_in(folder, command)) is None
+
+
+@pytest.mark.parametrize("command_template", ALL_PATH_QUALIFIED_PROGRAM_CREATES)
+def test_should_deny_a_clean_head_to_a_create_whose_program_word_holds_a_path(
+    branch_checkout: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command_template: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    command = command_template.format(launcher=_managed_launcher_path(tmp_path, monkeypatch))
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"acme/tools has a clean review for head {head}" in reason
+    assert "run the create on its own" in reason
+
+
+@pytest.mark.parametrize("command_template", ALL_BARE_PROGRAM_CREATES)
+def test_should_allow_a_clean_head_to_a_create_whose_program_word_is_a_bare_name(
+    branch_checkout: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command_template: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    command = command_template.format(launcher=_managed_launcher_path(tmp_path, monkeypatch))
+    assert _reason(_bash_in(folder, command)) is None
+
+
+ALL_UNMANAGED_LAUNCHER_CREATES = [
+    "uv run ./pull_request.py create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "uv run pull_request.py create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "/tmp/x/pull_request.py create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "python3 ./pull_request.py create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "python3 pull_request.py create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    f"python3 /opt/lookalike/{MANAGED_LAUNCHER_TAIL} create --repo acme/tools --base main --head feature "
+    "--title t --body-file body.md",
+]
+
+
+@pytest.mark.parametrize("command", ALL_UNMANAGED_LAUNCHER_CREATES)
+def test_should_deny_a_clean_head_to_a_launcher_create_whose_script_is_not_the_managed_launcher(
+    branch_checkout: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    _managed_launcher_path(tmp_path, monkeypatch)
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"acme/tools has a clean review for head {head}" in reason
+    assert "run the create on its own" in reason
+
+
+def test_should_allow_a_clean_head_to_a_managed_launcher_create_behind_a_settled_step(
+    branch_checkout: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    script_path = _managed_launcher_path(tmp_path, monkeypatch)
+    assert _reason(_bash_in(folder, "cd . && " + _launcher_create(script_path))) is None
+    assert _reason(_bash_in(folder, "cd . && uv run " + _launcher_create(script_path))) is None
+    assert _reason(_bash_in(folder, "cd . && " + _launcher_create(f"~/{MANAGED_LAUNCHER_TAIL}"))) is None
+
+
+@pytest.mark.parametrize(
+    "launcher_options",
+    [
+        "--repo acme/tools --base main --title --head --body-file body.md",
+        "--repo acme/tools --base main --head feature --head feature --title t --body-file body.md",
+        "--repo acme/tools --repo acme/tools --base main --head feature --title t --body-file body.md",
+        "--repo acme/tools --base main --head= --title t --body-file body.md",
+    ],
+)
+def test_should_give_no_earlier_pass_credit_to_a_launcher_create_whose_repo_base_or_head_is_not_named_once(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    launcher_options: str,
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    script_path = _managed_launcher_path(tmp_path, monkeypatch)
+    assert "no clean review" in _deny_reason(_bash_in(folder, f"python3 {script_path} create {launcher_options}"))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr create --fill --base main --head feature --head=",
+        "python3 {launcher} create --repo acme/tools --base main --head feature "
+        "--title t --body-file body.md --head=",
+    ],
+)
+def test_should_give_no_credit_to_an_open_whose_last_head_is_empty_while_the_branch_tracks_another_name(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
+) -> None:
+    folder, reviewed_head = branch_checkout
+    command = command.format(launcher=_managed_launcher_path(tmp_path, monkeypatch))
+    _git(github_repository, "update-ref", "refs/heads/other", reviewed_head)
+    _git(folder, "config", "branch.feature.remote", "origin")
+    _git(folder, "config", "branch.feature.merge", "refs/heads/other")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 0)
+    assert _reason(_bash_in(folder, command.removesuffix(" --head="))) is None
+    assert "Name the head with `--head feature`" in _deny_reason(_bash_in(folder, command))
+
+
+def test_should_give_no_credit_to_an_open_whose_checkout_branch_tracks_another_branch_name(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    _git(github_repository, "update-ref", "refs/heads/other", reviewed_head)
+    _git(folder, "config", "branch.feature.remote", "origin")
+    _git(folder, "config", "branch.feature.merge", "refs/heads/other")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 0)
+    clean_reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    assert f"has a clean review for head {reviewed_head}" in clean_reason
+    assert "Name the head with `--head feature`" in clean_reason
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main --head feature")) is None
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    earlier_reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    assert f"A review pass on {reviewed_head}" in earlier_reason
+    assert "names no `--head`" in earlier_reason
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main --head feature")) is None
+
+
+ALL_CREATES_BASH_EXPANDS = [
+    "gh pr create --fill --ba{se=main,se=stack}",
+    "gh pr create --fill --b?se=stack",
+    "gh pr create --fill --b*se=stack",
+    "gh pr create --fill --b[a]se=stack",
+    "gh pr create --fill ~",
+    "gh pr create --fill --base main --he{ad=feature,ad=evil}",
+    "cd . && gh pr create --fill --base main --he{ad=feature,ad=evil}",
+    "bash -c 'gh pr create --fill --base main --he{ad=feature,ad=evil}'",
+    "bash -O extglob -c 'gh pr create --fill --base main --he@(ad=evil)'",
+    "bash -O extglob -c 'gh pr create --fill --base main --he+(ad=evil)'",
+    "bash -O extglob -c 'gh pr create --fill --base main --he!(xx)'",
+    "X=--head=evil; gh pr create --fill --base main $X",
+    "X=--head=evil; gh pr create --fill --base main \"$X\"",
+    "set -- --head=evil; gh pr create --fill --base main \"$@\"",
+    "gh pr create --fill --base main $\"--head=evil\"",
+    "gh pr create --fill --base main `echo --head=evil`",
+    "gh pr create --fill --base main --head \"$B\"",
+    "gh pr create --fill --base \"$M\"",
+    "gh pr create --fill --base main --label x -R \"$REPO\"",
+    "gh pr create --fill --base main --label \"$@\"",
+    "gh pr create --fill --base main --label $L",
+    "gh pr create --fill --base main --body $(cat body.md)",
+    "gh pr create --fill --base main --body \"$@\"",
+    "X=--head=evil; gh pr create --base main --title -t \"$X\" --body b",
+    "X=--head=evil; gh pr create --base main --body -b \"$X\" --title t",
+    "X=--repo=acme/other; gh pr create --base main --title -t \"$X\" --body b",
+    "gh pr create --base main --title -t \"--he$(printf ad)=evil\" --body b",
+    "gh pr create --base main --label -l \"--he`printf ad`=evil\" --title t --body b",
+    "gh pr create --base main --head --title=\"$X\" --fill",
+]
+
+
+@pytest.mark.parametrize("command", ALL_CREATES_BASH_EXPANDS)
+def test_should_deny_a_create_whose_words_bash_expands_even_at_a_clean_head(
+    branch_checkout: tuple[Path, str], command: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    reason = _deny_reason(_bash_in(folder, command))
+    assert "outside quotes" in reason
+    assert "Write each flag as a plain word" in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr create --fill --base main --title 'a {b,c} [d]?'",
+        "gh pr create --fill --base main --title \\{a,b\\}",
+        "gh pr create --title \"fix: glob\" --body \"$(cat <<'EOF'\n## Summary\n- Match \"*.py\" files\nEOF\n)\"",
+        "gh pr create --base main --title \"$(cat title.txt)\" --body=\"- [x] $USER\"",
+        "gh pr create --base main --title \"$T\" -b\"$(cat body.md)\" --label \"$L\"",
+        "gh pr create --fill --base main -dt \"$T\"",
+        "gh pr create --fill --base main $'--head=feature'",
+        "cd ~/checkout && gh pr create --title \"fix: checklist\" --body \"- [x] tests pass\"",
+        "gh pr create --fill --base main --label \"$LABEL\"",
+        "gh pr create --fill --base main --reviewer \"$REVIEWER\" -a \"$(printf '%s' me)\"",
+        "gh pr create --fill --base main 2>&1 | tail -5",
+        "gh pr create --fill --base main && git push origin feature",
+        "gh pr create --fill --base main --milestone=\"${MILESTONE}\" --project \"$P\"",
+        "gh pr create --fill",
+        "gh pr create --base main --title \"$T\" --body \"$(cat body.md)\"",
+        "cd . && gh pr create --base main --fill",
+        "gh pr create --base main --fill --body-file body.md",
+        "X=1 gh pr create --base main --fill",
+        "gh pr create --base main --fill | tee out.txt",
+        "gh pr create --base main --fill > pr.txt",
+        "gh pr create --base main --fill; echo done",
+        "gh pr create --base main --fill || true",
+        "cd . 2>/dev/null && echo hi > /dev/null && gh pr create --base main --fill",
+        "cat body.md && gh pr create --base main --title t --body-file body.md",
+        "gh pr create --base main --fill 2>&1 | grep -o 'https.*'",
+        'gh pr create --base main --title "$(printf %s "$T")" --fill',
+        "gh pr create --base main --title '$[PATH=0]' --fill",
+        "gh pr create --base main --title '${BASH_COMMAND@P}' --fill",
+        'gh pr create --base main --title "${T}" --fill',
+    ],
+)
+def test_should_allow_a_clean_head_whose_create_words_bash_leaves_as_written(
+    branch_checkout: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    folder, head = branch_checkout
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    assert _reason(_bash_in(folder, command)) is None
+
+
+ALL_CREATES_A_PROGRAM_MAY_MOVE = [
+    "git push -q -f origin evil:feature && gh pr create --base main --fill",
+    "git push -q -f origin evil:feature; gh pr create --base main --fill",
+    "git push -q -f origin evil:feature && gh pr create --base main --fill --head feature",
+    "cd . && git push -q -f origin evil:feature && gh pr create --base main --fill",
+    "env git push -q -f origin evil:feature && gh pr create --base main --fill",
+    "bash -c 'git push -q -f origin evil:feature' && gh pr create --base main --fill",
+    "x=$(git push -q -f origin evil:feature); gh pr create --base main --fill",
+    "gh pr create --base main --title \"$(git push -q -f origin evil:feature)\" --fill",
+    "gh pr create --base main --fill | git push -q -f origin evil:feature",
+    "gh pr create --base main --fill & git push -q -f origin evil:feature",
+    "git add *.txt && gh pr create --fill --base main",
+    "gh pr create --base main --title \"$(git log -1 --format=%s)\" --fill",
+    "cat <(git push -q -f origin evil:feature) && gh pr create --base main --fill",
+    "head -n1 <(git push -q -f origin evil:feature) && gh pr create --base main --fill",
+    "cat <<EOF\n$(git push -q -f origin evil:feature)\nEOF\ngh pr create --base main --fill",
+    "gh pr create --base main --title t --body \"$(cat <<EOF\n$(git push -q -f origin evil:feature)\nEOF\n)\"",
+    "gh pr create --base main --title t --body \"$(cat <<'EOF'\nhi\nEOF\ngit push -q -f origin evil:feature\n)\"",
+    "X=$(git push -q -f origin evil:feature) gh pr create --base main --fill",
+    "echo 'ref: refs/heads/evil' > .git/HEAD && gh pr create --base main --fill",
+    "printf 'ref: refs/heads/evil\\n' | tee .git/HEAD && gh pr create --base main --fill",
+    "gh pr create --base main --title t --body-file <(git push -q -f origin evil:feature; echo b)",
+    "gh pr create --base main --fill > >(git push -q -f origin evil:feature)",
+    "gh pr create --base main --fill 2> >(git push -q -f origin evil:feature)",
+    "tee >(git push -q -f origin evil:feature) < /dev/null && gh pr create --base main --fill",
+    "./cat && gh pr create --base main --fill",
+    "/tmp/x/echo && gh pr create --base main --fill",
+    "printf '[branch \"feature\"]\\n\\tmerge = refs/heads/evil\\n' >> .git/config && gh pr create --base main --fill",
+    "export GH_REPO=a/b ; gh pr create --repo acme/tools --head feature",
+    "export GH_REPO=a/b ; GH_REPO=acme/tools gh pr create --head feature",
+    "gh pr create --base main --fill | tee .git/HEAD",
+    "(echo x; gh pr create --base main --fill) | git push -q -f origin evil:feature",
+    "GIT_DIR=../other/.git gh pr create --base main --fill",
+    "printf $(echo -v) X %s 'a[$(git push -q -f origin evil:feature)]'; echo ${b[X]}; gh pr create --base main --fill",
+    "printf ${Z:--v} X %s 'a[$(git push -q -f origin evil:feature)]'; echo ${b[X]}; gh pr create --base main --fill",
+    "printf $(echo -v) PATH %s /nonexist && gh pr create --base main --fill",
+    "gh pr create --base main --fill | tee .gi?/HEAD",
+    "gh_repo=acme/other gh pr create --base main --fill",
+    'gh pr create --base main --title "$[PATH=0]" --fill',
+    'gh pr create --base main --title "x$[PATH=0]" --fill',
+    'gh pr create --base main --title "$[HOME=1]" --fill',
+    'gh pr create --base main --title "${T:PATH=0}" --fill',
+    'echo x "${BASH_COMMAND@P}" && gh pr create --base main --fill',
+    'echo x "${T@E}" && gh pr create --base main --fill',
+    'gh pr create --base main --title "${GH_REPO:=x}" --fill',
+    'gh pr create --base main --title "${!T}" --fill',
+    'gh pr create --base main --title "${T/a/b}" --fill',
+    'gh pr create --base main --title "${#T}" --fill',
+    "cd .git && gh pr create --base main --fill > HEAD",
+    "cd .git && gh pr create --base main --fill | tee HEAD",
+    "cd .git && gh pr create --base main --fill | grep -o x > HEAD",
+    "cd .git && gh pr create --base main --fill | tee -a config",
+    "pushd .git && gh pr create --base main --fill > HEAD",
+    "cd .git/ && gh pr create --base main --fill > HEAD",
+    "cd ./.git && gh pr create --base main --fill > HEAD",
+    "cd .git/refs/heads && gh pr create --base main --fill > feature",
+]
+
+
+@pytest.mark.parametrize("command", ALL_CREATES_A_PROGRAM_MAY_MOVE)
+def test_should_deny_a_clean_head_when_another_program_in_the_command_may_move_it_first(
+    branch_checkout: tuple[Path, str], command: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"acme/tools has a clean review for head {head}" in reason
+    assert "run the create on its own" in reason
+
+
+@pytest.mark.parametrize(
+    "head_word",
+    ["$'--he\\x61d=evil'", "$'--he\\141d=evil'", "$'--he\\u0061d=evil'", "$'--head=evil\\0feature'"],
+)
+def test_should_read_the_head_an_ansi_c_escape_spells_as_bash_decodes_it(
+    branch_checkout: tuple[Path, str], github_repository: Path, head_word: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    _git(folder, "checkout", "--quiet", "-b", "evil", "main")
+    evil_head = _commit_on(folder, "unreviewed")
+    _git(folder, "push", "--quiet", str(github_repository), "evil")
+    _git(folder, "checkout", "--quiet", "feature")
+    command = f"gh pr create --fill --base main {head_word}"
+    assert f"no clean review for head {evil_head}" in _deny_reason(_bash_in(folder, command))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh -R acme/tools pr create --fill --base main",
+        "gh --repo acme/tools pr create --fill",
+        "gh --repo=acme/tools pr create --fill --base main",
+        "gh -Racme/tools pr create --fill --base main",
+    ],
+)
+def test_should_credit_an_earlier_pass_to_a_lone_open_that_names_its_repository_before_pr(
+    branch_checkout: tuple[Path, str], github_repository: Path, command: str
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    assert _reason(_bash_in(folder, command)) is None
+
+
+def test_should_read_the_base_of_a_lone_open_that_names_its_repository_before_pr(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    inside_base_reason = _deny_reason(_bash_in(folder, "gh -R acme/tools pr create --fill --base stack"))
+    assert "already holds" in inside_base_reason
+    other_host_reason = _deny_reason(_bash_in(folder, "gh -R ghe.example.com/acme/tools pr create --fill"))
+    assert "cannot read" in other_host_reason
+
+
+def test_should_credit_an_earlier_pass_to_a_lone_open_that_names_its_base(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+    assert _reason(_bash_in(folder, "gh pr create --fill --title 'one pass, then fixes'")) is None
+
+
+def test_should_deny_an_earlier_pass_for_an_open_on_another_host(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    assert _reason(_bash_in(folder, "gh pr create --fill -R github.com/acme/tools")) is None
+    other_host_command = "gh pr create --fill -R ghe.example.com/acme/tools"
+    assert "no clean review" in _deny_reason(_bash_in(folder, other_host_command))
+    monkeypatch.setenv("GH_HOST", "ghe.example.com")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill -R acme/tools"))
+
+
+def test_should_deny_an_earlier_pass_when_the_session_names_another_repository(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    monkeypatch.setenv("GH_REPO", "acme/tools")
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+    monkeypatch.setenv("GH_REPO", "evil/tools")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+
+
+def test_should_deny_an_earlier_pass_when_gh_resolves_the_open_to_another_remote(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+    _git(folder, "remote", "add", "upstream", "https://github.com/upstream/tools.git")
+    _git(folder, "config", "remote.upstream.gh-resolved", "base")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    assert (
+        _reason(_bash_in(folder, "gh pr create --repo acme/tools --fill --base main --head feature"))
+        is None
+    )
+
+
+def test_should_deny_an_earlier_pass_when_origin_resolves_to_another_repository(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    _git(folder, "config", "remote.origin.gh-resolved", "base")
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+    _git(folder, "config", "remote.origin.gh-resolved", "upstream/tools")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+
+
+def test_should_deny_an_earlier_pass_when_the_folder_has_a_second_remote(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    _git(folder, "remote", "add", "Origin", "https://github.com/upstream/tools.git")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+
+
+@pytest.mark.parametrize("session_repository", ["github.com/acme/tools", "GitHub.COM/acme/tools"])
+def test_should_credit_an_earlier_pass_when_the_session_names_the_repository_with_the_github_host(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    session_repository: str,
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    monkeypatch.setenv("GH_REPO", session_repository)
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+
+
+def test_should_deny_an_earlier_pass_when_the_session_names_the_repository_on_another_host(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    monkeypatch.setenv("GH_REPO", "ghe.example.com/acme/tools")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+
+
+def _push_squash_of_to_main(folder: Path, github_repository: Path, squashed_head: str) -> None:
+    squashed_tree = _git(folder, "rev-parse", f"{squashed_head}^{{tree}}")
+    squash_commit = _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit-tree",
+        squashed_tree,
+        "-p",
+        "main",
+        "-m",
+        "squash feature",
+    )
+    _git(folder, "push", "--quiet", str(github_repository), f"{squash_commit}:refs/heads/main")
+
+
+def test_should_deny_an_earlier_pass_on_a_reused_branch_whose_reviewed_work_the_base_squashed_in(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _push_squash_of_to_main(folder, github_repository, reviewed_head)
+    _commit_and_push(folder, github_repository, "second pull request work")
+    _git(folder, "fetch", "--quiet", "origin")
+    assert "no clean review" in _deny_reason(_create_tool(folder))
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
+
+
+def test_should_tell_the_agent_to_fetch_the_base_when_github_moved_it_past_the_local_clone(
+    branch_checkout: tuple[Path, str], github_repository: Path, tmp_path: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    other_clone = tmp_path / "other clone"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--branch", "main", str(github_repository), str(other_clone)],
+        check=True,
+    )
+    _commit_on(other_clone, "someone else")
+    _git(other_clone, "push", "--quiet", "origin", "main")
+    reason = _deny_reason(_create_tool(folder))
+    assert "git fetch origin main" in reason
+    assert "no clean review" not in reason
+    assert "git fetch origin`" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
+    _git(folder, "fetch", "--quiet", "origin")
+    assert _reason(_create_tool(folder)) is None
+    assert _reason(_bash_in(folder, "gh pr create --fill")) is None
+
+
+def _fixed_after_a_pass(branch_checkout: tuple[Path, str], github_repository: Path) -> tuple[Path, str]:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    return folder, reviewed_head
+
+
+def _assert_names_the_recorded_pass_and_no_new_review(reason: str, reviewed_head: str) -> None:
+    assert "no clean review for head" in reason
+    assert f"A review pass on {reviewed_head}" in reason
+    assert "is recorded" in reason
+    assert "Run one review pass" not in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd . && gh pr create --fill",
+        "gh pr create --fill --title fix(gate)",
+        "gh pr create --fill --body a;b",
+        "gh pr create --fill > created.txt",
+    ],
+)
+def test_should_tell_an_open_that_is_not_the_whole_command_to_run_alone_without_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path, command: str
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    reason = _deny_reason(_bash_in(folder, command))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "as its own command" in reason
+    assert "--body-file" in reason
+    assert "create pull request tool" in reason
+
+
+def test_should_tell_a_create_tool_call_with_no_base_to_name_its_base_without_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    payload = _create_tool(folder)
+    del payload["tool_input"]["base"]
+    reason = _deny_reason(payload)
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "names no base" in reason
+
+
+def test_should_name_the_base_it_could_not_read_without_asking_for_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base missing"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "could not read the base `missing` of acme/tools" in reason
+
+
+def test_should_name_the_other_host_without_asking_for_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    monkeypatch.setenv("GH_HOST", "ghe.example.com")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "`GH_HOST` is ghe.example.com" in reason
+
+
+def test_should_name_a_repository_flag_on_another_host_without_asking_for_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill -R ghe.example.com/acme/tools"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "cannot read" in reason
+
+
+def test_should_name_the_session_repository_without_asking_for_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    monkeypatch.setenv("GH_REPO", "evil/tools")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "`GH_REPO` is evil/tools" in reason
+
+
+def test_should_tell_an_open_beside_a_second_remote_to_pass_the_repository_without_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    _git(folder, "remote", "add", "upstream", "https://github.com/upstream/tools.git")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "Pass `--repo acme/tools`" in reason
+
+
+def test_should_name_the_other_branch_that_holds_the_reviewed_commit(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _git(folder, "branch", "feature-backup")
+    _commit_and_push(folder, github_repository, "fix")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert f"refs/heads/feature-backup holds {reviewed_head}" in reason
+
+
+def test_should_say_the_branch_list_could_not_be_read_when_that_read_fails(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    run_before_patch = open_request.child_stdout
+
+    def refuse_the_branch_list(*all_arguments: object, **all_keywords: object) -> str | None:
+        all_command_words = all_arguments[0]
+        assert isinstance(all_command_words, list)
+        if "for-each-ref" in all_command_words:
+            return None
+        return run_before_patch(*all_arguments, **all_keywords)
+
+    monkeypatch.setattr(open_request, "child_stdout", refuse_the_branch_list)
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "could not list the branches" in reason
+
+
+def test_should_ask_for_a_new_review_when_the_base_already_holds_the_reviewed_content(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _push_squash_of_to_main(folder, github_repository, reviewed_head)
+    _commit_and_push(folder, github_repository, "second pull request work")
+    _git(folder, "fetch", "--quiet", "origin")
+    reason = _deny_reason(_create_tool(folder))
+    assert f"A review pass on {reviewed_head}" in reason
+    assert "already holds the content of" in reason
+    assert "Run one review pass" in reason
+
+
+def test_should_ask_for_a_new_review_when_the_base_already_holds_the_reviewed_commit(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    _git(github_repository, "update-ref", "refs/heads/main", reviewed_head)
+    reason = _deny_reason(_create_tool(folder))
+    assert f"A review pass on {reviewed_head}" in reason
+    assert f"already holds {reviewed_head}" in reason
+    assert "Run one review pass" in reason
+
+
+def test_should_credit_an_earlier_pass_when_only_the_branch_own_tracking_reference_sits_at_the_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    _git(folder, "push", "--quiet", "--set-upstream", "origin", "feature")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_on(folder, "fix")
+    _git(folder, "push", "--quiet", str(github_repository), "HEAD:feature")
+    _git(folder, "update-ref", "refs/remotes/origin/feature", reviewed_head)
+    assert _git(folder, "rev-parse", "refs/remotes/origin/feature") == reviewed_head
+    assert _reason(_bash_in(folder, "gh pr create --fill")) is None
+    assert _reason(_create_tool(folder)) is None
+
+
+def test_should_still_deny_when_another_origin_branch_sits_at_the_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    _git(folder, "push", "--quiet", "--set-upstream", "origin", "feature")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _git(folder, "update-ref", "refs/remotes/origin/feature-copy", reviewed_head)
+    _commit_on(folder, "fix")
+    _git(folder, "push", "--quiet", str(github_repository), "HEAD:feature")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill"))
+    assert f"refs/remotes/origin/feature-copy holds {reviewed_head}" in reason
+
+
+def test_should_still_deny_when_a_fork_head_shares_the_branch_name_of_an_origin_branch_at_the_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    _git(folder, "push", "--quiet", "--set-upstream", "origin", "feature")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    fork_head = _commit_on(folder, "fix")
+    fork_repository = github_repository.parent.parent / "someone" / "tools.git"
+    subprocess.run(["git", "init", "--quiet", "--bare", str(fork_repository)], check=True)
+    _git(folder, "push", "--quiet", str(fork_repository), "HEAD:refs/heads/feature")
+    assert _git(fork_repository, "rev-parse", "feature") == fork_head
+    reason = _deny_reason(_create_tool(folder, "someone:feature"))
+    assert f"refs/remotes/origin/feature holds {reviewed_head}" in reason
+
+
+@pytest.mark.parametrize(
+    ("setting", "refspec"),
+    [
+        ("remote.origin.fetch", "+refs/heads/other:refs/remotes/origin/feature"),
+        ("remote.upstream.fetch", "+refs/heads/*:refs/remotes/*"),
+        ("remote.upstream.fetch", "+refs/heads/feature:refs/remotes/origin/feature"),
+    ],
+)
+def test_should_keep_the_deny_when_a_fetch_setting_can_write_another_branch_onto_the_origin_tracking_name(
+    branch_checkout: tuple[Path, str], github_repository: Path, setting: str, refspec: str
+) -> None:
+    folder, reviewed_head = branch_checkout
+    _git(folder, "push", "--quiet", "--set-upstream", "origin", "feature")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_on(folder, "fix")
+    _git(folder, "push", "--quiet", str(github_repository), "HEAD:feature")
+    _git(folder, "update-ref", "refs/remotes/origin/feature", reviewed_head)
+    command = "gh pr create --fill --repo acme/tools"
+    assert _reason(_bash_in(folder, command)) is None
+    _git(folder, "config", "--add", setting, refspec)
+    reason = _deny_reason(_bash_in(folder, command))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert f"refs/remotes/origin/feature holds {reviewed_head}" in reason
+    assert refspec in reason
+    assert "+refs/heads/*:refs/remotes/origin/*" in reason
+
+
+def _commit_file_on(folder: Path, name: str, text: str, message: str) -> str:
+    (folder / name).write_text(text, encoding="utf-8")
+    _git(folder, "add", name)
+    return _commit_on(folder, message)
+
+
+def test_should_credit_an_earlier_pass_whose_reviewed_commit_conflicts_with_a_moved_base(
+    branch_checkout: tuple[Path, str], github_repository: Path, tmp_path: Path
+) -> None:
+    folder, _first_head = branch_checkout
+    reviewed_head = _commit_file_on(folder, "shared.txt", "feature edit\n", "feature edits shared")
+    _git(folder, "push", "--quiet", str(github_repository), "feature")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    other_clone = tmp_path / "base mover"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--branch", "main", str(github_repository), str(other_clone)],
+        check=True,
+    )
+    _commit_file_on(other_clone, "shared.txt", "main edit\n", "main edits shared")
+    _git(other_clone, "push", "--quiet", "origin", "main")
+    _git(folder, "fetch", "--quiet", "origin")
+    assert _reason(_create_tool(folder)) is None
+
+
+def test_should_tell_a_pass_with_findings_at_the_head_itself_to_commit_and_push_the_fixes(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 2)
+    for each_payload in (_create_tool(folder), _bash_in(folder, "gh pr create --fill --base main")):
+        reason = _deny_reason(each_payload)
+        assert f"no clean review for head {head}" in reason
+        assert f"A review pass on {head}, this head itself, is recorded with 2 findings" in reason
+        assert "git push origin HEAD:refs/heads/feature" in reason
+        assert "Run one review pass" not in reason
+
+
+def test_should_tell_an_open_whose_fix_commits_are_not_pushed_to_push_them(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 3)
+    _commit_on(folder, "fix")
+    for each_payload in (_create_tool(folder), _bash_in(folder, "gh pr create --fill --base main")):
+        reason = _deny_reason(each_payload)
+        assert f"A review pass on {reviewed_head}, this head itself, is recorded with 3 findings" in reason
+        assert "open the pull request at the head GitHub holds" in reason
+        assert "Run one review pass" not in reason
+
+
+def test_should_say_the_local_branch_is_behind_its_pushed_fix_commits(
+    branch_checkout: tuple[Path, str], github_repository: Path, tmp_path: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    other_clone = tmp_path / "fixing clone"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--branch", "feature", str(github_repository), str(other_clone)],
+        check=True,
+    )
+    fixed_head = _commit_on(other_clone, "fix")
+    _git(other_clone, "push", "--quiet", "origin", "feature")
+    _git(folder, "fetch", "--quiet", "origin")
+    reason = _deny_reason(_create_tool(folder))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "local branch `feature` is behind this head" in reason
+    assert f"git merge --ff-only {fixed_head}" in reason
+    assert "Delete" not in reason
+    _commit_on(folder, "local work the head lacks")
+    diverged_reason = _deny_reason(_create_tool(folder))
+    assert "refs/heads/feature holds" in diverged_reason
+    assert "is behind" not in diverged_reason
+
+
+def test_should_name_the_newest_recorded_pass_when_every_pass_gets_no_credit(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, first_reviewed = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", first_reviewed, 2)
+    second_reviewed = _commit_and_push(folder, github_repository, "second work")
+    merge_review_receipt.record_open_review("acme/tools", second_reviewed, 2)
+    _git(folder, "branch", "feature-backup")
+    _commit_and_push(folder, github_repository, "fix")
+    reason = _deny_reason(_create_tool(folder))
+    assert f"A review pass on {second_reviewed}" in reason
+    assert first_reviewed not in reason
+
+
+def test_should_name_every_refused_character_in_the_reason_and_the_docs() -> None:
+    spelled_by_character = {"\n": "a line break", "\r": "a line break", "`": "a backtick"}
+    all_doc_paths = [
+        HOOKS_DIRECTORY / "features" / "conduct-gates.md",
+        HOOKS_DIRECTORY.parent / ".agents" / "skills" / "pr-lifecycle" / "reference" / "review-loop-before-merge.md",
+    ]
+    all_doc_list_pairs = []
+    for each_path in all_doc_paths:
+        [doc_list_pair] = re.findall(
+            r"none of ([^.]*?) outside quotes, and no ([^.]*?) anywhere", each_path.read_text(encoding="utf-8")
+        )
+        all_doc_list_pairs.append(doc_list_pair)
+    [reason_list_pair] = re.findall(
+        r"Outside quotes, any of (.*?) counts as another word, and (.*?) counts anywhere",
+        NOT_LONE_CAUSE.format(),
+    )
+    all_character_groups = (LONE_CREATE_UNQUOTED_REFUSED_CHARACTERS, ALL_LONE_CREATE_REFUSED_CHARACTERS)
+    all_characters_with_group = [
+        (each_character, each_group_index)
+        for each_group_index, each_group in enumerate(all_character_groups)
+        for each_character in each_group
+    ]
+    for each_character, each_group_index in all_characters_with_group:
+        reason_list = reason_list_pair[each_group_index]
+        spelled = spelled_by_character.get(each_character)
+        assert (spelled or each_character) in (
+            reason_list if spelled else set(reason_list.replace(",", " ").split())
+        )
+        assert all(
+            (spelled or f"`{each_character}`") in each_doc_list_pair[each_group_index]
+            for each_doc_list_pair in all_doc_list_pairs
+        )
+
+
+def test_should_name_one_review_pass_then_fixes_when_an_open_is_denied(
+    branch_checkout: tuple[Path, str],
+) -> None:
+    folder, _head = branch_checkout
+    reason = _deny_reason(_create_tool(folder))
+    assert "one review pass" in reason
+    assert "no second pass" in reason
+    assert "until a pass reports zero findings" not in reason
+
+
+def test_should_deny_a_merge_pinned_to_a_fix_commit_after_an_open_pass_with_findings(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, reviewed_head = branch_checkout
+    monkeypatch.chdir(folder)
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    fixed_head = _commit_and_push(folder, github_repository, "fix")
+    assert "no clean review" in _deny_reason(_merge_tool(fixed_head))
 
 
 def test_should_read_gh_pr_create_with_repo_and_head(branch_checkout: tuple[Path, str]) -> None:
@@ -624,28 +1819,72 @@ def test_should_read_the_pushed_branch_before_the_local_one(
     assert f"head {pushed_head}" in _deny_reason(_create_tool(folder))
 
 
-def test_should_read_the_fetched_branch_before_the_local_one_for_a_shell_open(
+def test_should_read_the_github_branch_before_the_fetched_one_for_a_shell_open(
     branch_checkout: tuple[Path, str],
 ) -> None:
-    folder, local_head = branch_checkout
-    _git(
-        folder,
-        "-c",
-        "user.name=t",
-        "-c",
-        "user.email=t@example.com",
-        "commit",
-        "--quiet",
-        "--allow-empty",
-        "-m",
-        "fetched",
-    )
-    fetched_head = _git(folder, "rev-parse", "HEAD")
+    folder, pushed_head = branch_checkout
+    fetched_head = _commit_on(folder, "fetched")
     _git(folder, "update-ref", "refs/remotes/origin/feature", fetched_head)
-    _git(folder, "reset", "--quiet", "--hard", local_head)
-    merge_review_receipt.record_open_review("acme/tools", local_head, 0)
-    command = "gh pr create --repo acme/tools --head feature"
-    assert f"head {fetched_head}" in _deny_reason(_bash_in(folder, command))
+    merge_review_receipt.record_open_review("acme/tools", fetched_head, 0)
+    for each_command in ("gh pr create --repo acme/tools --head feature", "gh pr create --fill"):
+        assert f"head {pushed_head}" in _deny_reason(_bash_in(folder, each_command))
+
+
+def test_should_read_a_fork_head_of_a_shell_open_from_the_fork(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 0)
+    fork_repository = github_repository.parent.parent / "someone" / "tools.git"
+    subprocess.run(["git", "init", "--quiet", "--bare", str(fork_repository)], check=True)
+    _git(folder, "checkout", "--quiet", "-b", "unreviewed", "main")
+    fork_head = _commit_on(folder, "unreviewed")
+    _git(folder, "push", "--quiet", str(fork_repository), "HEAD:refs/heads/feature")
+    _git(folder, "checkout", "--quiet", "feature")
+    _git(folder, "update-ref", "refs/remotes/origin/feature", reviewed_head)
+    command = "gh pr create --fill --base main --head someone:feature"
+    assert f"head {fork_head}" in _deny_reason(_bash_in(folder, command))
+    missing_fork_command = "gh pr create --fill --base main --head nobody:feature"
+    assert _deny_reason(_bash_in(folder, missing_fork_command)) == UNKNOWN_OPEN_TARGET_REASON
+
+
+@pytest.mark.parametrize("place", ["outside any checkout", "detached HEAD"])
+def test_should_name_the_re_record_step_for_an_earlier_pass_recorded_with_no_branch(
+    branch_checkout: tuple[Path, str], github_repository: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, place: str
+) -> None:
+    folder, reviewed_head = branch_checkout
+    if place == "detached HEAD":
+        _git(folder, "checkout", "--quiet", "--detach", reviewed_head)
+    else:
+        outside_folder = tmp_path / "outside"
+        outside_folder.mkdir()
+        monkeypatch.chdir(outside_folder)
+    merge_review_receipt.main(["acme/tools", "open", reviewed_head, "2"], io.StringIO())
+    monkeypatch.chdir(folder)
+    _git(folder, "checkout", "--quiet", "feature")
+    _commit_on(folder, "fix")
+    _git(folder, "push", "--quiet", str(github_repository), "HEAD:feature")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "recorded with 2 findings and no branch" in reason
+    assert f"merge_review_receipt.py acme/tools open {reviewed_head} 2`" in reason
+    merge_review_receipt.main(["acme/tools", "open", reviewed_head, "2"], io.StringIO())
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+
+
+def test_should_give_no_earlier_pass_credit_when_github_does_not_answer_for_the_head(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_on(folder, "fix")
+    _git(folder, "push", "--quiet", str(github_repository), "HEAD:feature")
+    command = "gh pr create --fill --base main"
+    assert _reason(_bash_in(folder, command)) is None
+    monkeypatch.setattr(open_request, "_remote_listing", lambda _url, _reference: None)
+    reason = _deny_reason(_bash_in(folder, command))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "could not read the head branch `feature` on GitHub" in reason
 
 
 def test_should_not_match_an_open_receipt_on_a_short_pinned_head() -> None:
@@ -749,6 +1988,8 @@ def test_should_read_the_origin_once_for_creates_in_one_folder(
         all_started_commands.append(all_command_words)
         if "get-url" in all_command_words:
             return "https://github.com/acme/tools.git\n"
+        if "ls-remote" in all_command_words:
+            return f"{CLEAN_HEAD}\t{all_command_words[-1]}\n"
         return CLEAN_HEAD + "\n"
 
     monkeypatch.setattr(open_request, "child_stdout", answer_origin_and_head)
@@ -890,12 +2131,6 @@ def test_should_leave_a_call_that_opens_and_merges_nothing_to_run(
         "gh --repo=acme/tools pr create --head second",
         "GH_REPO=acme/tools gh pr create --head second",
         'bash -c "gh pr create --head second"',
-        "python3.11 pull_request.py create --head second",
-        "python3 -u pull_request.py create --head second",
-        "python -X dev pull_request.py create --head second",
-        "py -3 pull_request.py create --head second",
-        "uv run python pull_request.py create --head second",
-        "uv run pull_request.py create --head second",
         "python3 ~/.agents/skills/pull-request/scripts/pull_request.py create --head second",
     ],
 )
@@ -906,6 +2141,27 @@ def test_should_deny_every_create_spelling_whose_head_has_no_review(
     merge_review_receipt.record_open_review("acme/tools", first_head, 0)
     reviewed_command = command.replace("--head second", "--head feature")
     assert _reason(_bash_in(folder, reviewed_command)) is None
+    assert f"no clean review for head {second_head}" in _deny_reason(_bash_in(folder, command))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "python3.11 pull_request.py create --head second",
+        "python3 -u pull_request.py create --head second",
+        "python -X dev pull_request.py create --head second",
+        "py -3 pull_request.py create --head second",
+        "uv run python pull_request.py create --head second",
+        "uv run pull_request.py create --head second",
+    ],
+)
+def test_should_deny_every_unmanaged_launcher_create_spelling_whatever_review_its_head_has(
+    two_branch_checkout: tuple[Path, str, str], command: str
+) -> None:
+    folder, first_head, second_head = two_branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", first_head, 0)
+    reviewed_command = command.replace("--head second", "--head feature")
+    assert "run the create on its own" in _deny_reason(_bash_in(folder, reviewed_command))
     assert f"no clean review for head {second_head}" in _deny_reason(_bash_in(folder, command))
 
 
@@ -953,9 +2209,6 @@ def test_should_deny_as_unread_a_create_with_no_repository_when_the_command_sets
 @pytest.mark.parametrize(
     "command",
     [
-        "export GH_REPO=a/b ; gh pr create --repo acme/tools --head feature",
-        "export GH_REPO=a/b ; gh pr create -R acme/tools --head feature",
-        "export GH_REPO=a/b ; GH_REPO=acme/tools gh pr create --head feature",
         "GH_REPO=acme/tools gh pr create --head feature ; gh pr create --head feature",
         "echo GH_REPO=a/b ; gh pr create --head feature",
         "gh pr create --head feature --body 'export GH_REPO=a/b'",
@@ -1374,7 +2627,8 @@ def test_should_deny_an_unreviewed_first_create_a_shell_reads_from_its_input(
     folder, first_head, second_head = two_branch_checkout
     merge_review_receipt.record_open_review("acme/tools", first_head, 0)
     assert _reason(_bash_in(folder, "gh pr create --head feature")) is None
-    assert f"no clean review for head {second_head}" in _deny_reason(_bash_in(folder, command))
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"no clean review for head {second_head}" in reason or "run the create on its own" in reason
 
 
 def test_should_not_read_a_create_in_the_sibling_a_piped_brace_group_moves_to(
@@ -1535,7 +2789,8 @@ def test_should_deny_a_later_create_bash_runs_on_an_unreviewed_head(
 ) -> None:
     folder, first_head, second_head = two_branch_checkout
     merge_review_receipt.record_open_review("acme/tools", first_head, 0)
-    assert f"no clean review for head {second_head}" in _deny_reason(_bash_in(folder, command))
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"no clean review for head {second_head}" in reason or "run the create on its own" in reason
 
 
 def test_should_check_a_create_after_a_line_break_in_bash_c_in_the_folder_before_it(
@@ -1567,13 +2822,13 @@ def test_should_allow_a_reviewed_create_in_a_substitution_whose_body_holds_a_lin
     assert _reason(_bash_in(folder, command)) is None
 
 
-def test_should_allow_a_reviewed_create_after_an_eval_script_bash_cannot_parse(
+def test_should_read_the_reviewed_create_after_an_eval_script_bash_cannot_parse(
     branch_checkout: tuple[Path, str],
 ) -> None:
     folder, head = branch_checkout
     merge_review_receipt.record_open_review("acme/tools", head, 0)
     command = "bash -c \"eval 'gh pr create --title 'a b' --body \"x; gh pr create --head feature --body \"y\""
-    assert _reason(_bash_in(folder, command)) is None
+    assert f"acme/tools has a clean review for head {head}" in _deny_reason(_bash_in(folder, command))
 
 
 def test_should_allow_a_reviewed_create_a_wrapped_script_runs_before_another_line(

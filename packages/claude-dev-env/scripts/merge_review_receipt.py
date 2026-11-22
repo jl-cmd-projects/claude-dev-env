@@ -27,10 +27,14 @@ Before pass 4, ``--filed`` is refused. The script reads the issue through
 the GitHub command-line client and refuses a link that names no issue in
 that repository, such as a missing number or a pull request.
 
-A pass run before the pull request exists names ``open`` in place of the
-number, and records the head it reviewed::
+One review pass runs before the pull request exists. It names ``open`` in
+place of the number and records the head it reviewed. Its findings are fixed
+in new commits on top of that head, and the pull request opens with no
+second pass::
 
     python3 merge_review_receipt.py owner/name open def5678 0   -> CLEAN owner/name open def5678
+    python3 merge_review_receipt.py owner/name open def5678 2   -> REVIEWED owner/name open def5678 2 findings (fix them ...)
+    commit the fixes on top of def5678, then open the pull request
 
 No pull request exists to hold a rulings comment, so an ``open`` pass rules
 out its findings with a different ``path:line`` for each, run in the checkout
@@ -41,7 +45,12 @@ that holds the head. Each line must exist in the file at that head::
 
 ``hooks/blocking/merge_review_gate.py`` allows a merge pinned to the head of
 the newest pass only when that pass is clean or filed. It allows a pull request open
-whose head has a clean ``open`` pass. It allows a merge pinned to that same
+whose head has a clean ``open`` pass, or whose head sits on fix commits above the
+head of an ``open`` pass recorded on the same branch, under the checks
+``merge_review_gate.py`` lists. A pass recorded outside that branch's checkout
+names no branch, counts only at its own head, and its verdict line says to
+record it again from the checkout. An ``open`` pass does not take ``--filed`` and does
+not count toward the three full passes on the pull request. It allows a merge pinned to that same
 head only when the ``open`` pass found zero findings. Ruled-out findings need
 a numbered pass that links the rulings comment on the pull request.
 """
@@ -50,6 +59,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -74,6 +84,11 @@ from blocking.merge_review_gate_parts.receipts import (
     same_commit,
 )
 from hooks_constants.merge_review_gate_constants import (
+    ALL_BRANCH_REFERENCE_PREFIXES,
+    ALL_CHECKOUT_BRANCH_ARGUMENTS,
+    ALL_HOLDING_REFERENCE_ARGUMENTS,
+    ALL_STORED_HISTORY_GIT_SETTINGS,
+    CONTAINS_OPTION_TEMPLATE,
     FILED_ISSUE_API_PATH_TEMPLATE,
     FILED_ISSUE_API_SUBCOMMAND,
     FILED_ISSUE_CLIENT_NAME,
@@ -84,8 +99,10 @@ from hooks_constants.merge_review_gate_constants import (
     FILED_ISSUE_PAGE_KEY,
     FILED_ISSUE_PULL_REQUEST_KEY,
     FULL_REVIEW_PASS_COUNT,
+    LOCAL_BRANCH_REFERENCE_TEMPLATE,
     OPEN_RECEIPT_HEAD_PATTERN,
     OPEN_TARGET_WORD,
+    RECEIPT_BRANCH_KEY,
     RECEIPT_FILED_KEY,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
@@ -93,6 +110,7 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_RULED_OUT_KEY,
     RECEIPT_RULING_LINES_KEY,
     RECEIPT_RULINGS_KEY,
+    REMOTE_TRACKING_REFERENCE_PREFIX,
     REPOSITORY_SLUG_PATTERN,
     RULING_LOOKUP_TIMEOUT_SECONDS,
     RULING_REFERENCE_PATTERN,
@@ -186,6 +204,16 @@ def record_open_review(
 ) -> Path:
     """Write the receipt for one review pass run before the pull request opens.
 
+    The receipt names the branch checked out in the current folder when
+    ``head`` is that branch's own work, so the gate credits fix commits on top
+    of ``head`` only to that branch::
+
+        on feature, no other branch holds head        -> branch: feature
+        on second, feature or origin/feature holds it -> no branch
+        detached checkout, or a branch read fails     -> no branch
+
+    A receipt with no branch counts only at ``head``.
+
     Args:
         slug: Repository as ``owner/name``.
         head: The commit the pass reviewed.
@@ -202,7 +230,56 @@ def record_open_review(
     problem = _ruling_problem(head, all_rulings)
     if problem:
         raise ValueError(problem)
-    return _write_open_receipt(slug, head, _open_receipt(head, finding_count, all_rulings))
+    all_receipt_fields = _open_receipt(head, finding_count, all_rulings)
+    branch = _checkout_branch()
+    if branch and _is_own_work_of(branch, head):
+        all_receipt_fields[RECEIPT_BRANCH_KEY] = branch
+    return _write_open_receipt(slug, head, all_receipt_fields)
+
+
+def _checkout_branch() -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", *ALL_CHECKOUT_BRANCH_ARGUMENTS],
+            capture_output=True,
+            text=True,
+            timeout=RULING_LOOKUP_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout.strip() if completed.returncode == 0 else None
+
+
+def _is_own_work_of(branch: str, head: str) -> bool:
+    try:
+        completed = subprocess.run(
+            [
+                "git",
+                *ALL_HOLDING_REFERENCE_ARGUMENTS,
+                CONTAINS_OPTION_TEMPLATE.format(commit=head),
+                *ALL_BRANCH_REFERENCE_PREFIXES,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=RULING_LOOKUP_TIMEOUT_SECONDS,
+            check=False,
+            env={**os.environ, **ALL_STORED_HISTORY_GIT_SETTINGS},
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    if completed.returncode != 0:
+        return False
+    return all(
+        _is_reference_of(each_reference, branch) for each_reference in completed.stdout.split()
+    )
+
+
+def _is_reference_of(reference: str, branch: str) -> bool:
+    if reference == LOCAL_BRANCH_REFERENCE_TEMPLATE.format(branch=branch):
+        return True
+    remote_and_branch = reference.removeprefix(REMOTE_TRACKING_REFERENCE_PREFIX)
+    return remote_and_branch != reference and remote_and_branch.partition("/")[2] == branch
 
 
 def _write_open_receipt(slug: str, head: str, all_receipt_fields: dict[str, object]) -> Path:
@@ -316,14 +393,15 @@ def _record_open_pass(
         parser.error("findings must be zero or more")
     if parsed.filed.strip():
         parser.error(
-            f"an {OPEN_TARGET_WORD} pass cannot take --filed: findings are filed only after "
-            f"{FULL_REVIEW_PASS_COUNT} full passes with fixes on the pull request"
+            f"an {OPEN_TARGET_WORD} pass cannot take --filed: one review pass comes before the "
+            "open, so fix its findings in new commits and open the pull request. Findings are "
+            f"filed only after {FULL_REVIEW_PASS_COUNT} full passes with fixes on the pull request"
         )
     if not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(parsed.head):
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
     all_rulings = _checked_open_rulings(parser, parsed)
     try:
-        record_open_review(parsed.slug, parsed.head, parsed.findings, all_rulings)
+        receipt_written = record_open_review(parsed.slug, parsed.head, parsed.findings, all_rulings)
     except ValueError as problem:
         parser.error(str(problem))
     if is_clean_open_pass(_open_receipt(parsed.head, parsed.findings, all_rulings)):
@@ -334,8 +412,23 @@ def _record_open_pass(
         )
         stdout.write(f"CLEAN {parsed.slug} {OPEN_TARGET_WORD} {parsed.head}{ruled_out_note}\n")
         return 0
+    if not (read_receipt(receipt_written) or {}).get(RECEIPT_BRANCH_KEY):
+        stdout.write(
+            f"REVIEWED {parsed.slug} {OPEN_TARGET_WORD} {parsed.head} {parsed.findings} findings, "
+            f"recorded with no branch, so the pass counts only at {parsed.head} itself and fix "
+            "commits on top of it get no credit yet. This folder has no checkout branch whose own "
+            f"work {parsed.head} is: it is another folder, a detached HEAD, or another local or "
+            f"remote branch also holds {parsed.head}. Run this command again from the checkout "
+            "of the branch you will open, with that branch checked out. When another branch, "
+            f"such as a backup copy, holds {parsed.head}, delete that copy first; when it is the "
+            "branch this one stacks on, the pass covers that branch, so review this branch's own "
+            "commits\n"
+        )
+        return 1
     stdout.write(
-        f"REVIEWED {parsed.slug} {OPEN_TARGET_WORD} {parsed.head} {parsed.findings} findings\n"
+        f"REVIEWED {parsed.slug} {OPEN_TARGET_WORD} {parsed.head} {parsed.findings} findings "
+        f"(fix them in new commits on top of {parsed.head}, then open the pull request; "
+        "the fix commits need no second pass)\n"
     )
     return 1
 

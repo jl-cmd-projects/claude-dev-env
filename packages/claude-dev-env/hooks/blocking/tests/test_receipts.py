@@ -13,6 +13,7 @@ from pathlib import Path
 import pytest
 from blocking.merge_review_gate_parts.receipts import (
     has_clean_open_review,
+    open_reviewed_heads_among,
     has_zero_finding_open_review,
     is_clean_open_pass,
     is_filed_receipt,
@@ -21,6 +22,7 @@ from blocking.merge_review_gate_parts.receipts import (
     open_receipt_path,
     read_receipt,
     receipt_path,
+    recorded_open_finding_count,
     recorded_pass_number,
     same_commit,
 )
@@ -65,6 +67,46 @@ def test_should_find_an_open_review_whose_findings_are_ruled_out_at_file_and_lin
 def test_should_reject_an_open_review_whose_rulings_cover_fewer_findings() -> None:
     _write_open_receipt(2, {"ruled_out": 2, "ruling_lines": ["a.py:1"]})
     assert has_clean_open_review("tools", HEAD[:7]) is False
+
+
+@pytest.mark.parametrize("finding_count", [0, 2])
+def test_should_find_an_open_review_on_an_earlier_commit_whatever_it_found(
+    finding_count: int,
+) -> None:
+    _write_open_receipt(finding_count, {"branch": "feature"})
+    assert open_reviewed_heads_among("Tools", ["1" * 40, HEAD.upper()], "feature") == [HEAD]
+
+
+def test_should_find_no_open_review_among_commits_it_did_not_review() -> None:
+    _write_open_receipt(2, {"branch": "feature"})
+    assert open_reviewed_heads_among("tools", ["1" * 40], "feature") == []
+    assert open_reviewed_heads_among("other", [HEAD], "feature") == []
+
+
+def test_should_find_no_earlier_open_review_recorded_on_another_branch() -> None:
+    _write_open_receipt(2, {"branch": "feature"})
+    assert open_reviewed_heads_among("tools", [HEAD], "second") == []
+
+
+def test_should_find_no_earlier_open_review_whose_receipt_names_no_branch() -> None:
+    _write_open_receipt(2)
+    assert open_reviewed_heads_among("tools", [HEAD], "feature") == []
+
+
+def test_should_list_only_receipts_with_no_branch_when_asked_for_no_branch() -> None:
+    _write_open_receipt(2)
+    assert open_reviewed_heads_among("tools", [HEAD], None) == [HEAD]
+    _write_open_receipt(2, {"branch": "feature"})
+    assert open_reviewed_heads_among("tools", [HEAD], None) == []
+
+
+def test_should_skip_an_open_review_whose_finding_count_is_not_a_count() -> None:
+    path = open_receipt_path("acme", "tools", HEAD)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps({"head": HEAD, "findings": "two", "branch": "feature"}), encoding="utf-8"
+    )
+    assert open_reviewed_heads_among("tools", [HEAD], "feature") == []
 
 
 def test_should_find_a_zero_finding_open_review_by_short_head() -> None:
@@ -239,3 +281,11 @@ def test_should_count_a_pass_as_filed_only_after_three_full_passes(
     assert (
         is_filed_receipt({"head": HEAD, **receipt_fields}, "acme", "tools", 12) is is_expected_filed
     )
+
+
+def test_should_read_the_finding_count_of_a_pass_recorded_at_a_head() -> None:
+    assert recorded_open_finding_count("tools", HEAD) is None
+    _write_open_receipt(3)
+    assert recorded_open_finding_count("Tools", HEAD[:7]) == 3
+    assert recorded_open_finding_count("tools", "9" * 40) is None
+    assert recorded_open_finding_count("other", HEAD) is None
