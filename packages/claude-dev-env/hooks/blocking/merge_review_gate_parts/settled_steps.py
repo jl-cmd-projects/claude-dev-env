@@ -69,7 +69,6 @@ from hooks_constants.merge_review_gate_constants import (
     PRINTF_PROGRAM_NAME,
     PRINTF_VARIABLE_OPTION_PREFIX,
     PROCESS_SUBSTITUTION_PATTERN,
-    ALL_SETTLED_CREATE_LAUNCHER_WORDS,
     SUBSCRIPT_EXPANSION_PATTERN,
     TEE_PROGRAM_NAME,
     UNSETTLED_EXPANSION_PATTERN,
@@ -298,22 +297,29 @@ def is_settled_create_segment(all_tokens: list[str], has_expanding_heredoc: bool
         gh pr create --fill > .git/HEAD                         -> False
         ./gh pr create, /tmp/x/python3 pull_request.py create   -> False
         python3 <home>/.agents/skills/pull-request/scripts/pull_request.py create -> True
+        uv run <home>/.agents/.../pull_request.py create                    -> False
         uv run ./pull_request.py create, python3 /x/pull_request.py create -> False
-        PYTHONPATH=/x python3 <home>/.agents/.../pull_request.py create     -> False
+        X=1 python3 <home>/.agents/.../pull_request.py create              -> False
+        env python3 <home>/.agents/..., nice <home>/.agents/...            -> False
 
-    The words before the program are assignments whose values hold no ``$``
-    or backtick, and whose names are not ``GIT_``, ``LD_``, ``DYLD_``,
-    ``XDG_``, ``UV_``, ``PYTHON``, ``HOME``, ``PATH``, or a ``GH_`` name but the repository one. The first other word
-    is the program, with no wrapper or compound word before it but a bare
-    ``uv run``. A gh program is a bare word with no ``/`` or ``\\``, which
-    bash finds on PATH. Any other create runs ``pull_request.py``, and its
-    script word must be the managed launcher, alone or after a bare
-    ``python`` or ``python3``, so a script that could move the head after the
-    gate read it never counts. Its home is written out only by
-    ``with_launcher_home_written``, so a ``~`` left in the word never
-    counts. Names match in any
-    case, since Windows reads ``gh_repo`` as ``GH_REPO``, and only the upper
-    case ``GH_REPO`` is kept. Output goes only to /dev/null, a descriptor
+    The first word that is not an assignment is the program, with no
+    wrapper or compound word before it. A gh program is a bare word with no
+    ``/`` or ``\\``, which bash finds on PATH. Its assignments hold values
+    with no ``$`` or backtick, and names that are not ``GIT_``, ``LD_``,
+    ``DYLD_``, ``XDG_``, ``UV_``, ``PYTHON``, ``HOME``, ``PATH``, or a
+    ``GH_`` name but the repository one. Names match in any case, since
+    Windows reads ``gh_repo`` as ``GH_REPO``, and only the upper case
+    ``GH_REPO`` is kept.
+
+    Any other create runs ``pull_request.py`` with no assignment before it.
+    Its script word must be the managed launcher, alone or after a bare
+    ``python`` or ``python3``, so no file in the working folder and no
+    variable such as ``VIRTUAL_ENV`` picks the interpreter, and a script
+    that could move the head after the gate read it never counts. A ``uv
+    run`` lead reads ``pyproject.toml``, ``uv.toml``, ``.python-version`` and
+    ``.venv`` from the working folder, so it never counts. Its home is
+    written out only by ``with_launcher_home_written``, so a ``~`` left in
+    the word never counts. Output goes only to /dev/null, a descriptor
     copy, or a plain path outside ``.git``: one with no ``$``, backtick,
     glob character, brace or ``~``.
 
@@ -334,15 +340,6 @@ def is_settled_create_segment(all_tokens: list[str], has_expanding_heredoc: bool
         return False
     if not all(_is_settled_prefix(each) for each in all_tokens[:program_index]):
         return False
-    launcher_width = len(ALL_SETTLED_CREATE_LAUNCHER_WORDS)
-    all_launcher_words = tuple(
-        unquoted_token(each) for each in all_tokens[program_index : program_index + launcher_width]
-    )
-    if (
-        all_launcher_words == ALL_SETTLED_CREATE_LAUNCHER_WORDS
-        and program_index + launcher_width < len(all_tokens)
-    ):
-        program_index += launcher_width
     program_token = unquoted_token(all_tokens[program_index])
     program_word = token_basename(program_token).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
     if program_word != segment_program_and_arguments(all_tokens)[0]:
@@ -350,7 +347,7 @@ def is_settled_create_segment(all_tokens: list[str], has_expanding_heredoc: bool
     if program_word.lower() == GH_PROGRAM_NAME:
         if FOLDER_PATH_SEPARATOR_PATTERN.search(program_token):
             return False
-    elif not _runs_managed_launcher(all_tokens[program_index:]):
+    elif program_index or not _runs_managed_launcher(all_tokens):
         return False
     return all(_is_kept_write_target(each_target) for each_target in _write_targets(all_tokens))
 
