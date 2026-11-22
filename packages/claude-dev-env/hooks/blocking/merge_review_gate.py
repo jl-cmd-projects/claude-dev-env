@@ -60,14 +60,16 @@ from blocking.merge_review_gate_parts.open_request import (
     OpenCall,
     OpenRequest,
     ShellOpenCall,
+    WithheldCredit,
     adds_content_to_base,
     base_tip,
+    branches_holding_without,
     first_parent_ancestors,
-    is_held_by_another_line,
     is_outside_base,
     is_stored_locally,
     open_calls_from,
     open_request_for,
+    own_tracking_reference,
 )
 from blocking.merge_review_gate_parts.receipts import (
     has_clean_open_review,
@@ -79,6 +81,7 @@ from blocking.merge_review_gate_parts.receipts import (
     receipt_path,
     same_commit,
 )
+from hooks_constants.followup_pr_dedupe_constants import GH_REPOSITORY_ENVIRONMENT_NAME
 from hooks_constants.gate_fault import gate_fault_reason
 from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
 from hooks_constants.hook_specific_output_keys import (
@@ -102,6 +105,8 @@ from hooks_constants.merge_review_gate_constants import (
     EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE,
     EXPECTED_HEAD_FIELD,
     GATE_NAME,
+    GH_HOST_VARIABLE,
+    GH_PICKED_BASE_TEMPLATE,
     GH_API_MERGE_PATTERN,
     GH_PR_MERGE_CALL_PATTERN,
     GH_PR_MERGE_PATTERN,
@@ -116,6 +121,7 @@ from hooks_constants.merge_review_gate_constants import (
     FETCH_BASE_COMMAND,
     FETCH_NAMED_BASE_COMMAND_TEMPLATE,
     MISSING_BASE_COMMIT_REASON_TEMPLATE,
+    NAMED_BASE_TEMPLATE,
     NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE,
     NO_CLEAN_REVIEW_REASON_TEMPLATE,
     NUMBER_FIELD,
@@ -141,6 +147,7 @@ from hooks_constants.merge_review_gate_constants import (
     UNKNOWN_OPEN_TARGET_REASON,
     UNKNOWN_TARGET_REASON,
     UNPINNED_MERGE_REASON_TEMPLATE,
+    WITHHELD_CREDIT_REASON_PREFIX,
 )
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
 
@@ -176,10 +183,13 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     pass on the branch being opened covers a commit before it along the
     head's first parents that no other branch holds without the head and
     that the base branch on GitHub does not hold, as a commit or as content
-    a squash brought in. A pass whose receipt names another branch or no
+    a squash brought in. The head branch's own ``origin`` tracking branch is
+    not another branch. A pass whose receipt names another branch or no
     branch counts only at its head. A base that cannot be read gives no
     credit to an earlier pass. A base commit the clone has not fetched is
-    denied with the fetch to run before a retry.
+    denied with the fetch to run before a retry. When a recorded earlier
+    pass gets no credit, the reason names that pass and its
+    ``WithheldCredit`` cause.
 
     Args:
         request: The open the tool call asks for.
@@ -203,17 +213,31 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     return _earlier_own_pass_denial(request, request.head, request.branch, no_pass_reason)
 
 
+@dataclass(frozen=True)
+class _Withheld:
+    """One recorded pass that gets no credit, with its cause and the branch that holds it, if any."""
+
+    cause: WithheldCredit
+    reviewed_head: str
+    reference: str = ""
+
+
 def _earlier_own_pass_denial(
     request: OpenRequest, head: str, branch: str, no_pass_reason: str
 ) -> str | None:
-    all_reviewed_heads = open_reviewed_heads_among(
-        request.repo, first_parent_ancestors(head, request.folder), branch
+    all_ancestors = first_parent_ancestors(head, request.folder)
+    all_reviewed_heads = sorted(
+        open_reviewed_heads_among(request.repo, all_ancestors, branch),
+        key=[each_ancestor.casefold() for each_ancestor in all_ancestors].index,
     )
     if not all_reviewed_heads:
         return no_pass_reason
+    newest_reviewed_head = all_reviewed_heads[0]
+    if request.unknown_base_cause is not None:
+        return _withheld_reason(request, _Withheld(request.unknown_base_cause, newest_reviewed_head))
     base_commit = base_tip(request)
     if base_commit is None:
-        return no_pass_reason
+        return _withheld_reason(request, _Withheld(WithheldCredit.BASE_UNREAD, newest_reviewed_head))
     if not is_stored_locally(base_commit, request.folder):
         fetch_command = (
             FETCH_NAMED_BASE_COMMAND_TEMPLATE.format(base=request.base)
@@ -223,13 +247,55 @@ def _earlier_own_pass_denial(
         return MISSING_BASE_COMMIT_REASON_TEMPLATE.format(
             slug=request.slug, base_commit=base_commit, fetch_command=fetch_command
         )
-    is_credited = any(
-        not is_held_by_another_line(each_reviewed_head, head, request.folder)
-        and is_outside_base(each_reviewed_head, base_commit, request.folder)
-        and adds_content_to_base(each_reviewed_head, base_commit, request.folder)
-        for each_reviewed_head in all_reviewed_heads
+    own_reference = own_tracking_reference(request)
+    all_withheld: list[_Withheld] = []
+    for each_reviewed_head in all_reviewed_heads:
+        withheld = _withheld_from(each_reviewed_head, head, base_commit, request, own_reference)
+        if withheld is None:
+            return None
+        all_withheld.append(withheld)
+    return _withheld_reason(request, all_withheld[0])
+
+
+def _withheld_from(
+    reviewed_head: str,
+    head: str,
+    base_commit: str,
+    request: OpenRequest,
+    own_reference: str | None,
+) -> _Withheld | None:
+    all_holding_references = branches_holding_without(reviewed_head, head, request.folder)
+    if all_holding_references is None:
+        return _Withheld(WithheldCredit.BRANCHES_UNREAD, reviewed_head)
+    all_other_references = [
+        each_reference for each_reference in all_holding_references if each_reference != own_reference
+    ]
+    if all_other_references:
+        return _Withheld(WithheldCredit.HELD_BY_OTHER_REFERENCE, reviewed_head, all_other_references[0])
+    if not is_outside_base(reviewed_head, base_commit, request.folder):
+        return _Withheld(WithheldCredit.INSIDE_BASE, reviewed_head)
+    if not adds_content_to_base(reviewed_head, base_commit, request.folder):
+        return _Withheld(WithheldCredit.NO_CONTENT_ADDED, reviewed_head)
+    return None
+
+
+def _withheld_reason(request: OpenRequest, withheld: _Withheld) -> str:
+    base_label = (
+        NAMED_BASE_TEMPLATE.format(base=request.base)
+        if request.base
+        else GH_PICKED_BASE_TEMPLATE.format(branch=request.base_setting_branch or request.branch)
     )
-    return None if is_credited else no_pass_reason
+    all_fields = {
+        "slug": request.slug,
+        "head": request.head,
+        "reviewed": withheld.reviewed_head,
+        "reference": withheld.reference,
+        "base": base_label,
+        "host": os.environ.get(GH_HOST_VARIABLE, ""),
+        "session_repository": os.environ.get(GH_REPOSITORY_ENVIRONMENT_NAME, ""),
+        "review_command": _review_command(),
+    }
+    return (WITHHELD_CREDIT_REASON_PREFIX + withheld.cause.value).format(**all_fields)
 
 
 def merge_request_from(all_payload_fields: dict[str, object]) -> MergeRequest | None:

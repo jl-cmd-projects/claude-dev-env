@@ -171,7 +171,6 @@ OPEN_REVIEW_ANCESTOR_LIMIT = 100
 ALL_STORED_HISTORY_GIT_SETTINGS = {"GIT_GRAFT_FILE": os.devnull, "GIT_NO_REPLACE_OBJECTS": "1"}
 ALL_ANCESTRY_WALK_ARGUMENTS = ("rev-list", "--first-parent")
 MAX_COUNT_OPTION_TEMPLATE = "--max-count={count}"
-ALL_OTHER_LINE_REFERENCE_ARGUMENTS = ("for-each-ref", "--count=1", "--format=%(refname)")
 CONTAINS_OPTION_TEMPLATE = "--contains={commit}"
 NO_CONTAINS_OPTION_TEMPLATE = "--no-contains={commit}"
 ALL_BRANCH_REFERENCE_PREFIXES = ("refs/heads", "refs/remotes")
@@ -179,6 +178,8 @@ ALL_CHECKOUT_BRANCH_ARGUMENTS = ("symbolic-ref", "--quiet", "--short", "HEAD")
 ALL_HOLDING_REFERENCE_ARGUMENTS = ("for-each-ref", "--format=%(refname)")
 LOCAL_BRANCH_REFERENCE_TEMPLATE = "refs/heads/{branch}"
 REMOTE_TRACKING_REFERENCE_PREFIX = "refs/remotes/"
+ORIGIN_TRACKING_REFERENCE_TEMPLATE = REMOTE_TRACKING_REFERENCE_PREFIX + ORIGIN_REMOTE_NAME + "/{branch}"
+HEAD_OWNER_SEPARATOR = ":"
 ALL_OUTSIDE_BASE_ARGUMENTS = ("rev-list", "--max-count=1")
 EXCLUDE_FROM_WALK_OPTION = "--not"
 ALL_MERGE_TREE_ARGUMENTS = ("merge-tree", "--write-tree")
@@ -322,6 +323,66 @@ NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE = (
     "every finding is ruled out with `--ruled-out <finding count> --rulings <path:line for "
     "each finding, comma separated>`, each path:line a line this head holds. A merge pinned "
     "to {head} accepts an open pass only at zero findings."
+)
+WITHHELD_CREDIT_REASON_PREFIX = (
+    "{slug} has no clean review for head {head}, which this pull request would open with. "
+    "A review pass on {reviewed}, a commit before it on this branch, is recorded, and it gives "
+    "this open no credit because "
+)
+UNREAD_FLAG_CAUSE = (
+    "the create names a `--base` or `--repo` value the gate cannot read, or a repository on a "
+    "host other than github.com. Name one `--base <branch>`, and `--repo owner/name` when needed."
+)
+OTHER_HOST_CAUSE = (
+    "`GH_HOST` is {host}, and an earlier pass gives credit only to an open on github.com. "
+    "Unset `GH_HOST` or set it to github.com."
+)
+SESSION_REPOSITORY_CAUSE = (
+    "`GH_REPO` is {session_repository}, which names a repository other than {slug}. Unset "
+    "`GH_REPO` or set it to {slug}."
+)
+NOT_LONE_CAUSE = (
+    "the create is not the whole command. Run `gh pr create` as its own command, with no `cd`, "
+    "variable prefix or other command beside it. A title or body that holds any of ( ) ; < > | "
+    "& # $, a backtick or a line break counts too, so keep those out of `--title`, put the body "
+    "in a file passed with `--body-file`, or open with the create pull request tool and set its "
+    "`base`."
+)
+NO_BASE_OR_BRANCH_CAUSE = (
+    "the gate could read neither a `--base` nor the checkout branch. Name the base with "
+    "`--base <branch>`."
+)
+OTHER_REMOTE_CAUSE = (
+    "this checkout has a remote other than origin, or a `gh-resolved` setting other than "
+    "`base`, so gh may open in another repository. Pass `--repo {slug}`."
+)
+TOOL_NO_BASE_CAUSE = (
+    "the create pull request tool call names no base. Set its `base` field to the branch the "
+    "pull request merges into."
+)
+BASE_UNREAD_CAUSE = (
+    "the gate could not read the base {base} of {slug} on GitHub. Check that the branch is "
+    "there and that this session reaches github.com, then open again."
+)
+NAMED_BASE_TEMPLATE = "`{base}`"
+GH_PICKED_BASE_TEMPLATE = "(the `gh-merge-base` setting of `{branch}`, or the default branch)"
+BRANCHES_UNREAD_CAUSE = (
+    "the gate could not list the branches that hold {reviewed}. Open again once git answers."
+)
+HELD_BY_OTHER_REFERENCE_CAUSE = (
+    "{reference} holds {reviewed} without this head, so the pass may cover that line and not "
+    "this branch. An earlier pass gives credit only while no other branch holds the reviewed "
+    "commit without the head. Delete {reference} or move it to this head when it is a copy of "
+    "this branch."
+)
+INSIDE_BASE_CAUSE = (
+    "the base on GitHub already holds {reviewed}, so the pass covered base work. Run one review "
+    "pass on the branch diff with `{review_command}`, record it, then open again."
+)
+NO_CONTENT_ADDED_CAUSE = (
+    "the base on GitHub already holds the content of {reviewed}, such as from a squash merge, "
+    "so the pass covered base work. Run one review pass on the branch diff with "
+    "`{review_command}`, record it, then open again."
 )
 PREFIX_ORIGIN_CHECK_SENTENCE = (
     " This create names its repository only with a `GH_REPO=` prefix, and a wrapper such as "

@@ -683,7 +683,7 @@ def _fixed_after_a_pass_with_stack_at_the_review(
 ) -> Path:
     folder, reviewed_head = branch_checkout
     merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
-    _git(folder, "push", "--quiet", str(github_repository), f"{reviewed_head}:refs/heads/stack")
+    _git(github_repository, "branch", "stack", reviewed_head)
     _commit_and_push(folder, github_repository, "work on top of stack")
     return folder
 
@@ -868,6 +868,196 @@ def test_should_tell_the_agent_to_fetch_the_base_when_github_moved_it_past_the_l
     _git(folder, "fetch", "--quiet", "origin")
     assert _reason(_create_tool(folder)) is None
     assert _reason(_bash_in(folder, "gh pr create --fill")) is None
+
+
+def _fixed_after_a_pass(branch_checkout: tuple[Path, str], github_repository: Path) -> tuple[Path, str]:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    return folder, reviewed_head
+
+
+def _assert_names_the_recorded_pass_and_no_new_review(reason: str, reviewed_head: str) -> None:
+    assert "no clean review for head" in reason
+    assert f"A review pass on {reviewed_head}" in reason
+    assert "is recorded" in reason
+    assert "Run one review pass" not in reason
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd . && gh pr create --fill",
+        "gh pr create --fill --title 'fix(gate): name the cause'",
+        "gh pr create --fill --body 'a; b'",
+    ],
+)
+def test_should_tell_an_open_that_is_not_the_whole_command_to_run_alone_without_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path, command: str
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    reason = _deny_reason(_bash_in(folder, command))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "as its own command" in reason
+    assert "--body-file" in reason
+    assert "create pull request tool" in reason
+
+
+def test_should_tell_a_create_tool_call_with_no_base_to_name_its_base_without_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    payload = _create_tool(folder)
+    del payload["tool_input"]["base"]
+    reason = _deny_reason(payload)
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "names no base" in reason
+
+
+def test_should_name_the_base_it_could_not_read_without_asking_for_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base missing"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "could not read the base `missing` of acme/tools" in reason
+
+
+def test_should_name_the_other_host_without_asking_for_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    monkeypatch.setenv("GH_HOST", "ghe.example.com")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "`GH_HOST` is ghe.example.com" in reason
+
+
+def test_should_name_a_repository_flag_on_another_host_without_asking_for_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill -R ghe.example.com/acme/tools"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "cannot read" in reason
+
+
+def test_should_name_the_session_repository_without_asking_for_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    monkeypatch.setenv("GH_REPO", "evil/tools")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "`GH_REPO` is evil/tools" in reason
+
+
+def test_should_tell_an_open_beside_a_second_remote_to_pass_the_repository_without_a_new_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    _git(folder, "remote", "add", "upstream", "https://github.com/upstream/tools.git")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "Pass `--repo acme/tools`" in reason
+
+
+def test_should_name_the_other_branch_that_holds_the_reviewed_commit(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _git(folder, "branch", "feature-backup")
+    _commit_and_push(folder, github_repository, "fix")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert f"refs/heads/feature-backup holds {reviewed_head}" in reason
+
+
+def test_should_say_the_branch_list_could_not_be_read_when_that_read_fails(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, reviewed_head = _fixed_after_a_pass(branch_checkout, github_repository)
+    run_before_patch = open_request.child_stdout
+
+    def refuse_the_branch_list(*all_arguments: object, **all_keywords: object) -> str | None:
+        all_command_words = all_arguments[0]
+        assert isinstance(all_command_words, list)
+        if "for-each-ref" in all_command_words:
+            return None
+        return run_before_patch(*all_arguments, **all_keywords)
+
+    monkeypatch.setattr(open_request, "child_stdout", refuse_the_branch_list)
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill"))
+    _assert_names_the_recorded_pass_and_no_new_review(reason, reviewed_head)
+    assert "could not list the branches" in reason
+
+
+def test_should_ask_for_a_new_review_when_the_base_already_holds_the_reviewed_content(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _push_squash_of_to_main(folder, github_repository, reviewed_head)
+    _commit_and_push(folder, github_repository, "second pull request work")
+    _git(folder, "fetch", "--quiet", "origin")
+    reason = _deny_reason(_create_tool(folder))
+    assert f"A review pass on {reviewed_head}" in reason
+    assert "already holds the content of" in reason
+    assert "Run one review pass" in reason
+
+
+def test_should_ask_for_a_new_review_when_the_base_already_holds_the_reviewed_commit(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    _git(github_repository, "update-ref", "refs/heads/main", reviewed_head)
+    reason = _deny_reason(_create_tool(folder))
+    assert f"A review pass on {reviewed_head}" in reason
+    assert f"already holds {reviewed_head}" in reason
+    assert "Run one review pass" in reason
+
+
+def test_should_credit_an_earlier_pass_when_only_the_branch_own_tracking_reference_sits_at_the_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    _git(folder, "push", "--quiet", "--set-upstream", "origin", "feature")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_on(folder, "fix")
+    assert _git(folder, "rev-parse", "refs/remotes/origin/feature") == reviewed_head
+    assert _reason(_bash_in(folder, "gh pr create --fill")) is None
+    _git(folder, "push", "--quiet", str(github_repository), "HEAD:feature")
+    assert _reason(_create_tool(folder)) is None
+
+
+def test_should_still_deny_when_another_origin_branch_sits_at_the_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    _git(folder, "push", "--quiet", "--set-upstream", "origin", "feature")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _git(folder, "update-ref", "refs/remotes/origin/feature-copy", reviewed_head)
+    _commit_on(folder, "fix")
+    reason = _deny_reason(_bash_in(folder, "gh pr create --fill"))
+    assert f"refs/remotes/origin/feature-copy holds {reviewed_head}" in reason
+
+
+def test_should_still_deny_when_a_fork_head_shares_the_branch_name_of_an_origin_branch_at_the_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    _git(folder, "push", "--quiet", "--set-upstream", "origin", "feature")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    fork_head = _commit_on(folder, "fix")
+    fork_repository = github_repository.parent.parent / "someone" / "tools.git"
+    subprocess.run(["git", "init", "--quiet", "--bare", str(fork_repository)], check=True)
+    _git(folder, "push", "--quiet", str(fork_repository), "HEAD:refs/heads/feature")
+    assert _git(fork_repository, "rev-parse", "feature") == fork_head
+    reason = _deny_reason(_create_tool(folder, "someone:feature"))
+    assert f"refs/remotes/origin/feature holds {reviewed_head}" in reason
 
 
 def test_should_name_one_review_pass_then_fixes_when_an_open_is_denied(

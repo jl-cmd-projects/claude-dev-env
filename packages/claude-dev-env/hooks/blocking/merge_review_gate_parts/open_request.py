@@ -7,6 +7,7 @@ import shlex
 import sys
 import tempfile
 from dataclasses import dataclass, field, replace
+from enum import Enum
 from pathlib import Path
 
 hooks_directory = str(Path(__file__).resolve().parent.parent.parent)
@@ -38,7 +39,21 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_VERIFY_OBJECT_ARGUMENTS,
     COMMIT_OBJECT_TEMPLATE,
     TREE_OF_COMMIT_TEMPLATE,
-    ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
+    ALL_HOLDING_REFERENCE_ARGUMENTS,
+    BASE_UNREAD_CAUSE,
+    BRANCHES_UNREAD_CAUSE,
+    HEAD_OWNER_SEPARATOR,
+    HELD_BY_OTHER_REFERENCE_CAUSE,
+    INSIDE_BASE_CAUSE,
+    NO_BASE_OR_BRANCH_CAUSE,
+    NO_CONTENT_ADDED_CAUSE,
+    NOT_LONE_CAUSE,
+    ORIGIN_TRACKING_REFERENCE_TEMPLATE,
+    OTHER_HOST_CAUSE,
+    OTHER_REMOTE_CAUSE,
+    SESSION_REPOSITORY_CAUSE,
+    TOOL_NO_BASE_CAUSE,
+    UNREAD_FLAG_CAUSE,
     ALL_NON_INTERACTIVE_GIT_SETTINGS,
     ALL_ORIGIN_URL_ARGUMENTS,
     ALL_SHELL_TOOL_NAMES,
@@ -98,6 +113,35 @@ from hooks_constants.shell_command_segments import token_basename
 from hooks_constants.shell_command_wrappers import segment_program_and_arguments
 
 
+class WithheldCredit(Enum):
+    """Why a recorded pass on an earlier commit of the branch gives the open no credit.
+
+    Each value is the cause sentence of the deny reason::
+
+        create beside a cd, or a title with parentheses -> NOT_LONE, run the create alone
+        create tool call with no base                   -> TOOL_NO_BASE, set its base
+        base GitHub does not list                       -> BASE_UNREAD, names the base
+        backup branch at the reviewed commit            -> HELD_BY_OTHER_REFERENCE, names it
+        base already holds the reviewed commit          -> INSIDE_BASE, review again
+
+    The first ten causes leave the pass in place, so the step they name
+    needs no new review. The last two say the pass covered base work.
+    """
+
+    UNREAD_FLAG = UNREAD_FLAG_CAUSE
+    OTHER_HOST = OTHER_HOST_CAUSE
+    SESSION_REPOSITORY = SESSION_REPOSITORY_CAUSE
+    NOT_LONE = NOT_LONE_CAUSE
+    NO_BASE_OR_BRANCH = NO_BASE_OR_BRANCH_CAUSE
+    OTHER_REMOTE = OTHER_REMOTE_CAUSE
+    TOOL_NO_BASE = TOOL_NO_BASE_CAUSE
+    BASE_UNREAD = BASE_UNREAD_CAUSE
+    BRANCHES_UNREAD = BRANCHES_UNREAD_CAUSE
+    HELD_BY_OTHER_REFERENCE = HELD_BY_OTHER_REFERENCE_CAUSE
+    INSIDE_BASE = INSIDE_BASE_CAUSE
+    NO_CONTENT_ADDED = NO_CONTENT_ADDED_CAUSE
+
+
 @dataclass(frozen=True)
 class OpenRequest:
     """One pull request a tool call asks to open.
@@ -111,10 +155,13 @@ class OpenRequest:
             branch for ``HEAD``, or None when it could not be read.
         base: The base branch the open uses, or None for the repository's
             default branch.
-        is_base_known: False when the gate cannot tell which base the open
-            uses, so no base is read and no earlier pass gets credit.
+        unknown_base_cause: Why the gate cannot tell which base the open
+            uses, so no base is read and no earlier pass gets credit, or
+            None when it can tell.
         base_setting_branch: The branch whose ``gh-merge-base`` setting gh
             reads when the open names no base, or None when none applies.
+        head_owner: The owner a ``user:branch`` head names, or None when the
+            head names no owner.
     """
 
     owner: str
@@ -123,13 +170,19 @@ class OpenRequest:
     folder: str | None = field(default=None, compare=False)
     branch: str | None = field(default=None, compare=False)
     base: str | None = field(default=None, compare=False)
-    is_base_known: bool = field(default=True, compare=False)
+    unknown_base_cause: WithheldCredit | None = field(default=None, compare=False)
     base_setting_branch: str | None = field(default=None, compare=False)
+    head_owner: str | None = field(default=None, compare=False)
 
     @property
     def slug(self) -> str:
         """Return ``owner/repo``."""
         return f"{self.owner}/{self.repo}"
+
+    @property
+    def is_base_known(self) -> bool:
+        """Return whether the gate can tell which base the open uses."""
+        return self.unknown_base_cause is None
 
 
 @dataclass(frozen=True)
@@ -265,8 +318,14 @@ def _tool_open_request(call: ToolOpenCall) -> OpenRequest:
         folder=call.folder,
         branch=_branch_name(call.branch, call.folder) if call.branch else None,
         base=call.base,
-        is_base_known=call.base is not None,
+        unknown_base_cause=None if call.base is not None else WithheldCredit.TOOL_NO_BASE,
+        head_owner=_head_owner(call.branch) if call.branch else None,
     )
+
+
+def _head_owner(branch: str) -> str | None:
+    head_owner, separator, _branch = branch.partition(HEAD_OWNER_SEPARATOR)
+    return head_owner if separator else None
 
 
 def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
@@ -275,14 +334,6 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         return OpenRequest(owner=owner, repo=repo, head=None)
     owner, repo = call.repository or _origin_repository(call.folder)
     branch = _branch_name(call.branch, call.folder)
-    is_base_known = (
-        call.is_base_readable
-        and not _is_other_host(os.environ.get(GH_HOST_VARIABLE))
-        and not _names_another_repository(os.environ.get(GH_REPOSITORY_ENVIRONMENT_NAME), owner, repo)
-        and call.is_lone_create
-        and (call.base is not None or branch is not None)
-        and (call.repository is not None or not _resolves_to_another_remote(call.folder))
-    )
     return OpenRequest(
         owner=owner,
         repo=repo,
@@ -290,9 +341,43 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         folder=call.folder,
         branch=branch,
         base=call.base,
-        is_base_known=is_base_known,
+        unknown_base_cause=_unknown_base_cause(call, owner, repo, branch),
         base_setting_branch=branch if call.base is None else None,
+        head_owner=_head_owner(call.branch),
     )
+
+
+def _unknown_base_cause(
+    call: ShellOpenCall, owner: str, repo: str, branch: str | None
+) -> WithheldCredit | None:
+    """Return the first reason the gate cannot tell which base a shell create uses.
+
+    ::
+
+        gh pr create --fill -R ghe.example.com/acme/tools -> UNREAD_FLAG
+        GH_HOST=ghe.example.com in the gate's environment -> OTHER_HOST
+        GH_REPO=evil/tools in the gate's environment      -> SESSION_REPOSITORY
+        cd . && gh pr create --fill                       -> NOT_LONE
+        no --base and no checkout branch                  -> NO_BASE_OR_BRANCH
+        no --repo, and a second remote in the folder      -> OTHER_REMOTE
+        gh pr create --fill --base main, origin alone     -> None
+
+    The checks run in that order, and the remote read runs only when every
+    check before it passed.
+    """
+    if not call.is_base_readable:
+        return WithheldCredit.UNREAD_FLAG
+    if _is_other_host(os.environ.get(GH_HOST_VARIABLE)):
+        return WithheldCredit.OTHER_HOST
+    if _names_another_repository(os.environ.get(GH_REPOSITORY_ENVIRONMENT_NAME), owner, repo):
+        return WithheldCredit.SESSION_REPOSITORY
+    if not call.is_lone_create:
+        return WithheldCredit.NOT_LONE
+    if call.base is None and branch is None:
+        return WithheldCredit.NO_BASE_OR_BRANCH
+    if call.repository is None and _resolves_to_another_remote(call.folder):
+        return WithheldCredit.OTHER_REMOTE
+    return None
 
 
 def _resolves_to_another_remote(folder: str | None) -> bool:
@@ -396,21 +481,21 @@ def _stored_history_read(all_arguments: list[str], folder: str | None) -> str | 
     )
 
 
-def is_held_by_another_line(commit: str, head: str, folder: str | None) -> bool:
-    """Return whether a branch that lacks the head holds a commit.
+def branches_holding_without(commit: str, head: str, folder: str | None) -> tuple[str, ...] | None:
+    """Return the local and remote branches that hold a commit and lack the head.
 
     A review pass on the branch's own earlier commit covers the fix commits
     on top of it. A commit some other branch holds without the head, such as
     a commit of ``main`` or of the branch this one stacks on, is not this
     branch's review::
 
-        feature holds reviewed abc123 and head def456      -> False
-        second stacks on feature at abc123, head def456    -> True, feature lacks def456
-        main holds abc123, the head branches off main      -> True
+        feature holds reviewed abc123 and head def456      -> ()
+        second stacks on feature at abc123, head def456    -> ("refs/heads/feature",)
+        origin/feature still at abc123, fix def456 local   -> ("refs/remotes/origin/feature",)
+        a read that fails or runs out of time              -> None
 
-    Local branches and remote branches are both read, and replace refs and
-    grafts are not. A read that fails or runs out of time counts as held, so the open
-    is denied.
+    Replace refs and grafts are not read. The caller decides which of the
+    branches is the open's own branch on origin.
 
     Args:
         commit: The commit a review pass saw.
@@ -418,18 +503,49 @@ def is_held_by_another_line(commit: str, head: str, folder: str | None) -> bool:
         folder: The folder git reads the branches in.
 
     Returns:
-        True when some branch holds ``commit`` and not ``head``.
+        The full reference names, or None when the read failed.
     """
     listing = _stored_history_read(
         [
-            *ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
+            *ALL_HOLDING_REFERENCE_ARGUMENTS,
             CONTAINS_OPTION_TEMPLATE.format(commit=commit),
             NO_CONTAINS_OPTION_TEMPLATE.format(commit=head),
             *ALL_BRANCH_REFERENCE_PREFIXES,
         ],
         folder,
     )
-    return listing is None or bool(listing.strip())
+    return None if listing is None else tuple(listing.split())
+
+
+def own_tracking_reference(request: OpenRequest) -> str | None:
+    """Return the origin remote-tracking branch of the branch the open names.
+
+    That reference is the same branch, as fetched or pushed before the fix
+    commits, so it is not another line::
+
+        head feature, origin acme/tools, open on acme/tools          -> "refs/remotes/origin/feature"
+        head someone:feature, origin acme/tools, open on acme/tools -> None
+        head feature, origin names another repository or none       -> None
+        no branch                                                    -> None
+
+    Owner and repository names compare in any letter case, as on GitHub.
+
+    Args:
+        request: The open the tool call asks for.
+
+    Returns:
+        The full reference name, or None when origin is not the head's repository.
+    """
+    if not request.branch:
+        return None
+    head_owner = request.head_owner or request.owner
+    origin_owner, origin_repo = _origin_repository(request.folder)
+    if (origin_owner.casefold(), origin_repo.casefold()) != (
+        head_owner.casefold(),
+        request.repo.casefold(),
+    ):
+        return None
+    return ORIGIN_TRACKING_REFERENCE_TEMPLATE.format(branch=request.branch)
 
 
 def base_tip(request: OpenRequest) -> str | None:

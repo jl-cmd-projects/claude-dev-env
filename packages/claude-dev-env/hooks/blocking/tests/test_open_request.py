@@ -22,12 +22,14 @@ from blocking.merge_review_gate_parts.open_request import (
     ShellOpenCall,
     adds_content_to_base,
     base_tip,
+    WithheldCredit,
+    branches_holding_without,
     first_parent_ancestors,
-    is_held_by_another_line,
     is_outside_base,
     is_stored_locally,
     open_calls_from,
     open_request_for,
+    own_tracking_reference,
 )
 
 
@@ -294,7 +296,7 @@ def test_should_find_a_commit_another_branch_holds_without_the_head(tmp_path: Pa
     reviewed = _commit(checkout, "reviewed")
     _git(checkout, "checkout", "--quiet", "-b", "second")
     head = _commit(checkout, "second work")
-    assert is_held_by_another_line(reviewed, head, str(checkout)) is True
+    assert branches_holding_without(reviewed, head, str(checkout)) == ("refs/heads/feature",)
 
 
 def test_should_not_count_the_branch_that_holds_both_the_commit_and_the_head(
@@ -303,15 +305,95 @@ def test_should_not_count_the_branch_that_holds_both_the_commit_and_the_head(
     checkout = _checkout_on(tmp_path, "feature")
     reviewed = _commit(checkout, "reviewed")
     head = _commit(checkout, "fix")
-    assert is_held_by_another_line(reviewed, head, str(checkout)) is False
+    assert branches_holding_without(reviewed, head, str(checkout)) == ()
 
 
-def test_should_count_a_commit_as_held_by_another_line_when_the_branch_read_fails(
+def test_should_list_no_branches_when_the_branch_read_fails(
     tmp_path: Path,
 ) -> None:
     not_a_checkout = tmp_path / "plain folder"
     not_a_checkout.mkdir()
-    assert is_held_by_another_line("1" * 40, "2" * 40, str(not_a_checkout)) is True
+    assert branches_holding_without("1" * 40, "2" * 40, str(not_a_checkout)) is None
+
+
+def test_should_list_the_origin_branch_left_at_the_reviewed_commit(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    reviewed = _commit(checkout, "reviewed")
+    _git(checkout, "update-ref", "refs/remotes/origin/feature", reviewed)
+    head = _commit(checkout, "fix")
+    assert branches_holding_without(reviewed, head, str(checkout)) == ("refs/remotes/origin/feature",)
+
+
+def _request_in(checkout: Path, *, owner: str = "acme", head_owner: str | None = None) -> OpenRequest:
+    return OpenRequest(
+        owner=owner, repo="tools", head=None, folder=str(checkout), branch="feature", head_owner=head_owner
+    )
+
+
+def test_should_name_the_origin_tracking_branch_when_origin_is_the_head_repository(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _git(checkout, "remote", "add", "origin", "https://github.com/Acme/tools.git")
+    assert own_tracking_reference(_request_in(checkout)) == "refs/remotes/origin/feature"
+    assert own_tracking_reference(_request_in(checkout, head_owner="acme")) == "refs/remotes/origin/feature"
+
+
+def test_should_name_no_tracking_branch_for_a_fork_head_or_another_origin(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    assert own_tracking_reference(_request_in(checkout)) is None
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    assert own_tracking_reference(_request_in(checkout, head_owner="someone")) is None
+    assert own_tracking_reference(_request_in(checkout, owner="other")) is None
+    no_branch_request = OpenRequest(owner="acme", repo="tools", head=None, folder=str(checkout))
+    assert own_tracking_reference(no_branch_request) is None
+
+
+@pytest.mark.parametrize(
+    ("command", "cause"),
+    [
+        ("gh pr create --repo acme/tools -H feature --base main", None),
+        ("cd . && gh pr create --repo acme/tools -H feature", WithheldCredit.NOT_LONE),
+        ("gh pr create --repo acme/tools -H feature --title 'fix(x)'", WithheldCredit.NOT_LONE),
+        ("gh pr create -R ghe.example.com/acme/tools -H feature --base main", WithheldCredit.UNREAD_FLAG),
+        ("gh pr create -H feature --base main", WithheldCredit.OTHER_REMOTE),
+    ],
+)
+def test_should_name_why_the_base_of_a_shell_create_is_unknown(
+    tmp_path: Path, command: str, cause: WithheldCredit | None
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    _git(checkout, "remote", "add", "upstream", "https://github.com/upstream/tools.git")
+    all_requests = [open_request_for(each_call) for each_call in open_calls_from(_shell_payload(command, checkout))]
+    assert {each_request.unknown_base_cause for each_request in all_requests} == {cause}
+
+
+def test_should_name_the_host_and_session_repository_causes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    payload = _shell_payload("gh pr create --repo acme/tools -H feature --base main", checkout)
+    monkeypatch.setenv("GH_REPO", "evil/tools")
+    assert {open_request_for(each).unknown_base_cause for each in open_calls_from(payload)} == {
+        WithheldCredit.SESSION_REPOSITORY
+    }
+    monkeypatch.setenv("GH_HOST", "ghe.example.com")
+    assert {open_request_for(each).unknown_base_cause for each in open_calls_from(payload)} == {
+        WithheldCredit.OTHER_HOST
+    }
+
+
+def test_should_name_a_create_tool_call_with_no_base(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _listing_answered_by(monkeypatch, lambda _all_words, _environment: None)
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "acme", "repo": "tools", "head": "someone:feature"},
+        "cwd": str(tmp_path),
+    }
+    request = _only_request(payload)
+    assert request.unknown_base_cause is WithheldCredit.TOOL_NO_BASE
+    assert request.head_owner == "someone"
 
 
 def test_should_read_the_first_parents_git_stores_and_not_a_replace_graft(tmp_path: Path) -> None:
@@ -321,7 +403,7 @@ def test_should_read_the_first_parents_git_stores_and_not_a_replace_graft(tmp_pa
     head = _commit(checkout, "unrelated work")
     _git(checkout, "replace", "--graft", head, reviewed)
     assert reviewed not in first_parent_ancestors(head, str(checkout))
-    assert is_held_by_another_line(reviewed, head, str(checkout)) is True
+    assert branches_holding_without(reviewed, head, str(checkout)) == ("refs/heads/feature",)
 
 
 def test_should_read_the_first_parents_git_stores_and_not_a_grafts_file(tmp_path: Path) -> None:
@@ -332,7 +414,7 @@ def test_should_read_the_first_parents_git_stores_and_not_a_grafts_file(tmp_path
     (checkout / ".git" / "info").mkdir(exist_ok=True)
     (checkout / ".git" / "info" / "grafts").write_text(f"{head} {reviewed}\n", encoding="utf-8")
     assert reviewed not in first_parent_ancestors(head, str(checkout))
-    assert is_held_by_another_line(reviewed, head, str(checkout)) is True
+    assert branches_holding_without(reviewed, head, str(checkout)) == ("refs/heads/feature",)
 
 
 def test_should_read_the_base_a_shell_open_names(tmp_path: Path) -> None:
