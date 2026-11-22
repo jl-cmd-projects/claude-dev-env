@@ -255,6 +255,22 @@ def test_should_read_a_shell_open_branch_from_the_checkout(tmp_path: Path) -> No
     assert _only_request(payload) == OpenRequest(owner="acme", repo="tools", head=head)
 
 
+def test_should_read_the_checkout_branch_for_a_shell_open_that_names_no_head(
+    tmp_path: Path,
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    payload = _shell_payload("gh pr create --repo acme/tools", checkout)
+    assert _only_request(payload).branch == "feature"
+
+
+def test_should_read_the_branch_a_fork_head_names_without_its_owner(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "main")
+    _commit(checkout, "first")
+    payload = _shell_payload("gh pr create --repo acme/tools --head user:feature", checkout)
+    assert _only_request(payload).branch == "feature"
+
+
 def test_should_list_the_first_parent_commits_before_a_head_newest_first(tmp_path: Path) -> None:
     checkout = _checkout_on(tmp_path, "feature")
     first = _commit(checkout, "first")

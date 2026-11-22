@@ -35,6 +35,7 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     receipts = tmp_path / "receipts"
     receipts.mkdir()
     monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RECEIPT_DIR", str(receipts))
+    monkeypatch.chdir(tmp_path)
     return receipts
 
 
@@ -189,6 +190,14 @@ def test_should_leave_ruling_keys_out_of_an_open_pass_that_rules_nothing_out(
     assert receipt == {"head": HEAD, "findings": 2}
 
 
+def test_record_open_review_should_name_the_checkout_branch_in_the_receipt(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    path = merge_review_receipt.record_open_review("acme/tools", head, 2)
+    assert json.loads(path.read_text(encoding="utf-8"))["branch"] == "feature"
+
+
 def test_record_open_review_should_refuse_a_ruling_the_head_lacks(receipt_folder: Path) -> None:
     with pytest.raises(ValueError, match="no file and line at nowhere.py:3"):
         merge_review_receipt.record_open_review("acme/tools", HEAD, 1, ["nowhere.py:3"])
@@ -214,7 +223,9 @@ def test_should_refuse_an_open_pass_it_cannot_record(
 def _checkout_with_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
     checkout = tmp_path / "checkout"
     checkout.mkdir()
-    subprocess.run(["git", "init", "--quiet", str(checkout)], check=True)
+    subprocess.run(
+        ["git", "init", "--quiet", "--initial-branch", "feature", str(checkout)], check=True
+    )
     (checkout / "a.py").write_text("one\ntwo\nthree\n", encoding="utf-8")
     (checkout / "docs").mkdir()
     (checkout / "docs" / "notes.txt").write_text("note\n", encoding="utf-8")
@@ -270,6 +281,7 @@ def test_should_print_clean_for_an_open_pass_ruled_out_at_file_and_line(
         "findings": 2,
         "ruled_out": 2,
         "ruling_lines": ["a.py:1", "a.py:3"],
+        "branch": "feature",
     }
 
 
@@ -301,6 +313,7 @@ def test_should_report_reviewed_and_keep_the_rulings_when_some_open_findings_sta
         "findings": 3,
         "ruled_out": 2,
         "ruling_lines": ["a.py:1", "a.py:2"],
+        "branch": "feature",
     }
 
 

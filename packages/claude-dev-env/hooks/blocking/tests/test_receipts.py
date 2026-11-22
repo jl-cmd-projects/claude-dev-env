@@ -72,21 +72,33 @@ def test_should_reject_an_open_review_whose_rulings_cover_fewer_findings() -> No
 def test_should_find_an_open_review_on_an_earlier_commit_whatever_it_found(
     finding_count: int,
 ) -> None:
-    _write_open_receipt(finding_count)
-    assert open_reviewed_heads_among("Tools", ["1" * 40, HEAD.upper()]) == [HEAD]
+    _write_open_receipt(finding_count, {"branch": "feature"})
+    assert open_reviewed_heads_among("Tools", ["1" * 40, HEAD.upper()], "feature") == [HEAD]
 
 
 def test_should_find_no_open_review_among_commits_it_did_not_review() -> None:
+    _write_open_receipt(2, {"branch": "feature"})
+    assert open_reviewed_heads_among("tools", ["1" * 40], "feature") == []
+    assert open_reviewed_heads_among("other", [HEAD], "feature") == []
+
+
+def test_should_find_no_earlier_open_review_recorded_on_another_branch() -> None:
+    _write_open_receipt(2, {"branch": "feature"})
+    assert open_reviewed_heads_among("tools", [HEAD], "second") == []
+
+
+def test_should_find_no_earlier_open_review_whose_receipt_names_no_branch() -> None:
     _write_open_receipt(2)
-    assert open_reviewed_heads_among("tools", ["1" * 40]) == []
-    assert open_reviewed_heads_among("other", [HEAD]) == []
+    assert open_reviewed_heads_among("tools", [HEAD], "feature") == []
 
 
 def test_should_skip_an_open_review_whose_finding_count_is_not_a_count() -> None:
     path = open_receipt_path("acme", "tools", HEAD)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"head": HEAD, "findings": "two"}), encoding="utf-8")
-    assert open_reviewed_heads_among("tools", [HEAD]) == []
+    path.write_text(
+        json.dumps({"head": HEAD, "findings": "two", "branch": "feature"}), encoding="utf-8"
+    )
+    assert open_reviewed_heads_among("tools", [HEAD], "feature") == []
 
 
 def test_should_find_a_zero_finding_open_review_by_short_head() -> None:

@@ -28,6 +28,7 @@ from hooks_constants.merge_review_gate_constants import (
     OPEN_RECEIPT_HEAD_PATTERN,
     RECEIPT_DIRECTORY_ENVIRONMENT_VARIABLE,
     RECEIPT_FILE_NAME_TEMPLATE,
+    RECEIPT_BRANCH_KEY,
     RECEIPT_FILED_KEY,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
@@ -239,22 +240,27 @@ def has_clean_open_review(repo: str, head: str) -> bool:
     return _has_open_review(repo, head, is_clean_open_pass)
 
 
-def open_reviewed_heads_among(repo: str, all_earlier_heads: Sequence[str]) -> list[str]:
-    """Return which of some earlier commits a pass recorded before the pull request opened saw.
+def open_reviewed_heads_among(
+    repo: str, all_earlier_heads: Sequence[str], branch: str
+) -> list[str]:
+    """Return which of some earlier commits a pass recorded on a branch before its open saw.
 
     One review pass comes before the open, and its findings are fixed in new
     commits on top of the head it saw. A recorded pass on an earlier commit
-    counts whatever it found::
+    counts whatever it found, when its receipt names the branch being opened::
 
-        open receipt {head: abc1234..., findings: 2}, earlier [def5678..., abc1234...] -> [abc1234...]
-        open receipt {head: abc1234..., findings: 0}, earlier [def5678...]             -> []
-        open receipt {head: abc1234..., findings: "two"}, earlier [abc1234...]          -> []
+        {head: abc1234..., findings: 2, branch: feature}, feature, earlier [def5678..., abc1234...] -> [abc1234...]
+        {head: abc1234..., findings: 2, branch: feature}, second, earlier [abc1234...]             -> []
+        {head: abc1234..., findings: 2}, feature, earlier [abc1234...]                             -> []
+        {head: abc1234..., findings: 0, branch: feature}, feature, earlier [def5678...]            -> []
 
-    The owner is left out of the match, as in ``has_clean_open_review``.
+    A receipt with no branch counts only at its own head, through
+    ``has_clean_open_review``. The owner is left out of the match, as there.
 
     Args:
         repo: Repository name.
         all_earlier_heads: Full commit names before the head the open names.
+        branch: The branch the pull request opens from.
 
     Returns:
         The recorded heads, lowercased, in no set order.
@@ -263,15 +269,17 @@ def open_reviewed_heads_among(repo: str, all_earlier_heads: Sequence[str]) -> li
     folder = receipt_directory() / OPEN_RECEIPT_DIRECTORY_NAME
     pattern = OPEN_RECEIPT_GLOB_TEMPLATE.format(repo=repo.casefold())
     all_found_heads = (
-        _recorded_pass_head(read_receipt(each_path)) for each_path in folder.glob(pattern)
+        _recorded_pass_head(read_receipt(each_path), branch) for each_path in folder.glob(pattern)
     )
     return sorted(
         {each_head for each_head in all_found_heads if each_head in all_wanted_heads}
     )
 
 
-def _recorded_pass_head(all_receipt_fields: dict[str, object] | None) -> str | None:
+def _recorded_pass_head(all_receipt_fields: dict[str, object] | None, branch: str) -> str | None:
     if all_receipt_fields is None or not _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY)):
+        return None
+    if all_receipt_fields.get(RECEIPT_BRANCH_KEY) != branch:
         return None
     recorded_head = all_receipt_fields.get(RECEIPT_HEAD_KEY)
     if not isinstance(recorded_head, str) or not OPEN_RECEIPT_HEAD_PATTERN.fullmatch(recorded_head):

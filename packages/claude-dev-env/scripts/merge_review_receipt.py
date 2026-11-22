@@ -80,6 +80,7 @@ from blocking.merge_review_gate_parts.receipts import (
     same_commit,
 )
 from hooks_constants.merge_review_gate_constants import (
+    ALL_CHECKOUT_BRANCH_ARGUMENTS,
     FILED_ISSUE_API_PATH_TEMPLATE,
     FILED_ISSUE_API_SUBCOMMAND,
     FILED_ISSUE_CLIENT_NAME,
@@ -92,6 +93,7 @@ from hooks_constants.merge_review_gate_constants import (
     FULL_REVIEW_PASS_COUNT,
     OPEN_RECEIPT_HEAD_PATTERN,
     OPEN_TARGET_WORD,
+    RECEIPT_BRANCH_KEY,
     RECEIPT_FILED_KEY,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
@@ -192,6 +194,10 @@ def record_open_review(
 ) -> Path:
     """Write the receipt for one review pass run before the pull request opens.
 
+    The receipt names the branch checked out in the current folder, so the
+    gate credits fix commits on top of ``head`` only to that branch. A
+    detached checkout records no branch, and its pass counts only at ``head``.
+
     Args:
         slug: Repository as ``owner/name``.
         head: The commit the pass reviewed.
@@ -208,7 +214,25 @@ def record_open_review(
     problem = _ruling_problem(head, all_rulings)
     if problem:
         raise ValueError(problem)
-    return _write_open_receipt(slug, head, _open_receipt(head, finding_count, all_rulings))
+    all_receipt_fields = _open_receipt(head, finding_count, all_rulings)
+    branch = _checkout_branch()
+    if branch:
+        all_receipt_fields[RECEIPT_BRANCH_KEY] = branch
+    return _write_open_receipt(slug, head, all_receipt_fields)
+
+
+def _checkout_branch() -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", *ALL_CHECKOUT_BRANCH_ARGUMENTS],
+            capture_output=True,
+            text=True,
+            timeout=RULING_LOOKUP_TIMEOUT_SECONDS,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return completed.stdout.strip() if completed.returncode == 0 else None
 
 
 def _write_open_receipt(slug: str, head: str, all_receipt_fields: dict[str, object]) -> Path:

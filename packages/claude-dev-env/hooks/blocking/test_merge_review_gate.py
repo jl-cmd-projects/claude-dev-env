@@ -362,9 +362,12 @@ def _git(folder: Path, *all_arguments: str) -> str:
 
 
 @pytest.fixture
-def branch_checkout(tmp_path: Path, github_repository: Path) -> tuple[Path, str]:
+def branch_checkout(
+    tmp_path: Path, github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> tuple[Path, str]:
     folder = tmp_path / "checkout"
     folder.mkdir()
+    monkeypatch.chdir(folder)
     _git(folder, "init", "--quiet", "--initial-branch", "main")
     _git(folder, "remote", "add", "origin", "https://github.com/acme/tools.git")
     _git(folder, "checkout", "--quiet", "-b", "feature")
@@ -557,6 +560,30 @@ def test_should_deny_a_pull_request_open_whose_only_review_sits_on_the_branch_it
     _git(folder, "checkout", "--quiet", "-b", "stacked")
     _commit_and_push(folder, github_repository, "stacked work")
     assert "no clean review" in _deny_reason(_create_tool(folder))
+
+
+def test_should_deny_a_stacked_open_after_the_branch_it_stacks_on_is_merged_and_deleted(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, base_branch_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", base_branch_head, 2)
+    _git(folder, "checkout", "--quiet", "-b", "second")
+    _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit",
+        "--quiet",
+        "--allow-empty",
+        "-m",
+        "second work",
+    )
+    _git(folder, "branch", "--quiet", "-D", "feature")
+    _git(folder, "push", "--quiet", str(github_repository), "--delete", "feature")
+    assert "no clean review" in _deny_reason(_create_tool(folder, "second"))
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
 
 
 def test_should_name_one_review_pass_then_fixes_when_an_open_is_denied(

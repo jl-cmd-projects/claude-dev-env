@@ -148,6 +148,7 @@ ALL_OTHER_LINE_REFERENCE_ARGUMENTS = ("for-each-ref", "--count=1", "--format=%(r
 CONTAINS_OPTION_TEMPLATE = "--contains={commit}"
 NO_CONTAINS_OPTION_TEMPLATE = "--no-contains={commit}"
 ALL_BRANCH_REFERENCE_PREFIXES = ("refs/heads", "refs/remotes")
+ALL_CHECKOUT_BRANCH_ARGUMENTS = ("symbolic-ref", "--quiet", "--short", "HEAD")
 
 GH_PR_MERGE_PATTERN = re.compile(r"(?:^|[\s;&|(])gh(?:\.exe)?\s+pr\s+merge\b(?P<rest>[^;&|]*)")
 GH_API_MERGE_PATTERN = re.compile(
@@ -228,6 +229,7 @@ OPEN_RECEIPT_GLOB_TEMPLATE = "*__{repo}__*.json"
 OPEN_TARGET_WORD = "open"
 REPOSITORY_SEPARATOR = ","
 RECEIPT_HEAD_KEY = "head"
+RECEIPT_BRANCH_KEY = "branch"
 RECEIPT_FINDINGS_KEY = "findings"
 RECEIPT_RULED_OUT_KEY = "ruled_out"
 RECEIPT_RULINGS_KEY = "rulings"

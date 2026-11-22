@@ -166,8 +166,9 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     """Return why a pull request open must wait for a review pass, or None to allow it.
 
     The open goes on when a clean pass covers its head, or when any recorded
-    pass covers a commit before it along the head's first parents that no
-    other branch holds without the head.
+    pass on the branch being opened covers a commit before it along the
+    head's first parents that no other branch holds without the head. A pass
+    whose receipt names another branch or no branch counts only at its head.
 
     Args:
         request: The open the tool call asks for.
@@ -183,12 +184,11 @@ def open_deny_reason(request: OpenRequest) -> str | None:
         return UNKNOWN_OPEN_TARGET_REASON
     if has_clean_open_review(request.repo, request.head):
         return None
-    all_reviewed_heads = open_reviewed_heads_among(
-        request.repo, first_parent_ancestors(request.head, request.folder)
-    )
-    if any(
+    if request.branch and any(
         not is_held_by_another_line(each_reviewed_head, request.head, request.folder)
-        for each_reviewed_head in all_reviewed_heads
+        for each_reviewed_head in open_reviewed_heads_among(
+            request.repo, first_parent_ancestors(request.head, request.folder), request.branch
+        )
     ):
         return None
     return NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE.format(

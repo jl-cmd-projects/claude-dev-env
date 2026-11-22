@@ -22,6 +22,7 @@ from blocking.gate_run_reads import (
 )
 from hooks_constants.merge_review_gate_constants import (
     ALL_BRANCH_REFERENCE_PREFIXES,
+    ALL_CHECKOUT_BRANCH_ARGUMENTS,
     ALL_STORED_HISTORY_GIT_SETTINGS,
     ALL_ANCESTRY_WALK_ARGUMENTS,
     ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
@@ -70,12 +71,15 @@ class OpenRequest:
         repo: Repository name, or empty when it could not be read.
         head: The commit the pull request would open with, or None.
         folder: The folder the open runs in, where git reads the head's history.
+        branch: The branch name the open names, or the folder's checkout
+            branch for ``HEAD``, or None when it could not be read.
     """
 
     owner: str
     repo: str
     head: str | None
     folder: str | None = field(default=None, compare=False)
+    branch: str | None = field(default=None, compare=False)
 
     @property
     def slug(self) -> str:
@@ -198,7 +202,13 @@ def _tool_open_request(call: ToolOpenCall) -> OpenRequest:
         if call.branch
         else None
     )
-    return OpenRequest(owner=call.owner, repo=call.repo, head=head, folder=call.folder)
+    return OpenRequest(
+        owner=call.owner,
+        repo=call.repo,
+        head=head,
+        folder=call.folder,
+        branch=_branch_name(call.branch, call.folder) if call.branch else None,
+    )
 
 
 def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
@@ -207,8 +217,19 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         return OpenRequest(owner=owner, repo=repo, head=None)
     owner, repo = call.repository or _origin_repository(call.folder)
     return OpenRequest(
-        owner=owner, repo=repo, head=_branch_commit(call.branch, call.folder), folder=call.folder
+        owner=owner,
+        repo=repo,
+        head=_branch_commit(call.branch, call.folder),
+        folder=call.folder,
+        branch=_branch_name(call.branch, call.folder),
     )
+
+
+def _branch_name(branch: str, folder: str | None) -> str | None:
+    branch_name = branch.split(":", 1)[-1]
+    if branch_name != CURRENT_HEAD_REFERENCE:
+        return branch_name
+    return _run_git(list(ALL_CHECKOUT_BRANCH_ARGUMENTS), folder)
 
 
 def first_parent_ancestors(head: str, folder: str | None) -> tuple[str, ...]:
