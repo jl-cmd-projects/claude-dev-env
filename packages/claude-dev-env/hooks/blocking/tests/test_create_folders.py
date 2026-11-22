@@ -295,3 +295,19 @@ def test_should_keep_two_creates_apart_when_only_one_names_its_repository_with_a
     assert len(all_command_words) == 2
     assert all_command_words[1][0] == "GH_REPO=o/r"
 
+
+@pytest.mark.parametrize(
+    ("command", "is_plain_words"),
+    [
+        ("gh pr create --fill --he{ad=a,ad=b}", False),
+        ("bash -c 'gh pr create --fill --b?se=x'", False),
+        ("gh pr create --fill ~", False),
+        ("gh pr create --fill --title '{a,b} [c]?'", True),
+        ("ls *.txt && gh pr create --fill", True),
+    ],
+)
+def test_should_mark_a_create_whose_words_bash_expands(command: str, is_plain_words: bool) -> None:
+    all_creates = all_placed_creates(command, START)
+    assert all_creates
+    assert {each_create.is_plain_words for each_create in all_creates} == {is_plain_words}
+

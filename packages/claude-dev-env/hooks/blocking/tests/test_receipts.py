@@ -22,6 +22,7 @@ from blocking.merge_review_gate_parts.receipts import (
     open_receipt_path,
     read_receipt,
     receipt_path,
+    recorded_open_finding_count,
     recorded_pass_number,
     same_commit,
 )
@@ -273,3 +274,11 @@ def test_should_count_a_pass_as_filed_only_after_three_full_passes(
     assert (
         is_filed_receipt({"head": HEAD, **receipt_fields}, "acme", "tools", 12) is is_expected_filed
     )
+
+
+def test_should_read_the_finding_count_of_a_pass_recorded_at_a_head() -> None:
+    assert recorded_open_finding_count("tools", HEAD) is None
+    _write_open_receipt(3)
+    assert recorded_open_finding_count("Tools", HEAD[:7]) == 3
+    assert recorded_open_finding_count("tools", "9" * 40) is None
+    assert recorded_open_finding_count("other", HEAD) is None

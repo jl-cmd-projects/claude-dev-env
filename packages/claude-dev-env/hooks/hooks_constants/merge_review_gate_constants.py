@@ -126,8 +126,18 @@ OPEN_REPOSITORY_OPTION_PATTERN = re.compile(
 )
 REPOSITORY_OPTION_MENTION_PATTERN = re.compile(r"(?<!\S)(?:-[A-Za-z]*R|--repo(?![\w-]))")
 ALL_LONE_CREATE_SUBCOMMANDS = (("pr", "create"), ("pr", "new"))
-LONE_CREATE_SUBCOMMAND_SLICE = slice(1, 3)
-ALL_LONE_CREATE_REFUSED_CHARACTERS = frozenset("();<>|&#$`\n\r")
+LONE_CREATE_SUBCOMMAND_WIDTH = 2
+ALL_ROOT_REPOSITORY_OPTIONS = frozenset({"-R", "--repo"})
+ALL_ROOT_REPOSITORY_JOINED_PREFIXES = ("--repo=", "-R")
+ALL_SHELL_EXPANSION_CHARACTERS = frozenset("{}*?[")
+TILDE_CHARACTER = "~"
+EXTENDED_GLOB_OPENER_PATTERN = re.compile(r"[@+!]\(")
+EXTENDED_GLOB_WORD_PATTERN = re.compile(r"[@+!](?:\(|$)")
+ALL_SHELL_WORD_START_CHARACTERS = frozenset(";&|()<>")
+ANSI_C_QUOTE_PREFIX = "$"
+ALL_LONE_CREATE_REFUSED_CHARACTERS = (
+    frozenset("();<>|&#$`\n\r") | ALL_SHELL_EXPANSION_CHARACTERS | {TILDE_CHARACTER}
+)
 ALL_MERGE_BASE_READ_ARGUMENTS = ("config", "--default", "", "--get")
 MERGE_BASE_SETTING_TEMPLATE = "branch.{branch}.gh-merge-base"
 ALL_SETTINGS_READ_ARGUMENTS = ("config", "--list", "--null")
@@ -177,12 +187,26 @@ ALL_BRANCH_REFERENCE_PREFIXES = ("refs/heads", "refs/remotes")
 ALL_CHECKOUT_BRANCH_ARGUMENTS = ("symbolic-ref", "--quiet", "--short", "HEAD")
 ALL_HOLDING_REFERENCE_ARGUMENTS = ("for-each-ref", "--format=%(refname)")
 LOCAL_BRANCH_REFERENCE_TEMPLATE = "refs/heads/{branch}"
+CURRENT_BRANCH_PLACEHOLDER = "<branch>"
 REMOTE_TRACKING_REFERENCE_PREFIX = "refs/remotes/"
 ORIGIN_TRACKING_REFERENCE_TEMPLATE = REMOTE_TRACKING_REFERENCE_PREFIX + ORIGIN_REMOTE_NAME + "/{branch}"
 HEAD_OWNER_SEPARATOR = ":"
 ALL_OUTSIDE_BASE_ARGUMENTS = ("rev-list", "--max-count=1")
 EXCLUDE_FROM_WALK_OPTION = "--not"
-ALL_MERGE_TREE_ARGUMENTS = ("merge-tree", "--write-tree")
+ALL_MERGE_TREE_ARGUMENTS = ("merge-tree", "--stdin", "--write-tree")
+MERGE_TREE_INPUT_TEMPLATE = "{base_commit} {commit}\n"
+MERGE_TREE_FIELD_SEPARATOR = "\0"
+MERGE_TREE_CONFLICTED_STATUS = "0"
+MERGE_TREE_CLEAN_STATUS = "1"
+ORIGIN_FETCH_DEFAULT_REFSPEC = "+refs/heads/*:refs/remotes/origin/*"
+FETCH_SETTING_KEY = "fetch"
+REFSPEC_SIDE_SEPARATOR = ":"
+REFSPEC_GLOB_CHARACTER = "*"
+ORIGIN_TRACKING_NAMESPACE = "refs/remotes/origin/"
+FETCH_SETTINGS_UNREAD_TEXT = "the fetch settings, which git could not list"
+NO_ORIGIN_FETCH_TEXT = "no `remote.origin.fetch` setting"
+FETCH_REFSPEC_TEMPLATE = "`{refspec}`"
+FETCH_REFSPEC_JOIN = ", "
 ALL_VERIFY_OBJECT_ARGUMENTS = ("rev-parse", "--verify", "--quiet")
 TREE_OF_COMMIT_TEMPLATE = "{commit}^{{tree}}"
 COMMIT_OBJECT_TEMPLATE = "{commit}^{{commit}}"
@@ -324,6 +348,20 @@ NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE = (
     "each finding, comma separated>`, each path:line a line this head holds. A merge pinned "
     "to {head} accepts an open pass only at zero findings."
 )
+FINDINGS_AT_HEAD_REASON_TEMPLATE = (
+    "{slug} has no clean review for head {head}, which this pull request would open with. "
+    "A review pass on {head}, this head itself, is recorded with {finding_count} findings, so "
+    "the fixes come next. Fix each valid finding in a new commit on top of {head}, push the "
+    "branch with `git push origin HEAD:refs/heads/{branch}`, then open the pull request again: "
+    "the fix commits need no second pass. When the fix commits are already made, push them: "
+    "the create pull request tool reads the head from GitHub."
+)
+EXPANDED_WORDS_REASON = (
+    "This pull request create holds a brace, a glob character (* ? [), an extended glob such "
+    "as @(x), or a word that starts with ~ outside quotes, and bash expands those before gh runs, so the gate cannot tell "
+    "which head, base or repository gh reads. Write each flag as a plain word, such as "
+    "`--base main` or `--head feature`, quote any title or body text, then open again."
+)
 WITHHELD_CREDIT_REASON_PREFIX = (
     "{slug} has no clean review for head {head}, which this pull request would open with. "
     "A review pass on {reviewed}, a commit before it on this branch, is recorded, and it gives "
@@ -343,9 +381,10 @@ SESSION_REPOSITORY_CAUSE = (
 )
 NOT_LONE_CAUSE = (
     "the create is not the whole command. Run `gh pr create` as its own command, with no `cd`, "
-    "variable prefix or other command beside it. A title or body that holds any of ( ) ; < > | "
-    "& # $, a backtick or a line break counts too, so keep those out of `--title`, put the body "
-    "in a file passed with `--body-file`, or open with the create pull request tool and set its "
+    "variable prefix or other command beside it. Put a `--repo` before `pr` or after `create`, "
+    "never between them. A title or body that holds any of ( ) ; < > | & # $ {{ }} * ? [ ~, a "
+    "backtick or a line break counts too, so keep those out of `--title`, put the body in a "
+    "file passed with `--body-file`, or open with the create pull request tool and set its "
     "`base`."
 )
 NO_BASE_OR_BRANCH_CAUSE = (
@@ -374,6 +413,21 @@ HELD_BY_OTHER_REFERENCE_CAUSE = (
     "this branch. An earlier pass gives credit only while no other branch holds the reviewed "
     "commit without the head. Delete {reference} or move it to this head when it is a copy of "
     "this branch."
+)
+MAPPED_TRACKING_REFERENCE_CAUSE = (
+    "{reference} holds {reviewed} without this head, and this clone fetches with {refspec}, "
+    "not with the clone default `" + ORIGIN_FETCH_DEFAULT_REFSPEC + "` alone, so another branch "
+    "may be written onto that name. Set `git config --replace-all remote.origin.fetch '"
+    + ORIGIN_FETCH_DEFAULT_REFSPEC
+    + "'`, drop any other remote's refspec that writes under `"
+    + ORIGIN_TRACKING_NAMESPACE
+    + "`, fetch, then open again."
+)
+LOCAL_BRANCH_BEHIND_CAUSE = (
+    "your local branch `{branch}` is behind this head: it still sits on {reviewed} and lacks "
+    "the fix commits, so the gate cannot tell it from another line. Fast-forward it with "
+    "`git merge --ff-only {head}` while `{branch}` is checked out, or `git branch -f {branch} "
+    "{head}` when it is not, then open again."
 )
 INSIDE_BASE_CAUSE = (
     "the base on GitHub already holds {reviewed}, so the pass covered base work. Run one review "

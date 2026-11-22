@@ -307,6 +307,41 @@ def has_zero_finding_open_review(repo: str, head: str) -> bool:
     return _has_open_review(repo, head, _reports_no_findings)
 
 
+def recorded_open_finding_count(repo: str, head: str) -> int | None:
+    """Return how many findings a pass recorded before the pull request opened counted at a head.
+
+    ::
+
+        open receipt {head: abc1234..., findings: 2}, head abc1234 -> 2
+        no open receipt at that head, or a head that is no commit  -> None
+
+    The owner and the branch are left out of the match, as in ``has_clean_open_review``.
+
+    Args:
+        repo: Repository name.
+        head: The commit the open names.
+
+    Returns:
+        The finding count of the first matching receipt, or None.
+    """
+    if not OPEN_HEAD_PATTERN.fullmatch(head):
+        return None
+    folder = receipt_directory() / OPEN_RECEIPT_DIRECTORY_NAME
+    pattern = OPEN_RECEIPT_GLOB_TEMPLATE.format(repo=repo.casefold())
+    for each_path in sorted(folder.glob(pattern)):
+        if not _is_open_receipt_for(each_path, head, _has_finding_count):
+            continue
+        all_receipt_fields = read_receipt(each_path) or {}
+        finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
+        if _is_count(finding_count):
+            return finding_count
+    return None
+
+
+def _has_finding_count(all_receipt_fields: dict[str, object]) -> bool:
+    return _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY))
+
+
 def _has_open_review(
     repo: str, head: str, is_acceptable_pass: Callable[[dict[str, object]], bool]
 ) -> bool:

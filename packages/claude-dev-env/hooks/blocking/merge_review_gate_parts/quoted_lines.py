@@ -14,6 +14,9 @@ substitution. Inside a subshell or a substitution outside quotes it becomes
 in a double-quoted word, each quote and backslash gets a backslash. So a POSIX
 ``shlex`` split of each line gives the words bash gives. Comments and heredoc
 bodies are dropped.
+
+``holds_unquoted_expansion`` reads the same quotes to tell whether bash
+would expand a brace, a glob or a tilde in a text before the program runs.
 """
 
 from __future__ import annotations
@@ -28,7 +31,12 @@ if hooks_directory not in sys.path:
 
 from hooks_constants.merge_review_gate_constants import (
     ALL_ANSI_C_ESCAPES,
+    EXTENDED_GLOB_OPENER_PATTERN,
+    ALL_SHELL_EXPANSION_CHARACTERS,
+    ALL_SHELL_WORD_START_CHARACTERS,
     ANSI_C_QUOTE_OPENER,
+    ANSI_C_QUOTE_PREFIX,
+    TILDE_CHARACTER,
     CARRIAGE_RETURN,
     CARRIAGE_RETURN_LINE_BREAK,
     COMMENT_START_CHARACTER,
@@ -99,6 +107,87 @@ def quote_aware_lines(text: str) -> list[str] | None:
         _step(scan)
     _end_line(scan)
     return scan.all_lines if scan.all_frames == [_Frame()] else None
+
+
+@dataclass
+class _ExpansionScan:
+    text: str
+    index: int = 0
+    quote: str = ""
+    is_word_start: bool = True
+    is_after_dollar: bool = False
+
+
+def holds_unquoted_expansion(text: str) -> bool:
+    """Return whether bash would expand a brace, a glob or a tilde somewhere in shell text.
+
+    ::
+
+        gh pr create --ba{se=a,se=b}     -> True, two --base words reach gh
+        gh pr create --b?se=x            -> True, gh gets the name of a matching file
+        gh pr create --fill ~            -> True, gh gets $HOME
+        gh pr create --he@(ad=x)         -> True, an extended glob under bash -O extglob
+        gh pr create --title '[x] {y}?'  -> False, quoted
+        gh pr create --head \\{a,b\\}      -> False, escaped
+        gh pr create --base=~            -> False, the ~ starts no word
+
+    A quote that never closes also counts, since the reading is unsure.
+    Each level of nesting, such as the text of ``bash -c``, needs its own call.
+
+    Args:
+        text: One level of shell text.
+
+    Returns:
+        True when an unquoted ``{ } * ? [``, an ``@(``, ``+(`` or ``!(``, or a
+        word-leading ``~`` is found.
+    """
+    scan = _ExpansionScan(text)
+    while scan.index < len(text):
+        if _is_expansion_step(scan):
+            return True
+    return bool(scan.quote)
+
+
+def _is_expansion_step(scan: _ExpansionScan) -> bool:
+    if scan.quote:
+        _step_inside_expansion_quote(scan)
+        return False
+    return _is_unquoted_expansion_at(scan)
+
+
+def _step_inside_expansion_quote(scan: _ExpansionScan) -> None:
+    character = scan.text[scan.index]
+    if character == SHELL_ESCAPE_CHARACTER and scan.quote != SINGLE_QUOTE:
+        scan.index += ESCAPED_PAIR_LENGTH
+        return
+    if character == scan.quote[-1]:
+        scan.quote = ""
+    scan.index += 1
+    scan.is_word_start = False
+
+
+def _is_unquoted_expansion_at(scan: _ExpansionScan) -> bool:
+    character = scan.text[scan.index]
+    if character == SHELL_ESCAPE_CHARACTER:
+        scan.index += ESCAPED_PAIR_LENGTH
+        scan.is_word_start = scan.is_after_dollar = False
+        return False
+    if character in ALL_SHELL_EXPANSION_CHARACTERS or (character == TILDE_CHARACTER and scan.is_word_start):
+        return True
+    if _opens_extended_glob(scan):
+        return True
+    if character == SINGLE_QUOTE:
+        scan.quote = ANSI_C_QUOTE_OPENER if scan.is_after_dollar else SINGLE_QUOTE
+    elif character == DOUBLE_QUOTE:
+        scan.quote = DOUBLE_QUOTE
+    scan.is_word_start = character.isspace() or character in ALL_SHELL_WORD_START_CHARACTERS
+    scan.is_after_dollar = character == ANSI_C_QUOTE_PREFIX
+    scan.index += 1
+    return False
+
+
+def _opens_extended_glob(scan: _ExpansionScan) -> bool:
+    return EXTENDED_GLOB_OPENER_PATTERN.match(scan.text, scan.index) is not None
 
 
 def _step(scan: _Scan) -> None:

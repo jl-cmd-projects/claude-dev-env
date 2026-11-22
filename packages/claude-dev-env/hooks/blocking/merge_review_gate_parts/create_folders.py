@@ -36,7 +36,7 @@ if hooks_directory not in sys.path:
 
 from blocking.followup_pr_dedupe import create_arguments
 from blocking.merge_review_gate_parts.folder_state import FolderState, state_after_folder_change
-from blocking.merge_review_gate_parts.quoted_lines import quote_aware_lines
+from blocking.merge_review_gate_parts.quoted_lines import holds_unquoted_expansion, quote_aware_lines
 from blocking.merge_review_gate_parts.wrapped_creates import unplaced_creates
 from hooks_constants.merge_review_gate_constants import (
     ALL_BACKGROUND_OPERATORS,
@@ -47,6 +47,8 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_COMPOUND_OPEN_WORDS,
     ALL_FOLDER_CHANGE_WORDS,
     ALL_PIPE_OPERATORS,
+    ALL_SHELL_EXPANSION_CHARACTERS,
+    EXTENDED_GLOB_WORD_PATTERN,
     ALL_UNBALANCED_TOKENIZATION_MODES,
     BRACE_CLOSE_TOKEN,
     BRACE_OPEN_OPERATOR,
@@ -59,6 +61,7 @@ from hooks_constants.merge_review_gate_constants import (
     SUBSHELL_CLOSE_TOKEN,
     SUBSHELL_OPEN_OPERATOR,
     SUBSTITUTION_KEY_IGNORED_PATTERN,
+    TILDE_CHARACTER,
 )
 from hooks_constants.pytest_invocation import string_exec_inner_command, unquoted_token
 from hooks_constants.shell_command_evaluation_constants import (
@@ -89,12 +92,16 @@ class PlacedCreate:
         is_folder_followed: False when a folder change before it could not be followed.
         all_command_words: The words of the simple command that runs it, in the order bash
             passes them, or empty when the create was read without them.
+        is_plain_words: False when a word of the create holds a brace, a glob
+            character, an extended glob such as ``@(x)`` or a leading tilde and its shell text holds one outside
+            quotes, so bash may hand gh other words than these.
     """
 
     all_arguments: tuple[str, ...]
     folder: str | None
     is_folder_followed: bool
     all_command_words: tuple[str, ...] = field(default=(), compare=False)
+    is_plain_words: bool = True
 
 
 @dataclass
@@ -111,6 +118,7 @@ class _Scope:
     compound_depth: int = 0
     all_saved: list[FolderState] = field(default_factory=list)
     all_live_substitution_keys: frozenset[str] = frozenset()
+    is_expanding_text: bool = False
 
 
 def all_placed_creates(command: str, folder: str | None) -> list[PlacedCreate]:
@@ -157,7 +165,11 @@ def _walk_text(walk: _Walk, text: str, state: FolderState, depth: int) -> Folder
     all_token_lines = _posix_token_lines(text)
     if all_token_lines is None:
         return _walk_unbalanced_text(walk, text, state, depth)
-    scope = _Scope(state, all_live_substitution_keys=_substitution_keys(text))
+    scope = _Scope(
+        state,
+        all_live_substitution_keys=_substitution_keys(text),
+        is_expanding_text=holds_unquoted_expansion(text),
+    )
     return _walk_token_lines(walk, all_token_lines, scope, depth)
 
 
@@ -185,7 +197,12 @@ def _walk_unbalanced_text(
     for each_text in dict.fromkeys([text, quoted_line_breaks_joined(text)]):
         for each_is_posix in ALL_UNBALANCED_TOKENIZATION_MODES:
             all_token_lines = _line_tokens(each_text, each_is_posix)
-            scope = _Scope(state, each_is_posix, all_live_substitution_keys=_substitution_keys(each_text))
+            scope = _Scope(
+                state,
+                each_is_posix,
+                all_live_substitution_keys=_substitution_keys(each_text),
+                is_expanding_text=holds_unquoted_expansion(each_text),
+            )
             all_end_states.add(_walk_token_lines(walk, all_token_lines, scope, depth))
     return state if all_end_states == {state} else FolderState(None, False)
 
@@ -268,7 +285,12 @@ def _segment_step(
     for each_reading in all_readings:
         all_arguments = create_arguments(each_reading)
         if all_arguments is not None:
-            walk.all_creates.append(PlacedCreate(tuple(all_arguments), state.folder, state.is_followed, tuple(each_reading)))
+            is_plain_words = not (scope.is_expanding_text and _holds_expansion_word(all_arguments))
+            walk.all_creates.append(
+                PlacedCreate(
+                    tuple(all_arguments), state.folder, state.is_followed, tuple(each_reading), is_plain_words
+                )
+            )
             break
     for each_child_text in dict.fromkeys(
         each_text for each_reading in all_readings for each_text in _child_shell_texts(each_reading, scope)
@@ -279,6 +301,15 @@ def _segment_step(
     if (next_state != state and not is_modeled) or _has_unmodeled_folder_word(all_tokens):
         return FolderState(None, False)
     return next_state
+
+
+def _holds_expansion_word(all_words: list[str]) -> bool:
+    return any(
+        each_word.startswith(TILDE_CHARACTER)
+        or not ALL_SHELL_EXPANSION_CHARACTERS.isdisjoint(each_word)
+        or EXTENDED_GLOB_WORD_PATTERN.search(each_word) is not None
+        for each_word in all_words
+    )
 
 
 def _state_after_evaluation(

@@ -11,7 +11,8 @@ the pass saw or a fix commit on top of it::
 
     open, open receipt says 0 findings at abc123, branch head abc123 -> allow
     open, open receipt says 2 findings at abc123, fix commits on top -> allow, no second pass
-    open, open receipt says 2 findings at abc123, branch head abc123 -> deny, fix them first
+    open, open receipt says 2 findings at abc123, branch head abc123 -> deny, fix and push them first
+    open whose create words bash expands, such as --he{ad=a,ad=b}     -> deny, write plain flags
     open, the only open receipt is on a merged side branch           -> deny, review first
     open, the only open receipt is on the branch this one stacks on  -> deny, review first
     open, no open receipt for the branch head                        -> deny, review first
@@ -65,6 +66,7 @@ from blocking.merge_review_gate_parts.open_request import (
     base_tip,
     branches_holding_without,
     first_parent_ancestors,
+    foreign_origin_fetch_refspec,
     is_outside_base,
     is_stored_locally,
     open_calls_from,
@@ -75,6 +77,7 @@ from blocking.merge_review_gate_parts.receipts import (
     has_clean_open_review,
     has_zero_finding_open_review,
     open_reviewed_heads_among,
+    recorded_open_finding_count,
     is_clean_receipt,
     is_filed_receipt,
     read_receipt,
@@ -98,10 +101,14 @@ from hooks_constants.merge_review_gate_constants import (
     API_SHA_FIELD_PATTERN,
     AUTO_OPTION_PATTERN,
     CREATE_TOOL_SUFFIX,
+    CURRENT_BRANCH_PLACEHOLDER,
     DEFAULT_REVIEW_COMMAND,
     DENY_DECISION,
     DISABLE_AUTO_OPTION,
     END_OF_OPTIONS_WORD,
+    EXPANDED_WORDS_REASON,
+    FINDINGS_AT_HEAD_REASON_TEMPLATE,
+    LOCAL_BRANCH_REFERENCE_TEMPLATE,
     EXEMPT_REPOSITORIES_ENVIRONMENT_VARIABLE,
     EXPECTED_HEAD_FIELD,
     GATE_NAME,
@@ -189,7 +196,10 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     credit to an earlier pass. A base commit the clone has not fetched is
     denied with the fetch to run before a retry. When a recorded earlier
     pass gets no credit, the reason names that pass and its
-    ``WithheldCredit`` cause.
+    ``WithheldCredit`` cause. When no earlier pass is recorded and a pass
+    with findings is recorded at the head itself, the reason names that pass
+    and its finding count and says to commit and push the fixes. A create
+    whose words bash expands is denied before any receipt is read.
 
     Args:
         request: The open the tool call asks for.
@@ -201,25 +211,40 @@ def open_deny_reason(request: OpenRequest) -> str | None:
         return UNKNOWN_OPEN_TARGET_REASON
     if _is_exempt(request.slug):
         return None
+    if not request.is_plain_words:
+        return EXPANDED_WORDS_REASON
     if not request.head:
         return UNKNOWN_OPEN_TARGET_REASON
     if has_clean_open_review(request.repo, request.head):
         return None
-    no_pass_reason = NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE.format(
-        slug=request.slug, head=request.head, review_command=_review_command()
-    )
+    no_pass_reason = _no_earlier_pass_reason(request, request.head)
     if not request.branch:
         return no_pass_reason
     return _earlier_own_pass_denial(request, request.head, request.branch, no_pass_reason)
 
 
+def _no_earlier_pass_reason(request: OpenRequest, head: str) -> str:
+    finding_count = recorded_open_finding_count(request.repo, head)
+    if finding_count is None:
+        return NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE.format(
+            slug=request.slug, head=head, review_command=_review_command()
+        )
+    return FINDINGS_AT_HEAD_REASON_TEMPLATE.format(
+        slug=request.slug,
+        head=head,
+        finding_count=finding_count,
+        branch=request.branch or CURRENT_BRANCH_PLACEHOLDER,
+    )
+
+
 @dataclass(frozen=True)
 class _Withheld:
-    """One recorded pass that gets no credit, with its cause and the branch that holds it, if any."""
+    """One recorded pass that gets no credit, with its cause, the branch that holds it, and the fetch refspecs."""
 
     cause: WithheldCredit
     reviewed_head: str
     reference: str = ""
+    refspec: str = ""
 
 
 def _earlier_own_pass_denial(
@@ -267,16 +292,51 @@ def _withheld_from(
     all_holding_references = branches_holding_without(reviewed_head, head, request.folder)
     if all_holding_references is None:
         return _Withheld(WithheldCredit.BRANCHES_UNREAD, reviewed_head)
-    all_other_references = [
-        each_reference for each_reference in all_holding_references if each_reference != own_reference
-    ]
-    if all_other_references:
-        return _Withheld(WithheldCredit.HELD_BY_OTHER_REFERENCE, reviewed_head, all_other_references[0])
+    holding_withheld = _holding_withheld(all_holding_references, reviewed_head, head, request, own_reference)
+    if holding_withheld is not None:
+        return holding_withheld
     if not is_outside_base(reviewed_head, base_commit, request.folder):
         return _Withheld(WithheldCredit.INSIDE_BASE, reviewed_head)
     if not adds_content_to_base(reviewed_head, base_commit, request.folder):
         return _Withheld(WithheldCredit.NO_CONTENT_ADDED, reviewed_head)
     return None
+
+
+def _holding_withheld(
+    all_holding_references: tuple[str, ...],
+    reviewed_head: str,
+    head: str,
+    request: OpenRequest,
+    own_reference: str | None,
+) -> _Withheld | None:
+    """Return why the branches that hold a reviewed commit without the head withhold credit.
+
+    ::
+
+        none                                              -> None
+        refs/heads/feature-backup                         -> HELD_BY_OTHER_REFERENCE
+        refs/remotes/origin/feature, clone default fetch  -> None
+        refs/remotes/origin/feature, another refspec      -> MAPPED_TRACKING_REFERENCE
+        refs/heads/feature, an ancestor of the head       -> LOCAL_BRANCH_BEHIND
+        refs/heads/feature, with commits the head lacks   -> HELD_BY_OTHER_REFERENCE
+    """
+    own_local_reference = LOCAL_BRANCH_REFERENCE_TEMPLATE.format(branch=request.branch)
+    all_other_references = [
+        each_reference
+        for each_reference in all_holding_references
+        if each_reference not in (own_reference, own_local_reference)
+    ]
+    if all_other_references:
+        return _Withheld(WithheldCredit.HELD_BY_OTHER_REFERENCE, reviewed_head, all_other_references[0])
+    if own_reference in all_holding_references:
+        refspec = foreign_origin_fetch_refspec(request.folder)
+        if refspec is not None:
+            return _Withheld(WithheldCredit.MAPPED_TRACKING_REFERENCE, reviewed_head, own_reference, refspec)
+    if own_local_reference not in all_holding_references:
+        return None
+    if is_outside_base(own_local_reference, head, request.folder):
+        return _Withheld(WithheldCredit.HELD_BY_OTHER_REFERENCE, reviewed_head, own_local_reference)
+    return _Withheld(WithheldCredit.LOCAL_BRANCH_BEHIND, reviewed_head, own_local_reference)
 
 
 def _withheld_reason(request: OpenRequest, withheld: _Withheld) -> str:
@@ -290,6 +350,8 @@ def _withheld_reason(request: OpenRequest, withheld: _Withheld) -> str:
         "head": request.head,
         "reviewed": withheld.reviewed_head,
         "reference": withheld.reference,
+        "refspec": withheld.refspec,
+        "branch": request.branch,
         "base": base_label,
         "host": os.environ.get(GH_HOST_VARIABLE, ""),
         "session_repository": os.environ.get(GH_REPOSITORY_ENVIRONMENT_NAME, ""),

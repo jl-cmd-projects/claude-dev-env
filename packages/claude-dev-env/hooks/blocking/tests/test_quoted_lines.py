@@ -12,7 +12,7 @@ import shlex
 
 import pytest
 
-from blocking.merge_review_gate_parts.quoted_lines import quote_aware_lines
+from blocking.merge_review_gate_parts.quoted_lines import holds_unquoted_expansion, quote_aware_lines
 
 
 def _words(text: str) -> list[list[str]]:
@@ -84,3 +84,40 @@ def test_should_join_a_line_continuation() -> None:
 @pytest.mark.parametrize("text", ['echo "open', "echo 'open", "echo $'open", "x=$(ls", "(ls"])
 def test_should_return_none_for_text_left_open(text: str) -> None:
     assert quote_aware_lines(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "a --ba{se=x,se=y}",
+        "a --b?se=x",
+        "a --b*se",
+        "a [x]",
+        "a ~",
+        "a;~/x",
+        "echo 'open {x}",
+        "a $'q\\'' {x}",
+        'a "b" }',
+        "a --he@(ad=x)",
+        "a --he+(ad=x)",
+        "a --he!(xx)",
+    ],
+)
+def test_should_find_a_character_bash_expands_outside_quotes(text: str) -> None:
+    assert holds_unquoted_expansion(text) is True
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "a 'b {x,y} [z]?*'",
+        'a "b {x,y} ~"',
+        "a \\{x,y\\} \\*",
+        "a b~c --base=~",
+        "a '--he@(ad=x)'",
+        "a b@c a+b !x",
+        "a $'{x}\\''",
+    ],
+)
+def test_should_find_no_expansion_in_quoted_or_escaped_text(text: str) -> None:
+    assert holds_unquoted_expansion(text) is False

@@ -25,12 +25,14 @@ from blocking.merge_review_gate_parts.open_request import (
     WithheldCredit,
     branches_holding_without,
     first_parent_ancestors,
+    foreign_origin_fetch_refspec,
     is_outside_base,
     is_stored_locally,
     open_calls_from,
     open_request_for,
     own_tracking_reference,
 )
+from hooks_constants.merge_review_gate_constants import NO_ORIGIN_FETCH_TEXT
 
 
 def _only_request(all_payload_fields: dict[str, object]) -> OpenRequest:
@@ -483,6 +485,9 @@ def test_should_give_no_base_when_the_gh_merge_base_read_gives_no_answer(
         ("gh pr create --repo acme/tools -H feature --base main # ; git status", False),
         ("gh pr create --repo acme/tools -H feature --title 'a & b'", False),
         ("gh pr create --repo acme/tools -H feature --base main", True),
+        ("gh -R acme/tools pr create -H feature --base main", True),
+        ("gh --repo=acme/tools pr new -H feature", True),
+        ("gh pr create --repo acme/tools -H feature --title '[x] {y}?'", False),
     ],
 )
 def test_should_know_the_base_only_when_the_create_is_the_whole_command(
@@ -632,10 +637,58 @@ def test_should_find_no_content_to_add_when_the_merge_read_fails(tmp_path: Path)
     _commit_file(checkout, "shared.txt", "base\n")
     _git(checkout, "checkout", "--quiet", "-b", "feature")
     reviewed = _commit_file(checkout, "shared.txt", "feature side\n")
+    assert adds_content_to_base(reviewed, "1" * 40, str(checkout)) is False
+    assert adds_content_to_base("1" * 40, reviewed, str(checkout)) is False
+
+
+def test_should_find_content_to_add_when_the_commit_conflicts_with_a_moved_base(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "main")
+    _commit_file(checkout, "shared.txt", "base\n")
+    _git(checkout, "checkout", "--quiet", "-b", "feature")
+    reviewed = _commit_file(checkout, "shared.txt", "feature side\n")
     _git(checkout, "checkout", "--quiet", "main")
     base_commit = _commit_file(checkout, "shared.txt", "base side\n")
-    assert adds_content_to_base(reviewed, base_commit, str(checkout)) is False
-    assert adds_content_to_base(reviewed, "1" * 40, str(checkout)) is False
+    assert adds_content_to_base(reviewed, base_commit, str(checkout)) is True
+
+
+def test_should_list_at_most_one_hundred_commits_before_a_head(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    all_commits = [_commit(checkout, f"commit {each_index}") for each_index in range(102)]
+    all_ancestors = first_parent_ancestors(all_commits[-1], str(checkout))
+    assert len(all_ancestors) == 100
+    assert all_ancestors[-1] == all_commits[-101]
+    assert all_commits[-102] not in all_ancestors
+
+
+def test_should_name_no_fetch_refspec_when_origin_keeps_the_clone_default(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    _git(checkout, "remote", "add", "upstream", "https://github.com/upstream/tools.git")
+    assert foreign_origin_fetch_refspec(str(checkout)) is None
+
+
+@pytest.mark.parametrize(
+    ("setting", "refspec"),
+    [
+        ("remote.origin.fetch", "+refs/heads/other:refs/remotes/origin/feature"),
+        ("remote.upstream.fetch", "+refs/heads/*:refs/remotes/*"),
+        ("remote.upstream.fetch", "refs/heads/x:refs/remotes/origin/feature"),
+    ],
+)
+def test_should_name_a_fetch_refspec_that_can_write_onto_the_origin_tracking_names(
+    tmp_path: Path, setting: str, refspec: str
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    _git(checkout, "remote", "add", "upstream", "https://github.com/upstream/tools.git")
+    _git(checkout, "config", "--add", setting, refspec)
+    assert refspec in (foreign_origin_fetch_refspec(str(checkout)) or "")
+
+
+def test_should_name_a_missing_origin_fetch_refspec(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _git(checkout, "config", "remote.origin.url", "https://github.com/acme/tools.git")
+    assert foreign_origin_fetch_refspec(str(checkout)) == NO_ORIGIN_FETCH_TEXT
 
 
 def test_should_find_a_commit_the_folder_stores(tmp_path: Path) -> None:

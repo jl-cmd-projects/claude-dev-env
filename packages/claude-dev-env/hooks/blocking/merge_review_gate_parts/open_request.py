@@ -17,6 +17,7 @@ if hooks_directory not in sys.path:
 from blocking.followup_pr_dedupe import named_repository, prefix_repository, sets_gh_repository
 from blocking.merge_review_gate_parts.create_folders import PlacedCreate, all_placed_creates
 from blocking.merge_review_gate_parts.create_options import all_option_values
+from blocking.merge_review_gate_parts.quoted_lines import holds_unquoted_expansion
 from blocking.gate_run_reads import (
     ReadSlice,
     answer_once,
@@ -29,7 +30,27 @@ from hooks_constants.followup_pr_dedupe_constants import (
 from hooks_constants.merge_review_gate_constants import (
     ALL_LONE_CREATE_SUBCOMMANDS,
     ALL_LONE_CREATE_REFUSED_CHARACTERS,
-    LONE_CREATE_SUBCOMMAND_SLICE,
+    ALL_ROOT_REPOSITORY_JOINED_PREFIXES,
+    ALL_ROOT_REPOSITORY_OPTIONS,
+    ALL_SHELL_EXPANSION_CHARACTERS,
+    EXTENDED_GLOB_OPENER_PATTERN,
+    FETCH_REFSPEC_JOIN,
+    FETCH_REFSPEC_TEMPLATE,
+    FETCH_SETTING_KEY,
+    FETCH_SETTINGS_UNREAD_TEXT,
+    LONE_CREATE_SUBCOMMAND_WIDTH,
+    LOCAL_BRANCH_BEHIND_CAUSE,
+    MAPPED_TRACKING_REFERENCE_CAUSE,
+    MERGE_TREE_CLEAN_STATUS,
+    MERGE_TREE_CONFLICTED_STATUS,
+    MERGE_TREE_FIELD_SEPARATOR,
+    MERGE_TREE_INPUT_TEMPLATE,
+    NO_ORIGIN_FETCH_TEXT,
+    OPTION_AND_VALUE_WIDTH,
+    ORIGIN_FETCH_DEFAULT_REFSPEC,
+    ORIGIN_TRACKING_NAMESPACE,
+    REFSPEC_GLOB_CHARACTER,
+    REFSPEC_SIDE_SEPARATOR,
     ALL_BRANCH_REFERENCE_PREFIXES,
     ALL_CHECKOUT_BRANCH_ARGUMENTS,
     ALL_STORED_HISTORY_GIT_SETTINGS,
@@ -108,6 +129,7 @@ from hooks_constants.merge_review_gate_constants import (
     REPOSITORY_OPTION_MENTION_PATTERN,
     REPOSITORY_PATH_SEPARATOR,
     REPOSITORY_SHORT_LETTER,
+    TILDE_CHARACTER,
 )
 from hooks_constants.shell_command_segments import token_basename
 from hooks_constants.shell_command_wrappers import segment_program_and_arguments
@@ -122,9 +144,11 @@ class WithheldCredit(Enum):
         create tool call with no base                   -> TOOL_NO_BASE, set its base
         base GitHub does not list                       -> BASE_UNREAD, names the base
         backup branch at the reviewed commit            -> HELD_BY_OTHER_REFERENCE, names it
+        origin/<branch> under a hand-edited fetch       -> MAPPED_TRACKING_REFERENCE, names the refspec
+        local <branch> left behind its pushed fixes     -> LOCAL_BRANCH_BEHIND, fast-forward it
         base already holds the reviewed commit          -> INSIDE_BASE, review again
 
-    The first ten causes leave the pass in place, so the step they name
+    The first twelve causes leave the pass in place, so the step they name
     needs no new review. The last two say the pass covered base work.
     """
 
@@ -138,6 +162,8 @@ class WithheldCredit(Enum):
     BASE_UNREAD = BASE_UNREAD_CAUSE
     BRANCHES_UNREAD = BRANCHES_UNREAD_CAUSE
     HELD_BY_OTHER_REFERENCE = HELD_BY_OTHER_REFERENCE_CAUSE
+    MAPPED_TRACKING_REFERENCE = MAPPED_TRACKING_REFERENCE_CAUSE
+    LOCAL_BRANCH_BEHIND = LOCAL_BRANCH_BEHIND_CAUSE
     INSIDE_BASE = INSIDE_BASE_CAUSE
     NO_CONTENT_ADDED = NO_CONTENT_ADDED_CAUSE
 
@@ -162,6 +188,9 @@ class OpenRequest:
             reads when the open names no base, or None when none applies.
         head_owner: The owner a ``user:branch`` head names, or None when the
             head names no owner.
+        is_plain_words: False when bash may expand a brace, a glob, an extended
+            glob or a tilde in the create's words, so the gate cannot tell the head,
+            base or repository gh reads.
     """
 
     owner: str
@@ -173,6 +202,7 @@ class OpenRequest:
     unknown_base_cause: WithheldCredit | None = field(default=None, compare=False)
     base_setting_branch: str | None = field(default=None, compare=False)
     head_owner: str | None = field(default=None, compare=False)
+    is_plain_words: bool = field(default=True, compare=False)
 
     @property
     def slug(self) -> str:
@@ -222,6 +252,8 @@ class ShellOpenCall:
         is_lone_create: True when the whole command is this one gh create,
             so nothing in it can change the git config or the host gh reads.
             Only such a create gives an earlier pass credit.
+        is_plain_words: False when bash may expand a brace, a glob, an extended
+            glob or a tilde in the create's words before gh reads them.
     """
 
     repository: tuple[str, str] | None
@@ -232,6 +264,7 @@ class ShellOpenCall:
     base: str | None = None
     is_base_readable: bool = field(default=True, compare=False)
     is_lone_create: bool = field(default=False, compare=False)
+    is_plain_words: bool = True
 
 
 OpenCall = ToolOpenCall | ShellOpenCall
@@ -331,7 +364,7 @@ def _head_owner(branch: str) -> str | None:
 def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
     if not call.is_folder_followed:
         owner, repo = call.repository or ("", "")
-        return OpenRequest(owner=owner, repo=repo, head=None)
+        return OpenRequest(owner=owner, repo=repo, head=None, is_plain_words=call.is_plain_words)
     owner, repo = call.repository or _origin_repository(call.folder)
     branch = _branch_name(call.branch, call.folder)
     return OpenRequest(
@@ -344,6 +377,7 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         unknown_base_cause=_unknown_base_cause(call, owner, repo, branch),
         base_setting_branch=branch if call.base is None else None,
         head_owner=_head_owner(call.branch),
+        is_plain_words=call.is_plain_words,
     )
 
 
@@ -471,13 +505,16 @@ def first_parent_ancestors(head: str, folder: str | None) -> tuple[str, ...]:
     return tuple(listing.split()[1:]) if listing else ()
 
 
-def _stored_history_read(all_arguments: list[str], folder: str | None) -> str | None:
+def _stored_history_read(
+    all_arguments: list[str], folder: str | None, standard_input: str | None = None
+) -> str | None:
     return child_stdout(
         ["git", *all_arguments],
         GIT_TIMEOUT_SECONDS,
         ReadSlice.FOLLOWUP,
         folder,
         {**os.environ, **ALL_STORED_HISTORY_GIT_SETTINGS},
+        standard_input,
     )
 
 
@@ -495,7 +532,9 @@ def branches_holding_without(commit: str, head: str, folder: str | None) -> tupl
         a read that fails or runs out of time              -> None
 
     Replace refs and grafts are not read. The caller decides which of the
-    branches is the open's own branch on origin.
+    branches is the open's own branch on origin, with
+    ``foreign_origin_fetch_refspec`` telling whether that name can hold
+    another branch.
 
     Args:
         commit: The commit a review pass saw.
@@ -546,6 +585,89 @@ def own_tracking_reference(request: OpenRequest) -> str | None:
     ):
         return None
     return ORIGIN_TRACKING_REFERENCE_TEMPLATE.format(branch=request.branch)
+
+
+def foreign_origin_fetch_refspec(folder: str | None) -> str | None:
+    """Return the fetch settings that could write another branch onto an ``origin/<branch>`` name.
+
+    The branch's own ``refs/remotes/origin/<branch>`` counts as the branch
+    only while the clone default writes it::
+
+        remote.origin.fetch = +refs/heads/*:refs/remotes/origin/*, alone   -> None
+        a second origin refspec, or a changed one                         -> every origin refspec
+        remote.upstream.fetch = +refs/heads/*:refs/remotes/*               -> that refspec
+        remote.upstream.fetch = refs/heads/x:refs/remotes/origin/feature  -> that refspec
+        no remote.origin.fetch                                            -> NO_ORIGIN_FETCH_TEXT
+        the settings read fails or runs out                               -> FETCH_SETTINGS_UNREAD_TEXT
+
+    Args:
+        folder: The folder git reads the settings in.
+
+    Returns:
+        The refspecs in backticks, or a sentence naming why none can be trusted,
+        or None when only the clone default writes under ``refs/remotes/origin/``.
+    """
+    listing = child_stdout(
+        ["git", *ALL_SETTINGS_READ_ARGUMENTS], GIT_TIMEOUT_SECONDS, ReadSlice.FOLLOWUP, folder
+    )
+    if listing is None:
+        return FETCH_SETTINGS_UNREAD_TEXT
+    all_origin_refspecs, all_foreign_refspecs = _fetch_refspecs(listing)
+    if all_origin_refspecs == [ORIGIN_FETCH_DEFAULT_REFSPEC] and not all_foreign_refspecs:
+        return None
+    if not all_origin_refspecs:
+        return NO_ORIGIN_FETCH_TEXT
+    all_named_refspecs = all_foreign_refspecs or all_origin_refspecs
+    return FETCH_REFSPEC_JOIN.join(
+        FETCH_REFSPEC_TEMPLATE.format(refspec=each_refspec) for each_refspec in all_named_refspecs
+    )
+
+
+def _fetch_refspecs(listing: str) -> tuple[list[str], list[str]]:
+    all_fetch_settings = [
+        each_pair
+        for each_setting in listing.split(SETTING_RECORD_END)
+        if (each_pair := _fetch_setting(each_setting)) is not None
+    ]
+    all_origin_refspecs = [
+        each_refspec for each_remote, each_refspec in all_fetch_settings if each_remote == ORIGIN_REMOTE_NAME
+    ]
+    all_foreign_refspecs = [
+        each_refspec
+        for each_remote, each_refspec in all_fetch_settings
+        if each_remote != ORIGIN_REMOTE_NAME and _writes_under_origin_tracking(each_refspec)
+    ]
+    return all_origin_refspecs, all_foreign_refspecs
+
+
+def _fetch_setting(setting: str) -> tuple[str, str] | None:
+    name, _, setting_value = setting.partition(SETTING_NAME_END)
+    section, _, remainder = name.partition(SETTING_PART_SEPARATOR)
+    remote_name, _, key = remainder.rpartition(SETTING_PART_SEPARATOR)
+    if section.lower() != REMOTE_SETTING_SECTION or key.lower() != FETCH_SETTING_KEY:
+        return None
+    return remote_name, setting_value
+
+
+def _writes_under_origin_tracking(refspec: str) -> bool:
+    """Return whether a fetch refspec's destination can name a ref under ``refs/remotes/origin/``.
+
+    ::
+
+        +refs/heads/*:refs/remotes/upstream/*    -> False
+        +refs/heads/*:refs/remotes/*             -> True, a branch named origin/x lands there
+        refs/heads/x:refs/remotes/origin/feature -> True
+        ^refs/heads/skip                         -> False, no destination
+    """
+    _source, separator, destination = refspec.partition(REFSPEC_SIDE_SEPARATOR)
+    if not separator:
+        return False
+    fixed_part = destination.split(REFSPEC_GLOB_CHARACTER, 1)[0]
+    if REFSPEC_GLOB_CHARACTER in destination:
+        return ORIGIN_TRACKING_NAMESPACE.startswith(fixed_part) or fixed_part.startswith(
+            ORIGIN_TRACKING_NAMESPACE
+        )
+    return destination.startswith(ORIGIN_TRACKING_NAMESPACE)
 
 
 def base_tip(request: OpenRequest) -> str | None:
@@ -635,11 +757,17 @@ def adds_content_to_base(commit: str, base_commit: str, folder: str | None) -> b
     commits, so a pass on that content says nothing about later work::
 
         feature commit adds feature.txt, base lacks it      -> True
+        the merge conflicts with a base that moved on        -> True
         base holds a squash of the commit                    -> False
-        the merge conflicts, or a read fails or runs out     -> False
+        a read fails or runs out                             -> False
 
-    The merge runs with ``git merge-tree --write-tree``, which stores the
-    merged tree as loose objects and moves no ref.
+    A conflict means the base holds the commit's lines in another form, so
+    the commit still adds content. A base that squashed the commit and then
+    edited the same lines also conflicts, and so gets credit: the pull request
+    then conflicts with its base on GitHub, and its merge still needs the
+    full review loop. The merge runs with ``git merge-tree --stdin
+    --write-tree``, which reports a conflict in its output and not in its
+    exit status, stores the merged tree as loose objects and moves no ref.
 
     Args:
         commit: The commit a review pass saw.
@@ -649,13 +777,21 @@ def adds_content_to_base(commit: str, base_commit: str, folder: str | None) -> b
     Returns:
         True when the merged tree differs from the base commit's tree.
     """
-    merged_listing = _stored_history_read([*ALL_MERGE_TREE_ARGUMENTS, base_commit, commit], folder)
+    merged_listing = _stored_history_read(
+        list(ALL_MERGE_TREE_ARGUMENTS),
+        folder,
+        MERGE_TREE_INPUT_TEMPLATE.format(base_commit=base_commit, commit=commit),
+    )
     base_tree = _stored_history_read(
         [*ALL_VERIFY_OBJECT_ARGUMENTS, TREE_OF_COMMIT_TEMPLATE.format(commit=base_commit)], folder
     )
-    if not merged_listing or not merged_listing.strip() or not base_tree or not base_tree.strip():
+    if not merged_listing or not base_tree or not base_tree.strip():
         return False
-    return merged_listing.split()[0] != base_tree.strip()
+    merge_status, _, rest = merged_listing.partition(MERGE_TREE_FIELD_SEPARATOR)
+    merged_tree = rest.partition(MERGE_TREE_FIELD_SEPARATOR)[0].strip()
+    if merge_status == MERGE_TREE_CONFLICTED_STATUS:
+        return True
+    return merge_status == MERGE_TREE_CLEAN_STATUS and bool(merged_tree) and merged_tree != base_tree.strip()
 
 
 def is_stored_locally(commit: str, folder: str | None) -> bool:
@@ -697,7 +833,10 @@ def _shell_open_calls(command: str, folder: str | None) -> list[OpenCall]:
     is_gh_repository_set = sets_gh_repository(command)
     is_lone_create = _is_lone_gh_create(command)
     for each_create in all_placed_creates(command, folder):
-        all_calls.extend(_placed_open_calls(each_create, is_gh_repository_set, is_lone_create))
+        all_calls.extend(
+            replace(each_call, is_plain_words=each_create.is_plain_words)
+            for each_call in _placed_open_calls(each_create, is_gh_repository_set, is_lone_create)
+        )
     floor_call = _floor_open_call(command, folder, is_lone_create)
     if floor_call is not None:
         all_calls.append(floor_call)
@@ -712,17 +851,21 @@ def _is_lone_gh_create(command: str) -> bool:
     git config gh reads first, so only a lone create is read::
 
         gh pr create --fill                                  -> True
+        gh -R acme/tools pr create --fill                    -> True
         git config "branch.x.gh-merge""-base" y && gh pr create -> False
         LANG=C gh pr create --fill                           -> False
         gh pr create --fill > out.txt                        -> False
         gh pr create --title "$(date)"                       -> False
         gh pr create --fill # ; git config ...               -> False
         gh pr create --title 'a & b'                         -> False
+        gh pr create --title '[WIP] {x}?'                    -> False
 
-    Any shell operator character, ``#``, ``$``, backtick or line break in the
-    text, quoted or not, makes the command not lone, so no comment, segment,
-    redirect or substitution hides from the split. The rest is split as POSIX
-    shell words, and a split that fails also makes the command not lone.
+    Any shell operator character, ``#``, ``$``, brace, glob character
+    ``* ? [``, ``~``, backtick or line break in the text, quoted or not, makes
+    the command not lone, so no comment, segment, redirect, substitution or
+    expansion hides from the split. The rest is split as POSIX shell words,
+    and a split that fails also makes the command not lone. One root
+    ``-R``/``--repo`` value may come between ``gh`` and ``pr``.
 
     Args:
         command: The shell command text.
@@ -739,7 +882,25 @@ def _is_lone_gh_create(command: str) -> bool:
     if not all_words:
         return False
     program = token_basename(all_words[0]).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
-    return program == GH_PROGRAM_NAME and tuple(all_words[LONE_CREATE_SUBCOMMAND_SLICE]) in ALL_LONE_CREATE_SUBCOMMANDS
+    subcommand_start = 1 + _root_repository_width(all_words[1:])
+    all_subcommand_words = tuple(all_words[subcommand_start : subcommand_start + LONE_CREATE_SUBCOMMAND_WIDTH])
+    return program == GH_PROGRAM_NAME and all_subcommand_words in ALL_LONE_CREATE_SUBCOMMANDS
+
+
+def _root_repository_width(all_words_after_program: list[str]) -> int:
+    """Return how many words a root ``-R``/``--repo`` before ``pr`` takes.
+
+    ::
+
+        ["-R", "o/r", "pr", "create"]  -> 2
+        ["--repo=o/r", "pr", "create"] -> 1
+        ["-Ro/r", "pr", "create"]      -> 1
+        ["pr", "create"]               -> 0
+    """
+    first_word = all_words_after_program[0] if all_words_after_program else ""
+    if first_word in ALL_ROOT_REPOSITORY_OPTIONS:
+        return OPTION_AND_VALUE_WIDTH
+    return 1 if first_word.startswith(ALL_ROOT_REPOSITORY_JOINED_PREFIXES) else 0
 
 
 def _placed_open_calls(
@@ -830,9 +991,12 @@ def _floor_open_call(command: str, folder: str | None, is_lone_create: bool) -> 
         --base=a -Bb                -> base b
         --base a --base "" or -dBb  -> a flag the patterns cannot read: base unreadable
 
-    A ``--repo`` on another host also leaves the base unreadable.
+    A ``--repo`` on another host also leaves the base unreadable. A create
+    whose text holds a brace, a glob character or a leading tilde, in a
+    command that holds one outside quotes, is not plain words.
     """
     options_only = CREATE_TEXT_OPTION_PATTERN.sub(" ", command)
+    is_expanding_text = holds_unquoted_expansion(command)
     create_match = GH_PR_CREATE_PATTERN.search(
         options_only
     ) or PULL_REQUEST_SCRIPT_CREATE_PATTERN.search(options_only)
@@ -856,6 +1020,15 @@ def _floor_open_call(command: str, folder: str | None, is_lone_create: bool) -> 
         is_base_readable=is_each_flag_read
         and all(_is_github_repository_value(each_value) for each_value in all_repository_values),
         is_lone_create=is_lone_create,
+        is_plain_words=not (is_expanding_text and _holds_expansion_text(create_match["rest"])),
+    )
+
+
+def _holds_expansion_text(create_text: str) -> bool:
+    if EXTENDED_GLOB_OPENER_PATTERN.search(create_text) is not None:
+        return True
+    return not ALL_SHELL_EXPANSION_CHARACTERS.isdisjoint(create_text) or any(
+        each_word.startswith(TILDE_CHARACTER) for each_word in create_text.split()
     )
 
 
