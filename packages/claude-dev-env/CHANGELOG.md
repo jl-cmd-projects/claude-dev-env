@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.136.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.3...claude-dev-env-v8.136.0) (2026-11-22)
+
+
+### Features
+
+* **hooks:** pass an oversized create the user approved ([#2464](https://github.com/jl-cmd-projects/claude-dev-env/issues/2464)) ([dd72218](https://github.com/jl-cmd-projects/claude-dev-env/commit/dd72218bef53362f7ccd9262550423f5eaa8d320))
+
 ## [8.135.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.2...claude-dev-env-v8.135.3) (2026-11-22)
 
 
