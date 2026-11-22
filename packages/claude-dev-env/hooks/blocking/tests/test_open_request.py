@@ -372,6 +372,104 @@ def test_should_name_why_the_base_of_a_shell_create_is_unknown(
     assert {each_request.unknown_base_cause for each_request in all_requests} == {cause}
 
 
+MANAGED_LAUNCHER_TAIL = ".agents/skills/pull-request/scripts/pull_request.py"
+LAUNCHER_CREATE_LEAD = f"python3 ~/{MANAGED_LAUNCHER_TAIL} create"
+LAUNCHER_CREATE_TAIL = "--title t --body-file b.md"
+
+
+@pytest.mark.parametrize(
+    ("launcher_options", "cause"),
+    [
+        ("--repo acme/tools --base main --head feature", None),
+        ("--repo=acme/tools --base=main --head=feature --draft", None),
+        ("--repo acme/tools --base main --head feature --head feature", WithheldCredit.NOT_LONE),
+        ("--repo acme/tools --repo acme/tools --base main --head feature", WithheldCredit.NOT_LONE),
+        ("--repo acme/tools --base main --base main --head feature", WithheldCredit.NOT_LONE),
+        ("--repo acme/tools --base main --head=", WithheldCredit.NOT_LONE),
+        ("--repo acme/tools --base= --head feature", WithheldCredit.NOT_LONE),
+        ("--repo acme/tools --base main --head --draft", WithheldCredit.NOT_LONE),
+        ("--repo acme/tools --base main --title --head", WithheldCredit.NOT_LONE),
+        ("--repo acme/tools --base main --head feature --fill", WithheldCredit.NOT_LONE),
+        ("--repo acme/tools --base main --head feature -- extra", WithheldCredit.NOT_LONE),
+    ],
+)
+def test_should_count_a_launcher_create_lone_only_when_it_names_repo_base_and_head_once_with_values(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, launcher_options: str, cause: WithheldCredit | None
+) -> None:
+    _bare_remote(tmp_path / "github", "acme")
+    _redirect_github(monkeypatch, tmp_path / "github")
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    command = f"{LAUNCHER_CREATE_LEAD} {launcher_options} {LAUNCHER_CREATE_TAIL}"
+    all_requests = [open_request_for(each_call) for each_call in open_calls_from(_shell_payload(command, checkout))]
+    assert {each_request.unknown_base_cause for each_request in all_requests} == {cause}
+
+
+@pytest.mark.parametrize(
+    ("interpreter_lead", "script_path_template", "cause"),
+    [
+        ("python3 ", "{home}/" + MANAGED_LAUNCHER_TAIL, None),
+        ("", "{home}/" + MANAGED_LAUNCHER_TAIL, None),
+        ("python3 ", "~/" + MANAGED_LAUNCHER_TAIL, None),
+        ("", "~/" + MANAGED_LAUNCHER_TAIL, None),
+        ("python3 ", "$HOME/" + MANAGED_LAUNCHER_TAIL, None),
+        ("python ", "{home}/.agents/skills/pull-request/scripts/../scripts/pull_request.py", None),
+        ("python3 ", "pull_request.py", WithheldCredit.NOT_LONE),
+        ("", "./pull_request.py", WithheldCredit.NOT_LONE),
+        ("python3 ", "./pull_request.py", WithheldCredit.NOT_LONE),
+        ("python3 ", "/tmp/x/pull_request.py", WithheldCredit.NOT_LONE),
+        ("python3 ", "{checkout}/scripts/pull_request.py", WithheldCredit.NOT_LONE),
+        ("python3 ", "{checkout}/" + MANAGED_LAUNCHER_TAIL, WithheldCredit.NOT_LONE),
+        ("python3 ", "{home}/.agents/skills/pull-request-copy/scripts/pull_request.py", WithheldCredit.NOT_LONE),
+        ("python3 ", "'~'/" + MANAGED_LAUNCHER_TAIL, WithheldCredit.NOT_LONE),
+        ("python3 ", "~other/" + MANAGED_LAUNCHER_TAIL, WithheldCredit.NOT_LONE),
+        ("python3 ", "$HOMEX/" + MANAGED_LAUNCHER_TAIL, WithheldCredit.NOT_LONE),
+    ],
+)
+def test_should_count_a_launcher_create_lone_only_when_its_script_is_the_managed_launcher(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    interpreter_lead: str,
+    script_path_template: str,
+    cause: WithheldCredit | None,
+) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    _bare_remote(tmp_path / "github", "acme")
+    _redirect_github(monkeypatch, tmp_path / "github")
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    script_path = script_path_template.format(home=home.as_posix(), checkout=checkout.as_posix())
+    command = (
+        f"{interpreter_lead}{script_path} create --repo acme/tools --base main --head feature "
+        f"{LAUNCHER_CREATE_TAIL}"
+    )
+    all_requests = [open_request_for(each_call) for each_call in open_calls_from(_shell_payload(command, checkout))]
+    assert {each_request.unknown_base_cause for each_request in all_requests} == {cause}
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr create --repo acme/tools --base main --head feature --head=",
+        "gh pr create --repo acme/tools --base main -H feature --head ''",
+        f"{LAUNCHER_CREATE_LEAD} --repo acme/tools --base main --head feature {LAUNCHER_CREATE_TAIL} --head=",
+    ],
+)
+def test_should_read_the_checkout_branch_when_the_last_head_a_create_passes_is_empty(
+    tmp_path: Path, command: str
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    all_branches = {each_call.branch for each_call in open_calls_from(_shell_payload(command, checkout))}
+    assert "HEAD" in all_branches
+
+
 def test_should_name_the_host_and_session_repository_causes(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -498,17 +596,22 @@ def test_should_give_no_base_when_the_gh_merge_base_read_gives_no_answer(
         ("gh pr create --repo acme/tools -H feature --title 'a' >out.txt", False),
         ("gh pr create --repo acme/tools -H feature --title 'a'#x", False),
         (
-            "python3 /opt/pull-request/scripts/pull_request.py create --repo acme/tools --base main "
+            f"python3 ~/{MANAGED_LAUNCHER_TAIL} create --repo acme/tools --base main "
             "--head feature --title 'Fix (Windows)' --body-file body.md",
             True,
         ),
         (
-            "/opt/pull-request/scripts/pull_request.py create --repo=acme/tools --base=main --head=feature "
+            f"~/{MANAGED_LAUNCHER_TAIL} create --repo=acme/tools --base=main --head=feature "
             "--title t --body-file body.md",
             True,
         ),
         (
             "python3 /opt/pull-request/scripts/pull_request.py create --repo acme/tools --base main "
+            "--head feature --title t --body-file body.md",
+            False,
+        ),
+        (
+            f"python3 ~/{MANAGED_LAUNCHER_TAIL} create --repo acme/tools --base main "
             "--title t --body-file body.md",
             False,
         ),
@@ -518,7 +621,7 @@ def test_should_give_no_base_when_the_gh_merge_base_read_gives_no_answer(
             False,
         ),
         (
-            "cd . && python3 /opt/pull-request/scripts/pull_request.py create --repo acme/tools --base main "
+            f"cd . && python3 ~/{MANAGED_LAUNCHER_TAIL} create --repo acme/tools --base main "
             "--head feature --title t --body-file body.md",
             False,
         ),

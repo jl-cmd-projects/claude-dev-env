@@ -204,7 +204,7 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     and its finding count and says to commit and push the fixes. When the
     only earlier pass names no branch, the reason says to record it again
     from the branch's checkout. A head GitHub did not answer for gives no
-    credit to an earlier pass. A create that names no ``--head`` while the
+    credit to an earlier pass. A create that names no ``--head``, or an empty one, while the
     git settings may send gh to another branch name or repository gets no
     credit from any pass, and the reason says to name the head. A create
     whose words bash expands is denied before any receipt is read. A clean pass at the head gives credit only

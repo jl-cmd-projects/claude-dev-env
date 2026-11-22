@@ -34,7 +34,10 @@ from hooks_constants.followup_pr_dedupe_constants import (
 from hooks_constants.merge_review_gate_constants import (
     ALL_LONE_CREATE_SUBCOMMANDS,
     ALL_LONE_CREATE_REFUSED_CHARACTERS,
+    ALL_LONE_LAUNCHER_FLAG_OPTIONS,
+    ALL_MANAGED_LAUNCHER_PATH_PARTS,
     ALL_LONE_LAUNCHER_REQUIRED_OPTIONS,
+    ALL_LONE_LAUNCHER_VALUE_OPTIONS,
     ALL_ORIGIN_PUSH_KEYS,
     ALL_PUSH_REMOTE_BRANCH_KEYS,
     BRANCH_SETTING_SECTION,
@@ -42,9 +45,10 @@ from hooks_constants.merge_review_gate_constants import (
     LONE_CREATE_UNQUOTED_REFUSED_CHARACTERS,
     LONE_LAUNCHER_CREATE_WORD,
     LONE_LAUNCHER_LEAD_WIDTH,
+    LONE_LAUNCHER_OPTION_PREFIX,
     LONE_LAUNCHER_OPTION_VALUE_SEPARATOR,
     LONE_LAUNCHER_PYTHON_PATTERN,
-    LONE_LAUNCHER_SCRIPT_NAME,
+    MANAGED_LAUNCHER_HOME_PREFIX_PATTERN,
     MERGE_SETTING_KEY,
     PUSH_DEFAULT_REMOTE_KEY,
     REMOTE_LISTING_QUESTION,
@@ -1028,7 +1032,8 @@ def _is_lone_create(command: str) -> bool:
         gh -R acme/tools pr create --fill                    -> True
         gh pr create --title "Fix edge cases (Windows)"      -> True, the parentheses are quoted
         gh pr create --title '[WIP] {x}?'                    -> True, quoted
-        python3 /x/pull_request.py create --repo o/r --base main --head f --title t --body-file b -> True
+        python3 ~/.agents/skills/pull-request/scripts/pull_request.py create --repo o/r --base main --head f -> True
+        python3 /x/pull_request.py create --repo o/r --base main --head f -> False, not the managed launcher
         git config "branch.x.gh-merge""-base" y && gh pr create -> False
         LANG=C gh pr create --fill                           -> False
         gh pr create --fill > out.txt                        -> False
@@ -1043,8 +1048,12 @@ def _is_lone_create(command: str) -> bool:
     which makes the command not lone. A word made only of those characters
     inside quotes, such as ``"()"``, makes it not lone too. A split that fails also makes it not lone.
     One root ``-R``/``--repo`` value may come between ``gh`` and ``pr``. The
-    launcher runs as its own program or after ``python`` or ``python3``, and
-    names ``--repo``, ``--base`` and ``--head``.
+    launcher is the managed script at ``~/.agents/skills/pull-request/scripts/pull_request.py``,
+    whose leading ``~`` or ``$HOME`` reads as the home folder before the split.
+    It runs as its own program or after ``python`` or ``python3``, and
+    names each of ``--repo``, ``--base`` and ``--head`` once, each with a
+    value that is not empty and does not start with ``-``. Its other words
+    are only ``--title``, ``--body-file`` and their values, and ``--draft``.
 
     Args:
         command: The shell command text.
@@ -1052,7 +1061,7 @@ def _is_lone_create(command: str) -> bool:
     Returns:
         True when the command is one create and nothing else.
     """
-    all_words = _lone_command_words(command)
+    all_words = _lone_command_words(_with_managed_launcher_home(command))
     if not all_words:
         return False
     program = token_basename(all_words[0]).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
@@ -1088,27 +1097,113 @@ def _lone_command_words(command: str) -> list[str] | None:
     return all_words if is_each_word_plain else None
 
 
-def _is_lone_launcher_create(program: str, all_words: list[str]) -> bool:
-    """Return whether shell words run the ``pull_request.py create`` launcher with a repository, base and head.
+def _with_managed_launcher_home(command: str) -> str:
+    """Return the command with a home prefix on the managed launcher path written out as the home folder.
+
+    Bash turns a leading ``~`` or ``$HOME`` into the home folder, and the
+    gate runs with the same home::
+
+        python3 ~/.agents/skills/pull-request/scripts/pull_request.py create ...
+            -> python3 /home/u/.agents/skills/pull-request/scripts/pull_request.py create ...
+        $HOME/.agents/skills/pull-request/scripts/pull_request.py create ... -> /home/u/.agents/...
+        python3 ~/x/pull_request.py create ..., ~other/.agents/..., '~'/.agents/... -> unchanged
+
+    Only the script word of the launcher changes, so any other ``~`` or
+    ``$`` still makes the command not lone.
+    """
+    home_folder = shlex.quote(Path.home().as_posix())
+    return MANAGED_LAUNCHER_HOME_PREFIX_PATTERN.sub(
+        lambda each_match: each_match["lead"] + home_folder, command, count=1
+    )
+
+
+def _is_managed_launcher(script_word: str) -> bool:
+    """Return whether a script word names the launcher at ``~/.agents/skills/pull-request/scripts/pull_request.py``.
 
     ::
 
-        pull_request.py create --repo o/r --base main --head f          -> True
-        python3 /x/pull_request.py create --repo=o/r --base main --head f -> True
-        python3 -X utf8 pull_request.py create ...                       -> False
-        pull_request.py create --repo o/r --base main                    -> False
+        /home/u/.agents/skills/pull-request/scripts/pull_request.py           -> True
+        /home/u/.agents/skills/pull-request/scripts/../scripts/pull_request.py -> True
+        pull_request.py, ./pull_request.py, scripts/pull_request.py            -> False
+        /tmp/x/pull_request.py, /repo/.agents/skills/pull-request/...          -> False
+
+    A relative word is never the launcher, since the gate cannot tell which
+    folder bash runs it from. Both paths resolve links and letter case
+    before the compare.
+    """
+    if not os.path.isabs(script_word):
+        return False
+    managed_launcher = Path.home().joinpath(*ALL_MANAGED_LAUNCHER_PATH_PARTS)
+    return os.path.normcase(os.path.realpath(script_word)) == os.path.normcase(
+        os.path.realpath(managed_launcher)
+    )
+
+
+def _is_lone_launcher_create(program: str, all_words: list[str]) -> bool:
+    """Return whether shell words run the managed ``pull_request.py create`` launcher with one repository, base and head.
+
+    ::
+
+        /home/u/.agents/skills/pull-request/scripts/pull_request.py create --repo o/r --base main --head f -> True
+        python3 /home/u/.agents/.../pull_request.py create --repo=o/r --base main --head f            -> True
+        python3 /x/pull_request.py create ..., ./pull_request.py create ...                           -> False
+        python3 -X utf8 /home/u/.agents/.../pull_request.py create ...                                -> False
+        /home/u/.agents/.../pull_request.py create --repo o/r --base main                             -> False
+        ... --head f --head g, --head=, --title --head                                                -> False
+
+    The script word must be the managed launcher, so a different script
+    with the same name cannot change git config or open elsewhere and still
+    count. The words after ``create`` must read as the launcher's own
+    options, each in an option position, so the head and repository the
+    gate reads are the ones the launcher hands to gh.
     """
     script_start = 1 if LONE_LAUNCHER_PYTHON_PATTERN.fullmatch(program) else 0
     all_launcher_words = all_words[script_start:]
-    all_lead_words = all_launcher_words[:LONE_LAUNCHER_LEAD_WIDTH]
-    all_read_lead_words = [token_basename(each_word) for each_word in all_lead_words[:1]] + all_lead_words[1:]
-    if all_read_lead_words != [LONE_LAUNCHER_SCRIPT_NAME, LONE_LAUNCHER_CREATE_WORD]:
+    if len(all_launcher_words) < LONE_LAUNCHER_LEAD_WIDTH:
         return False
-    all_option_names = {
-        each_word.partition(LONE_LAUNCHER_OPTION_VALUE_SEPARATOR)[0]
-        for each_word in all_launcher_words[1:]
-    }
-    return all(each_option in all_option_names for each_option in ALL_LONE_LAUNCHER_REQUIRED_OPTIONS)
+    script_word, action_word = all_launcher_words[:LONE_LAUNCHER_LEAD_WIDTH]
+    if action_word != LONE_LAUNCHER_CREATE_WORD or not _is_managed_launcher(script_word):
+        return False
+    all_values_by_option = _launcher_option_values(all_launcher_words[LONE_LAUNCHER_LEAD_WIDTH:])
+    if all_values_by_option is None:
+        return False
+    return all(
+        len(all_values_by_option.get(each_option, [])) == 1 for each_option in ALL_LONE_LAUNCHER_REQUIRED_OPTIONS
+    )
+
+
+def _launcher_option_values(all_option_words: list[str]) -> dict[str, list[str]] | None:
+    """Read the launcher's create options, or None when a word is not one of them with a plain value.
+
+    ::
+
+        ["--repo", "o/r", "--head=f", "--draft"] -> {"--repo": ["o/r"], "--head": ["f"]}
+        ["--head", "f", "--head", "g"]           -> {"--head": ["f", "g"]}
+        ["--head="], ["--head"], ["--fill"]      -> None
+        ["--title", "--head"], ["--", "x"]       -> None
+
+    A value that is empty or starts with ``-`` also gives None, since the
+    launcher's parser either refuses it or reads it as another option.
+    """
+    all_values_by_option: dict[str, list[str]] = {}
+    index = 0
+    while index < len(all_option_words):
+        option, separator, inline_value = all_option_words[index].partition(LONE_LAUNCHER_OPTION_VALUE_SEPARATOR)
+        if option in ALL_LONE_LAUNCHER_FLAG_OPTIONS and not separator:
+            index += 1
+            continue
+        if option not in ALL_LONE_LAUNCHER_VALUE_OPTIONS:
+            return None
+        if separator:
+            option_value = inline_value
+            index += 1
+        else:
+            option_value = all_option_words[index + 1] if index + 1 < len(all_option_words) else ""
+            index += OPTION_AND_VALUE_WIDTH
+        if not option_value or option_value.startswith(LONE_LAUNCHER_OPTION_PREFIX):
+            return None
+        all_values_by_option.setdefault(option, []).append(option_value)
+    return all_values_by_option
 
 
 def _root_repository_width(all_words_after_program: list[str]) -> int:
@@ -1188,8 +1283,16 @@ def _flag_value(placed_create: PlacedCreate) -> str | None:
 
 
 def _placed_heads(placed_create: PlacedCreate) -> list[str]:
+    """Return each head a create names, with an empty ``--head`` read as the checkout branch.
+
+    gh and the launcher take the last ``--head``, and an empty one leaves gh
+    to pick the checkout branch's push target::
+
+        --head a --head b  -> ["a", "b"]
+        --head a --head=   -> ["a", "HEAD"]
+    """
     all_heads = all_option_values(_option_words(placed_create), LONG_HEAD_OPTION, HEAD_SHORT_LETTER)
-    return list(dict.fromkeys(each_head for each_head in all_heads if each_head))
+    return list(dict.fromkeys(each_head or CURRENT_HEAD_REFERENCE for each_head in all_heads))
 
 
 def _placed_base(placed_create: PlacedCreate) -> str | None:

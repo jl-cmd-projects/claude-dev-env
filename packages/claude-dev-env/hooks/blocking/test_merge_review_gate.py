@@ -772,23 +772,98 @@ def _launcher_create(script_path: str) -> str:
     )
 
 
+MANAGED_LAUNCHER_TAIL = ".agents/skills/pull-request/scripts/pull_request.py"
+
+
+def _managed_launcher_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> str:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    return f"{home.as_posix()}/{MANAGED_LAUNCHER_TAIL}"
+
+
 def test_should_credit_an_earlier_pass_to_a_lone_pull_request_launcher_create(
-    branch_checkout: tuple[Path, str], github_repository: Path, tmp_path: Path
+    branch_checkout: tuple[Path, str], github_repository: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
-    script_path = str(tmp_path / "pull-request" / "scripts" / "pull_request.py")
+    script_path = _managed_launcher_path(tmp_path, monkeypatch)
     assert _reason(_bash_in(folder, _launcher_create(script_path))) is None
+    assert _reason(_bash_in(folder, _launcher_create(f"~/{MANAGED_LAUNCHER_TAIL}"))) is None
+    assert _reason(_bash_in(folder, _launcher_create(f"$HOME/{MANAGED_LAUNCHER_TAIL}"))) is None
     assert "no clean review" in _deny_reason(_bash_in(folder, "cd . && " + _launcher_create(script_path)))
     assert "no clean review" in _deny_reason(
         _bash_in(folder, _launcher_create("~/pull-request/scripts/pull_request.py"))
     )
 
 
+@pytest.mark.parametrize(
+    "script_path",
+    [
+        "./pull_request.py",
+        "/tmp/x/pull_request.py",
+        "scripts/pull_request.py",
+        f"/opt/lookalike/{MANAGED_LAUNCHER_TAIL}",
+    ],
+)
+def test_should_give_no_earlier_pass_credit_to_a_launcher_create_whose_script_is_not_the_managed_launcher(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    script_path: str,
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    _managed_launcher_path(tmp_path, monkeypatch)
+    assert "no clean review" in _deny_reason(_bash_in(folder, _launcher_create(script_path)))
+
+
+@pytest.mark.parametrize(
+    "launcher_options",
+    [
+        "--repo acme/tools --base main --title --head --body-file body.md",
+        "--repo acme/tools --base main --head feature --head feature --title t --body-file body.md",
+        "--repo acme/tools --repo acme/tools --base main --head feature --title t --body-file body.md",
+        "--repo acme/tools --base main --head= --title t --body-file body.md",
+    ],
+)
+def test_should_give_no_earlier_pass_credit_to_a_launcher_create_whose_repo_base_or_head_is_not_named_once(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    launcher_options: str,
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    script_path = _managed_launcher_path(tmp_path, monkeypatch)
+    assert "no clean review" in _deny_reason(_bash_in(folder, f"python3 {script_path} create {launcher_options}"))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr create --fill --base main --head feature --head=",
+        "python3 /x/pull_request.py create --repo acme/tools --base main --head feature "
+        "--title t --body-file body.md --head=",
+    ],
+)
+def test_should_give_no_credit_to_an_open_whose_last_head_is_empty_while_the_branch_tracks_another_name(
+    branch_checkout: tuple[Path, str], github_repository: Path, command: str
+) -> None:
+    folder, reviewed_head = branch_checkout
+    _git(github_repository, "update-ref", "refs/heads/other", reviewed_head)
+    _git(folder, "config", "branch.feature.remote", "origin")
+    _git(folder, "config", "branch.feature.merge", "refs/heads/other")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 0)
+    assert _reason(_bash_in(folder, command.removesuffix(" --head="))) is None
+    assert "Name the head with `--head feature`" in _deny_reason(_bash_in(folder, command))
+
+
 def test_should_give_no_credit_to_an_open_whose_checkout_branch_tracks_another_branch_name(
     branch_checkout: tuple[Path, str], github_repository: Path
 ) -> None:
     folder, reviewed_head = branch_checkout
-    _git(folder, "push", "--quiet", str(github_repository), "feature:other")
+    _git(github_repository, "update-ref", "refs/heads/other", reviewed_head)
     _git(folder, "config", "branch.feature.remote", "origin")
     _git(folder, "config", "branch.feature.merge", "refs/heads/other")
     merge_review_receipt.record_open_review("acme/tools", reviewed_head, 0)

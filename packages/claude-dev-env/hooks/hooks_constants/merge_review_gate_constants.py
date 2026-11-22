@@ -211,12 +211,20 @@ ALL_CREATE_TEXT_OPTIONS = frozenset(
 )
 ALL_LONE_CREATE_REFUSED_CHARACTERS = frozenset("$`\n\r")
 LONE_CREATE_UNQUOTED_REFUSED_CHARACTERS = "();<>|&#{}*?[~"
-LONE_LAUNCHER_SCRIPT_NAME = "pull_request.py"
 LONE_LAUNCHER_CREATE_WORD = "create"
 LONE_LAUNCHER_LEAD_WIDTH = 2
 LONE_LAUNCHER_PYTHON_PATTERN = re.compile(r"python3?")
 LONE_LAUNCHER_OPTION_VALUE_SEPARATOR = "="
 ALL_LONE_LAUNCHER_REQUIRED_OPTIONS = ("--repo", "--base", "--head")
+ALL_LONE_LAUNCHER_VALUE_OPTIONS = frozenset({"--repo", "--base", "--head", "--title", "--body-file"})
+ALL_LONE_LAUNCHER_FLAG_OPTIONS = frozenset({"--draft"})
+LONE_LAUNCHER_OPTION_PREFIX = "-"
+ALL_MANAGED_LAUNCHER_PATH_PARTS = (".agents", "skills", "pull-request", "scripts", "pull_request.py")
+MANAGED_LAUNCHER_HOME_PREFIX_PATTERN = re.compile(
+    r"\A(?P<lead>\s*(?:python3?\s+)?)(?:~|\$HOME)(?="
+    + re.escape("/" + "/".join(ALL_MANAGED_LAUNCHER_PATH_PARTS))
+    + r"\s)"
+)
 ALL_PUSH_REMOTE_BRANCH_KEYS = frozenset({"remote", "pushremote"})
 ALL_ORIGIN_PUSH_KEYS = frozenset({"push", "pushurl"})
 BRANCH_SETTING_SECTION = "branch"
@@ -501,7 +509,9 @@ NOT_LONE_CAUSE = (
     "the create is not the whole command. Run `gh pr create` as its own command, with no `cd`, "
     "variable prefix or other command beside it. Put a `--repo` before `pr` or after `create`, "
     "never between them. The `pull_request.py create` launcher counts too when it runs alone "
-    "from a plain path, with `--repo`, `--base` and `--head`. Outside quotes, any of ( ) ; < > | "
+    "as `~/.agents/skills/pull-request/scripts/pull_request.py`, written with `~/`, `$HOME/` or "
+    "the full home folder, with `--repo`, `--base` and `--head`; another script with that name "
+    "does not count. Outside quotes, any of ( ) ; < > | "
     "& # {{ }} * ? [ ~ counts as another word, and a $, a backtick or a line break counts "
     "anywhere, so quote title text, put the body in a file passed with `--body-file`, or open "
     "with the create pull request tool and set its `base`."
