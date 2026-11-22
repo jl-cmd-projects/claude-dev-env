@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from io import StringIO
 from pathlib import Path
@@ -24,6 +25,9 @@ GH_STUB_SCRIPT = """#!{python}
 import json, os, sys
 all_responses = json.loads(open(os.environ["GH_ISSUE_STUB"], encoding="utf-8").read())
 api_path = sys.argv[-1]
+if os.environ.get("GH_STALL_PATH") and os.environ["GH_STALL_PATH"] in api_path:
+    import time
+    time.sleep(60)
 if sys.argv[1:4] != ["api", "--hostname", "github.com"] or api_path not in all_responses:
     sys.stderr.write("gh: Not Found (HTTP 404)\\n")
     sys.exit(1)
@@ -62,8 +66,12 @@ def gh_issues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
     return all_responses
 
 
-def _answer_from_stub_map(api_path: str, deadline: float | None = None) -> object:
-    if deadline is not None and time.monotonic() >= deadline:
+def _answer_from_stub_map(
+    api_path: str, deadline: float | None = None, stop_reading: threading.Event | None = None
+) -> object:
+    if (deadline is not None and time.monotonic() >= deadline) or (
+        stop_reading is not None and stop_reading.is_set()
+    ):
         return None
     return json.loads(Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8")).get(api_path)
 
@@ -88,7 +96,12 @@ def test_record_review_replaces_the_previous_pass(receipt_folder: Path) -> None:
     merge_review_receipt.record_review("Acme/Tools", 12, "old", 4)
     path = merge_review_receipt.record_review("Acme/Tools", 12, HEAD, 0)
     assert path == receipt_folder / "acme__tools__12.json"
-    assert json.loads(path.read_text(encoding="utf-8")) == {"head": HEAD, "findings": 0, "pass": 2}
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "head": HEAD,
+        "findings": 0,
+        "pass": 2,
+        "history_unverified": True,
+    }
 
 
 def test_should_print_clean_when_every_finding_is_ruled_out_with_a_link() -> None:
@@ -127,6 +140,7 @@ def test_should_keep_the_raw_finding_count_beside_the_ruled_out_count(
         "head": HEAD,
         "findings": 2,
         "pass": 1,
+        "history_unverified": True,
         "ruled_out": 2,
         "rulings": RULINGS_LINK,
     }
@@ -639,7 +653,7 @@ def test_should_reach_old_failing_reviews_within_the_deadline_by_reading_in_para
     _serve_failing_reviews_below_newer_commits(gh_issues, 150)
     all_answers = json.loads(Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8"))
 
-    def slow_answer(api_path: str, deadline: float | None = None) -> object:
+    def slow_answer(api_path: str, deadline: float | None = None, stop_reading: object = None) -> object:
         if deadline is not None and time.monotonic() >= deadline:
             return None
         if "/statuses" in api_path:
@@ -659,7 +673,7 @@ def test_should_keep_reading_while_one_read_stalls(
     _serve_failing_reviews_below_newer_commits(gh_issues, 12)
     all_answers = json.loads(Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8"))
 
-    def stalling_answer(api_path: str, deadline: float | None = None) -> object:
+    def stalling_answer(api_path: str, deadline: float | None = None, stop_reading: object = None) -> object:
         if deadline is not None and time.monotonic() >= deadline:
             return None
         if "/statuses" in api_path and int(api_path.split("/commits/")[1][:40]) % 2 == 0:
@@ -671,6 +685,90 @@ def test_should_keep_reading_while_one_read_stalls(
     monkeypatch.setattr(merge_review_receipt, "GITHUB_COUNT_DEADLINE_SECONDS", 2.2)
 
     assert _filed_pass(receipt_folder) == 4
+
+
+def test_should_read_github_again_after_a_first_record_it_could_not_count(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
+    assert _stored_receipt(receipt_folder) == {
+        "head": HEAD,
+        "findings": 2,
+        "pass": 1,
+        "history_unverified": True,
+    }
+    _serve_review_statuses(gh_issues)
+
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
+
+    assert _stored_receipt(receipt_folder) == {"head": HEAD, "findings": 2, "pass": 4}
+
+
+def test_should_not_mark_a_first_record_whose_history_was_read_in_full(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    gh_issues[COMMITS_API_PATH] = [{"sha": HEAD}]
+    _serve_issues(gh_issues)
+
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
+
+    assert _stored_receipt(receipt_folder) == {"head": HEAD, "findings": 2, "pass": 1}
+
+
+def test_should_mark_a_record_when_a_status_read_fails_and_fewer_than_three_reviews_count(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+    del gh_issues[_statuses_api_path(EARLIER_COMMITS[1])]
+    _serve_issues(gh_issues)
+
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2, filed=ISSUE_LINK)
+
+    assert _stored_receipt(receipt_folder)["pass"] == 3
+    assert _stored_receipt(receipt_folder)["history_unverified"] is True
+
+
+def test_should_kill_a_gh_read_when_the_stop_signal_is_set() -> None:
+    stop_reading = threading.Event()
+    stalled_read = subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"], stdout=subprocess.PIPE
+    )
+    threading.Timer(0.3, stop_reading.set).start()
+
+    started_at = time.monotonic()
+    with stalled_read:
+        answer = merge_review_receipt._read_process_answer(stalled_read, 60, stop_reading)
+
+    assert answer is None
+    assert time.monotonic() - started_at < 10
+    assert stalled_read.returncode is not None
+
+
+def test_should_signal_stalled_reads_to_stop_once_three_failing_reviews_are_counted(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    stalled_sha = "4" * 40
+    _serve_review_statuses(gh_issues)
+    gh_issues[COMMITS_API_PATH] = [
+        {"sha": each_sha} for each_sha in [stalled_sha, *EARLIER_COMMITS, HEAD]
+    ]
+    all_answers = {**gh_issues, _statuses_api_path(stalled_sha): []}
+
+    def stalling_answer(
+        api_path: str, deadline: float | None = None, stop_reading: threading.Event | None = None
+    ) -> object:
+        if stalled_sha in api_path and stop_reading is not None:
+            stop_reading.wait(30)
+            return None
+        return all_answers.get(api_path)
+
+    monkeypatch.setattr(merge_review_receipt, "_github_answer", stalling_answer)
+
+    started_at = time.monotonic()
+    pass_number = _filed_pass(receipt_folder)
+
+    assert pass_number == 4
+    assert time.monotonic() - started_at < 10
 
 
 def test_should_read_only_the_newest_earlier_commits(
@@ -689,7 +787,7 @@ def test_should_not_read_github_for_a_later_record_without_filed(
     monkeypatch.setattr(
         merge_review_receipt,
         "_github_answer",
-        lambda api_path, deadline=None: all_read_paths.append(api_path),
+        lambda api_path, deadline=None, stop_reading=None: all_read_paths.append(api_path),
     )
     (receipt_folder / "acme__tools__12.json").write_text(
         json.dumps({"head": "0" * 40, "findings": 2, "pass": 1}), encoding="utf-8"
@@ -746,7 +844,7 @@ def test_should_skip_the_github_read_once_the_receipt_is_past_the_full_pass_coun
     monkeypatch.setattr(
         merge_review_receipt,
         "_github_answer",
-        lambda api_path, deadline=None: all_read_paths.append(api_path),
+        lambda api_path, deadline=None, stop_reading=None: all_read_paths.append(api_path),
     )
     (receipt_folder / "acme__tools__12.json").write_text(
         json.dumps({"head": "0" * 40, "findings": 2, "pass": 3}), encoding="utf-8"

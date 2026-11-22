@@ -74,9 +74,10 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Sequence
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TextIO
 
@@ -117,6 +118,7 @@ from hooks_constants.merge_review_gate_constants import (
     GITHUB_API_HOST,
     GITHUB_API_HOST_OPTION,
     GITHUB_API_READ_TIMEOUT_SECONDS,
+    GITHUB_API_STOP_POLL_SECONDS,
     GITHUB_API_SUBCOMMAND,
     GITHUB_COUNT_DEADLINE_SECONDS,
     LOCAL_BRANCH_REFERENCE_TEMPLATE,
@@ -134,6 +136,7 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_RULED_OUT_KEY,
     RECEIPT_RULING_LINES_KEY,
     RECEIPT_RULINGS_KEY,
+    RECEIPT_UNVERIFIED_KEY,
     REMOTE_TRACKING_REFERENCE_PREFIX,
     REPOSITORY_SLUG_PATTERN,
     REVIEW_RUN_API_PATH_TEMPLATE,
@@ -183,20 +186,18 @@ def record_review(
     Returns:
         The receipt path written.
     """
+    pass_number, is_history_unverified = _next_pass(
+        slug, number, head, should_read_github=bool(filed.strip())
+    )
     receipt = _numbered_receipt(
-        head,
-        finding_count,
-        ruled_out_count,
-        rulings,
-        filed,
-        _next_pass_number(slug, number, head, should_read_github=bool(filed.strip())),
+        head, finding_count, ruled_out_count, rulings, filed, pass_number, is_history_unverified
     )
     return _write_receipt(slug, number, receipt)
 
 
-def _next_pass_number(
+def _next_pass(
     slug: str, number: int, head: str, should_read_github: bool = False
-) -> int:
+) -> tuple[int, bool]:
     """Return which review pass on the pull request a record of ``head`` is.
 
     A new head is the next pass. Recording the head the previous receipt names
@@ -215,7 +216,11 @@ def _next_pass_number(
 
     A previous receipt that cannot be read counts as no receipt. A local pass
     past the full pass count already allows a filed pass, so GitHub is not
-    read for it.
+    read for it. A read that GitHub did not finish leaves the local count and
+    marks the receipt, and the next record reads GitHub again::
+
+        no receipt, GitHub unreachable            -> pass 1, receipt marked
+        receipt marked, GitHub reachable, 3 prior -> pass 4, mark cleared
 
     Args:
         slug: Repository as ``owner/name``.
@@ -224,16 +229,18 @@ def _next_pass_number(
         should_read_github: True when the record carries ``--filed``.
 
     Returns:
-        The pass number, from 1.
+        The pass number, from 1, and whether the GitHub read was left unfinished.
     """
     owner, repo = slug.split("/", 1)
     previous_receipt = read_receipt(receipt_path(owner, repo, number))
     local_pass_number = _local_pass_number(previous_receipt, head)
+    is_history_marked = bool(previous_receipt and previous_receipt.get(RECEIPT_UNVERIFIED_KEY))
     is_fresh_session = previous_receipt is None
-    if not (should_read_github or is_fresh_session) or local_pass_number > FULL_REVIEW_PASS_COUNT:
-        return local_pass_number
-    reviewed_pass_number = _failed_review_head_count(owner, repo, number, head) + 1
-    return max(local_pass_number, reviewed_pass_number)
+    is_read_wanted = should_read_github or is_fresh_session or is_history_marked
+    if not is_read_wanted or local_pass_number > FULL_REVIEW_PASS_COUNT:
+        return local_pass_number, False
+    failed_review_count, is_count_verified = _failed_review_head_count(owner, repo, number, head)
+    return max(local_pass_number, failed_review_count + 1), not is_count_verified
 
 
 def _local_pass_number(all_previous_receipt_fields: dict[str, object] | None, head: str) -> int:
@@ -247,24 +254,30 @@ def _local_pass_number(all_previous_receipt_fields: dict[str, object] | None, he
     return previous_pass_number if is_same_pass else previous_pass_number + 1
 
 
-def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> int:
+def _failed_review_head_count(
+    owner: str, repo: str, number: int, head: str
+) -> tuple[int, bool]:
     """Return how many earlier commits of the pull request had a failing review run.
 
-    Earlier commits are the ones the pull request lists before the head. The
-    count is 0 when any page of the list cannot be read or the head is not in
-    it, so it only ever raises a pass. A commit counts when its newest
-    ``Merge review`` status is ``failure``, the review app posted it, and its
-    link is a GitHub Actions run of the review workflow that succeeded and is
-    titled for this repository, this pull request and that commit. The walk
-    starts at the newest earlier commit, reads at most a fixed number of them
-    in parallel within one deadline, and stops at the full pass count::
+    Earlier commits are the ones the pull request lists before the head. A
+    commit counts when its newest ``Merge review`` status is ``failure``, the
+    review app posted it, and its link is a GitHub Actions run of the review
+    workflow that succeeded and is titled for this repository, this pull
+    request and that commit. The walk starts at the newest earlier commit,
+    reads at most a fixed number of them in parallel within one deadline, and
+    stops at the full pass count. Reads still running at that point are
+    stopped. The count is a lower bound, so it only ever raises a pass, and it
+    is flagged unverified when a read GitHub did not answer could have changed
+    it::
 
-        commits c1 (failing review run), c2 (none), head -> 1
-        commits c1, head, c2 (failing review run)        -> 0
-        commit c1 (failure by another app), head         -> 0
-        commit c1 (run titled for another pull request)  -> 0
-        commit list page 2 unreadable                    -> 0
-        head missing from the commit list                -> 0
+        commits c1 (failing review run), c2 (none), head -> 1, verified
+        commits c1, head, c2 (failing review run)        -> 0, verified
+        commit c1 (failure by another app), head         -> 0, verified
+        commit c1 (run titled for another pull request)  -> 0, verified
+        commit list page 2 unreadable                    -> 0, unverified
+        head missing from the commit list                -> 0, unverified
+        c1 status unreadable, 3 other failing reviews    -> 3, verified
+        c1 status unreadable, 1 other failing review     -> 1, unverified
 
     Args:
         owner: Repository owner.
@@ -273,38 +286,59 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
         head: The commit the pass reviewed, left out of the count.
 
     Returns:
-        The count, from 0 to the full pass count.
+        The count, from 0 to the full pass count, and whether every read that
+        could change it was answered.
     """
     deadline = time.monotonic() + GITHUB_COUNT_DEADLINE_SECONDS
     all_earlier_shas = _commits_before_head(owner, repo, number, head, deadline)
+    if all_earlier_shas is None:
+        return 0, False
     all_newest_first_shas = list(reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]))
-    failed_count = 0
-    with ThreadPoolExecutor(max_workers=STATUS_READ_WORKER_COUNT) as executor:
+    stop_reading = threading.Event()
+    executor = ThreadPoolExecutor(max_workers=STATUS_READ_WORKER_COUNT)
+    try:
         all_reads = [
-            executor.submit(_is_failed_review_commit, owner, repo, number, each_sha, deadline)
+            executor.submit(
+                _is_failed_review_commit, owner, repo, number, each_sha, deadline, stop_reading
+            )
             for each_sha in all_newest_first_shas
         ]
-        for each_read in as_completed(all_reads):
-            failed_count += 1 if each_read.result() else 0
-            if failed_count >= FULL_REVIEW_PASS_COUNT:
-                for each_pending_read in all_reads:
-                    each_pending_read.cancel()
-                return FULL_REVIEW_PASS_COUNT
-    return failed_count
+        return _tally_failed_reviews(all_reads)
+    finally:
+        stop_reading.set()
+        executor.shutdown(wait=True, cancel_futures=True)
 
 
-def _is_failed_review_commit(owner: str, repo: str, number: int, sha: str, deadline: float) -> bool:
+def _tally_failed_reviews(all_reads: list[Future[bool | None]]) -> tuple[int, bool]:
+    failed_count = 0
+    is_unverified = False
+    for each_read in as_completed(all_reads):
+        verdict = each_read.result()
+        is_unverified = is_unverified or verdict is None
+        failed_count += 1 if verdict else 0
+        if failed_count >= FULL_REVIEW_PASS_COUNT:
+            return FULL_REVIEW_PASS_COUNT, True
+    return failed_count, not is_unverified
+
+
+def _is_failed_review_commit(
+    owner: str, repo: str, number: int, sha: str, deadline: float, stop_reading: threading.Event
+) -> bool | None:
     all_statuses = _github_answer(
-        COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=sha), deadline
+        COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=sha),
+        deadline,
+        stop_reading,
     )
-    return isinstance(all_statuses, list) and _is_review_app_failure(
-        all_statuses, f"{owner}/{repo}", number, sha, deadline
+    if not isinstance(all_statuses, list):
+        return None
+    return _is_review_app_failure(
+        all_statuses, f"{owner}/{repo}", number, sha, deadline, stop_reading
     )
 
 
 def _commits_before_head(
     owner: str, repo: str, number: int, head: str, deadline: float
-) -> list[str]:
+) -> list[str] | None:
     all_earlier_shas: list[str] = []
     for each_page in range(1, PULL_REQUEST_COMMITS_PAGE_LIMIT + 1):
         all_page_commits = _github_answer(
@@ -314,7 +348,7 @@ def _commits_before_head(
             deadline,
         )
         if not isinstance(all_page_commits, list):
-            return []
+            return None
         all_page_shas = _commit_shas_in(all_page_commits)
         head_index = next(
             (
@@ -328,8 +362,8 @@ def _commits_before_head(
             return all_earlier_shas + all_page_shas[:head_index]
         all_earlier_shas.extend(all_page_shas)
         if len(all_page_commits) < PULL_REQUEST_COMMITS_PAGE_SIZE:
-            return []
-    return []
+            return None
+    return None
 
 
 def _commit_shas_in(all_commits: list[object]) -> list[str]:
@@ -363,8 +397,13 @@ def _review_run_page_of_failure(all_statuses: list[object]) -> re.Match[str] | N
 
 
 def _is_review_app_failure(
-    all_statuses: list[object], repository: str, number: int, sha: str, deadline: float
-) -> bool:
+    all_statuses: list[object],
+    repository: str,
+    number: int,
+    sha: str,
+    deadline: float,
+    stop_reading: threading.Event,
+) -> bool | None:
     run_page = _review_run_page_of_failure(all_statuses)
     if run_page is None:
         return False
@@ -373,7 +412,10 @@ def _is_review_app_failure(
             repository=run_page["repository"], run_id=run_page["run_id"]
         ),
         deadline,
+        stop_reading,
     )
+    if review_run is None:
+        return None
     return _is_successful_review_run_for(
         review_run, int(run_page["run_id"]), repository, number, sha
     )
@@ -399,7 +441,9 @@ def _is_successful_review_run_for(
     )
 
 
-def _github_answer(api_path: str, deadline: float | None = None) -> object:
+def _github_answer(
+    api_path: str, deadline: float | None = None, stop_reading: threading.Event | None = None
+) -> object:
     client_path = shutil.which(GITHUB_API_CLIENT_NAME)
     if client_path is None:
         return None
@@ -409,7 +453,7 @@ def _github_answer(api_path: str, deadline: float | None = None) -> object:
     if timeout_seconds <= 0:
         return None
     try:
-        completed = subprocess.run(
+        with subprocess.Popen(
             [
                 client_path,
                 GITHUB_API_SUBCOMMAND,
@@ -417,13 +461,29 @@ def _github_answer(api_path: str, deadline: float | None = None) -> object:
                 GITHUB_API_HOST,
                 api_path,
             ],
-            capture_output=True,
-            timeout=timeout_seconds,
-            check=False,
-        )
-        return json.loads(completed.stdout) if completed.returncode == 0 else None
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        ) as read_process:
+            return _read_process_answer(read_process, timeout_seconds, stop_reading)
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
+
+
+def _read_process_answer(
+    read_process: subprocess.Popen[bytes],
+    timeout_seconds: float,
+    stop_reading: threading.Event | None,
+) -> object:
+    give_up_at = time.monotonic() + timeout_seconds
+    while True:
+        if (stop_reading is not None and stop_reading.is_set()) or time.monotonic() >= give_up_at:
+            read_process.kill()
+            return None
+        try:
+            answer_bytes, _ = read_process.communicate(timeout=GITHUB_API_STOP_POLL_SECONDS)
+        except subprocess.TimeoutExpired:
+            continue
+        return json.loads(answer_bytes) if read_process.returncode == 0 else None
 
 
 def _numbered_receipt(
@@ -433,9 +493,12 @@ def _numbered_receipt(
     rulings: str,
     filed: str,
     pass_number: int,
+    is_history_unverified: bool = False,
 ) -> dict[str, object]:
     receipt = _receipt_fields(head, finding_count, ruled_out_count, RECEIPT_RULINGS_KEY, rulings)
     receipt[RECEIPT_PASS_KEY] = pass_number
+    if is_history_unverified:
+        receipt[RECEIPT_UNVERIFIED_KEY] = True
     if filed:
         receipt[RECEIPT_FILED_KEY] = filed
     return receipt
@@ -798,12 +861,18 @@ def _record_numbered_pass(
     parser: argparse.ArgumentParser, parsed: argparse.Namespace, stdout: TextIO
 ) -> int:
     rulings = _checked_rulings_link(parser, parsed)
-    pass_number = _next_pass_number(
+    pass_number, is_history_unverified = _next_pass(
         parsed.slug, parsed.number, parsed.head, should_read_github=bool(parsed.filed.strip())
     )
     filed = _checked_filed_link(parser, parsed, pass_number)
     receipt = _numbered_receipt(
-        parsed.head, parsed.findings, parsed.ruled_out, rulings, filed, pass_number
+        parsed.head,
+        parsed.findings,
+        parsed.ruled_out,
+        rulings,
+        filed,
+        pass_number,
+        is_history_unverified,
     )
     _write_receipt(parsed.slug, parsed.number, receipt)
     owner, repo = parsed.slug.split("/", 1)
