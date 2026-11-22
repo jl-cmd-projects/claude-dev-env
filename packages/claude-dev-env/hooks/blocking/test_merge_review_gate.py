@@ -780,6 +780,24 @@ def test_should_deny_an_earlier_pass_when_gh_resolves_the_open_to_another_remote
     )
 
 
+def test_should_deny_an_earlier_pass_when_origin_resolves_to_another_repository(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    _git(folder, "config", "remote.origin.gh-resolved", "base")
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+    _git(folder, "config", "remote.origin.gh-resolved", "upstream/tools")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+
+
+def test_should_deny_an_earlier_pass_when_the_folder_has_a_second_remote(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    _git(folder, "remote", "add", "Origin", "https://github.com/upstream/tools.git")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+
+
 @pytest.mark.parametrize("session_repository", ["github.com/acme/tools", "GitHub.COM/acme/tools"])
 def test_should_credit_an_earlier_pass_when_the_session_names_the_repository_with_the_github_host(
     branch_checkout: tuple[Path, str],

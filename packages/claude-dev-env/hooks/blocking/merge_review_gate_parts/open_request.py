@@ -43,10 +43,14 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_ORIGIN_URL_ARGUMENTS,
     ALL_SHELL_TOOL_NAMES,
     ALL_MERGE_BASE_READ_ARGUMENTS,
-    ALL_SETTING_NAMES_READ_ARGUMENTS,
-    ORIGIN_RESOLVED_SETTING,
-    REMOTE_SETTING_PREFIX,
-    RESOLVED_REMOTE_SETTING_SUFFIX,
+    ALL_SETTINGS_READ_ARGUMENTS,
+    ORIGIN_REMOTE_NAME,
+    REMOTE_SETTING_SECTION,
+    RESOLVED_AS_BASE_VALUE,
+    RESOLVED_REMOTE_SETTING_KEY,
+    SETTING_NAME_END,
+    SETTING_PART_SEPARATOR,
+    SETTING_RECORD_END,
     BASE_BRANCH_FIELD,
     BASE_OPTION_MENTION_PATTERN,
     BASE_OPTION_PATTERN,
@@ -294,25 +298,34 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
 def _resolves_to_another_remote(folder: str | None) -> bool:
     """Return whether gh may open in a repository other than origin.
 
-    ``gh repo set-default`` marks one remote with a ``gh-resolved`` setting,
-    and a create with no ``--repo`` opens in that remote's repository::
+    A create with no ``--repo`` opens in the repository gh picks among the
+    remotes, and ``gh repo set-default`` records that pick in a
+    ``gh-resolved`` setting::
 
-        no remote carries gh-resolved         -> False
-        remote.origin.gh-resolved only        -> False
-        remote.upstream.gh-resolved = base    -> True
-        the settings read fails or runs out   -> True
+        origin alone, no gh-resolved setting          -> False
+        remote.origin.gh-resolved = base              -> False
+        remote.origin.gh-resolved = upstream/tools    -> True
+        a second remote, with or without a setting    -> True
+        the settings read fails or runs out           -> True
+
+    Remote names are compared as written, since git keeps their letter case.
     """
     listing = child_stdout(
-        ["git", *ALL_SETTING_NAMES_READ_ARGUMENTS], GIT_TIMEOUT_SECONDS, ReadSlice.FOLLOWUP, folder
+        ["git", *ALL_SETTINGS_READ_ARGUMENTS], GIT_TIMEOUT_SECONDS, ReadSlice.FOLLOWUP, folder
     )
     if listing is None:
         return True
-    return any(
-        each_name.lower().startswith(REMOTE_SETTING_PREFIX)
-        and each_name.lower().endswith(RESOLVED_REMOTE_SETTING_SUFFIX)
-        and each_name.lower() != ORIGIN_RESOLVED_SETTING
-        for each_name in listing.split()
-    )
+    for each_setting in listing.split(SETTING_RECORD_END):
+        name, _, setting_value = each_setting.partition(SETTING_NAME_END)
+        section, _, remainder = name.partition(SETTING_PART_SEPARATOR)
+        remote_name, _, key = remainder.rpartition(SETTING_PART_SEPARATOR)
+        if section.lower() != REMOTE_SETTING_SECTION or not remote_name:
+            continue
+        if remote_name != ORIGIN_REMOTE_NAME:
+            return True
+        if key.lower() == RESOLVED_REMOTE_SETTING_KEY and setting_value != RESOLVED_AS_BASE_VALUE:
+            return True
+    return False
 
 
 def _is_other_host(host: str | None) -> bool:
