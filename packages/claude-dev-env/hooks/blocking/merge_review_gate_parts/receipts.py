@@ -263,7 +263,7 @@ def open_reviewed_heads_among(
         branch: The branch the pull request opens from.
 
     Returns:
-        The recorded heads, lowercased, in no set order.
+        The recorded heads, lowercased and sorted.
     """
     all_wanted_heads = {each_head.casefold() for each_head in all_earlier_heads}
     folder = receipt_directory() / OPEN_RECEIPT_DIRECTORY_NAME

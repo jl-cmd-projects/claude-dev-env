@@ -173,6 +173,10 @@ LOCAL_BRANCH_REFERENCE_TEMPLATE = "refs/heads/{branch}"
 REMOTE_TRACKING_REFERENCE_PREFIX = "refs/remotes/"
 ALL_OUTSIDE_BASE_ARGUMENTS = ("rev-list", "--max-count=1")
 EXCLUDE_FROM_WALK_OPTION = "--not"
+ALL_MERGE_TREE_ARGUMENTS = ("merge-tree", "--write-tree")
+ALL_VERIFY_OBJECT_ARGUMENTS = ("rev-parse", "--verify", "--quiet")
+TREE_OF_COMMIT_TEMPLATE = "{commit}^{{tree}}"
+COMMIT_OBJECT_TEMPLATE = "{commit}^{{commit}}"
 
 GH_PR_MERGE_PATTERN = re.compile(r"(?:^|[\s;&|(])gh(?:\.exe)?\s+pr\s+merge\b(?P<rest>[^;&|]*)")
 GH_API_MERGE_PATTERN = re.compile(
@@ -315,6 +319,13 @@ PREFIX_ORIGIN_CHECK_SENTENCE = (
     " This create names its repository only with a `GH_REPO=` prefix, and a wrapper such as "
     "`env -u GH_REPO` can drop that prefix before gh runs, so the gate also checks the origin "
     "repository. Name the repository with `--repo owner/name` on the create instead."
+)
+FETCH_BASE_COMMAND = "git fetch origin"
+FETCH_NAMED_BASE_COMMAND_TEMPLATE = FETCH_BASE_COMMAND + " {base}"
+MISSING_BASE_COMMIT_REASON_TEMPLATE = (
+    "{slug} has a review pass on a commit before this head, but the base branch on GitHub is at "
+    "{base_commit}, which this clone has not fetched, so the gate cannot tell whether the base "
+    "already holds the reviewed work. Run `{fetch_command}`, then open the pull request again."
 )
 UNKNOWN_OPEN_TARGET_REASON = (
     "This pull request names no repository or head commit the review gate can read. Check that "

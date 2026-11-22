@@ -34,6 +34,10 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_STORED_HISTORY_GIT_SETTINGS,
     ALL_ANCESTRY_WALK_ARGUMENTS,
     ALL_OUTSIDE_BASE_ARGUMENTS,
+    ALL_MERGE_TREE_ARGUMENTS,
+    ALL_VERIFY_OBJECT_ARGUMENTS,
+    COMMIT_OBJECT_TEMPLATE,
+    TREE_OF_COMMIT_TEMPLATE,
     ALL_OTHER_LINE_REFERENCE_ARGUMENTS,
     ALL_NON_INTERACTIVE_GIT_SETTINGS,
     ALL_ORIGIN_URL_ARGUMENTS,
@@ -287,9 +291,19 @@ def _is_other_host(host: str | None) -> bool:
 
 
 def _names_another_repository(session_repository: str | None, owner: str, repo: str) -> bool:
+    """Return whether a ``GH_REPO`` value names a repository other than the open's.
+
+    gh reads ``[HOST/]OWNER/REPO``, so a github.com host prefix names the same repository::
+
+        None, "acme/tools", "GitHub.com/acme/tools"   -> False, for acme/tools
+        "evil/tools", "ghe.example.com/acme/tools"    -> True
+    """
     if not session_repository:
         return False
-    return session_repository.lower() != f"{owner}{REPOSITORY_PATH_SEPARATOR}{repo}".lower()
+    all_parts = session_repository.lower().split(REPOSITORY_PATH_SEPARATOR)
+    if len(all_parts) == HOST_OWNER_AND_REPO_PART_COUNT and all_parts[0] == GITHUB_HOST:
+        all_parts = all_parts[1:]
+    return all_parts != [owner.lower(), repo.lower()]
 
 
 def _branch_name(branch: str, folder: str | None) -> str | None:
@@ -454,6 +468,58 @@ def is_outside_base(commit: str, base_commit: str, folder: str | None) -> bool:
         folder,
     )
     return bool(listing and listing.strip())
+
+
+def adds_content_to_base(commit: str, base_commit: str, folder: str | None) -> bool:
+    """Return whether merging a commit into the base would change the base's files.
+
+    A base that squashed a branch in holds the branch's content without its
+    commits, so a pass on that content says nothing about later work::
+
+        feature commit adds feature.txt, base lacks it      -> True
+        base holds a squash of the commit                    -> False
+        the merge conflicts, or a read fails or runs out     -> False
+
+    The merge runs with ``git merge-tree --write-tree``, which stores the
+    merged tree as loose objects and moves no ref.
+
+    Args:
+        commit: The commit a review pass saw.
+        base_commit: The commit the base branch holds, from ``base_tip``.
+        folder: The folder git reads the history in.
+
+    Returns:
+        True when the merged tree differs from the base commit's tree.
+    """
+    merged_listing = _stored_history_read([*ALL_MERGE_TREE_ARGUMENTS, base_commit, commit], folder)
+    base_tree = _run_git(
+        [*ALL_VERIFY_OBJECT_ARGUMENTS, TREE_OF_COMMIT_TEMPLATE.format(commit=base_commit)], folder
+    )
+    if not merged_listing or not merged_listing.strip() or not base_tree:
+        return False
+    return merged_listing.split()[0] != base_tree
+
+
+def is_stored_locally(commit: str, folder: str | None) -> bool:
+    """Return whether the folder's git stores a commit.
+
+    ::
+
+        a commit the clone fetched                 -> True
+        a commit GitHub holds that was not fetched -> False
+
+    Args:
+        commit: The full commit name.
+        folder: The folder git reads in.
+
+    Returns:
+        True when git can read the commit, False when it cannot or the read fails.
+    """
+    return bool(
+        _run_git(
+            [*ALL_VERIFY_OBJECT_ARGUMENTS, COMMIT_OBJECT_TEMPLATE.format(commit=commit)], folder
+        )
+    )
 
 
 def _tool_open_call(all_tool_input: dict[object, object], folder: str | None) -> ToolOpenCall:

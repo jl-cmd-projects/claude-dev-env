@@ -60,10 +60,12 @@ from blocking.merge_review_gate_parts.open_request import (
     OpenCall,
     OpenRequest,
     ShellOpenCall,
+    adds_content_to_base,
     base_tip,
     first_parent_ancestors,
     is_held_by_another_line,
     is_outside_base,
+    is_stored_locally,
     open_calls_from,
     open_request_for,
 )
@@ -111,6 +113,9 @@ from hooks_constants.merge_review_gate_constants import (
     LOOSE_PULL_REQUEST_SCRIPT_PATTERN,
     MATCH_HEAD_PATTERN,
     MERGE_TOOL_SUFFIX,
+    FETCH_BASE_COMMAND,
+    FETCH_NAMED_BASE_COMMAND_TEMPLATE,
+    MISSING_BASE_COMMIT_REASON_TEMPLATE,
     NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE,
     NO_CLEAN_REVIEW_REASON_TEMPLATE,
     NUMBER_FIELD,
@@ -170,9 +175,11 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     The open goes on when a clean pass covers its head, or when any recorded
     pass on the branch being opened covers a commit before it along the
     head's first parents that no other branch holds without the head and
-    that the base branch on GitHub does not hold. A pass whose receipt names
-    another branch or no branch counts only at its head. A base that cannot
-    be read gives no credit to an earlier pass.
+    that the base branch on GitHub does not hold, as a commit or as content
+    a squash brought in. A pass whose receipt names another branch or no
+    branch counts only at its head. A base that cannot be read gives no
+    credit to an earlier pass. A base commit the clone has not fetched is
+    denied with the fetch to run before a retry.
 
     Args:
         request: The open the tool call asks for.
@@ -188,25 +195,41 @@ def open_deny_reason(request: OpenRequest) -> str | None:
         return UNKNOWN_OPEN_TARGET_REASON
     if has_clean_open_review(request.repo, request.head):
         return None
-    if request.branch and _has_earlier_own_pass(request, request.head, request.branch):
-        return None
-    return NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE.format(
+    no_pass_reason = NO_CLEAN_OPEN_REVIEW_REASON_TEMPLATE.format(
         slug=request.slug, head=request.head, review_command=_review_command()
     )
+    if not request.branch:
+        return no_pass_reason
+    return _earlier_own_pass_denial(request, request.head, request.branch, no_pass_reason)
 
 
-def _has_earlier_own_pass(request: OpenRequest, head: str, branch: str) -> bool:
+def _earlier_own_pass_denial(
+    request: OpenRequest, head: str, branch: str, no_pass_reason: str
+) -> str | None:
     all_reviewed_heads = open_reviewed_heads_among(
         request.repo, first_parent_ancestors(head, request.folder), branch
     )
     if not all_reviewed_heads:
-        return False
+        return no_pass_reason
     base_commit = base_tip(request)
-    return base_commit is not None and any(
+    if base_commit is None:
+        return no_pass_reason
+    if not is_stored_locally(base_commit, request.folder):
+        fetch_command = (
+            FETCH_NAMED_BASE_COMMAND_TEMPLATE.format(base=request.base)
+            if request.base
+            else FETCH_BASE_COMMAND
+        )
+        return MISSING_BASE_COMMIT_REASON_TEMPLATE.format(
+            slug=request.slug, base_commit=base_commit, fetch_command=fetch_command
+        )
+    is_credited = any(
         not is_held_by_another_line(each_reviewed_head, head, request.folder)
         and is_outside_base(each_reviewed_head, base_commit, request.folder)
+        and adds_content_to_base(each_reviewed_head, base_commit, request.folder)
         for each_reviewed_head in all_reviewed_heads
     )
+    return None if is_credited else no_pass_reason
 
 
 def merge_request_from(all_payload_fields: dict[str, object]) -> MergeRequest | None:

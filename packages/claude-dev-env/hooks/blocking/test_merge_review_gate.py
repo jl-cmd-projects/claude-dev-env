@@ -385,6 +385,8 @@ def branch_checkout(
     )
     _git(folder, "push", "--quiet", str(github_repository), "main")
     _git(folder, "checkout", "--quiet", "-b", "feature")
+    (folder / "feature.txt").write_text("feature work\n", encoding="utf-8")
+    _git(folder, "add", "feature.txt")
     _git(
         folder,
         "-c",
@@ -393,7 +395,6 @@ def branch_checkout(
         "user.email=t@example.com",
         "commit",
         "--quiet",
-        "--allow-empty",
         "-m",
         "first",
     )
@@ -763,6 +764,78 @@ def test_should_deny_an_earlier_pass_when_the_session_names_another_repository(
     assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
     monkeypatch.setenv("GH_REPO", "evil/tools")
     assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+
+
+@pytest.mark.parametrize("session_repository", ["github.com/acme/tools", "GitHub.COM/acme/tools"])
+def test_should_credit_an_earlier_pass_when_the_session_names_the_repository_with_the_github_host(
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    session_repository: str,
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    monkeypatch.setenv("GH_REPO", session_repository)
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+
+
+def test_should_deny_an_earlier_pass_when_the_session_names_the_repository_on_another_host(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    monkeypatch.setenv("GH_REPO", "ghe.example.com/acme/tools")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+
+
+def _push_squash_of_to_main(folder: Path, github_repository: Path, squashed_head: str) -> None:
+    squashed_tree = _git(folder, "rev-parse", f"{squashed_head}^{{tree}}")
+    squash_commit = _git(
+        folder,
+        "-c",
+        "user.name=t",
+        "-c",
+        "user.email=t@example.com",
+        "commit-tree",
+        squashed_tree,
+        "-p",
+        "main",
+        "-m",
+        "squash feature",
+    )
+    _git(folder, "push", "--quiet", str(github_repository), f"{squash_commit}:refs/heads/main")
+
+
+def test_should_deny_an_earlier_pass_on_a_reused_branch_whose_reviewed_work_the_base_squashed_in(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _push_squash_of_to_main(folder, github_repository, reviewed_head)
+    _commit_and_push(folder, github_repository, "second pull request work")
+    _git(folder, "fetch", "--quiet", "origin")
+    assert "no clean review" in _deny_reason(_create_tool(folder))
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
+
+
+def test_should_tell_the_agent_to_fetch_the_base_when_github_moved_it_past_the_local_clone(
+    branch_checkout: tuple[Path, str], github_repository: Path, tmp_path: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    other_clone = tmp_path / "other clone"
+    subprocess.run(
+        ["git", "clone", "--quiet", "--branch", "main", str(github_repository), str(other_clone)],
+        check=True,
+    )
+    _commit_on(other_clone, "someone else")
+    _git(other_clone, "push", "--quiet", "origin", "main")
+    reason = _deny_reason(_create_tool(folder))
+    assert "git fetch origin main" in reason
+    assert "no clean review" not in reason
+    assert "git fetch origin`" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
+    _git(folder, "fetch", "--quiet", "origin")
+    assert _reason(_create_tool(folder)) is None
+    assert _reason(_bash_in(folder, "gh pr create --fill")) is None
 
 
 def test_should_name_one_review_pass_then_fixes_when_an_open_is_denied(

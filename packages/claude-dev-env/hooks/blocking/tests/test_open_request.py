@@ -20,10 +20,12 @@ from blocking.merge_review_gate_parts import open_request
 from blocking.merge_review_gate_parts.open_request import (
     OpenRequest,
     ShellOpenCall,
+    adds_content_to_base,
     base_tip,
     first_parent_ancestors,
     is_held_by_another_line,
     is_outside_base,
+    is_stored_locally,
     open_calls_from,
     open_request_for,
 )
@@ -497,6 +499,54 @@ def test_should_count_a_commit_as_inside_a_base_the_folder_cannot_read(tmp_path:
     checkout = _checkout_on(tmp_path, "feature")
     reviewed = _commit(checkout, "reviewed")
     assert is_outside_base(reviewed, "1" * 40, str(checkout)) is False
+
+
+def _commit_file(folder: Path, name: str, text: str) -> str:
+    (folder / name).write_text(text, encoding="utf-8")
+    _git(folder, "add", name)
+    return _commit(folder, f"write {name}")
+
+
+def test_should_find_content_a_branch_commit_adds_to_the_base(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "main")
+    base_commit = _commit(checkout, "base")
+    _git(checkout, "checkout", "--quiet", "-b", "feature")
+    reviewed = _commit_file(checkout, "feature.txt", "feature work\n")
+    assert adds_content_to_base(reviewed, base_commit, str(checkout)) is True
+
+
+def test_should_find_no_content_to_add_when_the_base_squashed_the_commit_in(
+    tmp_path: Path,
+) -> None:
+    checkout = _checkout_on(tmp_path, "main")
+    _commit(checkout, "base")
+    _git(checkout, "checkout", "--quiet", "-b", "feature")
+    reviewed = _commit_file(checkout, "feature.txt", "feature work\n")
+    _git(checkout, "checkout", "--quiet", "main")
+    _git(checkout, "merge", "--quiet", "--squash", "feature")
+    squash_commit = _commit(checkout, "squash feature")
+    _commit_file(checkout, "later.txt", "later base work\n")
+    base_commit = _git(checkout, "rev-parse", "HEAD")
+    assert squash_commit != reviewed
+    assert adds_content_to_base(reviewed, base_commit, str(checkout)) is False
+
+
+def test_should_find_no_content_to_add_when_the_merge_read_fails(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "main")
+    _commit_file(checkout, "shared.txt", "base\n")
+    _git(checkout, "checkout", "--quiet", "-b", "feature")
+    reviewed = _commit_file(checkout, "shared.txt", "feature side\n")
+    _git(checkout, "checkout", "--quiet", "main")
+    base_commit = _commit_file(checkout, "shared.txt", "base side\n")
+    assert adds_content_to_base(reviewed, base_commit, str(checkout)) is False
+    assert adds_content_to_base(reviewed, "1" * 40, str(checkout)) is False
+
+
+def test_should_find_a_commit_the_folder_stores(tmp_path: Path) -> None:
+    checkout = _checkout_on(tmp_path, "main")
+    stored = _commit(checkout, "base")
+    assert is_stored_locally(stored, str(checkout)) is True
+    assert is_stored_locally("1" * 40, str(checkout)) is False
 
 
 def test_should_read_no_open_from_a_merge_command(tmp_path: Path) -> None:
