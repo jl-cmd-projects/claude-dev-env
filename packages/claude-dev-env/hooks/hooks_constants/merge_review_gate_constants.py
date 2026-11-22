@@ -169,16 +169,26 @@ FILED_ISSUE_HOST = "github.com"
 FILED_ISSUE_API_PATH_TEMPLATE = "repos/{owner}/{repo}/issues/{number}"
 FILED_ISSUE_PAGE_KEY = "html_url"
 FILED_ISSUE_PULL_REQUEST_KEY = "pull_request"
-PULL_REQUEST_COMMITS_API_PATH_TEMPLATE = "repos/{owner}/{repo}/pulls/{number}/commits?per_page=100"
+PULL_REQUEST_COMMITS_API_PATH_TEMPLATE = (
+    "repos/{owner}/{repo}/pulls/{number}/commits?per_page=100&page={page}"
+)
+PULL_REQUEST_COMMITS_PAGE_SIZE = 100
+PULL_REQUEST_COMMITS_PAGE_LIMIT = 3
 COMMIT_STATUSES_API_PATH_TEMPLATE = "repos/{owner}/{repo}/commits/{sha}/statuses?per_page=100"
 COMMIT_SHA_KEY = "sha"
 MERGE_REVIEW_STATUS_CONTEXT = "Merge review"
 FAILED_REVIEW_STATUS_STATE = "failure"
 REVIEW_STATUS_CREATOR_TYPE = "Bot"
-ACTIONS_BOT_LOGIN = "github-actions[bot]"
+REVIEW_STATUS_APP_LOGIN = "repo-rulefile-sync[bot]"
 REVIEW_STATUS_RUN_PAGE_PATTERN = re.compile(
     r"https://github\.com/[\w.-]+/[\w.-]+/actions/runs/\d+", re.IGNORECASE
 )
+STATUS_CONTEXT_KEY = "context"
+STATUS_STATE_KEY = "state"
+STATUS_CREATOR_KEY = "creator"
+STATUS_TARGET_URL_KEY = "target_url"
+CREATOR_TYPE_KEY = "type"
+CREATOR_LOGIN_KEY = "login"
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(

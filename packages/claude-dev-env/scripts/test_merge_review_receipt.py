@@ -408,8 +408,8 @@ def test_should_count_each_new_head_as_the_next_pass(receipt_folder: Path) -> No
 
 
 EARLIER_COMMITS = ["1" * 40, "2" * 40, "3" * 40]
-COMMITS_API_PATH = "repos/acme/tools/pulls/12/commits?per_page=100"
-REVIEW_APP = {"login": "review-app[bot]", "type": "Bot"}
+COMMITS_API_PATH = "repos/acme/tools/pulls/12/commits?per_page=100&page=1"
+REVIEW_APP = {"login": "repo-rulefile-sync[bot]", "type": "Bot"}
 REVIEW_RUN_PAGE = "https://github.com/acme/reviews/actions/runs/45052844893"
 
 
@@ -453,11 +453,12 @@ def test_should_count_earlier_failing_review_statuses_when_no_receipt_is_kept(
     assert _stored_receipt(receipt_folder)["pass"] == 4
 
 
-def test_should_leave_an_actions_bot_review_status_out_of_the_pass_count(
-    receipt_folder: Path, gh_issues: dict[str, object]
+@pytest.mark.parametrize("other_login", ["github-actions[bot]", "other-app[bot]"])
+def test_should_leave_another_bot_review_status_out_of_the_pass_count(
+    other_login: str, receipt_folder: Path, gh_issues: dict[str, object]
 ) -> None:
-    actions_bot = {"login": "github-actions[bot]", "type": "Bot"}
-    _serve_review_statuses(gh_issues, [REVIEW_APP, actions_bot, actions_bot])
+    other_bot = {"login": other_login, "type": "Bot"}
+    _serve_review_statuses(gh_issues, [REVIEW_APP, other_bot, other_bot])
 
     merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
 
@@ -476,6 +477,74 @@ def test_should_leave_a_review_status_without_a_run_page_out_of_the_pass_count(
     merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
 
     assert _stored_receipt(receipt_folder)["pass"] == 2
+
+
+def test_should_leave_review_statuses_after_the_recorded_head_out_of_the_pass_count(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues, [REVIEW_APP] * 3)
+
+    merge_review_receipt.main(["acme/tools", "12", EARLIER_COMMITS[1], "2"], StringIO())
+
+    assert _stored_receipt(receipt_folder)["pass"] == 2
+
+
+def test_should_read_the_next_page_of_pull_request_commits(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues, [REVIEW_APP] * 3)
+    gh_issues["repos/acme/tools/pulls/12/commits?per_page=100&page=2"] = gh_issues[
+        COMMITS_API_PATH
+    ]
+    gh_issues[COMMITS_API_PATH] = [{"sha": f"{each_index:040d}"} for each_index in range(4, 104)]
+    _serve_issues(gh_issues)
+
+    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
+
+    assert _stored_receipt(receipt_folder)["pass"] == 4
+
+
+@pytest.mark.parametrize(
+    ("previous_pass", "previous_head", "expected_pass"),
+    [
+        (1, "0" * 40, 4),
+        (4, "0" * 40, 5),
+        (4, HEAD, 4),
+    ],
+)
+def test_should_take_the_higher_of_the_receipt_and_the_review_statuses(
+    previous_pass: int,
+    previous_head: str,
+    expected_pass: int,
+    receipt_folder: Path,
+    gh_issues: dict[str, object],
+) -> None:
+    _serve_review_statuses(gh_issues, [REVIEW_APP] * 3)
+    (receipt_folder / "acme__tools__12.json").write_text(
+        json.dumps({"head": previous_head, "findings": 2, "pass": previous_pass}),
+        encoding="utf-8",
+    )
+
+    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
+
+    assert _stored_receipt(receipt_folder)["pass"] == expected_pass
+
+
+def test_should_skip_the_github_read_once_the_receipt_is_past_the_full_pass_count(
+    receipt_folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_read_paths: list[str] = []
+    monkeypatch.setattr(
+        merge_review_receipt, "_github_answer", lambda api_path: all_read_paths.append(api_path)
+    )
+    (receipt_folder / "acme__tools__12.json").write_text(
+        json.dumps({"head": "0" * 40, "findings": 2, "pass": 3}), encoding="utf-8"
+    )
+
+    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
+
+    assert _stored_receipt(receipt_folder)["pass"] == 4
+    assert all_read_paths == []
 
 
 def test_should_keep_the_pass_count_when_the_same_head_is_recorded_again(
