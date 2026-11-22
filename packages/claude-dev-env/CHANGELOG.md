@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.137.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.0...claude-dev-env-v8.137.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* **hooks:** give no earlier-pass credit to a launcher behind uv run or a prefix ([#2495](https://github.com/jl-cmd-projects/claude-dev-env/issues/2495)) ([4efdcbf](https://github.com/jl-cmd-projects/claude-dev-env/commit/4efdcbf36c3d10c0bd5d53617adeb00abf02ca08))
+
 ## [8.137.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.136.1...claude-dev-env-v8.137.0) (2026-11-22)
 
 
