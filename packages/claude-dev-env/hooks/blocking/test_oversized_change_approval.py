@@ -317,8 +317,15 @@ def test_should_read_a_cited_block_the_server_escaped(tmp_path: Path) -> None:
         "On second thought, don't keep it as one PR.",
         "No, not as one PR.",
         "Make it two PRs.",
-        "Actually, break it into two PRs.",
+        "Break it into two PRs now.",
         "I take that back, it is too big.",
+        "I changed my mind, make it 2 PRs",
+        "on reflection, divide it up",
+        "scratch that approval",
+        "nope, undo that approval",
+        "Hold off on keeping it as one PR",
+        "don't split it! I want it in parts",
+        "don't split it - wait, do split it",
     ],
 )
 def test_should_end_an_approval_when_a_later_message_withdraws_it(
@@ -333,7 +340,7 @@ def test_should_end_an_approval_when_a_later_message_withdraws_it(
     [
         "this isnt approved as one PR",
         "Keep it as one PR then break it into two",
-        "keep this as one PR. Wait, actually break it into two.",
+        "keep this as one PR. Wait, break it into two.",
         "ok, the size of the PR is fine, though I want two PRs",
         "Approved over the size bar - kidding, break it up",
     ],

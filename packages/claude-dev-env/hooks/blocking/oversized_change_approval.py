@@ -52,6 +52,7 @@ if hooks_directory not in sys.path:
 from blocking.gate_run_reads import ReadSlice, transcript_lines_within_slice
 from blocking.open_tasks_transcript_records import parsed_object
 from hooks_constants.oversized_change_constants import (
+    AFFIRMED_SPLIT_PATTERN,
     ALL_RELAY_ORIGIN_KINDS,
     ALL_SKIPPED_RECORD_FLAGS,
     ALL_QUEUED_TYPED_ORIGIN_KINDS,
@@ -174,7 +175,11 @@ def _sentences(message_text: str, *, keeps_quoted_spans: bool = False) -> list[s
 
 
 def _is_split_request(sentence: str) -> bool:
-    if sentence.endswith(QUESTION_MARK) or NEGATION_PATTERN.search(sentence):
+    if sentence.endswith(QUESTION_MARK):
+        return False
+    if AFFIRMED_SPLIT_PATTERN.search(sentence):
+        return True
+    if NEGATION_PATTERN.search(sentence):
         return False
     return bool(SPLIT_WORD_PATTERN.search(sentence) or SEPARATE_PULL_REQUESTS_PATTERN.search(sentence))
 

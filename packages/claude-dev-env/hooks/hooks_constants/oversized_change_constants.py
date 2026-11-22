@@ -99,7 +99,8 @@ SEPARATE_PULL_REQUESTS_PATTERN = re.compile(
     r"\b(?:one|single)\s+(?:pr|pull request)\s+(?:for|per|each|every)\b"
     r"|\b(?:each|every|per)\b.*\b(?:one|single)\s+(?:pr|pull request)\b"
     r"|\b(?:separate|several|multiple|stack\w*)\b"
-    r"|\b(?:two|three|four)\s+(?:prs|pull requests)\b"
+    r"|\b(?:\d+|two|three|four)\s+(?:prs|pull requests)\b"
+    r"|\bdivide\b|\bin parts\b|\bhold off\b|\bchanged my mind\b|\bon reflection\b"
     r"|\bbreak\s+(?:it|this|that|them)?\s*(?:up|into|apart|down)\b"
     r"|\b(?:kidding|second thought)\b|\btoo\s+(?:big|large)\b|\btake\s+(?:that|it)\s+back\b"
 )
@@ -107,7 +108,8 @@ NEGATION_PATTERN = re.compile(
     r"n't\b|\b(?:not|no|never|dont|cannot|isnt|wasnt|doesnt|wont|shouldnt|arent|cant)\b"
 )
 NEGATED_APPROVAL_SUBJECT_PATTERN = re.compile(r"\b(?:approv\w*|keep|leave|stays?)\b")
-REVOKE_PATTERN = re.compile(r"\b(?:revok\w*|withdr[ae]w\w*|retract\w*|cancel\w*)\b")
+REVOKE_PATTERN = re.compile(r"\b(?:revok\w*|withdr[ae]w\w*|retract\w*|cancel\w*|scratch|undo)\b")
+AFFIRMED_SPLIT_PATTERN = re.compile(r"\b(?:do|please|should)\s+split\b")
 RULE_TALK_PATTERN = re.compile(
     r"\b(?:if|whether|unless|until|gate|rule|but|yet|said|depends?)\b"
 )
