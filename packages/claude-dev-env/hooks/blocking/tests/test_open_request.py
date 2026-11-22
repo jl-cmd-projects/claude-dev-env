@@ -531,6 +531,20 @@ def test_should_find_no_content_to_add_when_the_base_squashed_the_commit_in(
     assert adds_content_to_base(reviewed, base_commit, str(checkout)) is False
 
 
+def test_should_find_no_content_to_add_when_a_replace_ref_swaps_the_squashed_base(
+    tmp_path: Path,
+) -> None:
+    checkout = _checkout_on(tmp_path, "main")
+    older_base = _commit(checkout, "base")
+    _git(checkout, "checkout", "--quiet", "-b", "feature")
+    reviewed = _commit_file(checkout, "feature.txt", "feature work\n")
+    _git(checkout, "checkout", "--quiet", "main")
+    _git(checkout, "merge", "--quiet", "--squash", "feature")
+    base_commit = _commit(checkout, "squash feature")
+    _git(checkout, "replace", base_commit, older_base)
+    assert adds_content_to_base(reviewed, base_commit, str(checkout)) is False
+
+
 def test_should_find_no_content_to_add_when_the_merge_read_fails(tmp_path: Path) -> None:
     checkout = _checkout_on(tmp_path, "main")
     _commit_file(checkout, "shared.txt", "base\n")

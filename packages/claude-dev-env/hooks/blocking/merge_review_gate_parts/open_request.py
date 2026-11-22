@@ -492,12 +492,12 @@ def adds_content_to_base(commit: str, base_commit: str, folder: str | None) -> b
         True when the merged tree differs from the base commit's tree.
     """
     merged_listing = _stored_history_read([*ALL_MERGE_TREE_ARGUMENTS, base_commit, commit], folder)
-    base_tree = _run_git(
+    base_tree = _stored_history_read(
         [*ALL_VERIFY_OBJECT_ARGUMENTS, TREE_OF_COMMIT_TEMPLATE.format(commit=base_commit)], folder
     )
-    if not merged_listing or not merged_listing.strip() or not base_tree:
+    if not merged_listing or not merged_listing.strip() or not base_tree or not base_tree.strip():
         return False
-    return merged_listing.split()[0] != base_tree
+    return merged_listing.split()[0] != base_tree.strip()
 
 
 def is_stored_locally(commit: str, folder: str | None) -> bool:
@@ -516,7 +516,7 @@ def is_stored_locally(commit: str, folder: str | None) -> bool:
         True when git can read the commit, False when it cannot or the read fails.
     """
     return bool(
-        _run_git(
+        _stored_history_read(
             [*ALL_VERIFY_OBJECT_ARGUMENTS, COMMIT_OBJECT_TEMPLATE.format(commit=commit)], folder
         )
     )

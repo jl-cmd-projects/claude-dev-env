@@ -325,7 +325,8 @@ FETCH_NAMED_BASE_COMMAND_TEMPLATE = FETCH_BASE_COMMAND + " {base}"
 MISSING_BASE_COMMIT_REASON_TEMPLATE = (
     "{slug} has a review pass on a commit before this head, but the base branch on GitHub is at "
     "{base_commit}, which this clone has not fetched, so the gate cannot tell whether the base "
-    "already holds the reviewed work. Run `{fetch_command}`, then open the pull request again."
+    "already holds the reviewed work. Fetch the base from {slug}, with `{fetch_command}` when "
+    "origin is that repository, then open the pull request again."
 )
 UNKNOWN_OPEN_TARGET_REASON = (
     "This pull request names no repository or head commit the review gate can read. Check that "
