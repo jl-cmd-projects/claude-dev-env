@@ -69,11 +69,13 @@ from hooks_constants.oversized_change_constants import (
     QUESTION_MARK,
     QUOTED_SPAN_PATTERN,
     RECORD_TYPE_KEY,
+    RELAY_NOTE_START_PATTERN,
     RELAY_WRAPPER_PATTERN,
     REVOKE_PATTERN,
     RULE_TALK_PATTERN,
     ROLE_KEY,
     SENTENCE_BREAK_PATTERN,
+    SEPARATE_PULL_REQUESTS_PATTERN,
     SIZE_SUBJECT_PATTERN,
     SPLIT_WORD_PATTERN,
     STRAIGHT_APOSTROPHE,
@@ -164,7 +166,7 @@ def _sentences(message_text: str, *, keeps_quoted_spans: bool = False) -> list[s
 def _is_split_request(sentence: str) -> bool:
     if sentence.endswith(QUESTION_MARK) or NEGATION_PATTERN.search(sentence):
         return False
-    return bool(SPLIT_WORD_PATTERN.search(sentence))
+    return bool(SPLIT_WORD_PATTERN.search(sentence) or SEPARATE_PULL_REQUESTS_PATTERN.search(sentence))
 
 
 def _is_withdrawal(sentence: str) -> bool:
@@ -184,6 +186,8 @@ def _is_approving_sentence(sentence: str) -> bool:
         return True
     if NEGATION_PATTERN.search(sentence) or SPLIT_WORD_PATTERN.search(sentence):
         return False
+    if SEPARATE_PULL_REQUESTS_PATTERN.search(sentence):
+        return False
     return bool(APPROVAL_PATTERN.search(sentence) and SIZE_SUBJECT_PATTERN.search(sentence))
 
 
@@ -199,7 +203,7 @@ def _user_typed_texts(transcript_line: str) -> Iterator[str]:
     all_block_texts, all_origin_fields, all_typed_origin_kinds = all_source_fields
     origin = all_origin_fields.get(ORIGIN_KEY)
     origin_kind = origin.get(ORIGIN_KIND_KEY) if isinstance(origin, dict) else None
-    if any(RELAY_WRAPPER_PATTERN.search(each_text) for each_text in all_block_texts):
+    if any(RELAY_WRAPPER_PATTERN.match(each_text) for each_text in all_block_texts):
         if origin_kind in ALL_RELAY_ORIGIN_KINDS:
             yield from _cited_user_texts(all_block_texts)
         return
@@ -234,7 +238,9 @@ def _message_source_fields(
 
 def _cited_user_texts(all_block_texts: list[str]) -> Iterator[str]:
     for each_text in all_block_texts:
-        yield from CITED_USER_TEXT_PATTERN.findall(each_text)
+        note_start = RELAY_NOTE_START_PATTERN.search(each_text)
+        cited_region = each_text[: note_start.start()] if note_start else each_text
+        yield from CITED_USER_TEXT_PATTERN.findall(cited_region)
 
 
 def _block_texts(content: object) -> list[str] | None:

@@ -23,7 +23,6 @@ WORKING_DIRECTORY_FIELD = "cwd"
 GH_MERGE_BASE_CONFIG_KEY = "branch.{branch_name}.gh-merge-base"
 HEAD_OWNER_SEPARATOR = ":"
 ORIGIN_HEAD_REFERENCE = "refs/remotes/origin/HEAD"
-ORIGIN_HEAD_REFERENCE = "refs/remotes/origin/HEAD"
 ORIGIN_REFERENCE_PREFIX = "refs/remotes/origin/"
 LINGUIST_GENERATED_ATTRIBUTE = "linguist-generated"
 ALL_GENERATED_ATTRIBUTE_VALUES = frozenset({"set", "true"})
@@ -78,7 +77,8 @@ ORIGIN_KIND_KEY = "kind"
 ALL_TYPED_ORIGIN_KINDS = (None, "human")
 ALL_QUEUED_TYPED_ORIGIN_KINDS = ("human",)
 ALL_RELAY_ORIGIN_KINDS = (None, "task-notification")
-RELAY_WRAPPER_PATTERN = re.compile(r"<(?:coordinator-)?relay\b")
+RELAY_WRAPPER_PATTERN = re.compile(r"\s*<(?:coordinator-)?relay\b")
+RELAY_NOTE_START_PATTERN = re.compile(r"<note\b")
 CITED_USER_TEXT_PATTERN = re.compile(r"<cited\b[^>]*\bauthor=\"user\"[^>]*>(.*?)</cited>", re.DOTALL)
 LEADING_TAG_PATTERN = re.compile(r"\s*<[a-z]")
 SENTENCE_BREAK_PATTERN = re.compile(r"(?<=[.!?])\s+|\n+")
@@ -93,6 +93,11 @@ KEEP_WHOLE_PATTERN = re.compile(
     r"(?:it|(?:this|that|the)(?:\s+(?:one|pr|pull request))?)(?!\s+\w)"
 )
 SPLIT_WORD_PATTERN = re.compile(r"\bsplit")
+SEPARATE_PULL_REQUESTS_PATTERN = re.compile(
+    r"\b(?:one|single)\s+(?:pr|pull request)\s+(?:for|per|each|every)\b"
+    r"|\b(?:each|every|per)\b.*\b(?:one|single)\s+(?:pr|pull request)\b"
+    r"|\b(?:separate|several|multiple|stack\w*)\b"
+)
 NEGATION_PATTERN = re.compile(r"n't\b|\b(?:not|no|never|dont|cannot)\b")
 REVOKE_PATTERN = re.compile(r"\b(?:revok\w*|withdr[ae]w\w*|retract\w*|cancel\w*)\b")
 RULE_TALK_PATTERN = re.compile(
