@@ -215,11 +215,11 @@ def _marks_by_word(all_lines: list[str], all_token_lines: list[list[str]]) -> di
     be judged.
     """
     all_marks_by_word: dict[str, set[str]] = {}
-    for each_line, each_tokens in zip(all_lines, all_token_lines):
+    for each_line, each_tokens in zip(all_lines, all_token_lines, strict=False):
         all_marked_tokens = operator_aware_tokens(expansion_marked_line(each_line), IS_POSIX_TOKENIZATION)
         if all_marked_tokens is None or len(all_marked_tokens) != len(each_tokens):
             return None
-        for each_token, each_marked_token in zip(each_tokens, all_marked_tokens):
+        for each_token, each_marked_token in zip(each_tokens, all_marked_tokens, strict=True):
             all_marks_by_word.setdefault(each_token, set()).update(ALL_EXPANSION_MARKS.intersection(each_marked_token))
     return {each_word: frozenset(each_marks) for each_word, each_marks in all_marks_by_word.items()}
 
