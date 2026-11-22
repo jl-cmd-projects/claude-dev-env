@@ -156,6 +156,7 @@ from hooks_constants.merge_review_gate_constants import (
     UNKNOWN_TARGET_REASON,
     UNPINNED_MERGE_REASON_TEMPLATE,
     UNSETTLED_HEAD_REASON_TEMPLATE,
+    UNKNOWN_PUSH_TARGET_REASON_TEMPLATE,
     WITHHELD_CREDIT_REASON_PREFIX,
 )
 from hooks_constants.pre_tool_use_stdin import print_decision_from_stdin
@@ -203,8 +204,10 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     and its finding count and says to commit and push the fixes. When the
     only earlier pass names no branch, the reason says to record it again
     from the branch's checkout. A head GitHub did not answer for gives no
-    credit to an earlier pass. A create whose words bash expands is denied
-    before any receipt is read. A clean pass at the head gives credit only
+    credit to an earlier pass. A create that names no ``--head`` while the
+    git settings may send gh to another branch name or repository gets no
+    credit from any pass, and the reason says to name the head. A create
+    whose words bash expands is denied before any receipt is read. A clean pass at the head gives credit only
     to a create whose head is settled: before it the command holds only
     ``cd`` or ``pushd`` with one plain folder outside ``.git`` and bare ``cat``,
     ``echo``, ``printf``, ``head`` or ``tail`` that write no file, its
@@ -230,6 +233,10 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     if not request.head:
         return UNKNOWN_OPEN_TARGET_REASON
     if has_clean_open_review(request.repo, request.head):
+        if not request.is_push_target_known:
+            return UNKNOWN_PUSH_TARGET_REASON_TEMPLATE.format(
+                slug=request.slug, head=request.head, branch=request.branch
+            )
         if request.is_head_settled:
             return None
         return UNSETTLED_HEAD_REASON_TEMPLATE.format(slug=request.slug, head=request.head)
@@ -310,6 +317,8 @@ def _newest_first(all_heads: list[str], all_ancestors: tuple[str, ...]) -> list[
 def _unread_cause(request: OpenRequest) -> WithheldCredit | None:
     if request.unknown_base_cause is not None:
         return request.unknown_base_cause
+    if not request.is_push_target_known:
+        return WithheldCredit.UNKNOWN_PUSH_TARGET
     if not request.is_head_read_on_github:
         return WithheldCredit.HEAD_UNREAD
     return None

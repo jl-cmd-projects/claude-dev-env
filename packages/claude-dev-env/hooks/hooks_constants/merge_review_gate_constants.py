@@ -209,9 +209,21 @@ ALL_CREATE_TEXT_OPTIONS = frozenset(
         "--template",
     }
 )
-ALL_LONE_CREATE_REFUSED_CHARACTERS = (
-    frozenset("();<>|&#$`\n\r") | ALL_SHELL_EXPANSION_CHARACTERS | {TILDE_CHARACTER}
-)
+ALL_LONE_CREATE_REFUSED_CHARACTERS = frozenset("$`\n\r")
+LONE_CREATE_UNQUOTED_REFUSED_CHARACTERS = "();<>|&#{}*?[~"
+LONE_LAUNCHER_SCRIPT_NAME = "pull_request.py"
+LONE_LAUNCHER_CREATE_WORD = "create"
+LONE_LAUNCHER_LEAD_WIDTH = 2
+LONE_LAUNCHER_PYTHON_PATTERN = re.compile(r"python3?")
+LONE_LAUNCHER_OPTION_VALUE_SEPARATOR = "="
+ALL_LONE_LAUNCHER_REQUIRED_OPTIONS = ("--repo", "--base", "--head")
+ALL_PUSH_REMOTE_BRANCH_KEYS = frozenset({"remote", "pushremote"})
+ALL_ORIGIN_PUSH_KEYS = frozenset({"push", "pushurl"})
+BRANCH_SETTING_SECTION = "branch"
+MERGE_SETTING_KEY = "merge"
+PUSH_DEFAULT_REMOTE_KEY = "pushdefault"
+SETTINGS_LISTING_QUESTION = "merge review settings listing"
+REMOTE_LISTING_QUESTION = "merge review remote listing"
 ALL_MERGE_BASE_READ_ARGUMENTS = ("config", "--default", "", "--get")
 MERGE_BASE_SETTING_TEMPLATE = "branch.{branch}.gh-merge-base"
 ALL_SETTINGS_READ_ARGUMENTS = ("config", "--list", "--null")
@@ -488,10 +500,11 @@ SESSION_REPOSITORY_CAUSE = (
 NOT_LONE_CAUSE = (
     "the create is not the whole command. Run `gh pr create` as its own command, with no `cd`, "
     "variable prefix or other command beside it. Put a `--repo` before `pr` or after `create`, "
-    "never between them. A title or body that holds any of ( ) ; < > | & # $ {{ }} * ? [ ~, a "
-    "backtick or a line break counts too, so keep those out of `--title`, put the body in a "
-    "file passed with `--body-file`, or open with the create pull request tool and set its "
-    "`base`."
+    "never between them. The `pull_request.py create` launcher counts too when it runs alone "
+    "from a plain path, with `--repo`, `--base` and `--head`. Outside quotes, any of ( ) ; < > | "
+    "& # {{ }} * ? [ ~ counts as another word, and a $, a backtick or a line break counts "
+    "anywhere, so quote title text, put the body in a file passed with `--body-file`, or open "
+    "with the create pull request tool and set its `base`."
 )
 NO_BASE_OR_BRANCH_CAUSE = (
     "the gate could read neither a `--base` nor the checkout branch. Name the base with "
@@ -504,6 +517,18 @@ OTHER_REMOTE_CAUSE = (
 TOOL_NO_BASE_CAUSE = (
     "the create pull request tool call names no base. Set its `base` field to the branch the "
     "pull request merges into."
+)
+UNKNOWN_PUSH_TARGET_CAUSE = (
+    "this create names no `--head`, and gh may send the checkout branch `{branch}` to another "
+    "branch name or repository than the `{branch}` the gate read on {slug}: a "
+    "`branch.{branch}.merge` other than `refs/heads/{branch}`, a `branch.{branch}.remote`, "
+    "`branch.{branch}.pushRemote` or `remote.pushDefault` other than origin, a "
+    "`remote.origin.push` or `remote.origin.pushurl` setting, a `--repo` that origin does not "
+    "name, or git settings the gate could not read. Name the head with `--head {branch}`, then "
+    "open again."
+)
+UNKNOWN_PUSH_TARGET_REASON_TEMPLATE = (
+    "{slug} has a clean review for head {head}, and " + UNKNOWN_PUSH_TARGET_CAUSE
 )
 HEAD_UNREAD_CAUSE = (
     "the gate could not read the head branch `{branch}` on GitHub, so it cannot tell that the "

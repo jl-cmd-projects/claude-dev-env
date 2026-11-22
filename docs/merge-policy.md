@@ -65,10 +65,11 @@ The agent that drives the pull request merges it, once the gates above pass.
 The branch rule on `main` enables a merge queue, so a merge call can place the
 pull request in the queue, and the queue then merges it.
 
-Every PR gets /efficient-review run through Cursor cloud agents for three full
-passes with fixes, with all required checks green; then the agent merges it.
-Findings a later pass still reports go into one issue. The owner
-never merges. Load the efficient-review skill from the user's dev environment.
+Every PR gets /efficient-review run through Cursor cloud agents, with fixes
+and all required checks green; then the agent merges it. A clean pass ends the
+loop. Three full passes with fixes is the cap: findings a later pass still
+reports go into one issue and do not hold the merge. A security finding is
+always fixed in the PR. The owner never merges. Load the efficient-review skill from the user's dev environment.
 
 No agent overrides a red check. Writes to production systems, to production
 databases, and to the owner's machine outside a self-hosted runner job stay

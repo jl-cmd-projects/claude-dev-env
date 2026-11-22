@@ -34,6 +34,22 @@ from hooks_constants.followup_pr_dedupe_constants import (
 from hooks_constants.merge_review_gate_constants import (
     ALL_LONE_CREATE_SUBCOMMANDS,
     ALL_LONE_CREATE_REFUSED_CHARACTERS,
+    ALL_LONE_LAUNCHER_REQUIRED_OPTIONS,
+    ALL_ORIGIN_PUSH_KEYS,
+    ALL_PUSH_REMOTE_BRANCH_KEYS,
+    BRANCH_SETTING_SECTION,
+    LOCAL_BRANCH_REFERENCE_TEMPLATE,
+    LONE_CREATE_UNQUOTED_REFUSED_CHARACTERS,
+    LONE_LAUNCHER_CREATE_WORD,
+    LONE_LAUNCHER_LEAD_WIDTH,
+    LONE_LAUNCHER_OPTION_VALUE_SEPARATOR,
+    LONE_LAUNCHER_PYTHON_PATTERN,
+    LONE_LAUNCHER_SCRIPT_NAME,
+    MERGE_SETTING_KEY,
+    PUSH_DEFAULT_REMOTE_KEY,
+    REMOTE_LISTING_QUESTION,
+    SETTINGS_LISTING_QUESTION,
+    UNKNOWN_PUSH_TARGET_CAUSE,
     ALL_ROOT_REPOSITORY_JOINED_PREFIXES,
     ALL_ROOT_REPOSITORY_OPTIONS,
     ALL_SHELL_EXPANSION_CHARACTERS,
@@ -146,8 +162,9 @@ class WithheldCredit(Enum):
 
     Each value is the cause sentence of the deny reason::
 
-        create beside a cd, or a title with parentheses -> NOT_LONE, run the create alone
+        create beside a cd, or an unquoted parenthesis  -> NOT_LONE, run the create alone
         create tool call with no base                   -> TOOL_NO_BASE, set its base
+        no --head, upstream under another branch name   -> UNKNOWN_PUSH_TARGET, name the head
         head branch GitHub did not answer for           -> HEAD_UNREAD, check the read
         base GitHub does not list                       -> BASE_UNREAD, names the base
         backup branch at the reviewed commit            -> HELD_BY_OTHER_REFERENCE, names it
@@ -155,7 +172,7 @@ class WithheldCredit(Enum):
         local <branch> left behind its pushed fixes     -> LOCAL_BRANCH_BEHIND, fast-forward it
         base already holds the reviewed commit          -> INSIDE_BASE, review again
 
-    The first thirteen causes leave the pass in place, so the step they name
+    The first fourteen causes leave the pass in place, so the step they name
     needs no new review. The last two say the pass covered base work.
     """
 
@@ -166,6 +183,7 @@ class WithheldCredit(Enum):
     NO_BASE_OR_BRANCH = NO_BASE_OR_BRANCH_CAUSE
     OTHER_REMOTE = OTHER_REMOTE_CAUSE
     TOOL_NO_BASE = TOOL_NO_BASE_CAUSE
+    UNKNOWN_PUSH_TARGET = UNKNOWN_PUSH_TARGET_CAUSE
     HEAD_UNREAD = HEAD_UNREAD_CAUSE
     BASE_UNREAD = BASE_UNREAD_CAUSE
     BRANCHES_UNREAD = BRANCHES_UNREAD_CAUSE
@@ -206,6 +224,9 @@ class OpenRequest:
             not count as settled, such as a ``git push``, a file write or a
             process substitution, before the create or beside it, so the
             head, branch or repository may change after the gate reads them.
+        is_push_target_known: False when the create names no head and the
+            git settings may send gh to another branch name or repository
+            than the branch the gate read.
     """
 
     owner: str
@@ -220,6 +241,7 @@ class OpenRequest:
     is_plain_words: bool = field(default=True, compare=False)
     is_head_read_on_github: bool = field(default=True, compare=False)
     is_head_settled: bool = field(default=True, compare=False)
+    is_push_target_known: bool = field(default=True, compare=False)
 
     @property
     def slug(self) -> str:
@@ -412,6 +434,7 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         is_plain_words=call.is_plain_words,
         is_head_read_on_github=settled_head.is_read_on_github,
         is_head_settled=call.is_head_settled,
+        is_push_target_known=_is_push_target_known(call, owner, repo, branch),
     )
 
 
@@ -499,9 +522,7 @@ def _resolves_to_another_remote(folder: str | None) -> bool:
 
     Remote names are compared as written, since git keeps their letter case.
     """
-    listing = child_stdout(
-        ["git", *ALL_SETTINGS_READ_ARGUMENTS], GIT_TIMEOUT_SECONDS, ReadSlice.FOLLOWUP, folder
-    )
+    listing = _settings_listing(folder)
     if listing is None:
         return True
     for each_setting in listing.split(SETTING_RECORD_END):
@@ -515,6 +536,71 @@ def _resolves_to_another_remote(folder: str | None) -> bool:
         if key.lower() == RESOLVED_REMOTE_SETTING_KEY and setting_value != RESOLVED_AS_BASE_VALUE:
             return True
     return False
+
+
+def _settings_listing(folder: str | None) -> str | None:
+    return answer_once(
+        (SETTINGS_LISTING_QUESTION, folder),
+        lambda: child_stdout(
+            ["git", *ALL_SETTINGS_READ_ARGUMENTS], GIT_TIMEOUT_SECONDS, ReadSlice.FOLLOWUP, folder
+        ),
+    )
+
+
+def _is_push_target_known(call: ShellOpenCall, owner: str, repo: str, branch: str | None) -> bool:
+    """Return whether gh opens the checkout branch under the name and repository the gate read.
+
+    A create with no ``--head`` sends the branch gh finds from the git
+    settings, which may differ from the checkout branch's own name::
+
+        --head feature                                -> True, gh sends that name
+        no --head, no upstream or push setting        -> True
+        branch.feature.merge = refs/heads/other       -> False
+        branch.feature.remote = upstream              -> False
+        remote.origin.pushurl set                     -> False
+        --repo acme/other while origin is acme/tools  -> False
+        the settings read fails or runs out           -> False
+
+    A detached checkout has no branch, so gh opens no branch the gate guessed.
+    """
+    if call.branch != CURRENT_HEAD_REFERENCE or branch is None:
+        return True
+    if call.repository is not None:
+        origin_owner, origin_repo = _origin_repository(call.folder)
+        if (origin_owner.casefold(), origin_repo.casefold()) != (owner.casefold(), repo.casefold()):
+            return False
+    listing = _settings_listing(call.folder)
+    if listing is None:
+        return False
+    return not any(
+        _moves_push_target(each_setting, branch) for each_setting in listing.split(SETTING_RECORD_END)
+    )
+
+
+def _moves_push_target(setting: str, branch: str) -> bool:
+    """Return whether one git setting may send gh to another branch name or remote.
+
+    ::
+
+        branch.feature.merge=refs/heads/feature       -> False
+        branch.feature.merge=refs/heads/other         -> True
+        branch.feature.pushremote=fork                -> True
+        remote.pushdefault=origin                     -> False
+        remote.origin.push=refs/heads/a:refs/heads/b  -> True
+    """
+    name, _, setting_value = setting.partition(SETTING_NAME_END)
+    section, _, remainder = name.partition(SETTING_PART_SEPARATOR)
+    subsection, _, key = remainder.rpartition(SETTING_PART_SEPARATOR)
+    section, key = section.lower(), key.lower()
+    if section == BRANCH_SETTING_SECTION and subsection == branch:
+        if key == MERGE_SETTING_KEY:
+            return setting_value != LOCAL_BRANCH_REFERENCE_TEMPLATE.format(branch=branch)
+        return key in ALL_PUSH_REMOTE_BRANCH_KEYS and setting_value != ORIGIN_REMOTE_NAME
+    if section != REMOTE_SETTING_SECTION:
+        return False
+    if not subsection and key == PUSH_DEFAULT_REMOTE_KEY:
+        return setting_value != ORIGIN_REMOTE_NAME
+    return subsection == ORIGIN_REMOTE_NAME and key in ALL_ORIGIN_PUSH_KEYS
 
 
 def _is_other_host(host: str | None) -> bool:
@@ -685,9 +771,7 @@ def foreign_origin_fetch_refspec(folder: str | None) -> str | None:
         The refspecs in backticks, or a sentence naming why none can be trusted,
         or None when only the clone default writes under ``refs/remotes/origin/``.
     """
-    listing = child_stdout(
-        ["git", *ALL_SETTINGS_READ_ARGUMENTS], GIT_TIMEOUT_SECONDS, ReadSlice.FOLLOWUP, folder
-    )
+    listing = _settings_listing(folder)
     if listing is None:
         return FETCH_SETTINGS_UNREAD_TEXT
     all_origin_refspecs, all_foreign_refspecs = _fetch_refspecs(listing)
@@ -909,7 +993,7 @@ def _tool_open_call(all_tool_input: dict[object, object], folder: str | None) ->
 def _shell_open_calls(command: str, folder: str | None) -> list[OpenCall]:
     all_calls: list[ShellOpenCall] = []
     is_gh_repository_set = sets_gh_repository(command)
-    is_lone_create = _is_lone_gh_create(command)
+    is_lone_create = _is_lone_create(command)
     all_creates = all_placed_creates(command, folder)
     for each_create in all_creates:
         all_calls.extend(
@@ -933,48 +1017,98 @@ def _shell_open_calls(command: str, folder: str | None) -> list[OpenCall]:
     ]
 
 
-def _is_lone_gh_create(command: str) -> bool:
-    """Return whether a whole shell command is one plain ``gh pr create``.
+def _is_lone_create(command: str) -> bool:
+    """Return whether a whole shell command is one plain ``gh pr create`` or one plain launcher create.
 
     gh reads the head branch's ``gh-merge-base`` setting when it runs. Any
-    other word in the command, quoted or not, can write that setting or the
-    git config gh reads first, so only a lone create is read::
+    other word in the command can write that setting or the git config gh
+    reads first, so only a lone create is read::
 
         gh pr create --fill                                  -> True
         gh -R acme/tools pr create --fill                    -> True
+        gh pr create --title "Fix edge cases (Windows)"      -> True, the parentheses are quoted
+        gh pr create --title '[WIP] {x}?'                    -> True, quoted
+        python3 /x/pull_request.py create --repo o/r --base main --head f --title t --body-file b -> True
         git config "branch.x.gh-merge""-base" y && gh pr create -> False
         LANG=C gh pr create --fill                           -> False
         gh pr create --fill > out.txt                        -> False
         gh pr create --title "$(date)"                       -> False
         gh pr create --fill # ; git config ...               -> False
-        gh pr create --title 'a & b'                         -> False
-        gh pr create --title '[WIP] {x}?'                    -> False
+        gh pr create --title a&b                             -> False
+        python3 ~/x/pull_request.py create ...               -> False, the ~ is outside quotes
 
-    Any shell operator character, ``#``, ``$``, brace, glob character
-    ``* ? [``, ``~``, backtick or line break in the text, quoted or not, makes
-    the command not lone, so no comment, segment, redirect, substitution or
-    expansion hides from the split. The rest is split as POSIX shell words,
-    and a split that fails also makes the command not lone. One root
-    ``-R``/``--repo`` value may come between ``gh`` and ``pr``.
+    A ``$``, backtick or line break anywhere makes the command not lone. The
+    rest is split as POSIX shell words, and each of ``( ) ; < > | & # { } *
+    ? [ ~`` outside quotes and not escaped comes back as a word of its own,
+    which makes the command not lone. A word made only of those characters
+    inside quotes, such as ``"()"``, makes it not lone too. A split that fails also makes it not lone.
+    One root ``-R``/``--repo`` value may come between ``gh`` and ``pr``. The
+    launcher runs as its own program or after ``python`` or ``python3``, and
+    names ``--repo``, ``--base`` and ``--head``.
 
     Args:
         command: The shell command text.
 
     Returns:
-        True when the command is one ``gh pr create`` or ``gh pr new`` and nothing else.
+        True when the command is one create and nothing else.
     """
-    if not ALL_LONE_CREATE_REFUSED_CHARACTERS.isdisjoint(command):
-        return False
-    try:
-        all_words = shlex.split(command, comments=False, posix=True)
-    except ValueError:
-        return False
+    all_words = _lone_command_words(command)
     if not all_words:
         return False
     program = token_basename(all_words[0]).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
+    if program != GH_PROGRAM_NAME:
+        return _is_lone_launcher_create(program, all_words)
     subcommand_start = 1 + _root_repository_width(all_words[1:])
     all_subcommand_words = tuple(all_words[subcommand_start : subcommand_start + LONE_CREATE_SUBCOMMAND_WIDTH])
-    return program == GH_PROGRAM_NAME and all_subcommand_words in ALL_LONE_CREATE_SUBCOMMANDS
+    return all_subcommand_words in ALL_LONE_CREATE_SUBCOMMANDS
+
+
+def _lone_command_words(command: str) -> list[str] | None:
+    """Return the shell words of a command, or None when one of them is not a plain word.
+
+    ::
+
+        gh pr create --title "a (b)"   -> ["gh", "pr", "create", "--title", "a (b)"]
+        gh pr create --fill; x         -> None, the ; is a word of its own
+        gh pr create --title "$(x)"    -> None
+    """
+    if not ALL_LONE_CREATE_REFUSED_CHARACTERS.isdisjoint(command):
+        return None
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=LONE_CREATE_UNQUOTED_REFUSED_CHARACTERS)
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        all_words = list(lexer)
+    except ValueError:
+        return None
+    is_each_word_plain = all(
+        not each_word or not set(each_word) <= set(LONE_CREATE_UNQUOTED_REFUSED_CHARACTERS)
+        for each_word in all_words
+    )
+    return all_words if is_each_word_plain else None
+
+
+def _is_lone_launcher_create(program: str, all_words: list[str]) -> bool:
+    """Return whether shell words run the ``pull_request.py create`` launcher with a repository, base and head.
+
+    ::
+
+        pull_request.py create --repo o/r --base main --head f          -> True
+        python3 /x/pull_request.py create --repo=o/r --base main --head f -> True
+        python3 -X utf8 pull_request.py create ...                       -> False
+        pull_request.py create --repo o/r --base main                    -> False
+    """
+    script_start = 1 if LONE_LAUNCHER_PYTHON_PATTERN.fullmatch(program) else 0
+    all_launcher_words = all_words[script_start:]
+    all_lead_words = all_launcher_words[:LONE_LAUNCHER_LEAD_WIDTH]
+    all_read_lead_words = [token_basename(each_word) for each_word in all_lead_words[:1]] + all_lead_words[1:]
+    if all_read_lead_words != [LONE_LAUNCHER_SCRIPT_NAME, LONE_LAUNCHER_CREATE_WORD]:
+        return False
+    all_option_names = {
+        each_word.partition(LONE_LAUNCHER_OPTION_VALUE_SEPARATOR)[0]
+        for each_word in all_launcher_words[1:]
+    }
+    return all(each_option in all_option_names for each_option in ALL_LONE_LAUNCHER_REQUIRED_OPTIONS)
 
 
 def _root_repository_width(all_words_after_program: list[str]) -> int:
@@ -1197,6 +1331,13 @@ def _pushed_head(owner: str, repo: str, branch: str) -> _PushedHead:
 
 
 def _remote_listing(remote_url: str, reference: str) -> str | None:
+    return answer_once(
+        (REMOTE_LISTING_QUESTION, remote_url, reference),
+        lambda: _listing_from_github(remote_url, reference),
+    )
+
+
+def _listing_from_github(remote_url: str, reference: str) -> str | None:
     with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as empty_folder:
         return child_stdout(
             ["git", "ls-remote", remote_url, reference],

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from blocking.gate_run_reads import ReadSlice
+from blocking.gate_run_reads import ReadSlice, gate_run
 from blocking.merge_review_gate_parts import open_request
 from blocking.merge_review_gate_parts.open_request import (
     OpenRequest,
@@ -354,7 +354,9 @@ def test_should_name_no_tracking_branch_for_a_fork_head_or_another_origin(tmp_pa
     [
         ("gh pr create --repo acme/tools -H feature --base main", None),
         ("cd . && gh pr create --repo acme/tools -H feature", WithheldCredit.NOT_LONE),
-        ("gh pr create --repo acme/tools -H feature --title 'fix(x)'", WithheldCredit.NOT_LONE),
+        ("gh pr create --repo acme/tools -H feature --title fix(x)", WithheldCredit.NOT_LONE),
+        ("gh pr create --repo acme/tools -H feature --title fix\\(x\\)", None),
+        ("gh pr create --repo acme/tools -H feature --title 'fix(x)'", None),
         ("gh pr create -R ghe.example.com/acme/tools -H feature --base main", WithheldCredit.UNREAD_FLAG),
         ("gh pr create -H feature --base main", WithheldCredit.OTHER_REMOTE),
     ],
@@ -483,11 +485,43 @@ def test_should_give_no_base_when_the_gh_merge_base_read_gives_no_answer(
         ("gh pr create --repo acme/tools -H 'feature", False),
         ("cd . && gh pr create --repo acme/tools -H feature --base main", False),
         ("gh pr create --repo acme/tools -H feature --base main # ; git status", False),
-        ("gh pr create --repo acme/tools -H feature --title 'a & b'", False),
+        ("gh pr create --repo acme/tools -H feature --title 'a & b'", True),
         ("gh pr create --repo acme/tools -H feature --base main", True),
         ("gh -R acme/tools pr create -H feature --base main", True),
         ("gh --repo=acme/tools pr new -H feature", True),
-        ("gh pr create --repo acme/tools -H feature --title '[x] {y}?'", False),
+        ("gh pr create --repo acme/tools -H feature --title '[x] {y}?'", True),
+        ("gh pr create --repo acme/tools -H feature --title \"Fix edge cases (Windows)\"", True),
+        ("gh pr create --repo acme/tools -H feature --title Fix edge cases (Windows)", False),
+        ("gh pr create --repo acme/tools -H feature --title a\\&b", True),
+        ("gh pr create --repo acme/tools -H feature --title a&b", False),
+        ("gh pr create --repo acme/tools -H feature --title x --fill ~", False),
+        ("gh pr create --repo acme/tools -H feature --title 'a' >out.txt", False),
+        ("gh pr create --repo acme/tools -H feature --title 'a'#x", False),
+        (
+            "python3 /opt/pull-request/scripts/pull_request.py create --repo acme/tools --base main "
+            "--head feature --title 'Fix (Windows)' --body-file body.md",
+            True,
+        ),
+        (
+            "/opt/pull-request/scripts/pull_request.py create --repo=acme/tools --base=main --head=feature "
+            "--title t --body-file body.md",
+            True,
+        ),
+        (
+            "python3 /opt/pull-request/scripts/pull_request.py create --repo acme/tools --base main "
+            "--title t --body-file body.md",
+            False,
+        ),
+        (
+            "python3 ~/pull-request/scripts/pull_request.py create --repo acme/tools --base main "
+            "--head feature --title t --body-file body.md",
+            False,
+        ),
+        (
+            "cd . && python3 /opt/pull-request/scripts/pull_request.py create --repo acme/tools --base main "
+            "--head feature --title t --body-file body.md",
+            False,
+        ),
     ],
 )
 def test_should_know_the_base_only_when_the_create_is_the_whole_command(
@@ -495,6 +529,69 @@ def test_should_know_the_base_only_when_the_create_is_the_whole_command(
 ) -> None:
     all_requests = [open_request_for(each_call) for each_call in open_calls_from(_shell_payload(command, tmp_path))]
     assert {each_request.is_base_known for each_request in all_requests} == {is_base_known}
+
+
+@pytest.mark.parametrize(
+    ("all_settings", "is_push_target_known"),
+    [
+        ((), True),
+        ((("branch.feature.merge", "refs/heads/feature"), ("branch.feature.remote", "origin")), True),
+        ((("branch.feature.merge", "refs/heads/other"),), False),
+        ((("branch.feature.remote", "upstream"),), False),
+        ((("branch.feature.pushRemote", "fork"),), False),
+        ((("remote.pushDefault", "fork"),), False),
+        ((("remote.origin.pushurl", "https://github.com/evil/tools.git"),), False),
+        ((("remote.origin.push", "refs/heads/feature:refs/heads/other"),), False),
+    ],
+)
+def test_should_know_the_push_target_only_when_gh_sends_the_checkout_branch_name_to_origin(
+    tmp_path: Path, all_settings: tuple[tuple[str, str], ...], is_push_target_known: bool
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    for each_name, each_value in all_settings:
+        _git(checkout, "config", each_name, each_value)
+    no_head_calls = open_calls_from(_shell_payload("gh pr create --fill --base main", checkout))
+    assert {open_request_for(each).is_push_target_known for each in no_head_calls} == {is_push_target_known}
+    named_head_calls = open_calls_from(_shell_payload("gh pr create --fill --base main --head feature", checkout))
+    assert {open_request_for(each).is_push_target_known for each in named_head_calls} == {True}
+
+
+def test_should_not_know_the_push_target_when_the_repo_flag_names_a_repository_origin_does_not(
+    tmp_path: Path,
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    for each_repository, is_known in (("acme/tools", True), ("ACME/Tools", True), ("acme/other", False)):
+        payload = _shell_payload(f"gh pr create --repo {each_repository} --fill --base main", checkout)
+        assert {open_request_for(each).is_push_target_known for each in open_calls_from(payload)} == {is_known}
+
+
+def test_should_read_each_github_ref_once_in_one_gate_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = _checkout_on(tmp_path, "feature")
+    _commit(checkout, "first")
+    _git(checkout, "remote", "add", "origin", "https://github.com/acme/tools.git")
+    all_listed_refs: list[tuple[str, ...]] = []
+
+    def record_the_listing(all_words: list[str], _environment: Mapping[str, str] | None) -> str | None:
+        all_listed_refs.append(tuple(all_words[-2:]))
+        return ""
+
+    _listing_answered_by(monkeypatch, record_the_listing)
+    payload = _shell_payload("gh pr create --repo acme/tools -Hfeature --base main", checkout)
+    with gate_run():
+        all_requests = [open_request_for(each_call) for each_call in open_calls_from(payload)]
+        for each_request in all_requests:
+            base_tip(each_request)
+    assert len(all_requests) > 1
+    assert sorted(all_listed_refs) == [
+        ("https://github.com/acme/tools.git", "refs/heads/feature"),
+        ("https://github.com/acme/tools.git", "refs/heads/main"),
+    ]
 
 
 def test_should_give_no_base_for_a_create_tool_call_that_names_none(

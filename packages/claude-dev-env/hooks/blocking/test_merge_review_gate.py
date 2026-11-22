@@ -25,6 +25,7 @@ from blocking.merge_review_gate_parts import open_request
 from hooks_constants.gate_run_reads_constants import READS_RAN_OUT_SENTENCE
 from hooks_constants.merge_review_gate_constants import (
     ALL_LONE_CREATE_REFUSED_CHARACTERS,
+    LONE_CREATE_UNQUOTED_REFUSED_CHARACTERS,
     NOT_LONE_CAUSE,
     UNKNOWN_OPEN_TARGET_REASON,
 )
@@ -733,11 +734,9 @@ def test_should_deny_an_open_whose_command_sets_the_gh_merge_base_first(
         "gh pr create --fill # ; git config branch.feature.gh-merge-base stack",
         "GH_HOST=ghe.example.com gh pr create --base main --fill",
         "git status && gh pr create --fill --base main",
-        "gh pr create --fill --title 'a {b,c} d'",
-        "gh pr create --fill --title 'why?'",
-        "gh pr create --fill --title 'a*b'",
-        "gh pr create --fill --title '[WIP] gate'",
-        "gh pr create --fill --title '~5 percent'",
+        "gh pr create --fill --title fix(x)",
+        "gh pr create --fill --title a&b",
+        "gh pr create --fill --title t >created.txt",
     ],
 )
 def test_should_give_no_earlier_pass_credit_to_an_open_beside_any_other_shell_word(
@@ -745,6 +744,64 @@ def test_should_give_no_earlier_pass_credit_to_an_open_beside_any_other_shell_wo
 ) -> None:
     folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
     assert "no clean review" in _deny_reason(_bash_in(folder, command))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        'gh pr create --fill --title "Fix edge cases (Windows)"',
+        "gh pr create --fill --title 'a {b,c} d'",
+        "gh pr create --fill --title 'why?'",
+        "gh pr create --fill --title 'a*b'",
+        "gh pr create --fill --title '[WIP] gate'",
+        "gh pr create --fill --title '~5 percent'",
+        "gh pr create --fill --title 'a & b; c > d | e #f'",
+    ],
+)
+def test_should_credit_an_earlier_pass_to_a_lone_open_whose_title_punctuation_is_quoted(
+    branch_checkout: tuple[Path, str], github_repository: Path, command: str
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    assert _reason(_bash_in(folder, command)) is None
+
+
+def _launcher_create(script_path: str) -> str:
+    return (
+        f"python3 {script_path} create --repo acme/tools --base main --head feature "
+        "--title 'Fix edge cases (Windows)' --body-file body.md"
+    )
+
+
+def test_should_credit_an_earlier_pass_to_a_lone_pull_request_launcher_create(
+    branch_checkout: tuple[Path, str], github_repository: Path, tmp_path: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    script_path = str(tmp_path / "pull-request" / "scripts" / "pull_request.py")
+    assert _reason(_bash_in(folder, _launcher_create(script_path))) is None
+    assert "no clean review" in _deny_reason(_bash_in(folder, "cd . && " + _launcher_create(script_path)))
+    assert "no clean review" in _deny_reason(
+        _bash_in(folder, _launcher_create("~/pull-request/scripts/pull_request.py"))
+    )
+
+
+def test_should_give_no_credit_to_an_open_whose_checkout_branch_tracks_another_branch_name(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder, reviewed_head = branch_checkout
+    _git(folder, "push", "--quiet", str(github_repository), "feature:other")
+    _git(folder, "config", "branch.feature.remote", "origin")
+    _git(folder, "config", "branch.feature.merge", "refs/heads/other")
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 0)
+    clean_reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    assert f"has a clean review for head {reviewed_head}" in clean_reason
+    assert "Name the head with `--head feature`" in clean_reason
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main --head feature")) is None
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _commit_and_push(folder, github_repository, "fix")
+    earlier_reason = _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+    assert f"A review pass on {reviewed_head}" in earlier_reason
+    assert "names no `--head`" in earlier_reason
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main --head feature")) is None
 
 
 ALL_CREATES_BASH_EXPANDS = [
@@ -830,6 +887,7 @@ def test_should_allow_a_clean_head_whose_create_words_bash_leaves_as_written(
 ) -> None:
     folder, head = branch_checkout
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     merge_review_receipt.record_open_review("acme/tools", head, 0)
     assert _reason(_bash_in(folder, command)) is None
 
@@ -1098,9 +1156,9 @@ def _assert_names_the_recorded_pass_and_no_new_review(reason: str, reviewed_head
     "command",
     [
         "cd . && gh pr create --fill",
-        "gh pr create --fill --title 'fix(gate): name the cause'",
-        "gh pr create --fill --body 'a; b'",
-        "gh pr create --fill --title '[WIP] gate?'",
+        "gh pr create --fill --title fix(gate)",
+        "gh pr create --fill --body a;b",
+        "gh pr create --fill > created.txt",
     ],
 )
 def test_should_tell_an_open_that_is_not_the_whole_command_to_run_alone_without_a_new_review(
@@ -1395,20 +1453,32 @@ def test_should_name_every_refused_character_in_the_reason_and_the_docs() -> Non
         HOOKS_DIRECTORY / "features" / "conduct-gates.md",
         HOOKS_DIRECTORY.parent / ".agents" / "skills" / "pr-lifecycle" / "reference" / "review-loop-before-merge.md",
     ]
-    all_doc_lists = []
+    all_doc_list_pairs = []
     for each_path in all_doc_paths:
-        [doc_list] = re.findall(r"none of ([^.]*?), quoted or not", each_path.read_text(encoding="utf-8"))
-        all_doc_lists.append(doc_list)
-    [reason_list] = re.findall(r"any of (.*?) counts too", NOT_LONE_CAUSE.format())
-    all_reason_words = set(reason_list.replace(",", " ").split())
-    for each_character in ALL_LONE_CREATE_REFUSED_CHARACTERS:
+        [doc_list_pair] = re.findall(
+            r"none of ([^.]*?) outside quotes, and no ([^.]*?) anywhere", each_path.read_text(encoding="utf-8")
+        )
+        all_doc_list_pairs.append(doc_list_pair)
+    [reason_list_pair] = re.findall(
+        r"Outside quotes, any of (.*?) counts as another word, and (.*?) counts anywhere",
+        NOT_LONE_CAUSE.format(),
+    )
+    all_character_groups = (LONE_CREATE_UNQUOTED_REFUSED_CHARACTERS, ALL_LONE_CREATE_REFUSED_CHARACTERS)
+    all_characters_with_group = [
+        (each_character, each_group_index)
+        for each_group_index, each_group in enumerate(all_character_groups)
+        for each_character in each_group
+    ]
+    for each_character, each_group_index in all_characters_with_group:
+        reason_list = reason_list_pair[each_group_index]
         spelled = spelled_by_character.get(each_character)
-        if spelled:
-            assert spelled in reason_list
-        else:
-            assert each_character in all_reason_words
-        for each_doc_list in all_doc_lists:
-            assert (spelled or f"`{each_character}`") in each_doc_list
+        assert (spelled or each_character) in (
+            reason_list if spelled else set(reason_list.replace(",", " ").split())
+        )
+        assert all(
+            (spelled or f"`{each_character}`") in each_doc_list_pair[each_group_index]
+            for each_doc_list_pair in all_doc_list_pairs
+        )
 
 
 def test_should_name_one_review_pass_then_fixes_when_an_open_is_denied(
