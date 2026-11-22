@@ -108,6 +108,7 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_RULINGS_KEY,
     REPOSITORY_SLUG_PATTERN,
     REVIEW_STATUS_CREATOR_TYPE,
+    REVIEW_STATUS_RUN_PAGE_PATTERN,
     RULING_LOOKUP_TIMEOUT_SECONDS,
     RULING_REFERENCE_PATTERN,
     RULING_SEPARATOR,
@@ -188,12 +189,13 @@ def _next_pass_number(slug: str, number: int, head: str) -> int:
 def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> int:
     """Return how many earlier pull request commits carry a failing review status.
 
-    A commit counts when its newest ``Merge review`` status is ``failure`` and
-    a bot other than the Actions bot posted it. The count stops at the full
-    pass count, the most the gate asks about::
+    A commit counts when its newest ``Merge review`` status is ``failure``, a
+    bot other than the Actions bot posted it, and it links a GitHub Actions run
+    page. The count stops at the full pass count, the most the gate asks about::
 
         commits c1 (failure by review app), c2 (none), head -> 1
         commit c1 (failure by github-actions[bot]), head   -> 0
+        commit c1 (failure linking another page), head     -> 0
         gh missing or unable to read the pull request      -> 0
 
     Args:
@@ -242,6 +244,8 @@ def _is_review_app_failure(all_statuses: list[object]) -> bool:
         isinstance(creator, dict)
         and creator.get("type") == REVIEW_STATUS_CREATOR_TYPE
         and creator.get("login") != ACTIONS_BOT_LOGIN
+        and REVIEW_STATUS_RUN_PAGE_PATTERN.fullmatch(str(newest.get("target_url", "")))
+        is not None
     )
 
 

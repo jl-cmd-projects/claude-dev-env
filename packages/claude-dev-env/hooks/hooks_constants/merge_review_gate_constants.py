@@ -176,6 +176,9 @@ MERGE_REVIEW_STATUS_CONTEXT = "Merge review"
 FAILED_REVIEW_STATUS_STATE = "failure"
 REVIEW_STATUS_CREATOR_TYPE = "Bot"
 ACTIONS_BOT_LOGIN = "github-actions[bot]"
+REVIEW_STATUS_RUN_PAGE_PATTERN = re.compile(
+    r"https://github\.com/[\w.-]+/[\w.-]+/actions/runs/\d+", re.IGNORECASE
+)
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(
