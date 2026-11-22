@@ -505,9 +505,17 @@ def first_parent_ancestors(head: str, folder: str | None) -> tuple[str, ...]:
     return tuple(listing.split()[1:]) if listing else ()
 
 
-def _stored_history_read(
-    all_arguments: list[str], folder: str | None, standard_input: str | None = None
-) -> str | None:
+def _stored_history_read(all_arguments: list[str], folder: str | None) -> str | None:
+    return child_stdout(
+        ["git", *all_arguments],
+        GIT_TIMEOUT_SECONDS,
+        ReadSlice.FOLLOWUP,
+        folder,
+        {**os.environ, **ALL_STORED_HISTORY_GIT_SETTINGS},
+    )
+
+
+def _stored_history_read_of_input(all_arguments: list[str], folder: str | None, standard_input: str) -> str | None:
     return child_stdout(
         ["git", *all_arguments],
         GIT_TIMEOUT_SECONDS,
@@ -777,7 +785,7 @@ def adds_content_to_base(commit: str, base_commit: str, folder: str | None) -> b
     Returns:
         True when the merged tree differs from the base commit's tree.
     """
-    merged_listing = _stored_history_read(
+    merged_listing = _stored_history_read_of_input(
         list(ALL_MERGE_TREE_ARGUMENTS),
         folder,
         MERGE_TREE_INPUT_TEMPLATE.format(base_commit=base_commit, commit=commit),
