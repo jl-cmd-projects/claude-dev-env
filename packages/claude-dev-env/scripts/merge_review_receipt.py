@@ -76,7 +76,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Sequence
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TextIO
 
@@ -257,7 +257,7 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     link is a GitHub Actions run of the review workflow that succeeded and is
     titled for this repository, this pull request and that commit. The walk
     starts at the newest earlier commit, reads at most a fixed number of them
-    in parallel batches within one deadline, and stops at the full pass count::
+    in parallel within one deadline, and stops at the full pass count::
 
         commits c1 (failing review run), c2 (none), head -> 1
         commits c1, head, c2 (failing review run)        -> 0
@@ -280,16 +280,15 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     all_newest_first_shas = list(reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]))
     failed_count = 0
     with ThreadPoolExecutor(max_workers=STATUS_READ_WORKER_COUNT) as executor:
-        for each_start in range(0, len(all_newest_first_shas), STATUS_READ_WORKER_COUNT):
-            all_batch_shas = all_newest_first_shas[
-                each_start : each_start + STATUS_READ_WORKER_COUNT
-            ]
-            all_outcomes = executor.map(
-                lambda each_sha: _is_failed_review_commit(owner, repo, number, each_sha, deadline),
-                all_batch_shas,
-            )
-            failed_count += sum(1 for each_outcome in all_outcomes if each_outcome)
+        all_reads = [
+            executor.submit(_is_failed_review_commit, owner, repo, number, each_sha, deadline)
+            for each_sha in all_newest_first_shas
+        ]
+        for each_read in as_completed(all_reads):
+            failed_count += 1 if each_read.result() else 0
             if failed_count >= FULL_REVIEW_PASS_COUNT:
+                for each_pending_read in all_reads:
+                    each_pending_read.cancel()
                 return FULL_REVIEW_PASS_COUNT
     return failed_count
 

@@ -58,14 +58,14 @@ def gh_issues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
     all_responses: dict[str, object] = {ISSUE_API_PATH: {"html_url": ISSUE_LINK, "number": 40}}
     _serve_issues(all_responses)
     if sys.platform == "win32":
-        monkeypatch.setattr(
-            merge_review_receipt,
-            "_github_answer",
-            lambda api_path, deadline=None: json.loads(
-                Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8")
-            ).get(api_path),
-        )
+        monkeypatch.setattr(merge_review_receipt, "_github_answer", _answer_from_stub_map)
     return all_responses
+
+
+def _answer_from_stub_map(api_path: str, deadline: float | None = None) -> object:
+    if deadline is not None and time.monotonic() >= deadline:
+        return None
+    return json.loads(Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8")).get(api_path)
 
 
 def _serve_issues(all_responses: dict[str, object]) -> None:
@@ -649,6 +649,26 @@ def test_should_reach_old_failing_reviews_within_the_deadline_by_reading_in_para
     monkeypatch.setattr(merge_review_receipt, "_github_answer", slow_answer)
     monkeypatch.setattr(merge_review_receipt, "STATUS_READ_WORKER_COUNT", 16)
     monkeypatch.setattr(merge_review_receipt, "GITHUB_COUNT_DEADLINE_SECONDS", 3)
+
+    assert _filed_pass(receipt_folder) == 4
+
+
+def test_should_keep_reading_while_one_read_stalls(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _serve_failing_reviews_below_newer_commits(gh_issues, 12)
+    all_answers = json.loads(Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8"))
+
+    def stalling_answer(api_path: str, deadline: float | None = None) -> object:
+        if deadline is not None and time.monotonic() >= deadline:
+            return None
+        if "/statuses" in api_path and int(api_path.split("/commits/")[1][:40]) % 2 == 0:
+            time.sleep(0.5)
+        return all_answers.get(api_path)
+
+    monkeypatch.setattr(merge_review_receipt, "_github_answer", stalling_answer)
+    monkeypatch.setattr(merge_review_receipt, "STATUS_READ_WORKER_COUNT", 2)
+    monkeypatch.setattr(merge_review_receipt, "GITHUB_COUNT_DEADLINE_SECONDS", 2.2)
 
     assert _filed_pass(receipt_folder) == 4
 
