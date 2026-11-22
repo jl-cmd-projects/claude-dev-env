@@ -395,10 +395,13 @@ def test_should_give_no_base_when_the_gh_merge_base_read_gives_no_answer(
         ("cd . && gh pr create --repo acme/tools -H feature", False),
         ("gh pr create --repo acme/tools -H feature --title \"$(date)\"", False),
         ("gh pr create --repo acme/tools -H 'feature", False),
-        ("cd . && gh pr create --repo acme/tools -H feature --base main", True),
+        ("cd . && gh pr create --repo acme/tools -H feature --base main", False),
+        ("gh pr create --repo acme/tools -H feature --base main # ; git status", False),
+        ("gh pr create --repo acme/tools -H feature --title 'a & b'", False),
+        ("gh pr create --repo acme/tools -H feature --base main", True),
     ],
 )
-def test_should_know_a_no_base_open_only_when_the_create_is_the_whole_command(
+def test_should_know_the_base_only_when_the_create_is_the_whole_command(
     tmp_path: Path, command: str, is_base_known: bool
 ) -> None:
     all_requests = [open_request_for(each_call) for each_call in open_calls_from(_shell_payload(command, tmp_path))]

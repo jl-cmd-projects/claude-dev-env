@@ -24,9 +24,8 @@ from blocking.gate_run_reads import (
 from hooks_constants.followup_pr_dedupe_constants import WINDOWS_EXECUTABLE_SUFFIX
 from hooks_constants.merge_review_gate_constants import (
     ALL_LONE_CREATE_SUBCOMMANDS,
-    ALL_SHELL_EXPANSION_CHARACTERS,
+    ALL_LONE_CREATE_REFUSED_CHARACTERS,
     LONE_CREATE_SUBCOMMAND_SLICE,
-    SHELL_OPERATOR_CHARACTERS,
     ALL_BRANCH_REFERENCE_PREFIXES,
     ALL_CHECKOUT_BRANCH_ARGUMENTS,
     ALL_STORED_HISTORY_GIT_SETTINGS,
@@ -153,7 +152,8 @@ class ShellOpenCall:
         is_base_readable: False when the command names a host or a base flag
             the gate cannot read.
         is_lone_create: True when the whole command is this one gh create,
-            so nothing in it can change the ``gh-merge-base`` setting first.
+            so nothing in it can change the git config or the host gh reads.
+            Only such a create gives an earlier pass credit.
     """
 
     repository: tuple[str, str] | None
@@ -263,7 +263,8 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
     is_base_known = (
         call.is_base_readable
         and not _is_other_host(os.environ.get(GH_HOST_VARIABLE))
-        and (call.base is not None or (branch is not None and call.is_lone_create))
+        and call.is_lone_create
+        and (call.base is not None or branch is not None)
     )
     return OpenRequest(
         owner=owner,
@@ -481,10 +482,13 @@ def _is_lone_gh_create(command: str) -> bool:
         LANG=C gh pr create --fill                           -> False
         gh pr create --fill > out.txt                        -> False
         gh pr create --title "$(date)"                       -> False
+        gh pr create --fill # ; git config ...               -> False
+        gh pr create --title 'a & b'                         -> False
 
-    The words come from a POSIX shell split. A word made only of shell
-    operators, a ``$``, a backtick, a line break, or a split that fails
-    makes the command not lone.
+    Any shell operator character, ``#``, ``$``, backtick or line break in the
+    text, quoted or not, makes the command not lone, so no comment, segment,
+    redirect or substitution hides from the split. The rest is split as POSIX
+    shell words, and a split that fails also makes the command not lone.
 
     Args:
         command: The shell command text.
@@ -492,17 +496,13 @@ def _is_lone_gh_create(command: str) -> bool:
     Returns:
         True when the command is one ``gh pr create`` or ``gh pr new`` and nothing else.
     """
-    if any(each_character in command for each_character in ALL_SHELL_EXPANSION_CHARACTERS):
+    if not ALL_LONE_CREATE_REFUSED_CHARACTERS.isdisjoint(command):
         return False
     try:
-        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
-        lexer.whitespace_split = True
-        all_words = list(lexer)
+        all_words = shlex.split(command, comments=False, posix=True)
     except ValueError:
         return False
-    if not all_words or any(
-        each_word and set(each_word) <= SHELL_OPERATOR_CHARACTERS for each_word in all_words
-    ):
+    if not all_words:
         return False
     program = token_basename(all_words[0]).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
     return program == GH_PROGRAM_NAME and tuple(all_words[LONE_CREATE_SUBCOMMAND_SLICE]) in ALL_LONE_CREATE_SUBCOMMANDS

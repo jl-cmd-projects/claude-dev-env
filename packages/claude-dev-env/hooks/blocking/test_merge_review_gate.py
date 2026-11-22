@@ -723,20 +723,25 @@ def test_should_deny_an_open_whose_command_sets_the_gh_merge_base_first(
         "printf '[branch \"feature\"]\\n\\tgh-merge-%s = stack\\n' base >> .git/config && gh pr create --fill",
         "LANG=C gh pr create --fill",
         "gh pr create --fill > created.txt",
+        "gh pr create --fill #x\ngit config branch.feature.gh-merge-base stack",
+        "gh pr create --fill # ; git config branch.feature.gh-merge-base stack",
+        "GH_HOST=ghe.example.com gh pr create --base main --fill",
+        "git status && gh pr create --fill --base main",
     ],
 )
-def test_should_give_no_earlier_pass_credit_to_a_no_base_open_beside_any_other_shell_word(
+def test_should_give_no_earlier_pass_credit_to_an_open_beside_any_other_shell_word(
     branch_checkout: tuple[Path, str], github_repository: Path, command: str
 ) -> None:
     folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
     assert "no clean review" in _deny_reason(_bash_in(folder, command))
 
 
-def test_should_credit_an_earlier_pass_to_an_open_that_names_its_base_beside_other_shell_words(
+def test_should_credit_an_earlier_pass_to_a_lone_open_that_names_its_base(
     branch_checkout: tuple[Path, str], github_repository: Path
 ) -> None:
     folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
-    assert _reason(_bash_in(folder, "git status && gh pr create --fill --base main")) is None
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+    assert _reason(_bash_in(folder, "gh pr create --fill --title 'one pass, then fixes'")) is None
 
 
 def test_should_deny_an_earlier_pass_for_an_open_on_another_host(
