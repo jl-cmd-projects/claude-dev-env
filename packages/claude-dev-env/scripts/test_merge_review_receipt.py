@@ -407,6 +407,49 @@ def test_should_count_each_new_head_as_the_next_pass(receipt_folder: Path) -> No
     assert _stored_receipt(receipt_folder)["pass"] == 4
 
 
+EARLIER_COMMITS = ["1" * 40, "2" * 40, "3" * 40]
+COMMITS_API_PATH = "repos/acme/tools/pulls/12/commits?per_page=100"
+REVIEW_APP = {"login": "review-app[bot]", "type": "Bot"}
+
+
+def _serve_review_statuses(
+    gh_issues: dict[str, object], all_creators: list[dict[str, str]]
+) -> None:
+    gh_issues[COMMITS_API_PATH] = [{"sha": each_sha} for each_sha in [*EARLIER_COMMITS, HEAD]]
+    for each_sha, each_creator in zip(EARLIER_COMMITS, all_creators):
+        gh_issues[f"repos/acme/tools/commits/{each_sha}/statuses?per_page=100"] = [
+            {"context": "Merge review", "state": "failure", "creator": each_creator},
+            {"context": "Merge review", "state": "success", "creator": each_creator},
+        ]
+    _serve_issues(gh_issues)
+
+
+def test_should_count_earlier_failing_review_statuses_when_no_receipt_is_kept(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues, [REVIEW_APP] * 3)
+    verdict_stream = StringIO()
+
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "12", HEAD, "2", "--filed", ISSUE_LINK], verdict_stream
+    )
+
+    assert exit_code == 0
+    assert verdict_stream.getvalue().startswith("FILED acme/tools#12")
+    assert _stored_receipt(receipt_folder)["pass"] == 4
+
+
+def test_should_leave_an_actions_bot_review_status_out_of_the_pass_count(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    actions_bot = {"login": "github-actions[bot]", "type": "Bot"}
+    _serve_review_statuses(gh_issues, [REVIEW_APP, actions_bot, actions_bot])
+
+    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
+
+    assert _stored_receipt(receipt_folder)["pass"] == 2
+
+
 def test_should_keep_the_pass_count_when_the_same_head_is_recorded_again(
     receipt_folder: Path,
 ) -> None:

@@ -14,7 +14,14 @@ clean once the rulings are posted and linked::
         -> CLEAN owner/name#12 def5678 (2 findings ruled out: <url>)
 
 Each numbered receipt counts its pass on the pull request. A new head is the
-next pass, and recording the same head again keeps its pass. The loop runs
+next pass, and recording the same head again keeps its pass. A session that
+starts with no receipt also counts the earlier pull request commits whose
+``Merge review`` status a review app posted as failure, so the count survives
+a new session::
+
+    no receipt, 3 earlier commits with a failing Merge review -> pass 4
+
+The loop runs
 three full passes with fixes. When pass 4 or a later one still reports
 findings, they go into one issue in the same repository, and the pass is
 recorded with the issue link. Findings it rules out are left out of that
@@ -74,6 +81,10 @@ from blocking.merge_review_gate_parts.receipts import (
     same_commit,
 )
 from hooks_constants.merge_review_gate_constants import (
+    ACTIONS_BOT_LOGIN,
+    COMMIT_SHA_KEY,
+    COMMIT_STATUSES_API_PATH_TEMPLATE,
+    FAILED_REVIEW_STATUS_STATE,
     FILED_ISSUE_API_PATH_TEMPLATE,
     FILED_ISSUE_API_SUBCOMMAND,
     FILED_ISSUE_CLIENT_NAME,
@@ -84,8 +95,10 @@ from hooks_constants.merge_review_gate_constants import (
     FILED_ISSUE_PAGE_KEY,
     FILED_ISSUE_PULL_REQUEST_KEY,
     FULL_REVIEW_PASS_COUNT,
+    MERGE_REVIEW_STATUS_CONTEXT,
     OPEN_RECEIPT_HEAD_PATTERN,
     OPEN_TARGET_WORD,
+    PULL_REQUEST_COMMITS_API_PATH_TEMPLATE,
     RECEIPT_FILED_KEY,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
@@ -94,6 +107,7 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_RULING_LINES_KEY,
     RECEIPT_RULINGS_KEY,
     REPOSITORY_SLUG_PATTERN,
+    REVIEW_STATUS_CREATOR_TYPE,
     RULING_LOOKUP_TIMEOUT_SECONDS,
     RULING_REFERENCE_PATTERN,
     RULING_SEPARATOR,
@@ -138,11 +152,14 @@ def _next_pass_number(slug: str, number: int, head: str) -> int:
     """Return which review pass on the pull request a record of ``head`` is.
 
     A new head is the next pass. Recording the head the previous receipt names
-    again, such as after posting rulings or filing an issue, keeps its pass::
+    again, such as after posting rulings or filing an issue, keeps its pass.
+    The pass is never lower than one more than the earlier pull request commits
+    a review app marked failing, so a new session keeps the count::
 
         no receipt yet                         -> 1
         previous receipt pass 3 at abc1234, head def5678 -> 4
         previous receipt pass 3 at abc1234, head abc1234 -> 3
+        no receipt, 3 earlier failing review statuses    -> 4
 
     A previous receipt that cannot be read counts as no receipt.
 
@@ -155,15 +172,99 @@ def _next_pass_number(slug: str, number: int, head: str) -> int:
         The pass number, from 1.
     """
     owner, repo = slug.split("/", 1)
+    reviewed_pass_number = _failed_review_head_count(owner, repo, number, head) + 1
     previous_receipt = read_receipt(receipt_path(owner, repo, number))
     if previous_receipt is None:
-        return 1
+        return reviewed_pass_number
     previous_pass_number = recorded_pass_number(previous_receipt)
     previous_head = previous_receipt.get(RECEIPT_HEAD_KEY)
     is_same_pass = isinstance(previous_head, str) and bool(previous_head) and same_commit(
         previous_head, head
     )
-    return previous_pass_number if is_same_pass else previous_pass_number + 1
+    local_pass_number = previous_pass_number if is_same_pass else previous_pass_number + 1
+    return max(local_pass_number, reviewed_pass_number)
+
+
+def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> int:
+    """Return how many earlier pull request commits carry a failing review status.
+
+    A commit counts when its newest ``Merge review`` status is ``failure`` and
+    a bot other than the Actions bot posted it. The count stops at the full
+    pass count, the most the gate asks about::
+
+        commits c1 (failure by review app), c2 (none), head -> 1
+        commit c1 (failure by github-actions[bot]), head   -> 0
+        gh missing or unable to read the pull request      -> 0
+
+    Args:
+        owner: Repository owner.
+        repo: Repository name.
+        number: Pull request number.
+        head: The commit the pass reviewed, left out of the count.
+
+    Returns:
+        The count, from 0 to the full pass count.
+    """
+    all_commits = _github_answer(
+        PULL_REQUEST_COMMITS_API_PATH_TEMPLATE.format(owner=owner, repo=repo, number=number)
+    )
+    if not isinstance(all_commits, list):
+        return 0
+    failed_count = 0
+    for each_commit in all_commits:
+        if failed_count >= FULL_REVIEW_PASS_COUNT:
+            break
+        sha = each_commit.get(COMMIT_SHA_KEY) if isinstance(each_commit, dict) else None
+        if not isinstance(sha, str) or same_commit(sha, head):
+            continue
+        all_statuses = _github_answer(
+            COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=sha)
+        )
+        if isinstance(all_statuses, list) and _is_review_app_failure(all_statuses):
+            failed_count += 1
+    return failed_count
+
+
+def _is_review_app_failure(all_statuses: list[object]) -> bool:
+    newest = next(
+        (
+            each_status
+            for each_status in all_statuses
+            if isinstance(each_status, dict)
+            and each_status.get("context") == MERGE_REVIEW_STATUS_CONTEXT
+        ),
+        None,
+    )
+    if newest is None or newest.get("state") != FAILED_REVIEW_STATUS_STATE:
+        return False
+    creator = newest.get("creator")
+    return (
+        isinstance(creator, dict)
+        and creator.get("type") == REVIEW_STATUS_CREATOR_TYPE
+        and creator.get("login") != ACTIONS_BOT_LOGIN
+    )
+
+
+def _github_answer(api_path: str) -> object:
+    client_path = shutil.which(FILED_ISSUE_CLIENT_NAME)
+    if client_path is None:
+        return None
+    try:
+        completed = subprocess.run(
+            [
+                client_path,
+                FILED_ISSUE_API_SUBCOMMAND,
+                FILED_ISSUE_HOST_OPTION,
+                FILED_ISSUE_HOST,
+                api_path,
+            ],
+            capture_output=True,
+            timeout=FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS,
+            check=False,
+        )
+        return json.loads(completed.stdout) if completed.returncode == 0 else None
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
 
 
 def _numbered_receipt(

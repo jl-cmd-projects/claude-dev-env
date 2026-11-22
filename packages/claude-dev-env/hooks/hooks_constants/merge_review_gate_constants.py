@@ -169,6 +169,13 @@ FILED_ISSUE_HOST = "github.com"
 FILED_ISSUE_API_PATH_TEMPLATE = "repos/{owner}/{repo}/issues/{number}"
 FILED_ISSUE_PAGE_KEY = "html_url"
 FILED_ISSUE_PULL_REQUEST_KEY = "pull_request"
+PULL_REQUEST_COMMITS_API_PATH_TEMPLATE = "repos/{owner}/{repo}/pulls/{number}/commits?per_page=100"
+COMMIT_STATUSES_API_PATH_TEMPLATE = "repos/{owner}/{repo}/commits/{sha}/statuses?per_page=100"
+COMMIT_SHA_KEY = "sha"
+MERGE_REVIEW_STATUS_CONTEXT = "Merge review"
+FAILED_REVIEW_STATUS_STATE = "failure"
+REVIEW_STATUS_CREATOR_TYPE = "Bot"
+ACTIONS_BOT_LOGIN = "github-actions[bot]"
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(
