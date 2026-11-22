@@ -430,8 +430,6 @@ RECEIPT_RULINGS_KEY = "rulings"
 RECEIPT_RULING_LINES_KEY = "ruling_lines"
 RECEIPT_PASS_KEY = "pass"
 RECEIPT_FILED_KEY = "filed"
-RECEIPT_UNVERIFIED_KEY = "history_unverified"
-RECEIPT_EARLIER_HEADS_KEY = "earlier_heads"
 FULL_REVIEW_PASS_COUNT = 3
 RECORD_COMMAND = "python3 ~/.claude/scripts/merge_review_receipt.py"
 

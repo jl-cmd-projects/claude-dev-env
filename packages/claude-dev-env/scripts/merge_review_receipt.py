@@ -77,7 +77,6 @@ import sys
 import threading
 import time
 from collections.abc import Sequence
-from dataclasses import dataclass
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TextIO
@@ -130,7 +129,6 @@ from hooks_constants.merge_review_gate_constants import (
     PULL_REQUEST_COMMITS_PAGE_LIMIT,
     PULL_REQUEST_COMMITS_PAGE_SIZE,
     RECEIPT_BRANCH_KEY,
-    RECEIPT_EARLIER_HEADS_KEY,
     RECEIPT_FILED_KEY,
     RECEIPT_FINDINGS_KEY,
     RECEIPT_HEAD_KEY,
@@ -138,7 +136,6 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_RULED_OUT_KEY,
     RECEIPT_RULING_LINES_KEY,
     RECEIPT_RULINGS_KEY,
-    RECEIPT_UNVERIFIED_KEY,
     REMOTE_TRACKING_REFERENCE_PREFIX,
     REPOSITORY_SLUG_PATTERN,
     REVIEW_RUN_API_PATH_TEMPLATE,
@@ -188,57 +185,39 @@ def record_review(
     Returns:
         The receipt path written.
     """
-    next_pass = _next_pass(slug, number, head, should_read_github=bool(filed.strip()))
     receipt = _numbered_receipt(
-        head, finding_count, ruled_out_count, rulings, filed, next_pass
+        head,
+        finding_count,
+        ruled_out_count,
+        rulings,
+        filed,
+        _next_pass_number(slug, number, head, should_read_github=bool(filed.strip())),
     )
     return _write_receipt(slug, number, receipt)
 
 
-@dataclass(frozen=True)
-class NextPass:
-    """The pass a record is, with what the receipt keeps to count the next one.
-
-    Attributes:
-        number: The pass number, from 1.
-        all_earlier_heads: The heads of earlier passes the receipt names, each once.
-        is_history_unverified: True when a GitHub read was left unfinished.
-    """
-
-    number: int
-    all_earlier_heads: tuple[str, ...] = ()
-    is_history_unverified: bool = False
-
-
-def _next_pass(
+def _next_pass_number(
     slug: str, number: int, head: str, should_read_github: bool = False
-) -> NextPass:
+) -> int:
     """Return which review pass on the pull request a record of ``head`` is.
 
     A new head is the next pass. Recording the head the previous receipt names
     again, such as after posting rulings or filing an issue, keeps its pass,
     unless the GitHub count below raises it. A record with no receipt before
-    it, a record that carries ``--filed``, and a record after a read GitHub
-    did not finish also read GitHub, so a new session keeps the count. The
-    pass is never lower than one more than the distinct earlier heads: the
-    commits of this pull request whose Merge review status GitHub shows as
-    failing, and the heads the receipts recorded here named before with
-    findings left open. The
-    receipt keeps those earlier heads, so a review GitHub lists later counts
-    once::
+    it, and a record that carries ``--filed``, also read GitHub, so a new
+    session keeps the count: the pass is never lower than one more than the
+    earlier commits of this pull request whose Merge review status GitHub
+    shows as failing::
 
-        no receipt, no failing reviews                          -> 1
-        previous receipt pass 3 at abc1234, head def5678        -> 4
-        previous receipt pass 3 at abc1234, head abc1234        -> 3
-        no receipt, 3 earlier failing reviews                   -> 4
-        --filed, previous receipt pass 1, 3 earlier ones        -> 4
-        earlier head h1, GitHub lists 2 failing others          -> 4
-        earlier head h1, GitHub lists h1 and 2 others           -> 4
+        no receipt, no failing reviews                   -> 1
+        previous receipt pass 3 at abc1234, head def5678 -> 4
+        previous receipt pass 3 at abc1234, head abc1234 -> 3
+        no receipt, 3 earlier failing reviews            -> 4
+        --filed, previous receipt pass 1, 3 earlier ones -> 4
 
     A previous receipt that cannot be read counts as no receipt. A local pass
     past the full pass count already allows a filed pass, so GitHub is not
-    read for it. A read GitHub did not finish keeps the count it has and marks
-    the receipt unverified.
+    read for it.
 
     Args:
         slug: Repository as ``owner/name``.
@@ -247,69 +226,16 @@ def _next_pass(
         should_read_github: True when the record carries ``--filed``.
 
     Returns:
-        The pass number, the earlier heads to keep, and whether the read was
-        left unfinished.
+        The pass number, from 1.
     """
     owner, repo = slug.split("/", 1)
     previous_receipt = read_receipt(receipt_path(owner, repo, number))
     local_pass_number = _local_pass_number(previous_receipt, head)
-    all_earlier_heads = _earlier_heads(previous_receipt, head)
-    is_read_wanted = (
-        should_read_github or previous_receipt is None or _is_history_unverified(previous_receipt)
-    )
-    if not is_read_wanted or local_pass_number > FULL_REVIEW_PASS_COUNT:
-        return NextPass(local_pass_number, all_earlier_heads)
-    all_failed_shas, is_count_verified = _failed_review_heads(owner, repo, number, head)
-    all_distinct_heads = [
-        *all_failed_shas,
-        *(
-            each_head
-            for each_head in all_earlier_heads
-            if not any(same_commit(each_head, each_sha) for each_sha in all_failed_shas)
-        ),
-    ]
-    pass_number = max(local_pass_number, len(all_distinct_heads) + 1)
-    return NextPass(pass_number, all_earlier_heads, not is_count_verified)
-
-
-def _is_history_unverified(all_previous_receipt_fields: dict[str, object]) -> bool:
-    return all_previous_receipt_fields.get(RECEIPT_UNVERIFIED_KEY) is True
-
-
-def _has_open_findings(all_receipt_fields: dict[str, object]) -> bool:
-    finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
-    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY, 0)
-    return (
-        isinstance(finding_count, int)
-        and isinstance(ruled_out_count, int)
-        and finding_count > ruled_out_count
-    )
-
-
-def _earlier_heads(
-    all_previous_receipt_fields: dict[str, object] | None, head: str
-) -> tuple[str, ...]:
-    if all_previous_receipt_fields is None:
-        return ()
-    all_named_heads = all_previous_receipt_fields.get(RECEIPT_EARLIER_HEADS_KEY)
-    all_earlier_heads: list[str] = [
-        each_head
-        for each_head in (all_named_heads if isinstance(all_named_heads, list) else [])
-        if isinstance(each_head, str) and each_head
-    ]
-    previous_head = all_previous_receipt_fields.get(RECEIPT_HEAD_KEY)
-    if isinstance(previous_head, str) and previous_head and _has_open_findings(
-        all_previous_receipt_fields
-    ):
-        all_earlier_heads.append(previous_head)
-    all_kept_heads: list[str] = []
-    for each_head in all_earlier_heads:
-        is_kept = not same_commit(each_head, head) and not any(
-            same_commit(each_head, each_kept_head) for each_kept_head in all_kept_heads
-        )
-        if is_kept:
-            all_kept_heads.append(each_head)
-    return tuple(all_kept_heads)
+    is_fresh_session = previous_receipt is None
+    if not (should_read_github or is_fresh_session) or local_pass_number > FULL_REVIEW_PASS_COUNT:
+        return local_pass_number
+    reviewed_pass_number = _failed_review_head_count(owner, repo, number, head) + 1
+    return max(local_pass_number, reviewed_pass_number)
 
 
 def _local_pass_number(all_previous_receipt_fields: dict[str, object] | None, head: str) -> int:
@@ -323,30 +249,25 @@ def _local_pass_number(all_previous_receipt_fields: dict[str, object] | None, he
     return previous_pass_number if is_same_pass else previous_pass_number + 1
 
 
-def _failed_review_heads(
-    owner: str, repo: str, number: int, head: str
-) -> tuple[list[str], bool]:
-    """Return the earlier commits of the pull request that had a failing review run.
+def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> int:
+    """Return how many earlier commits of the pull request had a failing review run.
 
-    Earlier commits are the ones the pull request lists before the head. A
-    commit counts when its newest ``Merge review`` status is ``failure``, the
-    review app posted it, and its link is a GitHub Actions run of the review
-    workflow that succeeded and is titled for this repository, this pull
-    request and that commit. The walk starts at the newest earlier commit,
-    reads at most a fixed number of them in parallel within one deadline, and
-    stops at the full pass count. Reads still running at that point are
-    stopped. The commits are a lower bound, so they only ever raise a pass, and
-    the answer is flagged unverified when a read GitHub did not answer could
-    have changed it::
+    Earlier commits are the ones the pull request lists before the head. The
+    count is 0 when any page of the list cannot be read or the head is not in
+    it, so it only ever raises a pass. A commit counts when its newest
+    ``Merge review`` status is ``failure``, the review app posted it, and its
+    link is a GitHub Actions run of the review workflow that succeeded and is
+    titled for this repository, this pull request and that commit. The walk
+    starts at the newest earlier commit, reads at most a fixed number of them
+    in parallel within one deadline, and stops at the full pass count. Reads still running at that point are
+    stopped::
 
-        commits c1 (failing review run), c2 (none), head -> [c1], verified
-        commits c1, head, c2 (failing review run)        -> [], verified
-        commit c1 (failure by another app), head         -> [], verified
-        commit c1 (run titled for another pull request)  -> [], verified
-        commit list page 2 unreadable                    -> [], unverified
-        head missing from the commit list                -> [], unverified
-        c1 status unreadable, 3 other failing reviews    -> 3 commits, verified
-        c1 status unreadable, 1 other failing review     -> 1 commit, unverified
+        commits c1 (failing review run), c2 (none), head -> 1
+        commits c1, head, c2 (failing review run)        -> 0
+        commit c1 (failure by another app), head         -> 0
+        commit c1 (run titled for another pull request)  -> 0
+        commit list page 2 unreadable                    -> 0
+        head missing from the commit list                -> 0
 
     Args:
         owner: Repository owner.
@@ -355,60 +276,51 @@ def _failed_review_heads(
         head: The commit the pass reviewed, left out of the count.
 
     Returns:
-        The failing commits, at most the full pass count of them, and whether
-        every read that could change them was answered.
+        The count, from 0 to the full pass count.
     """
     deadline = time.monotonic() + GITHUB_COUNT_DEADLINE_SECONDS
     all_earlier_shas = _commits_before_head(owner, repo, number, head, deadline)
-    if all_earlier_shas is None:
-        return [], False
     all_newest_first_shas = list(reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]))
     stop_reading = threading.Event()
     executor = ThreadPoolExecutor(max_workers=STATUS_READ_WORKER_COUNT)
     try:
-        sha_by_read = {
+        all_reads = [
             executor.submit(
                 _is_failed_review_commit, owner, repo, number, each_sha, deadline, stop_reading
-            ): each_sha
+            )
             for each_sha in all_newest_first_shas
-        }
-        return _tally_failed_reviews(sha_by_read)
+        ]
+        return _count_failed_reviews(all_reads)
     finally:
         stop_reading.set()
         executor.shutdown(wait=True, cancel_futures=True)
 
 
-def _tally_failed_reviews(sha_by_read: dict[Future[bool | None], str]) -> tuple[list[str], bool]:
-    all_failed_shas: list[str] = []
-    is_unverified = False
-    for each_read in as_completed(sha_by_read):
-        verdict = each_read.result()
-        is_unverified = is_unverified or verdict is None
-        if verdict:
-            all_failed_shas.append(sha_by_read[each_read])
-        if len(all_failed_shas) >= FULL_REVIEW_PASS_COUNT:
-            return all_failed_shas, True
-    return all_failed_shas, not is_unverified
+def _count_failed_reviews(all_reads: list[Future[bool]]) -> int:
+    failed_count = 0
+    for each_read in as_completed(all_reads):
+        failed_count += 1 if each_read.result() else 0
+        if failed_count >= FULL_REVIEW_PASS_COUNT:
+            return FULL_REVIEW_PASS_COUNT
+    return failed_count
 
 
 def _is_failed_review_commit(
     owner: str, repo: str, number: int, sha: str, deadline: float, stop_reading: threading.Event
-) -> bool | None:
+) -> bool:
     all_statuses = _github_answer(
         COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=sha),
         deadline,
         stop_reading,
     )
-    if not isinstance(all_statuses, list):
-        return None
-    return _is_review_app_failure(
+    return isinstance(all_statuses, list) and _is_review_app_failure(
         all_statuses, f"{owner}/{repo}", number, sha, deadline, stop_reading
     )
 
 
 def _commits_before_head(
     owner: str, repo: str, number: int, head: str, deadline: float
-) -> list[str] | None:
+) -> list[str]:
     all_earlier_shas: list[str] = []
     for each_page in range(1, PULL_REQUEST_COMMITS_PAGE_LIMIT + 1):
         all_page_commits = _github_answer(
@@ -418,7 +330,7 @@ def _commits_before_head(
             deadline,
         )
         if not isinstance(all_page_commits, list):
-            return None
+            return []
         all_page_shas = _commit_shas_in(all_page_commits)
         head_index = next(
             (
@@ -432,8 +344,8 @@ def _commits_before_head(
             return all_earlier_shas + all_page_shas[:head_index]
         all_earlier_shas.extend(all_page_shas)
         if len(all_page_commits) < PULL_REQUEST_COMMITS_PAGE_SIZE:
-            return None
-    return None
+            return []
+    return []
 
 
 def _commit_shas_in(all_commits: list[object]) -> list[str]:
@@ -473,7 +385,7 @@ def _is_review_app_failure(
     sha: str,
     deadline: float,
     stop_reading: threading.Event,
-) -> bool | None:
+) -> bool:
     run_page = _review_run_page_of_failure(all_statuses)
     if run_page is None:
         return False
@@ -484,8 +396,6 @@ def _is_review_app_failure(
         deadline,
         stop_reading,
     )
-    if review_run is None:
-        return None
     return _is_successful_review_run_for(
         review_run, int(run_page["run_id"]), repository, number, sha
     )
@@ -562,14 +472,10 @@ def _numbered_receipt(
     ruled_out_count: int,
     rulings: str,
     filed: str,
-    next_pass: NextPass,
+    pass_number: int,
 ) -> dict[str, object]:
     receipt = _receipt_fields(head, finding_count, ruled_out_count, RECEIPT_RULINGS_KEY, rulings)
-    receipt[RECEIPT_PASS_KEY] = next_pass.number
-    if next_pass.all_earlier_heads:
-        receipt[RECEIPT_EARLIER_HEADS_KEY] = list(next_pass.all_earlier_heads)
-    if next_pass.is_history_unverified:
-        receipt[RECEIPT_UNVERIFIED_KEY] = True
+    receipt[RECEIPT_PASS_KEY] = pass_number
     if filed:
         receipt[RECEIPT_FILED_KEY] = filed
     return receipt
@@ -932,18 +838,12 @@ def _record_numbered_pass(
     parser: argparse.ArgumentParser, parsed: argparse.Namespace, stdout: TextIO
 ) -> int:
     rulings = _checked_rulings_link(parser, parsed)
-    next_pass = _next_pass(
+    pass_number = _next_pass_number(
         parsed.slug, parsed.number, parsed.head, should_read_github=bool(parsed.filed.strip())
     )
-    pass_number = next_pass.number
     filed = _checked_filed_link(parser, parsed, pass_number)
     receipt = _numbered_receipt(
-        parsed.head,
-        parsed.findings,
-        parsed.ruled_out,
-        rulings,
-        filed,
-        next_pass,
+        parsed.head, parsed.findings, parsed.ruled_out, rulings, filed, pass_number
     )
     _write_receipt(parsed.slug, parsed.number, receipt)
     owner, repo = parsed.slug.split("/", 1)

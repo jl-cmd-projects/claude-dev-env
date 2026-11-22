@@ -25,9 +25,6 @@ GH_STUB_SCRIPT = """#!{python}
 import json, os, sys
 all_responses = json.loads(open(os.environ["GH_ISSUE_STUB"], encoding="utf-8").read())
 api_path = sys.argv[-1]
-if os.environ.get("GH_STALL_PATH") and os.environ["GH_STALL_PATH"] in api_path:
-    import time
-    time.sleep(60)
 if sys.argv[1:4] != ["api", "--hostname", "github.com"] or api_path not in all_responses:
     sys.stderr.write("gh: Not Found (HTTP 404)\\n")
     sys.exit(1)
@@ -96,13 +93,7 @@ def test_record_review_replaces_the_previous_pass(receipt_folder: Path) -> None:
     merge_review_receipt.record_review("Acme/Tools", 12, "old", 4)
     path = merge_review_receipt.record_review("Acme/Tools", 12, HEAD, 0)
     assert path == receipt_folder / "acme__tools__12.json"
-    assert json.loads(path.read_text(encoding="utf-8")) == {
-        "head": HEAD,
-        "findings": 0,
-        "pass": 2,
-        "earlier_heads": ["old"],
-        "history_unverified": True,
-    }
+    assert json.loads(path.read_text(encoding="utf-8")) == {"head": HEAD, "findings": 0, "pass": 2}
 
 
 def test_should_print_clean_when_every_finding_is_ruled_out_with_a_link() -> None:
@@ -141,7 +132,6 @@ def test_should_keep_the_raw_finding_count_beside_the_ruled_out_count(
         "head": HEAD,
         "findings": 2,
         "pass": 1,
-        "history_unverified": True,
         "ruled_out": 2,
         "rulings": RULINGS_LINK,
     }
@@ -654,7 +644,9 @@ def test_should_reach_old_failing_reviews_within_the_deadline_by_reading_in_para
     _serve_failing_reviews_below_newer_commits(gh_issues, 150)
     all_answers = json.loads(Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8"))
 
-    def slow_answer(api_path: str, deadline: float | None = None, stop_reading: object = None) -> object:
+    def slow_answer(
+        api_path: str, deadline: float | None = None, stop_reading: threading.Event | None = None
+    ) -> object:
         if deadline is not None and time.monotonic() >= deadline:
             return None
         if "/statuses" in api_path:
@@ -674,7 +666,7 @@ def test_should_keep_reading_while_one_read_stalls(
     _serve_failing_reviews_below_newer_commits(gh_issues, 12)
     all_answers = json.loads(Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8"))
     held_sha = f"{15:040d}"
-    all_reads_started_while_held: list[str] = []
+    all_status_reads: list[str] = []
 
     def stalling_answer(
         api_path: str, deadline: float | None = None, stop_reading: threading.Event | None = None
@@ -684,131 +676,14 @@ def test_should_keep_reading_while_one_read_stalls(
             stop_reading.wait(60)
             return None
         if "/statuses" in api_path:
-            all_reads_started_while_held.append(api_path)
+            all_status_reads.append(api_path)
         return all_answers.get(api_path)
 
     monkeypatch.setattr(merge_review_receipt, "_github_answer", stalling_answer)
     monkeypatch.setattr(merge_review_receipt, "STATUS_READ_WORKER_COUNT", 2)
 
     assert _filed_pass(receipt_folder) == 4
-    assert len(all_reads_started_while_held) >= 14
-
-
-def test_should_read_github_again_after_a_first_record_it_could_not_count(
-    receipt_folder: Path, gh_issues: dict[str, object]
-) -> None:
-    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
-    assert _stored_receipt(receipt_folder) == {
-        "head": HEAD,
-        "findings": 2,
-        "pass": 1,
-        "history_unverified": True,
-    }
-    _serve_review_statuses(gh_issues)
-
-    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
-
-    assert _stored_receipt(receipt_folder) == {"head": HEAD, "findings": 2, "pass": 4}
-
-
-def test_should_count_a_head_recorded_while_history_was_unread_beside_the_recovered_reviews(
-    receipt_folder: Path, gh_issues: dict[str, object]
-) -> None:
-    first_head = "5" * 40
-    merge_review_receipt.record_review("acme/tools", 12, first_head, 2)
-    _serve_review_statuses(gh_issues, [REVIEW_APP, REVIEW_APP, {"login": "x", "type": "User"}])
-    gh_issues[COMMITS_API_PATH] = [
-        {"sha": each_sha} for each_sha in [*EARLIER_COMMITS, first_head, HEAD]
-    ]
-    gh_issues[_statuses_api_path(first_head)] = []
-    _serve_issues(gh_issues)
-
-    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
-
-    assert _stored_receipt(receipt_folder) == {
-        "head": HEAD,
-        "findings": 2,
-        "pass": 4,
-        "earlier_heads": [first_head],
-    }
-
-
-def test_should_count_a_review_that_appears_on_github_after_the_history_was_recovered(
-    receipt_folder: Path, gh_issues: dict[str, object]
-) -> None:
-    first_head = "5" * 40
-    merge_review_receipt.record_review("acme/tools", 12, first_head, 2)
-    all_commit_shas = [*EARLIER_COMMITS, first_head, HEAD]
-    pending_review_creators = [REVIEW_APP, {"login": "x", "type": "User"}, {"login": "x", "type": "User"}]
-    _serve_review_statuses(gh_issues, pending_review_creators)
-    gh_issues[COMMITS_API_PATH] = [{"sha": each_sha} for each_sha in all_commit_shas]
-    gh_issues[_statuses_api_path(first_head)] = []
-    _serve_issues(gh_issues)
-    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
-    assert _stored_receipt(receipt_folder)["pass"] == 3
-
-    _serve_review_statuses(gh_issues, [REVIEW_APP, REVIEW_APP, {"login": "x", "type": "User"}])
-    gh_issues[COMMITS_API_PATH] = [{"sha": each_sha} for each_sha in all_commit_shas]
-    gh_issues[_statuses_api_path(first_head)] = []
-    _serve_issues(gh_issues)
-    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2, filed=ISSUE_LINK)
-
-    assert _stored_receipt(receipt_folder)["pass"] == 4
-
-
-def test_should_not_count_a_clean_local_review_as_a_round_that_needed_fixes(
-    receipt_folder: Path, gh_issues: dict[str, object]
-) -> None:
-    clean_head = "5" * 40
-    merge_review_receipt.record_review("acme/tools", 12, clean_head, 0)
-    _serve_review_statuses(gh_issues, [REVIEW_APP, REVIEW_APP, {"login": "x", "type": "User"}])
-    gh_issues[COMMITS_API_PATH] = [
-        {"sha": each_sha} for each_sha in [*EARLIER_COMMITS, clean_head, HEAD]
-    ]
-    gh_issues[_statuses_api_path(clean_head)] = []
-    _serve_issues(gh_issues)
-
-    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
-
-    assert _stored_receipt(receipt_folder)["pass"] == 3
-
-
-def test_should_count_a_recovered_review_of_a_marked_head_once(
-    receipt_folder: Path, gh_issues: dict[str, object]
-) -> None:
-    first_head = EARLIER_COMMITS[2]
-    merge_review_receipt.record_review("acme/tools", 12, first_head, 2)
-    _serve_review_statuses(gh_issues)
-    gh_issues[COMMITS_API_PATH] = [{"sha": each_sha} for each_sha in [*EARLIER_COMMITS, HEAD]]
-    _serve_issues(gh_issues)
-
-    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
-
-    assert _stored_receipt(receipt_folder)["pass"] == 4
-
-
-def test_should_not_mark_a_first_record_whose_history_was_read_in_full(
-    receipt_folder: Path, gh_issues: dict[str, object]
-) -> None:
-    gh_issues[COMMITS_API_PATH] = [{"sha": HEAD}]
-    _serve_issues(gh_issues)
-
-    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
-
-    assert _stored_receipt(receipt_folder) == {"head": HEAD, "findings": 2, "pass": 1}
-
-
-def test_should_mark_a_record_when_a_status_read_fails_and_fewer_than_three_reviews_count(
-    receipt_folder: Path, gh_issues: dict[str, object]
-) -> None:
-    _serve_review_statuses(gh_issues)
-    del gh_issues[_statuses_api_path(EARLIER_COMMITS[1])]
-    _serve_issues(gh_issues)
-
-    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2, filed=ISSUE_LINK)
-
-    assert _stored_receipt(receipt_folder)["pass"] == 3
-    assert _stored_receipt(receipt_folder)["history_unverified"] is True
+    assert len(all_status_reads) >= 14
 
 
 def test_should_kill_a_gh_read_when_the_stop_signal_is_set() -> None:
@@ -899,8 +774,7 @@ def test_should_recover_the_pass_count_on_the_first_record_without_filed(
 @pytest.mark.parametrize(
     ("previous_pass", "previous_head", "expected_pass"),
     [
-        (1, "0" * 40, 5),
-        (1, EARLIER_COMMITS[0], 4),
+        (1, "0" * 40, 4),
         (4, "0" * 40, 5),
         (4, HEAD, 4),
     ],
@@ -1007,7 +881,6 @@ def test_should_print_filed_and_exit_zero_for_filed_findings_on_pass_four(
         "head": HEAD,
         "findings": 2,
         "pass": 4,
-        "earlier_heads": [format(each_pass_number, "040x") for each_pass_number in (1, 2, 3)],
         "filed": ISSUE_LINK,
     }
 
