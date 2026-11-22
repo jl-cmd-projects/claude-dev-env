@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shlex
 import sys
 import tempfile
 from dataclasses import dataclass, field, replace
@@ -20,7 +21,12 @@ from blocking.gate_run_reads import (
     answer_once,
     child_stdout,
 )
+from hooks_constants.followup_pr_dedupe_constants import WINDOWS_EXECUTABLE_SUFFIX
 from hooks_constants.merge_review_gate_constants import (
+    ALL_LONE_CREATE_SUBCOMMANDS,
+    ALL_SHELL_EXPANSION_CHARACTERS,
+    LONE_CREATE_SUBCOMMAND_SLICE,
+    SHELL_OPERATOR_CHARACTERS,
     ALL_BRANCH_REFERENCE_PREFIXES,
     ALL_CHECKOUT_BRANCH_ARGUMENTS,
     ALL_STORED_HISTORY_GIT_SETTINGS,
@@ -34,7 +40,6 @@ from hooks_constants.merge_review_gate_constants import (
     BASE_BRANCH_FIELD,
     BASE_OPTION_MENTION_PATTERN,
     BASE_OPTION_PATTERN,
-    BASE_SETTING_CHANGE_PATTERN,
     BASE_SHORT_LETTER,
     CHANGE_FOLDER_PATTERN,
     CONTAINS_OPTION_TEMPLATE,
@@ -75,6 +80,7 @@ from hooks_constants.merge_review_gate_constants import (
     REPOSITORY_PATH_SEPARATOR,
     REPOSITORY_SHORT_LETTER,
 )
+from hooks_constants.shell_command_segments import token_basename
 from hooks_constants.shell_command_wrappers import segment_program_and_arguments
 
 
@@ -144,8 +150,10 @@ class ShellOpenCall:
         is_prefix_origin_check: True for the origin call a create gets when only a
             ``GH_REPO=`` prefix names its repository. Equal calls compare equal either way.
         base: The branch its ``--base`` names, or None when it names none.
-        is_base_readable: False when the command can change the base gh reads
-            before gh runs, or names a host or a base flag the gate cannot read.
+        is_base_readable: False when the command names a host or a base flag
+            the gate cannot read.
+        is_lone_create: True when the whole command is this one gh create,
+            so nothing in it can change the ``gh-merge-base`` setting first.
     """
 
     repository: tuple[str, str] | None
@@ -155,6 +163,7 @@ class ShellOpenCall:
     is_prefix_origin_check: bool = field(default=False, compare=False)
     base: str | None = None
     is_base_readable: bool = field(default=True, compare=False)
+    is_lone_create: bool = field(default=False, compare=False)
 
 
 OpenCall = ToolOpenCall | ShellOpenCall
@@ -254,7 +263,7 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
     is_base_known = (
         call.is_base_readable
         and not _is_other_host(os.environ.get(GH_HOST_VARIABLE))
-        and (call.base is not None or branch is not None)
+        and (call.base is not None or (branch is not None and call.is_lone_create))
     )
     return OpenRequest(
         owner=owner,
@@ -451,19 +460,56 @@ def _tool_open_call(all_tool_input: dict[object, object], folder: str | None) ->
 def _shell_open_calls(command: str, folder: str | None) -> list[OpenCall]:
     all_calls: list[OpenCall] = []
     is_gh_repository_set = sets_gh_repository(command)
-    is_base_setting_kept = not BASE_SETTING_CHANGE_PATTERN.search(
-        CREATE_TEXT_OPTION_PATTERN.sub(" ", command)
-    )
+    is_lone_create = _is_lone_gh_create(command)
     for each_create in all_placed_creates(command, folder):
-        all_calls.extend(_placed_open_calls(each_create, is_gh_repository_set, is_base_setting_kept))
-    floor_call = _floor_open_call(command, folder, is_base_setting_kept)
+        all_calls.extend(_placed_open_calls(each_create, is_gh_repository_set, is_lone_create))
+    floor_call = _floor_open_call(command, folder, is_lone_create)
     if floor_call is not None:
         all_calls.append(floor_call)
     return list(dict.fromkeys(all_calls))
 
 
+def _is_lone_gh_create(command: str) -> bool:
+    """Return whether a whole shell command is one plain ``gh pr create``.
+
+    gh reads the head branch's ``gh-merge-base`` setting when it runs. Any
+    other word in the command, quoted or not, can write that setting or the
+    git config gh reads first, so only a lone create is read::
+
+        gh pr create --fill                                  -> True
+        git config "branch.x.gh-merge""-base" y && gh pr create -> False
+        LANG=C gh pr create --fill                           -> False
+        gh pr create --fill > out.txt                        -> False
+        gh pr create --title "$(date)"                       -> False
+
+    The words come from a POSIX shell split. A word made only of shell
+    operators, a ``$``, a backtick, a line break, or a split that fails
+    makes the command not lone.
+
+    Args:
+        command: The shell command text.
+
+    Returns:
+        True when the command is one ``gh pr create`` or ``gh pr new`` and nothing else.
+    """
+    if any(each_character in command for each_character in ALL_SHELL_EXPANSION_CHARACTERS):
+        return False
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        all_words = list(lexer)
+    except ValueError:
+        return False
+    if not all_words or any(
+        each_word and set(each_word) <= SHELL_OPERATOR_CHARACTERS for each_word in all_words
+    ):
+        return False
+    program = token_basename(all_words[0]).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
+    return program == GH_PROGRAM_NAME and tuple(all_words[LONE_CREATE_SUBCOMMAND_SLICE]) in ALL_LONE_CREATE_SUBCOMMANDS
+
+
 def _placed_open_calls(
-    placed_create: PlacedCreate, is_gh_repository_set: bool, is_base_setting_kept: bool
+    placed_create: PlacedCreate, is_gh_repository_set: bool, is_lone_create: bool
 ) -> list[ShellOpenCall]:
     flag_value = _flag_value(placed_create)
     prefix_value = prefix_repository(list(placed_create.all_command_words)) if flag_value is None else None
@@ -479,7 +525,8 @@ def _placed_open_calls(
             is_folder_followed=placed_create.is_folder_followed and is_repository_read,
             is_prefix_origin_check=prefix_value is not None and repository is None,
             base=_placed_base(placed_create),
-            is_base_readable=is_base_setting_kept and _is_github_repository_value(repository_value),
+            is_base_readable=_is_github_repository_value(repository_value),
+            is_lone_create=is_lone_create,
         )
         all_calls.append(named_call)
         if prefix_value is not None:
@@ -489,7 +536,7 @@ def _placed_open_calls(
                     repository=None,
                     is_folder_followed=placed_create.is_folder_followed,
                     is_prefix_origin_check=True,
-                    is_base_readable=is_base_setting_kept,
+                    is_base_readable=True,
                 )
             )
     return all_calls
@@ -531,7 +578,7 @@ def _placed_base(placed_create: PlacedCreate) -> str | None:
     return all_bases[-1] if all_bases and all_bases[-1] else None
 
 
-def _floor_open_call(command: str, folder: str | None, is_base_setting_kept: bool) -> ShellOpenCall | None:
+def _floor_open_call(command: str, folder: str | None, is_lone_create: bool) -> ShellOpenCall | None:
     """Read the first create the way the gate read it before it walked every create.
 
     The repository comes from a ``--repo`` flag or the origin remote, never
@@ -572,9 +619,9 @@ def _floor_open_call(command: str, folder: str | None, is_base_setting_kept: boo
         branch=head_match["head"] if head_match else CURRENT_HEAD_REFERENCE,
         folder=folder,
         base=all_base_matches[-1]["base"] if all_base_matches else None,
-        is_base_readable=is_base_setting_kept
-        and is_each_flag_read
+        is_base_readable=is_each_flag_read
         and all(_is_github_repository_value(each_value) for each_value in all_repository_values),
+        is_lone_create=is_lone_create,
     )
 
 

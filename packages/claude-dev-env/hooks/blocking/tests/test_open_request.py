@@ -387,6 +387,24 @@ def test_should_give_no_base_when_the_gh_merge_base_read_gives_no_answer(
     assert [base_tip(open_request_for(each_call)) for each_call in open_calls_from(payload)] == [None]
 
 
+@pytest.mark.parametrize(
+    ("command", "is_base_known"),
+    [
+        ("gh pr create --repo acme/tools -H feature", True),
+        ("gh pr new --repo acme/tools -H feature", True),
+        ("cd . && gh pr create --repo acme/tools -H feature", False),
+        ("gh pr create --repo acme/tools -H feature --title \"$(date)\"", False),
+        ("gh pr create --repo acme/tools -H 'feature", False),
+        ("cd . && gh pr create --repo acme/tools -H feature --base main", True),
+    ],
+)
+def test_should_know_a_no_base_open_only_when_the_create_is_the_whole_command(
+    tmp_path: Path, command: str, is_base_known: bool
+) -> None:
+    all_requests = [open_request_for(each_call) for each_call in open_calls_from(_shell_payload(command, tmp_path))]
+    assert {each_request.is_base_known for each_request in all_requests} == {is_base_known}
+
+
 def test_should_give_no_base_for_a_create_tool_call_that_names_none(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

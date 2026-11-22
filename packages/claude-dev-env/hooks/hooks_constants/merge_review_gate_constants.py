@@ -125,11 +125,10 @@ OPEN_REPOSITORY_OPTION_PATTERN = re.compile(
     r"(?<!\S)(?:-R(?:=|\s+)?|--repo(?:=|\s+))[\"']?(?P<repository>[^\s\"']+)"
 )
 REPOSITORY_OPTION_MENTION_PATTERN = re.compile(r"(?<!\S)(?:-[A-Za-z]*R|--repo(?![\w-]))")
-BASE_SETTING_CHANGE_PATTERN = re.compile(
-    r"gh-merge-base|\b(?:GIT_CONFIG\w*|GIT_DIR|GIT_COMMON_DIR|XDG_CONFIG_HOME|GH_HOST)\b"
-    r"|\bHOME\s*=|\b(?:unset|env|Remove-Item)\b[^;&|\n]*\bHOME\b",
-    re.IGNORECASE,
-)
+ALL_LONE_CREATE_SUBCOMMANDS = (("pr", "create"), ("pr", "new"))
+LONE_CREATE_SUBCOMMAND_SLICE = slice(1, 3)
+SHELL_OPERATOR_CHARACTERS = frozenset("();<>|&")
+ALL_SHELL_EXPANSION_CHARACTERS = ("$", "`", "\n", "\r")
 ALL_MERGE_BASE_READ_ARGUMENTS = ("config", "--default", "", "--get")
 MERGE_BASE_SETTING_TEMPLATE = "branch.{branch}.gh-merge-base"
 GITHUB_HOST = "github.com"

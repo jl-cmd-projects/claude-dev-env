@@ -716,6 +716,29 @@ def test_should_deny_an_open_whose_command_sets_the_gh_merge_base_first(
     assert "no clean review" in _deny_reason(_bash_in(folder, environment_command))
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git config \"branch.feature.gh-merge\"\"-base\" stack && gh pr create --fill",
+        "printf '[branch \"feature\"]\\n\\tgh-merge-%s = stack\\n' base >> .git/config && gh pr create --fill",
+        "LANG=C gh pr create --fill",
+        "gh pr create --fill > created.txt",
+    ],
+)
+def test_should_give_no_earlier_pass_credit_to_a_no_base_open_beside_any_other_shell_word(
+    branch_checkout: tuple[Path, str], github_repository: Path, command: str
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    assert "no clean review" in _deny_reason(_bash_in(folder, command))
+
+
+def test_should_credit_an_earlier_pass_to_an_open_that_names_its_base_beside_other_shell_words(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    assert _reason(_bash_in(folder, "git status && gh pr create --fill --base main")) is None
+
+
 def test_should_deny_an_earlier_pass_for_an_open_on_another_host(
     branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
