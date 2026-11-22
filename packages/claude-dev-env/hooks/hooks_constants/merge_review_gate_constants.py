@@ -330,14 +330,47 @@ RULING_REFERENCE_PATTERN = re.compile(
 )
 RULING_SEPARATOR = ","
 RULING_LOOKUP_TIMEOUT_SECONDS = 10
-FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS = 20
-FILED_ISSUE_CLIENT_NAME = "gh"
-FILED_ISSUE_API_SUBCOMMAND = "api"
-FILED_ISSUE_HOST_OPTION = "--hostname"
-FILED_ISSUE_HOST = "github.com"
+GITHUB_API_READ_TIMEOUT_SECONDS = 20
+GITHUB_API_CLIENT_NAME = "gh"
+GITHUB_API_SUBCOMMAND = "api"
+GITHUB_API_HOST_OPTION = "--hostname"
+GITHUB_API_HOST = "github.com"
 FILED_ISSUE_API_PATH_TEMPLATE = "repos/{owner}/{repo}/issues/{number}"
 FILED_ISSUE_PAGE_KEY = "html_url"
 FILED_ISSUE_PULL_REQUEST_KEY = "pull_request"
+PULL_REQUEST_COMMITS_API_PATH_TEMPLATE = (
+    "repos/{owner}/{repo}/pulls/{number}/commits?per_page=100&page={page}"
+)
+PULL_REQUEST_COMMITS_PAGE_SIZE = 100
+PULL_REQUEST_COMMITS_PAGE_LIMIT = 3
+EARLIER_COMMIT_READ_LIMIT = 40
+GITHUB_COUNT_DEADLINE_SECONDS = 120
+COMMIT_STATUSES_API_PATH_TEMPLATE = "repos/{owner}/{repo}/commits/{sha}/statuses?per_page=100"
+COMMIT_SHA_KEY = "sha"
+MERGE_REVIEW_STATUS_CONTEXT = "Merge review"
+FAILED_REVIEW_STATUS_STATE = "failure"
+REVIEW_STATUS_CREATOR_TYPE = "Bot"
+REVIEW_STATUS_APP_LOGIN = "repo-rulefile-sync[bot]"
+REVIEW_STATUS_RUN_PAGE_PATTERN = re.compile(
+    r"https://github\.com/(?P<repository>[\w.-]+/[\w.-]+)/actions/runs/(?P<run_id>\d+)",
+    re.IGNORECASE,
+)
+REVIEW_RUN_API_PATH_TEMPLATE = "repos/{repository}/actions/runs/{run_id}"
+REVIEW_RUN_WORKFLOW_FILE = "efficient-review.yml"
+REVIEW_RUN_TITLE_TEMPLATE = r"Merge review {repository}#(?:{number})? {head} base \S+"
+REVIEW_RUN_COMPLETED_STATUS = "completed"
+REVIEW_RUN_SUCCESS_CONCLUSION = "success"
+RUN_ID_KEY = "id"
+RUN_PATH_KEY = "path"
+RUN_STATUS_KEY = "status"
+RUN_CONCLUSION_KEY = "conclusion"
+RUN_TITLE_KEY = "display_title"
+STATUS_CONTEXT_KEY = "context"
+STATUS_STATE_KEY = "state"
+STATUS_CREATOR_KEY = "creator"
+STATUS_TARGET_URL_KEY = "target_url"
+CREATOR_TYPE_KEY = "type"
+CREATOR_LOGIN_KEY = "login"
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(

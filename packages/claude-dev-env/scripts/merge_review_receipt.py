@@ -14,7 +14,15 @@ clean once the rulings are posted and linked::
         -> CLEAN owner/name#12 def5678 (2 findings ruled out: <url>)
 
 Each numbered receipt counts its pass on the pull request. A new head is the
-next pass, and recording the same head again keeps its pass. The loop runs
+next pass, and recording the same head again keeps its pass. A record with
+``--filed`` also reads GitHub: its pass is never lower than one more than the
+earlier commits of the pull request whose review run failed, run by the
+review workflow for this repository, pull request and commit, so the count
+survives a new session::
+
+    --filed, no receipt, 3 earlier commits with a failing review run -> pass 4
+
+The loop runs
 three full passes with fixes. When pass 4 or a later one still reports
 findings, they go into one issue in the same repository, and the pass is
 recorded with the issue link. Findings it rules out are left out of that
@@ -60,9 +68,11 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import TextIO
@@ -88,20 +98,31 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_CHECKOUT_BRANCH_ARGUMENTS,
     ALL_HOLDING_REFERENCE_ARGUMENTS,
     ALL_STORED_HISTORY_GIT_SETTINGS,
+    COMMIT_SHA_KEY,
+    COMMIT_STATUSES_API_PATH_TEMPLATE,
     CONTAINS_OPTION_TEMPLATE,
+    CREATOR_LOGIN_KEY,
+    CREATOR_TYPE_KEY,
+    EARLIER_COMMIT_READ_LIMIT,
+    FAILED_REVIEW_STATUS_STATE,
     FILED_ISSUE_API_PATH_TEMPLATE,
-    FILED_ISSUE_API_SUBCOMMAND,
-    FILED_ISSUE_CLIENT_NAME,
-    FILED_ISSUE_HOST,
-    FILED_ISSUE_HOST_OPTION,
     FILED_ISSUE_LINK_PATTERN,
-    FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS,
     FILED_ISSUE_PAGE_KEY,
     FILED_ISSUE_PULL_REQUEST_KEY,
     FULL_REVIEW_PASS_COUNT,
+    GITHUB_API_CLIENT_NAME,
+    GITHUB_API_HOST,
+    GITHUB_API_HOST_OPTION,
+    GITHUB_API_READ_TIMEOUT_SECONDS,
+    GITHUB_API_SUBCOMMAND,
+    GITHUB_COUNT_DEADLINE_SECONDS,
     LOCAL_BRANCH_REFERENCE_TEMPLATE,
+    MERGE_REVIEW_STATUS_CONTEXT,
     OPEN_RECEIPT_HEAD_PATTERN,
     OPEN_TARGET_WORD,
+    PULL_REQUEST_COMMITS_API_PATH_TEMPLATE,
+    PULL_REQUEST_COMMITS_PAGE_LIMIT,
+    PULL_REQUEST_COMMITS_PAGE_SIZE,
     RECEIPT_BRANCH_KEY,
     RECEIPT_FILED_KEY,
     RECEIPT_FINDINGS_KEY,
@@ -112,9 +133,26 @@ from hooks_constants.merge_review_gate_constants import (
     RECEIPT_RULINGS_KEY,
     REMOTE_TRACKING_REFERENCE_PREFIX,
     REPOSITORY_SLUG_PATTERN,
+    REVIEW_RUN_API_PATH_TEMPLATE,
+    REVIEW_RUN_COMPLETED_STATUS,
+    REVIEW_RUN_SUCCESS_CONCLUSION,
+    REVIEW_RUN_TITLE_TEMPLATE,
+    REVIEW_RUN_WORKFLOW_FILE,
+    REVIEW_STATUS_APP_LOGIN,
+    REVIEW_STATUS_CREATOR_TYPE,
+    REVIEW_STATUS_RUN_PAGE_PATTERN,
     RULING_LOOKUP_TIMEOUT_SECONDS,
     RULING_REFERENCE_PATTERN,
     RULING_SEPARATOR,
+    RUN_CONCLUSION_KEY,
+    RUN_ID_KEY,
+    RUN_PATH_KEY,
+    RUN_STATUS_KEY,
+    RUN_TITLE_KEY,
+    STATUS_CONTEXT_KEY,
+    STATUS_CREATOR_KEY,
+    STATUS_STATE_KEY,
+    STATUS_TARGET_URL_KEY,
 )
 
 
@@ -147,41 +185,228 @@ def record_review(
         ruled_out_count,
         rulings,
         filed,
-        _next_pass_number(slug, number, head),
+        _next_pass_number(slug, number, head, should_read_github=bool(filed.strip())),
     )
     return _write_receipt(slug, number, receipt)
 
 
-def _next_pass_number(slug: str, number: int, head: str) -> int:
+def _next_pass_number(
+    slug: str, number: int, head: str, should_read_github: bool = False
+) -> int:
     """Return which review pass on the pull request a record of ``head`` is.
 
     A new head is the next pass. Recording the head the previous receipt names
-    again, such as after posting rulings or filing an issue, keeps its pass::
+    again, such as after posting rulings or filing an issue, keeps its pass,
+    unless the GitHub count below raises it. A record that carries ``--filed``
+    also reads GitHub, so a new session keeps the count: the pass is never
+    lower than one more than the earlier commits of this pull request whose
+    review run GitHub shows as failing::
 
-        no receipt yet                         -> 1
+        no receipt yet                                   -> 1
         previous receipt pass 3 at abc1234, head def5678 -> 4
         previous receipt pass 3 at abc1234, head abc1234 -> 3
+        --filed, no receipt, 3 earlier failing reviews   -> 4
+        --filed, previous receipt pass 1, 3 earlier ones -> 4
 
-    A previous receipt that cannot be read counts as no receipt.
+    A previous receipt that cannot be read counts as no receipt. A local pass
+    past the full pass count already allows a filed pass, so GitHub is not
+    read for it.
 
     Args:
         slug: Repository as ``owner/name``.
         number: Pull request number.
         head: The commit the pass reviewed.
+        should_read_github: True when the record carries ``--filed``.
 
     Returns:
         The pass number, from 1.
     """
     owner, repo = slug.split("/", 1)
-    previous_receipt = read_receipt(receipt_path(owner, repo, number))
-    if previous_receipt is None:
+    local_pass_number = _local_pass_number(read_receipt(receipt_path(owner, repo, number)), head)
+    if not should_read_github or local_pass_number > FULL_REVIEW_PASS_COUNT:
+        return local_pass_number
+    reviewed_pass_number = _failed_review_head_count(owner, repo, number, head) + 1
+    return max(local_pass_number, reviewed_pass_number)
+
+
+def _local_pass_number(all_previous_receipt_fields: dict[str, object] | None, head: str) -> int:
+    if all_previous_receipt_fields is None:
         return 1
-    previous_pass_number = recorded_pass_number(previous_receipt)
-    previous_head = previous_receipt.get(RECEIPT_HEAD_KEY)
+    previous_pass_number = recorded_pass_number(all_previous_receipt_fields)
+    previous_head = all_previous_receipt_fields.get(RECEIPT_HEAD_KEY)
     is_same_pass = isinstance(previous_head, str) and bool(previous_head) and same_commit(
         previous_head, head
     )
     return previous_pass_number if is_same_pass else previous_pass_number + 1
+
+
+def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> int:
+    """Return how many earlier commits of the pull request had a failing review run.
+
+    Earlier commits are the ones the pull request lists before the head. The
+    count is 0 when any page of the list cannot be read or the head is not in
+    it, so it only ever raises a pass. A commit counts when its newest
+    ``Merge review`` status is ``failure``, the review app posted it, and its
+    link is a GitHub Actions run of the review workflow that succeeded and is
+    titled for this repository, this pull request and that commit. The walk
+    starts at the newest earlier commit, reads at most a fixed number of them
+    within one deadline, and stops at the full pass count::
+
+        commits c1 (failing review run), c2 (none), head -> 1
+        commits c1, head, c2 (failing review run)        -> 0
+        commit c1 (failure by another app), head         -> 0
+        commit c1 (run titled for another pull request)  -> 0
+        commit list page 2 unreadable                    -> 0
+        head missing from the commit list                -> 0
+
+    Args:
+        owner: Repository owner.
+        repo: Repository name.
+        number: Pull request number.
+        head: The commit the pass reviewed, left out of the count.
+
+    Returns:
+        The count, from 0 to the full pass count.
+    """
+    deadline = time.monotonic() + GITHUB_COUNT_DEADLINE_SECONDS
+    all_earlier_shas = _commits_before_head(owner, repo, number, head, deadline)
+    failed_count = 0
+    for each_sha in reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]):
+        if failed_count >= FULL_REVIEW_PASS_COUNT:
+            break
+        all_statuses = _github_answer(
+            COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=each_sha),
+            deadline,
+        )
+        if isinstance(all_statuses, list) and _is_review_app_failure(
+            all_statuses, f"{owner}/{repo}", number, each_sha, deadline
+        ):
+            failed_count += 1
+    return failed_count
+
+
+def _commits_before_head(
+    owner: str, repo: str, number: int, head: str, deadline: float
+) -> list[str]:
+    all_earlier_shas: list[str] = []
+    for each_page in range(1, PULL_REQUEST_COMMITS_PAGE_LIMIT + 1):
+        all_page_commits = _github_answer(
+            PULL_REQUEST_COMMITS_API_PATH_TEMPLATE.format(
+                owner=owner, repo=repo, number=number, page=each_page
+            ),
+            deadline,
+        )
+        if not isinstance(all_page_commits, list):
+            return []
+        all_page_shas = _commit_shas_in(all_page_commits)
+        head_index = next(
+            (
+                each_index
+                for each_index, each_sha in enumerate(all_page_shas)
+                if same_commit(each_sha, head)
+            ),
+            None,
+        )
+        if head_index is not None:
+            return all_earlier_shas + all_page_shas[:head_index]
+        all_earlier_shas.extend(all_page_shas)
+        if len(all_page_commits) < PULL_REQUEST_COMMITS_PAGE_SIZE:
+            return []
+    return []
+
+
+def _commit_shas_in(all_commits: list[object]) -> list[str]:
+    return [
+        each_commit[COMMIT_SHA_KEY]
+        for each_commit in all_commits
+        if isinstance(each_commit, dict) and isinstance(each_commit.get(COMMIT_SHA_KEY), str)
+    ]
+
+
+def _review_run_page_of_failure(all_statuses: list[object]) -> re.Match[str] | None:
+    newest = next(
+        (
+            each_status
+            for each_status in all_statuses
+            if isinstance(each_status, dict)
+            and each_status.get(STATUS_CONTEXT_KEY) == MERGE_REVIEW_STATUS_CONTEXT
+        ),
+        None,
+    )
+    if newest is None or newest.get(STATUS_STATE_KEY) != FAILED_REVIEW_STATUS_STATE:
+        return None
+    creator = newest.get(STATUS_CREATOR_KEY)
+    if (
+        not isinstance(creator, dict)
+        or creator.get(CREATOR_TYPE_KEY) != REVIEW_STATUS_CREATOR_TYPE
+        or creator.get(CREATOR_LOGIN_KEY) != REVIEW_STATUS_APP_LOGIN
+    ):
+        return None
+    return REVIEW_STATUS_RUN_PAGE_PATTERN.fullmatch(str(newest.get(STATUS_TARGET_URL_KEY, "")))
+
+
+def _is_review_app_failure(
+    all_statuses: list[object], repository: str, number: int, sha: str, deadline: float
+) -> bool:
+    run_page = _review_run_page_of_failure(all_statuses)
+    if run_page is None:
+        return False
+    review_run = _github_answer(
+        REVIEW_RUN_API_PATH_TEMPLATE.format(
+            repository=run_page["repository"], run_id=run_page["run_id"]
+        ),
+        deadline,
+    )
+    return _is_successful_review_run_for(
+        review_run, int(run_page["run_id"]), repository, number, sha
+    )
+
+
+def _is_successful_review_run_for(
+    review_run: object, run_id: int, repository: str, number: int, sha: str
+) -> bool:
+    if not isinstance(review_run, dict):
+        return False
+    workflow_path = review_run.get(RUN_PATH_KEY)
+    title_pattern = REVIEW_RUN_TITLE_TEMPLATE.format(
+        repository=re.escape(repository), number=number, head=re.escape(sha)
+    )
+    return (
+        review_run.get(RUN_ID_KEY) == run_id
+        and isinstance(workflow_path, str)
+        and workflow_path.split("@", 1)[0].rsplit("/", 1)[-1] == REVIEW_RUN_WORKFLOW_FILE
+        and review_run.get(RUN_STATUS_KEY) == REVIEW_RUN_COMPLETED_STATUS
+        and review_run.get(RUN_CONCLUSION_KEY) == REVIEW_RUN_SUCCESS_CONCLUSION
+        and re.fullmatch(title_pattern, str(review_run.get(RUN_TITLE_KEY, "")), re.IGNORECASE)
+        is not None
+    )
+
+
+def _github_answer(api_path: str, deadline: float | None = None) -> object:
+    client_path = shutil.which(GITHUB_API_CLIENT_NAME)
+    if client_path is None:
+        return None
+    timeout_seconds = GITHUB_API_READ_TIMEOUT_SECONDS
+    if deadline is not None:
+        timeout_seconds = min(timeout_seconds, deadline - time.monotonic())
+    if timeout_seconds <= 0:
+        return None
+    try:
+        completed = subprocess.run(
+            [
+                client_path,
+                GITHUB_API_SUBCOMMAND,
+                GITHUB_API_HOST_OPTION,
+                GITHUB_API_HOST,
+                api_path,
+            ],
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+        return json.loads(completed.stdout) if completed.returncode == 0 else None
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return None
 
 
 def _numbered_receipt(
@@ -529,28 +754,11 @@ def _is_served_issue(link: str, owner: str, repo: str) -> bool:
         True when the GitHub API answers with that same issue.
     """
     issue_match = FILED_ISSUE_LINK_PATTERN.fullmatch(link)
-    client_path = shutil.which(FILED_ISSUE_CLIENT_NAME)
-    if issue_match is None or client_path is None:
+    if issue_match is None:
         return False
-    api_path = FILED_ISSUE_API_PATH_TEMPLATE.format(
-        owner=owner, repo=repo, number=issue_match["number"]
+    served_issue = _github_answer(
+        FILED_ISSUE_API_PATH_TEMPLATE.format(owner=owner, repo=repo, number=issue_match["number"])
     )
-    try:
-        completed = subprocess.run(
-            [
-                client_path,
-                FILED_ISSUE_API_SUBCOMMAND,
-                FILED_ISSUE_HOST_OPTION,
-                FILED_ISSUE_HOST,
-                api_path,
-            ],
-            capture_output=True,
-            timeout=FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS,
-            check=False,
-        )
-        served_issue = json.loads(completed.stdout) if completed.returncode == 0 else None
-    except (OSError, subprocess.SubprocessError, ValueError):
-        return False
     return (
         isinstance(served_issue, dict)
         and FILED_ISSUE_PULL_REQUEST_KEY not in served_issue
@@ -573,7 +781,9 @@ def _record_numbered_pass(
     parser: argparse.ArgumentParser, parsed: argparse.Namespace, stdout: TextIO
 ) -> int:
     rulings = _checked_rulings_link(parser, parsed)
-    pass_number = _next_pass_number(parsed.slug, parsed.number, parsed.head)
+    pass_number = _next_pass_number(
+        parsed.slug, parsed.number, parsed.head, should_read_github=bool(parsed.filed.strip())
+    )
     filed = _checked_filed_link(parser, parsed, pass_number)
     receipt = _numbered_receipt(
         parsed.head, parsed.findings, parsed.ruled_out, rulings, filed, pass_number
