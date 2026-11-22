@@ -56,16 +56,15 @@ def gh_issues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
     monkeypatch.setenv("GH_ISSUE_STUB", str(tmp_path / "gh_issues.json"))
     all_responses: dict[str, object] = {ISSUE_API_PATH: {"html_url": ISSUE_LINK, "number": 40}}
     _serve_issues(all_responses)
-    return all_responses
-
-
-@pytest.fixture(autouse=True)
-def no_github_reads(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Answer each GitHub read with nothing unless the test serves its own ``gh`` stub."""
-    if "gh_issues" not in request.fixturenames:
+    if sys.platform == "win32":
         monkeypatch.setattr(
-            merge_review_receipt, "_github_answer", lambda api_path, deadline=None: None
+            merge_review_receipt,
+            "_github_answer",
+            lambda api_path, deadline=None: json.loads(
+                Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8")
+            ).get(api_path),
         )
+    return all_responses
 
 
 def _serve_issues(all_responses: dict[str, object]) -> None:
