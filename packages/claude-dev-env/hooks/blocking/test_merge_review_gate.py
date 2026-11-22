@@ -1144,6 +1144,7 @@ def test_should_credit_an_earlier_pass_when_only_the_branch_own_tracking_referen
     merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
     _commit_on(folder, "fix")
     _git(folder, "push", "--quiet", str(github_repository), "HEAD:feature")
+    _git(folder, "update-ref", "refs/remotes/origin/feature", reviewed_head)
     assert _git(folder, "rev-parse", "refs/remotes/origin/feature") == reviewed_head
     assert _reason(_bash_in(folder, "gh pr create --fill")) is None
     assert _reason(_create_tool(folder)) is None
@@ -1193,6 +1194,7 @@ def test_should_keep_the_deny_when_a_fetch_setting_can_write_another_branch_onto
     merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
     _commit_on(folder, "fix")
     _git(folder, "push", "--quiet", str(github_repository), "HEAD:feature")
+    _git(folder, "update-ref", "refs/remotes/origin/feature", reviewed_head)
     command = "gh pr create --fill --repo acme/tools"
     assert _reason(_bash_in(folder, command)) is None
     _git(folder, "config", "--add", setting, refspec)
