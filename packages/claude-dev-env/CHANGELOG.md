@@ -1,5 +1,33 @@
 # Changelog
 
+## [8.135.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.2...claude-dev-env-v8.135.3) (2026-11-22)
+
+
+### Bug Fixes
+
+* **scripts:** read the filed issue from github.com as bytes ([#2484](https://github.com/jl-cmd-projects/claude-dev-env/issues/2484)) ([6da2e6c](https://github.com/jl-cmd-projects/claude-dev-env/commit/6da2e6cac8ce205ce7ff55cfd3a747059e68f216))
+
+## [8.135.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.1...claude-dev-env-v8.135.2) (2026-11-21)
+
+
+### Bug Fixes
+
+* **scripts:** check the filed issue and rulings link of a filed review pass ([#2481](https://github.com/jl-cmd-projects/claude-dev-env/issues/2481)) ([a3ba6cb](https://github.com/jl-cmd-projects/claude-dev-env/commit/a3ba6cbc3bd950ae18dd7c19d08b5ac4d657eb56))
+
+## [8.135.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.135.0...claude-dev-env-v8.135.1) (2026-11-21)
+
+
+### Bug Fixes
+
+* **private-terms:** skip the author's attribution marker line in a pull request body ([#2479](https://github.com/jl-cmd-projects/claude-dev-env/issues/2479)) ([795a091](https://github.com/jl-cmd-projects/claude-dev-env/commit/795a0916c2cc189c20fd1f531ce17b90a71b043f))
+
+## [8.135.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.134.1...claude-dev-env-v8.135.0) (2026-11-21)
+
+
+### Features
+
+* **hooks:** merge after three full review passes and file later findings ([#2477](https://github.com/jl-cmd-projects/claude-dev-env/issues/2477)) ([9764e2c](https://github.com/jl-cmd-projects/claude-dev-env/commit/9764e2c39c7e5ff5e1aa1602f90df0852fa974d8))
+
 ## [8.134.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.134.0...claude-dev-env-v8.134.1) (2026-11-21)
 
 

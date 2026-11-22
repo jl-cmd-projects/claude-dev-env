@@ -23,7 +23,9 @@ issue::
     python3 merge_review_receipt.py owner/name 12 aaa9999 3 --ruled-out 1 --rulings <url> --filed <issue url>
         -> FILED owner/name#12 aaa9999 (2 findings filed: <issue url>)
 
-Before pass 4, ``--filed`` is refused.
+Before pass 4, ``--filed`` is refused. The script reads the issue through
+the GitHub command-line client and refuses a link that names no issue in
+that repository, such as a missing number or a pull request.
 
 One review pass runs before the pull request exists. It names ``open`` in
 place of the number and records the head it reviewed. Its findings are fixed
@@ -54,6 +56,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from collections.abc import Sequence
@@ -77,6 +80,15 @@ from blocking.merge_review_gate_parts.receipts import (
     same_commit,
 )
 from hooks_constants.merge_review_gate_constants import (
+    FILED_ISSUE_API_PATH_TEMPLATE,
+    FILED_ISSUE_API_SUBCOMMAND,
+    FILED_ISSUE_CLIENT_NAME,
+    FILED_ISSUE_HOST,
+    FILED_ISSUE_HOST_OPTION,
+    FILED_ISSUE_LINK_PATTERN,
+    FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS,
+    FILED_ISSUE_PAGE_KEY,
+    FILED_ISSUE_PULL_REQUEST_KEY,
     FULL_REVIEW_PASS_COUNT,
     OPEN_RECEIPT_HEAD_PATTERN,
     OPEN_TARGET_WORD,
@@ -393,8 +405,10 @@ def _checked_filed_link(
     if not filed:
         return filed
     owner, repo = parsed.slug.split("/", 1)
-    if not is_issue_link_in(filed, owner, repo):
-        parser.error(f"--filed needs the link of an issue in {parsed.slug}")
+    if not is_issue_link_in(filed, owner, repo, parsed.number):
+        parser.error(
+            f"--filed needs the link of an issue in {parsed.slug}, and not this pull request's own number"
+        )
     if parsed.findings - parsed.ruled_out < 1:
         parser.error("--filed needs findings left after --ruled-out to file")
     if not is_past_full_passes(pass_number):
@@ -403,7 +417,61 @@ def _checked_filed_link(
             f"{pass_number}. The first {FULL_REVIEW_PASS_COUNT} full passes with fixes come "
             "first: fix and push every finding, then review the new head."
         )
+    if not _is_served_issue(filed, owner, repo):
+        parser.error(
+            f"--filed {filed} is not an issue GitHub serves in {parsed.slug}: file the issue "
+            "first and pass its link, and check that gh can read the repository"
+        )
     return filed
+
+
+def _is_served_issue(link: str, owner: str, repo: str) -> bool:
+    """Return whether GitHub serves the link as an issue of this repository.
+
+    The link must name an issue that exists, that is not a pull request, and
+    whose page GitHub gives in this same repository::
+
+        issue 40 exists in acme/tools                 -> served
+        no issue 40, or gh cannot read the repository -> not served
+        40 is a pull request                          -> not served
+        GitHub answers with acme/elsewhere issue 7    -> not served
+
+    Args:
+        link: The issue link the pass names, already matched to this repository.
+        owner: Repository owner.
+        repo: Repository name.
+
+    Returns:
+        True when the GitHub API answers with that same issue.
+    """
+    issue_match = FILED_ISSUE_LINK_PATTERN.fullmatch(link)
+    client_path = shutil.which(FILED_ISSUE_CLIENT_NAME)
+    if issue_match is None or client_path is None:
+        return False
+    api_path = FILED_ISSUE_API_PATH_TEMPLATE.format(
+        owner=owner, repo=repo, number=issue_match["number"]
+    )
+    try:
+        completed = subprocess.run(
+            [
+                client_path,
+                FILED_ISSUE_API_SUBCOMMAND,
+                FILED_ISSUE_HOST_OPTION,
+                FILED_ISSUE_HOST,
+                api_path,
+            ],
+            capture_output=True,
+            timeout=FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS,
+            check=False,
+        )
+        served_issue = json.loads(completed.stdout) if completed.returncode == 0 else None
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return False
+    return (
+        isinstance(served_issue, dict)
+        and FILED_ISSUE_PULL_REQUEST_KEY not in served_issue
+        and str(served_issue.get(FILED_ISSUE_PAGE_KEY, "")).casefold() == link.casefold()
+    )
 
 
 def _checked_rulings_link(parser: argparse.ArgumentParser, parsed: argparse.Namespace) -> str:
@@ -435,18 +503,28 @@ def _record_numbered_pass(
         )
         stdout.write(f"CLEAN {target}{ruled_out_note}\n")
         return 0
-    if is_filed_receipt(receipt, owner, repo):
+    if is_filed_receipt(receipt, owner, repo, parsed.number):
         stdout.write(f"FILED {target} ({parsed.findings - parsed.ruled_out} findings filed: {filed})\n")
         return 0
-    filed_route = (
+    unfiled_note = _unfiled_note(pass_number, filed, rulings)
+    stdout.write(f"REVIEWED {target} {parsed.findings} findings{unfiled_note}\n")
+    return 1
+
+
+def _unfiled_note(pass_number: int, filed: str, rulings: str) -> str:
+    if not is_past_full_passes(pass_number):
+        return ""
+    if filed and rulings:
+        return (
+            f" (pass {pass_number}: not filed, because --rulings {rulings} is not an issue "
+            "comment link (#issuecomment-) on this pull request; post the rulings as a comment "
+            "on this pull request and record this pass again with that link)"
+        )
+    return (
         f" (pass {pass_number}: {FULL_REVIEW_PASS_COUNT} full passes are done, so file "
         "these findings in one issue and record this pass again with --filed <issue url>; "
         "fix a security finding in this pull request instead)"
-        if is_past_full_passes(pass_number)
-        else ""
     )
-    stdout.write(f"REVIEWED {target} {parsed.findings} findings{filed_route}\n")
-    return 1
 
 
 if __name__ == "__main__":

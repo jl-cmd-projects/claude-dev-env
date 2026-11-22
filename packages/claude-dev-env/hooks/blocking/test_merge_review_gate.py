@@ -147,9 +147,7 @@ def _record_passes_with_findings(pass_count: int) -> None:
 
 def test_should_allow_a_merge_pinned_to_the_head_of_a_filed_pass_after_three_full_passes() -> None:
     _record_passes_with_findings(3)
-    merge_review_receipt.main(
-        ["acme/tools", "12", CLEAN_HEAD, "2", "--filed", ISSUE_LINK], io.StringIO()
-    )
+    merge_review_receipt.record_review("acme/tools", 12, CLEAN_HEAD, 2, filed=ISSUE_LINK)
     assert _reason(_merge_tool(CLEAN_HEAD)) is None
 
 
@@ -185,7 +183,21 @@ def test_should_deny_a_merge_pinned_past_the_head_of_a_filed_pass() -> None:
             "pass": 4,
             "filed": "https://github.com/acme/tools/pull/40",
         },
+        {
+            "head": CLEAN_HEAD,
+            "findings": 2,
+            "pass": 4,
+            "filed": "https://github.com/acme/tools/issues/12",
+        },
         {"head": CLEAN_HEAD, "findings": "2", "pass": 4, "filed": ISSUE_LINK},
+        {
+            "head": CLEAN_HEAD,
+            "findings": 3,
+            "pass": 4,
+            "ruled_out": 1,
+            "rulings": "https://github.com/acme/tools/pull/99#issuecomment-1",
+            "filed": ISSUE_LINK,
+        },
     ],
 )
 def test_should_deny_a_merge_on_a_filed_receipt_it_cannot_back(

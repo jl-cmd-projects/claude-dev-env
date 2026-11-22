@@ -11,6 +11,7 @@ import os
 import sys
 from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import TypeGuard
 
 hooks_directory = str(Path(__file__).resolve().parent.parent.parent)
 if hooks_directory not in sys.path:
@@ -120,7 +121,9 @@ def recorded_pass_number(all_receipt_fields: dict[str, object]) -> int:
         The pass number, 1 or more.
     """
     pass_number = all_receipt_fields.get(RECEIPT_PASS_KEY)
-    return pass_number if _is_count(pass_number) and pass_number >= 1 else 1
+    if isinstance(pass_number, int) and not isinstance(pass_number, bool) and pass_number >= 1:
+        return pass_number
+    return 1
 
 
 def is_past_full_passes(pass_number: int) -> bool:
@@ -135,26 +138,36 @@ def is_past_full_passes(pass_number: int) -> bool:
     return pass_number > FULL_REVIEW_PASS_COUNT
 
 
-def is_issue_link_in(link: object, owner: str, repo: str) -> bool:
-    """Return whether a link names an issue in one repository.
+def is_issue_link_in(link: object, owner: str, repo: str, number: int) -> bool:
+    """Return whether a link names an issue in one repository, apart from the pull request.
+
+    GitHub serves a pull request under its own number as an issue link, so that
+    number names no filed issue::
+
+        pull request 12, link .../acme/tools/issues/40 -> an issue
+        pull request 12, link .../acme/tools/issues/12 -> the pull request itself
 
     Args:
         link: The link a receipt or a command gives.
         owner: Repository owner.
         repo: Repository name.
+        number: Number of the pull request the findings come from.
 
     Returns:
-        True for ``https://github.com/<owner>/<repo>/issues/<number>`` and nothing else.
+        True for ``https://github.com/<owner>/<repo>/issues/<other number>`` and nothing else.
     """
     issue_match = FILED_ISSUE_LINK_PATTERN.fullmatch(link) if isinstance(link, str) else None
     return (
         issue_match is not None
         and issue_match["owner"].casefold() == owner.casefold()
         and issue_match["repo"].casefold() == repo.casefold()
+        and int(issue_match["number"]) != number
     )
 
 
-def is_filed_receipt(all_receipt_fields: dict[str, object], owner: str, repo: str) -> bool:
+def is_filed_receipt(
+    all_receipt_fields: dict[str, object], owner: str, repo: str, number: int
+) -> bool:
     """Return whether a recorded pass filed its findings in one issue after three full passes.
 
     The loop runs three full passes with fixes. Findings a later pass still
@@ -164,19 +177,40 @@ def is_filed_receipt(all_receipt_fields: dict[str, object], owner: str, repo: st
         findings 2, pass 3, filed .../acme/tools/issues/40 -> not filed, a full pass
         findings 2, pass 4, filed .../acme/other/issues/40 -> not filed
         findings 2, pass 4, filed .../acme/tools/pull/40   -> not filed
+        findings 2, pass 4, filed .../acme/tools/issues/12 -> not filed for pull request 12
+
+    Findings the pass rules out stay out of the issue, and need the same
+    rulings link a clean pass needs::
+
+        findings 3, ruled out 1, .../acme/tools/pull/12#issuecomment-9, pass 4, filed -> filed
+        findings 3, ruled out 1, .../acme/tools/pull/99#issuecomment-9, pass 4, filed -> not filed
 
     Args:
         all_receipt_fields: The parsed receipt of one review pass.
         owner: Owner of the pull request the merge targets.
         repo: Repository of the pull request the merge targets.
+        number: Number of the pull request the merge targets.
 
     Returns:
         True when the pass counts as filed.
     """
+    finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
     return (
-        _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY))
+        _is_count(finding_count)
         and is_past_full_passes(recorded_pass_number(all_receipt_fields))
-        and is_issue_link_in(all_receipt_fields.get(RECEIPT_FILED_KEY), owner, repo)
+        and is_issue_link_in(all_receipt_fields.get(RECEIPT_FILED_KEY), owner, repo, number)
+        and _leaves_findings_to_file(all_receipt_fields, finding_count, owner, repo, number)
+    )
+
+
+def _leaves_findings_to_file(
+    all_receipt_fields: dict[str, object], finding_count: int, owner: str, repo: str, number: int
+) -> bool:
+    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY, 0)
+    if not _is_count(ruled_out_count) or ruled_out_count >= finding_count:
+        return False
+    return ruled_out_count == 0 or _links_rulings_on(
+        all_receipt_fields.get(RECEIPT_RULINGS_KEY), owner, repo, number
     )
 
 
@@ -385,7 +419,7 @@ def same_commit(first: str, second: str) -> bool:
     return longer.startswith(shorter)
 
 
-def _is_count(candidate: object) -> bool:
+def _is_count(candidate: object) -> TypeGuard[int]:
     return isinstance(candidate, int) and not isinstance(candidate, bool) and candidate >= 0
 
 

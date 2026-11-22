@@ -170,6 +170,14 @@ RULING_REFERENCE_PATTERN = re.compile(
 )
 RULING_SEPARATOR = ","
 RULING_LOOKUP_TIMEOUT_SECONDS = 10
+FILED_ISSUE_LOOKUP_TIMEOUT_SECONDS = 20
+FILED_ISSUE_CLIENT_NAME = "gh"
+FILED_ISSUE_API_SUBCOMMAND = "api"
+FILED_ISSUE_HOST_OPTION = "--hostname"
+FILED_ISSUE_HOST = "github.com"
+FILED_ISSUE_API_PATH_TEMPLATE = "repos/{owner}/{repo}/issues/{number}"
+FILED_ISSUE_PAGE_KEY = "html_url"
+FILED_ISSUE_PULL_REQUEST_KEY = "pull_request"
 REPO_OPTION_PATTERN = re.compile(r"(?:-R|--repo)[\s=](?P<owner>[\w.-]+)/(?P<repo>[\w.-]+)")
 MATCH_HEAD_PATTERN = re.compile(r"--match-head-commit[\s=](?P<sha>[0-9a-fA-F]{7,40})")
 API_SHA_FIELD_PATTERN = re.compile(

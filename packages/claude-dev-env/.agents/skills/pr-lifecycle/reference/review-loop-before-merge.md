@@ -1,13 +1,13 @@
 # The review loop runs before the merge
 
-A pull request the agent made gets three full review passes with fixes, then merges. Loop it:
+A pull request the agent made merges once a pass is clean. After three full passes with fixes, a later pass files its remaining findings in one issue, and the pull request merges. Loop it:
 
 1. Review the head with the command `CLAUDE_MERGE_REVIEW_COMMAND` names. Where it is unset, run `/code-review high --max-findings all` against the base. This is a full pass.
 2. Record the pass: `python3 ~/.claude/scripts/merge_review_receipt.py <owner>/<name> <number> <head sha> <finding count>`. The receipt counts the pass. Each new head is the next pass, and recording the same head again keeps its pass.
 3. Fix every valid finding, push, and review the new head. Answer each finding you rule out on the pull request with its file:line evidence.
 4. Passes 1, 2 and 3 are full passes, and each finding they report is fixed in this pull request. After the third pass's fixes, review the new head with `/code-review low <number>`. It reads only the pull request's diff against its base. Name the number: after a push, a bare `/code-review low` diffs the branch against its own upstream and sees nothing.
 5. A pass that records `CLEAN` ends the loop. A pass whose every finding is ruled out records `CLEAN` with `--ruled-out <finding count> --rulings <link to the rulings comment on this pull request>`.
-6. When pass 4 or a later pass still reports findings, do not loop again. File one issue in the same repository that lists them, push no fix for them in this pull request, and record the pass again with `--filed <issue url>`. It prints `FILED`. Findings you rule out on that pass add `--ruled-out` and `--rulings` as in step 5 and stay out of the issue. Before pass 4, `--filed` is refused.
+6. When pass 4 or a later pass still reports findings, do not loop again. File one issue in the same repository that lists them, push no fix for them in this pull request, and record the pass again with `--filed <issue url>`. It prints `FILED`. Findings you rule out on that pass add `--ruled-out` and `--rulings` as in step 5 and stay out of the issue. Before pass 4, `--filed` is refused. The receipt script reads the issue with `gh` and refuses a link that names no issue in that repository.
 7. A security finding is the exception. Fix it in this pull request or rule it out with evidence, in any pass, and never file it. A fix pushes a new head, which gets its own pass.
 8. Merge pinned to the head of the `CLEAN` or `FILED` pass: `expectedHeadSha` on the merge tool, or `--match-head-commit` on `gh pr merge`.
 
