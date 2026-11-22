@@ -755,6 +755,16 @@ def test_should_deny_an_earlier_pass_for_an_open_on_another_host(
     assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill -R acme/tools"))
 
 
+def test_should_deny_an_earlier_pass_when_the_session_names_another_repository(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    monkeypatch.setenv("GH_REPO", "acme/tools")
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+    monkeypatch.setenv("GH_REPO", "evil/tools")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill --base main"))
+
+
 def test_should_name_one_review_pass_then_fixes_when_an_open_is_denied(
     branch_checkout: tuple[Path, str],
 ) -> None:

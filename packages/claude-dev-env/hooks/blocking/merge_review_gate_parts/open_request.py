@@ -21,7 +21,10 @@ from blocking.gate_run_reads import (
     answer_once,
     child_stdout,
 )
-from hooks_constants.followup_pr_dedupe_constants import WINDOWS_EXECUTABLE_SUFFIX
+from hooks_constants.followup_pr_dedupe_constants import (
+    GH_REPOSITORY_ENVIRONMENT_NAME,
+    WINDOWS_EXECUTABLE_SUFFIX,
+)
 from hooks_constants.merge_review_gate_constants import (
     ALL_LONE_CREATE_SUBCOMMANDS,
     ALL_LONE_CREATE_REFUSED_CHARACTERS,
@@ -263,6 +266,7 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
     is_base_known = (
         call.is_base_readable
         and not _is_other_host(os.environ.get(GH_HOST_VARIABLE))
+        and not _names_another_repository(os.environ.get(GH_REPOSITORY_ENVIRONMENT_NAME), owner, repo)
         and call.is_lone_create
         and (call.base is not None or branch is not None)
     )
@@ -280,6 +284,12 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
 
 def _is_other_host(host: str | None) -> bool:
     return bool(host) and str(host).lower() != GITHUB_HOST
+
+
+def _names_another_repository(session_repository: str | None, owner: str, repo: str) -> bool:
+    if not session_repository:
+        return False
+    return session_repository.lower() != f"{owner}{REPOSITORY_PATH_SEPARATOR}{repo}".lower()
 
 
 def _branch_name(branch: str, folder: str | None) -> str | None:
