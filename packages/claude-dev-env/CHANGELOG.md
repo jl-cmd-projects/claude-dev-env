@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.137.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.136.1...claude-dev-env-v8.137.0) (2026-11-22)
+
+
+### Features
+
+* **merge-review:** keep the review pass count across sessions ([#2490](https://github.com/jl-cmd-projects/claude-dev-env/issues/2490)) ([b68b93a](https://github.com/jl-cmd-projects/claude-dev-env/commit/b68b93ad2c53e8588df3ff807b5daa93d94f407a))
+
 ## [8.136.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.136.0...claude-dev-env-v8.136.1) (2026-11-22)
 
 
