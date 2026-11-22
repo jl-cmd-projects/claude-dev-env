@@ -16,6 +16,8 @@
     the same words in an assistant message or a tool result      -> not approved
     relay message, the words inside <cited author="user">        -> approved
     relay message, the words only in the agent's <note>          -> not approved
+    relay text that sits inside a task notification or skill body -> not approved
+    user approves, then types "make it two PRs" or "no, not as one PR" -> not approved
 
 A sentence counts when it holds an approval or keep-whole phrase and a size
 subject, with no negation and no request to split. "Do not split it" holds
@@ -30,10 +32,15 @@ condition words included. A wrong withdrawal costs one refused create, and a
 wrong approval lets an oversized pull request through. A sentence
 that holds revoke, withdraw, retract or cancel never approves, and beside an
 approval word it withdraws an earlier approval the way a split request does.
+So does a negated sentence that holds a keep, approve or size word. A relay counts
+only when its wrapper opens the text block. Only top-level cited entries ahead of
+the agent note count, and a cited entry that holds another cited tag voids the
+relay. Server escapes such as ``&#39;`` are decoded before a cited entry is read.
 """
 
 from __future__ import annotations
 
+import html
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -52,7 +59,9 @@ from hooks_constants.oversized_change_constants import (
     ATTACHMENT_KEY,
     ATTACHMENT_RECORD_TYPE,
     APPROVAL_PATTERN,
-    CITED_USER_TEXT_PATTERN,
+    CITED_CLOSING_TAG,
+    CITED_OPENING_PATTERN,
+    CITED_USER_AUTHOR_PATTERN,
     CONTENT_KEY,
     CURLY_APOSTROPHE,
     CURLY_DOUBLE_QUOTE_PATTERN,
@@ -61,6 +70,7 @@ from hooks_constants.oversized_change_constants import (
     LEADING_TAG_PATTERN,
     MESSAGE_KEY,
     META_RECORD_FLAG,
+    NEGATED_APPROVAL_SUBJECT_PATTERN,
     NEGATION_PATTERN,
     ORIGIN_KEY,
     QUEUED_COMMAND_TYPE,
@@ -69,7 +79,7 @@ from hooks_constants.oversized_change_constants import (
     QUESTION_MARK,
     QUOTED_SPAN_PATTERN,
     RECORD_TYPE_KEY,
-    RELAY_NOTE_START_PATTERN,
+    RELAY_HEAD_END_PATTERN,
     RELAY_WRAPPER_PATTERN,
     REVOKE_PATTERN,
     RULE_TALK_PATTERN,
@@ -172,7 +182,16 @@ def _is_split_request(sentence: str) -> bool:
 def _is_withdrawal(sentence: str) -> bool:
     if sentence.endswith(QUESTION_MARK):
         return False
-    return bool(REVOKE_PATTERN.search(sentence) and APPROVAL_PATTERN.search(sentence))
+    if REVOKE_PATTERN.search(sentence) and APPROVAL_PATTERN.search(sentence):
+        return True
+    return bool(
+        NEGATION_PATTERN.search(sentence)
+        and not KEEP_WHOLE_PATTERN.search(sentence)
+        and (
+            NEGATED_APPROVAL_SUBJECT_PATTERN.search(sentence)
+            or SIZE_SUBJECT_PATTERN.search(sentence)
+        )
+    )
 
 
 def _is_approving_sentence(sentence: str) -> bool:
@@ -238,9 +257,25 @@ def _message_source_fields(
 
 def _cited_user_texts(all_block_texts: list[str]) -> Iterator[str]:
     for each_text in all_block_texts:
-        note_start = RELAY_NOTE_START_PATTERN.search(each_text)
-        cited_region = each_text[: note_start.start()] if note_start else each_text
-        yield from CITED_USER_TEXT_PATTERN.findall(cited_region)
+        if not RELAY_WRAPPER_PATTERN.match(each_text):
+            continue
+        head_end = RELAY_HEAD_END_PATTERN.search(each_text)
+        relay_head = each_text[: head_end.start()] if head_end else each_text
+        yield from _top_level_cited_user_texts(relay_head)
+
+
+def _top_level_cited_user_texts(relay_head: str) -> Iterator[str]:
+    position = 0
+    while opening := CITED_OPENING_PATTERN.search(relay_head, position):
+        closing_index = relay_head.find(CITED_CLOSING_TAG, opening.end())
+        if closing_index == -1:
+            return
+        cited_body = relay_head[opening.end() : closing_index]
+        if CITED_OPENING_PATTERN.search(cited_body):
+            return
+        if CITED_USER_AUTHOR_PATTERN.search(opening.group(0)):
+            yield html.unescape(cited_body)
+        position = closing_index + len(CITED_CLOSING_TAG)
 
 
 def _block_texts(content: object) -> list[str] | None:

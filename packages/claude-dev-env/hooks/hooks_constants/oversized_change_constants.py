@@ -78,8 +78,10 @@ ALL_TYPED_ORIGIN_KINDS = (None, "human")
 ALL_QUEUED_TYPED_ORIGIN_KINDS = ("human",)
 ALL_RELAY_ORIGIN_KINDS = (None, "task-notification")
 RELAY_WRAPPER_PATTERN = re.compile(r"\s*<(?:coordinator-)?relay\b")
-RELAY_NOTE_START_PATTERN = re.compile(r"<note\b")
-CITED_USER_TEXT_PATTERN = re.compile(r"<cited\b[^>]*\bauthor=\"user\"[^>]*>(.*?)</cited>", re.DOTALL)
+RELAY_HEAD_END_PATTERN = re.compile(r"<note\b|</(?:coordinator-)?relay>")
+CITED_OPENING_PATTERN = re.compile(r"<cited\b[^>]*>")
+CITED_USER_AUTHOR_PATTERN = re.compile(r"\bauthor=\"user\"")
+CITED_CLOSING_TAG = "</cited>"
 LEADING_TAG_PATTERN = re.compile(r"\s*<[a-z]")
 SENTENCE_BREAK_PATTERN = re.compile(r"(?<=[.!?])\s+|\n+")
 QUESTION_MARK = "?"
@@ -97,8 +99,14 @@ SEPARATE_PULL_REQUESTS_PATTERN = re.compile(
     r"\b(?:one|single)\s+(?:pr|pull request)\s+(?:for|per|each|every)\b"
     r"|\b(?:each|every|per)\b.*\b(?:one|single)\s+(?:pr|pull request)\b"
     r"|\b(?:separate|several|multiple|stack\w*)\b"
+    r"|\b(?:two|three|four)\s+(?:prs|pull requests)\b"
+    r"|\bbreak\s+(?:it|this|that|them)?\s*(?:up|into|apart|down)\b"
+    r"|\b(?:kidding|second thought)\b|\btoo\s+(?:big|large)\b|\btake\s+(?:that|it)\s+back\b"
 )
-NEGATION_PATTERN = re.compile(r"n't\b|\b(?:not|no|never|dont|cannot)\b")
+NEGATION_PATTERN = re.compile(
+    r"n't\b|\b(?:not|no|never|dont|cannot|isnt|wasnt|doesnt|wont|shouldnt|arent|cant)\b"
+)
+NEGATED_APPROVAL_SUBJECT_PATTERN = re.compile(r"\b(?:approv\w*|keep|leave|stays?)\b")
 REVOKE_PATTERN = re.compile(r"\b(?:revok\w*|withdr[ae]w\w*|retract\w*|cancel\w*)\b")
 RULE_TALK_PATTERN = re.compile(
     r"\b(?:if|whether|unless|until|gate|rule|but|yet|said|depends?)\b"
