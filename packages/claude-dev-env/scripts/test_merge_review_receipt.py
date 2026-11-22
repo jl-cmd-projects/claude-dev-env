@@ -100,7 +100,8 @@ def test_record_review_replaces_the_previous_pass(receipt_folder: Path) -> None:
         "head": HEAD,
         "findings": 0,
         "pass": 2,
-        "history_unverified": ["old", HEAD],
+        "earlier_heads": ["old"],
+        "history_unverified": True,
     }
 
 
@@ -140,7 +141,7 @@ def test_should_keep_the_raw_finding_count_beside_the_ruled_out_count(
         "head": HEAD,
         "findings": 2,
         "pass": 1,
-        "history_unverified": [HEAD],
+        "history_unverified": True,
         "ruled_out": 2,
         "rulings": RULINGS_LINK,
     }
@@ -695,7 +696,7 @@ def test_should_read_github_again_after_a_first_record_it_could_not_count(
         "head": HEAD,
         "findings": 2,
         "pass": 1,
-        "history_unverified": [HEAD],
+        "history_unverified": True,
     }
     _serve_review_statuses(gh_issues)
 
@@ -718,7 +719,35 @@ def test_should_count_a_head_recorded_while_history_was_unread_beside_the_recove
 
     merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
 
-    assert _stored_receipt(receipt_folder) == {"head": HEAD, "findings": 2, "pass": 4}
+    assert _stored_receipt(receipt_folder) == {
+        "head": HEAD,
+        "findings": 2,
+        "pass": 4,
+        "earlier_heads": [first_head],
+    }
+
+
+def test_should_count_a_review_that_appears_on_github_after_the_history_was_recovered(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    first_head = "5" * 40
+    merge_review_receipt.record_review("acme/tools", 12, first_head, 2)
+    all_commit_shas = [*EARLIER_COMMITS, first_head, HEAD]
+    pending_review_creators = [REVIEW_APP, {"login": "x", "type": "User"}, {"login": "x", "type": "User"}]
+    _serve_review_statuses(gh_issues, pending_review_creators)
+    gh_issues[COMMITS_API_PATH] = [{"sha": each_sha} for each_sha in all_commit_shas]
+    gh_issues[_statuses_api_path(first_head)] = []
+    _serve_issues(gh_issues)
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
+    assert _stored_receipt(receipt_folder)["pass"] == 3
+
+    _serve_review_statuses(gh_issues, [REVIEW_APP, REVIEW_APP, {"login": "x", "type": "User"}])
+    gh_issues[COMMITS_API_PATH] = [{"sha": each_sha} for each_sha in all_commit_shas]
+    gh_issues[_statuses_api_path(first_head)] = []
+    _serve_issues(gh_issues)
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2, filed=ISSUE_LINK)
+
+    assert _stored_receipt(receipt_folder)["pass"] == 4
 
 
 def test_should_count_a_recovered_review_of_a_marked_head_once(
@@ -756,7 +785,7 @@ def test_should_mark_a_record_when_a_status_read_fails_and_fewer_than_three_revi
     merge_review_receipt.record_review("acme/tools", 12, HEAD, 2, filed=ISSUE_LINK)
 
     assert _stored_receipt(receipt_folder)["pass"] == 3
-    assert _stored_receipt(receipt_folder)["history_unverified"] == [HEAD]
+    assert _stored_receipt(receipt_folder)["history_unverified"] is True
 
 
 def test_should_kill_a_gh_read_when_the_stop_signal_is_set() -> None:
@@ -847,7 +876,8 @@ def test_should_recover_the_pass_count_on_the_first_record_without_filed(
 @pytest.mark.parametrize(
     ("previous_pass", "previous_head", "expected_pass"),
     [
-        (1, "0" * 40, 4),
+        (1, "0" * 40, 5),
+        (1, EARLIER_COMMITS[0], 4),
         (4, "0" * 40, 5),
         (4, HEAD, 4),
     ],
@@ -954,6 +984,7 @@ def test_should_print_filed_and_exit_zero_for_filed_findings_on_pass_four(
         "head": HEAD,
         "findings": 2,
         "pass": 4,
+        "earlier_heads": [format(each_pass_number, "040x") for each_pass_number in (1, 2, 3)],
         "filed": ISSUE_LINK,
     }
 
