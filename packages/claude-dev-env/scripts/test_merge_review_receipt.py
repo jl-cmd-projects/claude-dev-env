@@ -434,6 +434,253 @@ def test_should_count_each_new_head_as_the_next_pass(receipt_folder: Path) -> No
     assert _stored_receipt(receipt_folder)["pass"] == 4
 
 
+EARLIER_COMMITS = ["1" * 40, "2" * 40, "3" * 40]
+COMMITS_API_PATH = "repos/acme/tools/pulls/12/commits?per_page=100&page=1"
+SECOND_COMMITS_API_PATH = "repos/acme/tools/pulls/12/commits?per_page=100&page=2"
+REVIEW_APP = {"login": "repo-rulefile-sync[bot]", "type": "Bot"}
+FIRST_RUN_ID = 45052844890
+REVIEW_WORKFLOW_PATH = ".github/workflows/efficient-review.yml@refs/heads/main"
+
+
+def _run_page(run_id: int) -> str:
+    return f"https://github.com/acme/reviews/actions/runs/{run_id}"
+
+
+def _run_api_path(run_id: int) -> str:
+    return f"repos/acme/reviews/actions/runs/{run_id}"
+
+
+def _statuses_api_path(sha: str) -> str:
+    return f"repos/acme/tools/commits/{sha}/statuses?per_page=100"
+
+
+def _review_run(run_id: int, sha: str, number: int = 12) -> dict[str, object]:
+    return {
+        "id": run_id,
+        "path": REVIEW_WORKFLOW_PATH,
+        "status": "completed",
+        "conclusion": "success",
+        "display_title": f"Merge review acme/tools#{number} {sha} base main",
+    }
+
+
+def _serve_review_statuses(
+    gh_issues: dict[str, object],
+    all_creators: list[dict[str, str]] | None = None,
+    run_changes_by_index: dict[int, dict[str, object]] | None = None,
+    target_url_by_index: dict[int, str] | None = None,
+) -> None:
+    gh_issues[COMMITS_API_PATH] = [
+        {"sha": each_sha} for each_sha in [*EARLIER_COMMITS, HEAD]
+    ]
+    all_creators = all_creators or [REVIEW_APP] * len(EARLIER_COMMITS)
+    for each_index, (each_sha, each_creator) in enumerate(
+        zip(EARLIER_COMMITS, all_creators)
+    ):
+        run_id = FIRST_RUN_ID + each_index
+        target_url = (target_url_by_index or {}).get(each_index, _run_page(run_id))
+        gh_issues[_statuses_api_path(each_sha)] = [
+            {
+                "context": "Merge review",
+                "state": "failure",
+                "creator": each_creator,
+                "target_url": target_url,
+            },
+            {
+                "context": "Merge review",
+                "state": "success",
+                "creator": each_creator,
+                "target_url": target_url,
+            },
+        ]
+        review_run = _review_run(run_id, each_sha)
+        review_run.update((run_changes_by_index or {}).get(each_index, {}))
+        gh_issues[_run_api_path(run_id)] = review_run
+    _serve_issues(gh_issues)
+
+
+def _filed_pass(receipt_folder: Path, head: str = HEAD) -> object:
+    merge_review_receipt.record_review("acme/tools", 12, head, 2, filed=ISSUE_LINK)
+    return _stored_receipt(receipt_folder)["pass"]
+
+
+def test_should_count_earlier_failing_review_runs_when_no_receipt_is_kept(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+    verdict_stream = StringIO()
+
+    exit_code = merge_review_receipt.main(
+        ["acme/tools", "12", HEAD, "2", "--filed", ISSUE_LINK], verdict_stream
+    )
+
+    assert exit_code == 0
+    assert verdict_stream.getvalue().startswith("FILED acme/tools#12")
+    assert _stored_receipt(receipt_folder)["pass"] == 4
+
+
+@pytest.mark.parametrize("other_login", ["github-actions[bot]", "other-app[bot]"])
+def test_should_leave_another_bot_review_status_out_of_the_pass_count(
+    other_login: str, receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    other_bot = {"login": other_login, "type": "Bot"}
+    _serve_review_statuses(gh_issues, [REVIEW_APP, other_bot, other_bot])
+
+    assert _filed_pass(receipt_folder) == 2
+
+
+def test_should_leave_a_review_status_without_a_run_page_out_of_the_pass_count(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(
+        gh_issues, target_url_by_index={1: "https://example.com/x", 2: ""}
+    )
+
+    assert _filed_pass(receipt_folder) == 2
+
+
+@pytest.mark.parametrize(
+    "run_change",
+    [
+        {"display_title": f"Merge review acme/tools#13 {'2' * 40} base main"},
+        {"display_title": f"Merge review acme/other#12 {'2' * 40} base main"},
+        {"display_title": f"Merge review acme/tools#12 {'9' * 40} base main"},
+        {"conclusion": "failure"},
+        {"status": "in_progress"},
+        {"path": ".github/workflows/other.yml@refs/heads/main"},
+        {"id": 7},
+    ],
+)
+def test_should_leave_a_run_that_is_not_this_reviews_out_of_the_pass_count(
+    run_change: dict[str, object], receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(
+        gh_issues, run_changes_by_index={1: run_change, 2: run_change}
+    )
+
+    assert _filed_pass(receipt_folder) == 2
+
+
+def test_should_leave_review_statuses_after_the_recorded_head_out_of_the_pass_count(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+
+    assert _filed_pass(receipt_folder, EARLIER_COMMITS[1]) == 2
+
+
+def test_should_read_the_next_page_of_pull_request_commits(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+    gh_issues[SECOND_COMMITS_API_PATH] = gh_issues[COMMITS_API_PATH]
+    gh_issues[COMMITS_API_PATH] = [
+        {"sha": f"{each_index:040d}"} for each_index in range(4, 104)
+    ]
+    _serve_issues(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 4
+
+
+def test_should_count_nothing_when_a_later_page_of_commits_cannot_be_read(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+    gh_issues[COMMITS_API_PATH] = [
+        {"sha": f"{each_index:040d}"} for each_index in range(4, 104)
+    ]
+    _serve_issues(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 1
+
+
+def test_should_count_nothing_when_the_head_is_not_in_the_commit_list(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+    gh_issues[COMMITS_API_PATH] = [{"sha": each_sha} for each_sha in EARLIER_COMMITS]
+    _serve_issues(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 1
+
+
+def test_should_read_only_the_newest_earlier_commits(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_review_statuses(gh_issues)
+    all_newer_shas = [f"{each_index:040d}" for each_index in range(4, 54)]
+    gh_issues[COMMITS_API_PATH] = [
+        {"sha": each_sha} for each_sha in [*EARLIER_COMMITS, *all_newer_shas, HEAD]
+    ]
+    _serve_issues(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 1
+
+
+def test_should_not_read_github_for_a_record_without_filed(
+    receipt_folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_read_paths: list[str] = []
+    monkeypatch.setattr(
+        merge_review_receipt,
+        "_github_answer",
+        lambda api_path, deadline=None: all_read_paths.append(api_path),
+    )
+
+    merge_review_receipt.main(["acme/tools", "12", HEAD, "2"], StringIO())
+
+    assert _stored_receipt(receipt_folder)["pass"] == 1
+    assert all_read_paths == []
+
+
+@pytest.mark.parametrize(
+    ("previous_pass", "previous_head", "expected_pass"),
+    [
+        (1, "0" * 40, 4),
+        (4, "0" * 40, 5),
+        (4, HEAD, 4),
+    ],
+)
+def test_should_take_the_higher_of_the_receipt_and_the_review_runs(
+    previous_pass: int,
+    previous_head: str,
+    expected_pass: int,
+    receipt_folder: Path,
+    gh_issues: dict[str, object],
+) -> None:
+    _serve_review_statuses(gh_issues)
+    (receipt_folder / "acme__tools__12.json").write_text(
+        json.dumps({"head": previous_head, "findings": 2, "pass": previous_pass}),
+        encoding="utf-8",
+    )
+
+    assert _filed_pass(receipt_folder) == expected_pass
+
+
+def test_should_skip_the_github_read_once_the_receipt_is_past_the_full_pass_count(
+    receipt_folder: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    all_read_paths: list[str] = []
+    monkeypatch.setattr(
+        merge_review_receipt,
+        "_github_answer",
+        lambda api_path, deadline=None: all_read_paths.append(api_path),
+    )
+    (receipt_folder / "acme__tools__12.json").write_text(
+        json.dumps({"head": "0" * 40, "findings": 2, "pass": 3}), encoding="utf-8"
+    )
+
+    assert _filed_pass(receipt_folder) == 4
+    assert all_read_paths == []
+
+
+def test_should_read_nothing_after_the_deadline(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _serve_review_statuses(gh_issues)
+    monkeypatch.setattr(merge_review_receipt, "GITHUB_COUNT_DEADLINE_SECONDS", 0)
+
+    assert _filed_pass(receipt_folder) == 1
 def test_should_keep_the_pass_count_when_the_same_head_is_recorded_again(
     receipt_folder: Path,
 ) -> None:

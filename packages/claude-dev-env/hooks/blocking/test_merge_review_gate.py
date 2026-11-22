@@ -53,6 +53,12 @@ def receipt_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
+@pytest.fixture(autouse=True)
+def no_review_statuses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Answer every GitHub read the receipt recorder makes with nothing."""
+    monkeypatch.setattr(merge_review_receipt, "_github_answer", lambda api_path, deadline=None: None)
+
+
 @pytest.fixture
 def github_repository(receipt_folder: Path) -> Path:
     return receipt_folder / "github.com" / "acme" / "tools.git"
