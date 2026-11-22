@@ -43,6 +43,10 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_ORIGIN_URL_ARGUMENTS,
     ALL_SHELL_TOOL_NAMES,
     ALL_MERGE_BASE_READ_ARGUMENTS,
+    ALL_SETTING_NAMES_READ_ARGUMENTS,
+    ORIGIN_RESOLVED_SETTING,
+    REMOTE_SETTING_PREFIX,
+    RESOLVED_REMOTE_SETTING_SUFFIX,
     BASE_BRANCH_FIELD,
     BASE_OPTION_MENTION_PATTERN,
     BASE_OPTION_PATTERN,
@@ -273,6 +277,7 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         and not _names_another_repository(os.environ.get(GH_REPOSITORY_ENVIRONMENT_NAME), owner, repo)
         and call.is_lone_create
         and (call.base is not None or branch is not None)
+        and (call.repository is not None or not _resolves_to_another_remote(call.folder))
     )
     return OpenRequest(
         owner=owner,
@@ -283,6 +288,30 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         base=call.base,
         is_base_known=is_base_known,
         base_setting_branch=branch if call.base is None else None,
+    )
+
+
+def _resolves_to_another_remote(folder: str | None) -> bool:
+    """Return whether gh may open in a repository other than origin.
+
+    ``gh repo set-default`` marks one remote with a ``gh-resolved`` setting,
+    and a create with no ``--repo`` opens in that remote's repository::
+
+        no remote carries gh-resolved         -> False
+        remote.origin.gh-resolved only        -> False
+        remote.upstream.gh-resolved = base    -> True
+        the settings read fails or runs out   -> True
+    """
+    listing = child_stdout(
+        ["git", *ALL_SETTING_NAMES_READ_ARGUMENTS], GIT_TIMEOUT_SECONDS, ReadSlice.FOLLOWUP, folder
+    )
+    if listing is None:
+        return True
+    return any(
+        each_name.lower().startswith(REMOTE_SETTING_PREFIX)
+        and each_name.lower().endswith(RESOLVED_REMOTE_SETTING_SUFFIX)
+        and each_name.lower() != ORIGIN_RESOLVED_SETTING
+        for each_name in listing.split()
     )
 
 

@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/merge_review_gate.py",
+  "message": "packages/claude-dev-env/hooks/blocking/merge_review_gate.py:1: File is 541 lines (max 400) - consider splitting",
+  "check_id": "validators/file-length",
+  "severity": "smell",
+  "origin_commit": "5b49cd7590e5f69760656cb478965e66bdc2d467"
+}
