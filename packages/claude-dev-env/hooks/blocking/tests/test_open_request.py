@@ -354,6 +354,72 @@ def test_should_read_the_base_the_create_tool_names(tmp_path: Path) -> None:
     assert _only_request(payload).base == "release"
 
 
+def test_should_read_the_gh_merge_base_of_the_head_branch_when_no_base_is_named(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout, _main_commit, release_commit = _pushed_base(tmp_path, monkeypatch)
+    _git(checkout, "config", "branch.release.gh-merge-base", "release")
+    _git(checkout, "config", "branch.feature.gh-merge-base", "release")
+    _git(checkout, "config", "branch.main.gh-merge-base", "wrong")
+    for each_command in ("gh pr create --repo acme/tools", "gh pr create --repo acme/tools -H u:feature"):
+        all_calls = open_calls_from(_shell_payload(each_command, checkout))
+        assert {base_tip(open_request_for(each_call)) for each_call in all_calls} == {release_commit}
+
+
+def test_should_give_no_base_when_the_gh_merge_base_read_gives_no_answer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout, main_commit, _release_commit = _pushed_base(tmp_path, monkeypatch)
+    payload = _shell_payload("gh pr create --repo acme/tools -H release", checkout)
+    assert {base_tip(open_request_for(each_call)) for each_call in open_calls_from(payload)} == {
+        main_commit
+    }
+
+    def refuse_the_config_read(*all_arguments: object, **all_keywords: object) -> str | None:
+        all_command_words = all_arguments[0]
+        assert isinstance(all_command_words, list)
+        if "config" in all_command_words:
+            return None
+        return original_child_stdout(*all_arguments, **all_keywords)
+
+    original_child_stdout = open_request.child_stdout
+    monkeypatch.setattr(open_request, "child_stdout", refuse_the_config_read)
+    assert [base_tip(open_request_for(each_call)) for each_call in open_calls_from(payload)] == [None]
+
+
+def test_should_give_no_base_for_a_create_tool_call_that_names_none(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _pushed_base(tmp_path, monkeypatch)
+    payload = {
+        "tool_name": "mcp__github__create_pull_request",
+        "tool_input": {"owner": "acme", "repo": "tools", "head": "feature"},
+        "cwd": str(tmp_path),
+    }
+    assert base_tip(_only_request(payload)) is None
+
+
+@pytest.mark.parametrize(
+    ("command", "base"),
+    [
+        ("gh pr create --repo acme/tools -H feature --base=one --base two -Bthree", "three"),
+        ("gh pr create --repo acme/tools -H feature -B=one", "one"),
+    ],
+)
+def test_should_read_the_last_base_gh_reads(tmp_path: Path, command: str, base: str) -> None:
+    payload = _shell_payload(command, tmp_path)
+    assert {open_request_for(each_call).base for each_call in open_calls_from(payload)} == {base}
+
+
+def test_should_give_no_base_when_the_last_base_is_empty_and_the_pattern_reading_saw_an_earlier_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _pushed_base(tmp_path, monkeypatch)
+    payload = _shell_payload('gh pr create --repo acme/tools -H release --base release --base ""', tmp_path)
+    all_requests = [open_request_for(each_call) for each_call in open_calls_from(payload)]
+    assert all(each_request.base != "release" or base_tip(each_request) is None for each_request in all_requests)
+
+
 def _pushed_base(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, str, str]:
     checkout = _checkout_on(tmp_path, "main")
     main_commit = _commit(checkout, "main work")

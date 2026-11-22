@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 hooks_directory = str(Path(__file__).resolve().parent.parent.parent)
@@ -30,8 +30,11 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_NON_INTERACTIVE_GIT_SETTINGS,
     ALL_ORIGIN_URL_ARGUMENTS,
     ALL_SHELL_TOOL_NAMES,
+    ALL_MERGE_BASE_READ_ARGUMENTS,
     BASE_BRANCH_FIELD,
+    BASE_OPTION_MENTION_PATTERN,
     BASE_OPTION_PATTERN,
+    BASE_SETTING_CHANGE_PATTERN,
     BASE_SHORT_LETTER,
     CHANGE_FOLDER_PATTERN,
     CONTAINS_OPTION_TEMPLATE,
@@ -41,28 +44,35 @@ from hooks_constants.merge_review_gate_constants import (
     CWD_FIELD,
     EXCLUDE_FROM_WALK_OPTION,
     GH_PR_CREATE_PATTERN,
+    GH_HOST_VARIABLE,
     GH_PROGRAM_NAME,
+    GITHUB_HOST,
     GITHUB_REMOTE_URL_TEMPLATE,
     GIT_TIMEOUT_SECONDS,
     HEAD_BRANCH_FIELD,
     HEAD_OPTION_PATTERN,
     HEAD_SHORT_LETTER,
+    HOST_OWNER_AND_REPO_PART_COUNT,
     LONG_BASE_OPTION,
     LONG_HEAD_OPTION,
     LONG_REPOSITORY_OPTION,
     LS_REMOTE_FIELD_SEPARATOR,
     MAX_COUNT_OPTION_TEMPLATE,
+    MERGE_BASE_SETTING_TEMPLATE,
     NO_CONTAINS_OPTION_TEMPLATE,
+    OPEN_REPOSITORY_OPTION_PATTERN,
     OPEN_REVIEW_ANCESTOR_LIMIT,
     ORIGIN_URL_PATTERN,
     ORIGIN_URL_QUESTION,
+    OWNER_AND_REPO_PART_COUNT,
     OWNER_FIELD,
     PULL_REQUEST_SCRIPT_CREATE_PATTERN,
     REMOTE_BRANCH_PREFIX,
     REMOTE_BRANCH_REFERENCE_TEMPLATE,
     REMOTE_LOOKUP_TIMEOUT_SECONDS,
     REPO_FIELD,
-    REPO_OPTION_PATTERN,
+    REPOSITORY_OPTION_MENTION_PATTERN,
+    REPOSITORY_PATH_SEPARATOR,
     REPOSITORY_SHORT_LETTER,
 )
 from hooks_constants.shell_command_wrappers import segment_program_and_arguments
@@ -79,8 +89,12 @@ class OpenRequest:
         folder: The folder the open runs in, where git reads the head's history.
         branch: The branch name the open names, or the folder's checkout
             branch for ``HEAD``, or None when it could not be read.
-        base: The base branch the open names, or None for the repository's
+        base: The base branch the open uses, or None for the repository's
             default branch.
+        is_base_known: False when the gate cannot tell which base the open
+            uses, so no base is read and no earlier pass gets credit.
+        base_setting_branch: The branch whose ``gh-merge-base`` setting gh
+            reads when the open names no base, or None when none applies.
     """
 
     owner: str
@@ -89,6 +103,8 @@ class OpenRequest:
     folder: str | None = field(default=None, compare=False)
     branch: str | None = field(default=None, compare=False)
     base: str | None = field(default=None, compare=False)
+    is_base_known: bool = field(default=True, compare=False)
+    base_setting_branch: str | None = field(default=None, compare=False)
 
     @property
     def slug(self) -> str:
@@ -127,7 +143,9 @@ class ShellOpenCall:
             or when the create names no repository in a command that sets ``GH_REPO``.
         is_prefix_origin_check: True for the origin call a create gets when only a
             ``GH_REPO=`` prefix names its repository. Equal calls compare equal either way.
-        base: The branch its ``--base`` names, or None for the repository's default branch.
+        base: The branch its ``--base`` names, or None when it names none.
+        is_base_readable: False when the command can change the base gh reads
+            before gh runs, or names a host or a base flag the gate cannot read.
     """
 
     repository: tuple[str, str] | None
@@ -136,6 +154,7 @@ class ShellOpenCall:
     is_folder_followed: bool = True
     is_prefix_origin_check: bool = field(default=False, compare=False)
     base: str | None = None
+    is_base_readable: bool = field(default=True, compare=False)
 
 
 OpenCall = ToolOpenCall | ShellOpenCall
@@ -222,6 +241,7 @@ def _tool_open_request(call: ToolOpenCall) -> OpenRequest:
         folder=call.folder,
         branch=_branch_name(call.branch, call.folder) if call.branch else None,
         base=call.base,
+        is_base_known=call.base is not None,
     )
 
 
@@ -230,14 +250,26 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         owner, repo = call.repository or ("", "")
         return OpenRequest(owner=owner, repo=repo, head=None)
     owner, repo = call.repository or _origin_repository(call.folder)
+    branch = _branch_name(call.branch, call.folder)
+    is_base_known = (
+        call.is_base_readable
+        and not _is_other_host(os.environ.get(GH_HOST_VARIABLE))
+        and (call.base is not None or branch is not None)
+    )
     return OpenRequest(
         owner=owner,
         repo=repo,
         head=_branch_commit(call.branch, call.folder),
         folder=call.folder,
-        branch=_branch_name(call.branch, call.folder),
+        branch=branch,
         base=call.base,
+        is_base_known=is_base_known,
+        base_setting_branch=branch if call.base is None else None,
     )
+
+
+def _is_other_host(host: str | None) -> bool:
+    return bool(host) and str(host).lower() != GITHUB_HOST
 
 
 def _branch_name(branch: str, folder: str | None) -> str | None:
@@ -331,8 +363,10 @@ def base_tip(request: OpenRequest) -> str | None:
     local ref, so a clone that lacks the base branch still reads it::
 
         base main, GitHub main at abc123        -> abc123
-        no base named, GitHub default at def456 -> def456
+        no base named, gh-merge-base stack      -> GitHub stack
+        no base named, no setting, default at def456 -> def456
         a base GitHub does not list, or a read that fails -> None
+        a base the gate could not tell                    -> None, no read
 
     Args:
         request: The open the tool call asks for.
@@ -340,16 +374,38 @@ def base_tip(request: OpenRequest) -> str | None:
     Returns:
         The full commit name, or None when the base could not be read.
     """
-    if not request.owner or not request.repo:
+    if not request.owner or not request.repo or not request.is_base_known:
         return None
+    base = request.base
+    if base is None and request.base_setting_branch is not None:
+        merge_base = _merge_base_setting(request.base_setting_branch, request.folder)
+        if merge_base is None:
+            return None
+        base = merge_base or None
     reference = (
-        REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=request.base)
-        if request.base
-        else CURRENT_HEAD_REFERENCE
+        REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=base) if base else CURRENT_HEAD_REFERENCE
     )
     remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=request.owner, repo=request.repo)
     listing = _remote_listing(remote_url, reference)
     return _listed_commit(listing, reference) if listing is not None else None
+
+
+def _merge_base_setting(branch: str, folder: str | None) -> str | None:
+    """Return the ``gh-merge-base`` setting gh reads for a branch.
+
+    ::
+
+        branch.feature.gh-merge-base = stack -> "stack"
+        no setting                           -> ""
+        a read that fails or runs out of time -> None
+    """
+    printed_text = child_stdout(
+        ["git", *ALL_MERGE_BASE_READ_ARGUMENTS, MERGE_BASE_SETTING_TEMPLATE.format(branch=branch)],
+        GIT_TIMEOUT_SECONDS,
+        ReadSlice.FOLLOWUP,
+        folder,
+    )
+    return printed_text.rstrip("\r\n") if printed_text is not None else None
 
 
 def is_outside_base(commit: str, base_commit: str, folder: str | None) -> bool:
@@ -395,45 +451,64 @@ def _tool_open_call(all_tool_input: dict[object, object], folder: str | None) ->
 def _shell_open_calls(command: str, folder: str | None) -> list[OpenCall]:
     all_calls: list[OpenCall] = []
     is_gh_repository_set = sets_gh_repository(command)
+    is_base_setting_kept = not BASE_SETTING_CHANGE_PATTERN.search(
+        CREATE_TEXT_OPTION_PATTERN.sub(" ", command)
+    )
     for each_create in all_placed_creates(command, folder):
-        all_calls.extend(_placed_open_calls(each_create, is_gh_repository_set))
-    floor_call = _floor_open_call(command, folder)
+        all_calls.extend(_placed_open_calls(each_create, is_gh_repository_set, is_base_setting_kept))
+    floor_call = _floor_open_call(command, folder, is_base_setting_kept)
     if floor_call is not None:
         all_calls.append(floor_call)
     return list(dict.fromkeys(all_calls))
 
 
-def _placed_open_calls(placed_create: PlacedCreate, is_gh_repository_set: bool) -> list[ShellOpenCall]:
+def _placed_open_calls(
+    placed_create: PlacedCreate, is_gh_repository_set: bool, is_base_setting_kept: bool
+) -> list[ShellOpenCall]:
     flag_value = _flag_value(placed_create)
     prefix_value = prefix_repository(list(placed_create.all_command_words)) if flag_value is None else None
     repository_value = flag_value if flag_value is not None else prefix_value
     repository = named_repository(repository_value) if repository_value is not None else None
     is_repository_read = repository is not None or not is_gh_repository_set
-    base = _placed_base(placed_create)
     all_calls: list[ShellOpenCall] = []
     for each_head in _placed_heads(placed_create) or [CURRENT_HEAD_REFERENCE]:
-        all_calls.append(
-            ShellOpenCall(
-                repository=repository,
-                branch=each_head,
-                folder=placed_create.folder,
-                is_folder_followed=placed_create.is_folder_followed and is_repository_read,
-                is_prefix_origin_check=prefix_value is not None and repository is None,
-                base=base,
-            )
+        named_call = ShellOpenCall(
+            repository=repository,
+            branch=each_head,
+            folder=placed_create.folder,
+            is_folder_followed=placed_create.is_folder_followed and is_repository_read,
+            is_prefix_origin_check=prefix_value is not None and repository is None,
+            base=_placed_base(placed_create),
+            is_base_readable=is_base_setting_kept and _is_github_repository_value(repository_value),
         )
+        all_calls.append(named_call)
         if prefix_value is not None:
             all_calls.append(
-                ShellOpenCall(
+                replace(
+                    named_call,
                     repository=None,
-                    branch=each_head,
-                    folder=placed_create.folder,
                     is_folder_followed=placed_create.is_folder_followed,
                     is_prefix_origin_check=True,
-                    base=base,
+                    is_base_readable=is_base_setting_kept,
                 )
             )
     return all_calls
+
+
+def _is_github_repository_value(repository_value: str | None) -> bool:
+    """Return whether a ``--repo`` or ``GH_REPO`` value leaves the open on github.com.
+
+    ::
+
+        None, "acme/tools", "github.com/acme/tools" -> True
+        "ghe.example.com/acme/tools", "a/b/c/d"     -> False
+    """
+    if repository_value is None:
+        return True
+    all_parts = repository_value.split(REPOSITORY_PATH_SEPARATOR)
+    if len(all_parts) == OWNER_AND_REPO_PART_COUNT:
+        return True
+    return len(all_parts) == HOST_OWNER_AND_REPO_PART_COUNT and not _is_other_host(all_parts[0])
 
 
 def _option_words(placed_create: PlacedCreate) -> list[str]:
@@ -456,7 +531,7 @@ def _placed_base(placed_create: PlacedCreate) -> str | None:
     return all_bases[-1] if all_bases and all_bases[-1] else None
 
 
-def _floor_open_call(command: str, folder: str | None) -> ShellOpenCall | None:
+def _floor_open_call(command: str, folder: str | None, is_base_setting_kept: bool) -> ShellOpenCall | None:
     """Read the first create the way the gate read it before it walked every create.
 
     The repository comes from a ``--repo`` flag or the origin remote, never
@@ -467,6 +542,14 @@ def _floor_open_call(command: str, folder: str | None) -> ShellOpenCall | None:
     There gh opens in origin. The walk also asks for a clean pass on origin
     for every create a ``GH_REPO=`` prefix names, so this call repeats that
     check for the first create.
+
+    The first ``--repo`` is read, so the walk's call checks the repository gh
+    takes. The last ``--base`` wins, as in gh::
+
+        --base=a -Bb                -> base b
+        --base a --base "" or -dBb  -> a flag the patterns cannot read: base unreadable
+
+    A ``--repo`` on another host also leaves the base unreadable.
     """
     options_only = CREATE_TEXT_OPTION_PATTERN.sub(" ", command)
     create_match = GH_PR_CREATE_PATTERN.search(
@@ -476,14 +559,22 @@ def _floor_open_call(command: str, folder: str | None) -> ShellOpenCall | None:
         return None
     folder = _folder_after_changes(options_only[: create_match.start()], folder)
     rest = create_match["rest"]
-    repo_match = REPO_OPTION_PATTERN.search(rest)
+    all_repository_values = [
+        each_match["repository"] for each_match in OPEN_REPOSITORY_OPTION_PATTERN.finditer(rest)
+    ]
     head_match = HEAD_OPTION_PATTERN.search(rest)
     all_base_matches = list(BASE_OPTION_PATTERN.finditer(rest))
+    is_each_flag_read = len(all_repository_values) == len(
+        REPOSITORY_OPTION_MENTION_PATTERN.findall(rest)
+    ) and len(all_base_matches) == len(BASE_OPTION_MENTION_PATTERN.findall(rest))
     return ShellOpenCall(
-        repository=(repo_match["owner"], repo_match["repo"]) if repo_match else None,
+        repository=named_repository(all_repository_values[0]) if all_repository_values else None,
         branch=head_match["head"] if head_match else CURRENT_HEAD_REFERENCE,
         folder=folder,
         base=all_base_matches[-1]["base"] if all_base_matches else None,
+        is_base_readable=is_base_setting_kept
+        and is_each_flag_read
+        and all(_is_github_repository_value(each_value) for each_value in all_repository_values),
     )
 
 

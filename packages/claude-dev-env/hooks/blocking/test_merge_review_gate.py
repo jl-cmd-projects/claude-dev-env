@@ -677,6 +677,56 @@ def test_should_deny_an_open_whose_only_pass_sits_on_the_base_commit_no_local_re
     assert "no clean review" in _deny_reason(_bash_in(single_branch_clone, "gh pr create --fill"))
 
 
+def _fixed_after_a_pass_with_stack_at_the_review(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> Path:
+    folder, reviewed_head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", reviewed_head, 2)
+    _git(folder, "push", "--quiet", str(github_repository), f"{reviewed_head}:refs/heads/stack")
+    _commit_and_push(folder, github_repository, "work on top of stack")
+    return folder
+
+
+def test_should_deny_an_open_whose_reviewed_commit_the_gh_merge_base_branch_holds(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    _git(folder, "config", "branch.feature.gh-merge-base", "stack")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill"))
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill -H acme:feature"))
+    assert _reason(_bash_in(folder, "gh pr create --fill --base main")) is None
+
+
+def test_should_allow_an_open_whose_gh_merge_base_branch_lacks_the_reviewed_commit(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    _git(folder, "push", "--quiet", str(github_repository), "main:release")
+    _git(folder, "config", "branch.feature.gh-merge-base", "release")
+    assert _reason(_bash_in(folder, "gh pr create --fill")) is None
+
+
+def test_should_deny_an_open_whose_command_sets_the_gh_merge_base_first(
+    branch_checkout: tuple[Path, str], github_repository: Path
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    command = "git config branch.feature.gh-merge-base stack && gh pr create --fill"
+    assert "no clean review" in _deny_reason(_bash_in(folder, command))
+    environment_command = "GIT_CONFIG_GLOBAL=/elsewhere/gitconfig gh pr create --fill"
+    assert "no clean review" in _deny_reason(_bash_in(folder, environment_command))
+
+
+def test_should_deny_an_earlier_pass_for_an_open_on_another_host(
+    branch_checkout: tuple[Path, str], github_repository: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder = _fixed_after_a_pass_with_stack_at_the_review(branch_checkout, github_repository)
+    assert _reason(_bash_in(folder, "gh pr create --fill -R github.com/acme/tools")) is None
+    other_host_command = "gh pr create --fill -R ghe.example.com/acme/tools"
+    assert "no clean review" in _deny_reason(_bash_in(folder, other_host_command))
+    monkeypatch.setenv("GH_HOST", "ghe.example.com")
+    assert "no clean review" in _deny_reason(_bash_in(folder, "gh pr create --fill -R acme/tools"))
+
+
 def test_should_name_one_review_pass_then_fixes_when_an_open_is_denied(
     branch_checkout: tuple[Path, str],
 ) -> None:

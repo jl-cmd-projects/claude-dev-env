@@ -119,7 +119,24 @@ LOOSE_OPEN_WORD_PATTERN = re.compile(r"(?<![\w-])(?:create|new)(?![\w-])")
 LOOSE_OPEN_OR_MERGE_WORD_PATTERN = re.compile(r"(?<![\w-])(?:create|new|merge)(?![\w-])")
 LOOSE_PULL_REQUEST_SCRIPT_PATTERN = re.compile(r"pull_request\.py")
 HEAD_OPTION_PATTERN = re.compile(r"(?<!\S)(?:-H|--head)(?:=|\s+)[\"']?(?P<head>[^\s\"']+)")
-BASE_OPTION_PATTERN = re.compile(r"(?<!\S)(?:-B|--base)(?:=|\s+)[\"']?(?P<base>[^\s\"']+)")
+BASE_OPTION_PATTERN = re.compile(r"(?<!\S)(?:-B(?:=|\s+)?|--base(?:=|\s+))[\"']?(?P<base>[^\s\"']+)")
+BASE_OPTION_MENTION_PATTERN = re.compile(r"(?<!\S)(?:-[A-Za-z]*B|--base(?![\w-]))")
+OPEN_REPOSITORY_OPTION_PATTERN = re.compile(
+    r"(?<!\S)(?:-R(?:=|\s+)?|--repo(?:=|\s+))[\"']?(?P<repository>[^\s\"']+)"
+)
+REPOSITORY_OPTION_MENTION_PATTERN = re.compile(r"(?<!\S)(?:-[A-Za-z]*R|--repo(?![\w-]))")
+BASE_SETTING_CHANGE_PATTERN = re.compile(
+    r"gh-merge-base|\b(?:GIT_CONFIG\w*|GIT_DIR|GIT_COMMON_DIR|XDG_CONFIG_HOME|GH_HOST)\b"
+    r"|\bHOME\s*=|\b(?:unset|env|Remove-Item)\b[^;&|\n]*\bHOME\b",
+    re.IGNORECASE,
+)
+ALL_MERGE_BASE_READ_ARGUMENTS = ("config", "--default", "", "--get")
+MERGE_BASE_SETTING_TEMPLATE = "branch.{branch}.gh-merge-base"
+GITHUB_HOST = "github.com"
+GH_HOST_VARIABLE = "GH_HOST"
+REPOSITORY_PATH_SEPARATOR = "/"
+OWNER_AND_REPO_PART_COUNT = 2
+HOST_OWNER_AND_REPO_PART_COUNT = 3
 CHANGE_FOLDER_PATTERN = re.compile(
     r"(?:^|[;&|(]\s*)(?:cd|pushd|Set-Location|sl)\s+(?:-Path\s+|-LiteralPath\s+)?"
     r"(?P<folder>\"[^\"]*\"|'[^']*'|[^\s;&|)]+)",
