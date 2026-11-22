@@ -6,6 +6,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from io import StringIO
 from pathlib import Path
 
@@ -628,6 +629,26 @@ def test_should_find_failing_reviews_below_a_long_series_of_fix_commits(
     receipt_folder: Path, gh_issues: dict[str, object]
 ) -> None:
     _serve_failing_reviews_below_newer_commits(gh_issues, 150)
+
+    assert _filed_pass(receipt_folder) == 4
+
+
+def test_should_reach_old_failing_reviews_within_the_deadline_by_reading_in_parallel(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _serve_failing_reviews_below_newer_commits(gh_issues, 150)
+    all_answers = json.loads(Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8"))
+
+    def slow_answer(api_path: str, deadline: float | None = None) -> object:
+        if deadline is not None and time.monotonic() >= deadline:
+            return None
+        if "/statuses" in api_path:
+            time.sleep(0.05)
+        return all_answers.get(api_path)
+
+    monkeypatch.setattr(merge_review_receipt, "_github_answer", slow_answer)
+    monkeypatch.setattr(merge_review_receipt, "STATUS_READ_WORKER_COUNT", 16)
+    monkeypatch.setattr(merge_review_receipt, "GITHUB_COUNT_DEADLINE_SECONDS", 3)
 
     assert _filed_pass(receipt_folder) == 4
 

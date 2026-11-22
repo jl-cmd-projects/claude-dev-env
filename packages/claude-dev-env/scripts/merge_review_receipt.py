@@ -76,6 +76,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Sequence
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TextIO
 
@@ -153,6 +154,7 @@ from hooks_constants.merge_review_gate_constants import (
     RUN_TITLE_KEY,
     STATUS_CONTEXT_KEY,
     STATUS_CREATOR_KEY,
+    STATUS_READ_WORKER_COUNT,
     STATUS_STATE_KEY,
     STATUS_TARGET_URL_KEY,
 )
@@ -255,7 +257,7 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     link is a GitHub Actions run of the review workflow that succeeded and is
     titled for this repository, this pull request and that commit. The walk
     starts at the newest earlier commit, reads at most a fixed number of them
-    within one deadline, and stops at the full pass count::
+    in parallel batches within one deadline, and stops at the full pass count::
 
         commits c1 (failing review run), c2 (none), head -> 1
         commits c1, head, c2 (failing review run)        -> 0
@@ -275,19 +277,30 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     """
     deadline = time.monotonic() + GITHUB_COUNT_DEADLINE_SECONDS
     all_earlier_shas = _commits_before_head(owner, repo, number, head, deadline)
+    all_newest_first_shas = list(reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]))
     failed_count = 0
-    for each_sha in reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]):
-        if failed_count >= FULL_REVIEW_PASS_COUNT:
-            break
-        all_statuses = _github_answer(
-            COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=each_sha),
-            deadline,
-        )
-        if isinstance(all_statuses, list) and _is_review_app_failure(
-            all_statuses, f"{owner}/{repo}", number, each_sha, deadline
-        ):
-            failed_count += 1
+    with ThreadPoolExecutor(max_workers=STATUS_READ_WORKER_COUNT) as executor:
+        for each_start in range(0, len(all_newest_first_shas), STATUS_READ_WORKER_COUNT):
+            all_batch_shas = all_newest_first_shas[
+                each_start : each_start + STATUS_READ_WORKER_COUNT
+            ]
+            all_outcomes = executor.map(
+                lambda each_sha: _is_failed_review_commit(owner, repo, number, each_sha, deadline),
+                all_batch_shas,
+            )
+            failed_count += sum(1 for each_outcome in all_outcomes if each_outcome)
+            if failed_count >= FULL_REVIEW_PASS_COUNT:
+                return FULL_REVIEW_PASS_COUNT
     return failed_count
+
+
+def _is_failed_review_commit(owner: str, repo: str, number: int, sha: str, deadline: float) -> bool:
+    all_statuses = _github_answer(
+        COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=sha), deadline
+    )
+    return isinstance(all_statuses, list) and _is_review_app_failure(
+        all_statuses, f"{owner}/{repo}", number, sha, deadline
+    )
 
 
 def _commits_before_head(
