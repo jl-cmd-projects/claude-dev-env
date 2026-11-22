@@ -222,7 +222,8 @@ def _next_pass(
     did not finish also read GitHub, so a new session keeps the count. The
     pass is never lower than one more than the distinct earlier heads: the
     commits of this pull request whose Merge review status GitHub shows as
-    failing, and the heads the receipts recorded here named before. The
+    failing, and the heads the receipts recorded here named before with
+    findings left open. The
     receipt keeps those earlier heads, so a review GitHub lists later counts
     once::
 
@@ -275,6 +276,16 @@ def _is_history_unverified(all_previous_receipt_fields: dict[str, object]) -> bo
     return all_previous_receipt_fields.get(RECEIPT_UNVERIFIED_KEY) is True
 
 
+def _has_open_findings(all_receipt_fields: dict[str, object]) -> bool:
+    finding_count = all_receipt_fields.get(RECEIPT_FINDINGS_KEY)
+    ruled_out_count = all_receipt_fields.get(RECEIPT_RULED_OUT_KEY, 0)
+    return (
+        isinstance(finding_count, int)
+        and isinstance(ruled_out_count, int)
+        and finding_count > ruled_out_count
+    )
+
+
 def _earlier_heads(
     all_previous_receipt_fields: dict[str, object] | None, head: str
 ) -> tuple[str, ...]:
@@ -287,7 +298,9 @@ def _earlier_heads(
         if isinstance(each_head, str) and each_head
     ]
     previous_head = all_previous_receipt_fields.get(RECEIPT_HEAD_KEY)
-    if isinstance(previous_head, str) and previous_head:
+    if isinstance(previous_head, str) and previous_head and _has_open_findings(
+        all_previous_receipt_fields
+    ):
         all_earlier_heads.append(previous_head)
     all_kept_heads: list[str] = []
     for each_head in all_earlier_heads:

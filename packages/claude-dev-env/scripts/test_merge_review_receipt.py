@@ -673,19 +673,25 @@ def test_should_keep_reading_while_one_read_stalls(
 ) -> None:
     _serve_failing_reviews_below_newer_commits(gh_issues, 12)
     all_answers = json.loads(Path(os.environ["GH_ISSUE_STUB"]).read_text(encoding="utf-8"))
+    held_sha = f"{15:040d}"
+    all_reads_started_while_held: list[str] = []
 
-    def stalling_answer(api_path: str, deadline: float | None = None, stop_reading: object = None) -> object:
-        if deadline is not None and time.monotonic() >= deadline:
+    def stalling_answer(
+        api_path: str, deadline: float | None = None, stop_reading: threading.Event | None = None
+    ) -> object:
+        if "/statuses" in api_path and api_path.split("/commits/")[1][:40] == held_sha:
+            assert stop_reading is not None
+            stop_reading.wait(60)
             return None
-        if "/statuses" in api_path and int(api_path.split("/commits/")[1][:40]) % 2 == 0:
-            time.sleep(0.5)
+        if "/statuses" in api_path:
+            all_reads_started_while_held.append(api_path)
         return all_answers.get(api_path)
 
     monkeypatch.setattr(merge_review_receipt, "_github_answer", stalling_answer)
     monkeypatch.setattr(merge_review_receipt, "STATUS_READ_WORKER_COUNT", 2)
-    monkeypatch.setattr(merge_review_receipt, "GITHUB_COUNT_DEADLINE_SECONDS", 2.2)
 
     assert _filed_pass(receipt_folder) == 4
+    assert len(all_reads_started_while_held) >= 14
 
 
 def test_should_read_github_again_after_a_first_record_it_could_not_count(
@@ -748,6 +754,23 @@ def test_should_count_a_review_that_appears_on_github_after_the_history_was_reco
     merge_review_receipt.record_review("acme/tools", 12, HEAD, 2, filed=ISSUE_LINK)
 
     assert _stored_receipt(receipt_folder)["pass"] == 4
+
+
+def test_should_not_count_a_clean_local_review_as_a_round_that_needed_fixes(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    clean_head = "5" * 40
+    merge_review_receipt.record_review("acme/tools", 12, clean_head, 0)
+    _serve_review_statuses(gh_issues, [REVIEW_APP, REVIEW_APP, {"login": "x", "type": "User"}])
+    gh_issues[COMMITS_API_PATH] = [
+        {"sha": each_sha} for each_sha in [*EARLIER_COMMITS, clean_head, HEAD]
+    ]
+    gh_issues[_statuses_api_path(clean_head)] = []
+    _serve_issues(gh_issues)
+
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
+
+    assert _stored_receipt(receipt_folder)["pass"] == 3
 
 
 def test_should_count_a_recovered_review_of_a_marked_head_once(
