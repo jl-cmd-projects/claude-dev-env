@@ -17,7 +17,11 @@ if hooks_directory not in sys.path:
 from blocking.followup_pr_dedupe import named_repository, prefix_repository, sets_gh_repository
 from blocking.merge_review_gate_parts.create_folders import PlacedCreate, all_placed_creates
 from blocking.merge_review_gate_parts.create_options import all_option_values
-from blocking.merge_review_gate_parts.quoted_lines import holds_unquoted_expansion
+from blocking.merge_review_gate_parts.quoted_lines import (
+    expansion_marked_line,
+    holds_unquoted_expansion,
+    quote_aware_lines,
+)
 from blocking.gate_run_reads import (
     ReadSlice,
     answer_once,
@@ -62,6 +66,7 @@ from hooks_constants.merge_review_gate_constants import (
     TREE_OF_COMMIT_TEMPLATE,
     ALL_HOLDING_REFERENCE_ARGUMENTS,
     BASE_UNREAD_CAUSE,
+    HEAD_UNREAD_CAUSE,
     BRANCHES_UNREAD_CAUSE,
     HEAD_OWNER_SEPARATOR,
     HELD_BY_OTHER_REFERENCE_CAUSE,
@@ -130,6 +135,7 @@ from hooks_constants.merge_review_gate_constants import (
     REPOSITORY_PATH_SEPARATOR,
     REPOSITORY_SHORT_LETTER,
     TILDE_CHARACTER,
+    UNREADABLE_WORD_MARK,
 )
 from hooks_constants.shell_command_segments import token_basename
 from hooks_constants.shell_command_wrappers import segment_program_and_arguments
@@ -142,13 +148,14 @@ class WithheldCredit(Enum):
 
         create beside a cd, or a title with parentheses -> NOT_LONE, run the create alone
         create tool call with no base                   -> TOOL_NO_BASE, set its base
+        head branch GitHub did not answer for           -> HEAD_UNREAD, check the read
         base GitHub does not list                       -> BASE_UNREAD, names the base
         backup branch at the reviewed commit            -> HELD_BY_OTHER_REFERENCE, names it
         origin/<branch> under a hand-edited fetch       -> MAPPED_TRACKING_REFERENCE, names the refspec
         local <branch> left behind its pushed fixes     -> LOCAL_BRANCH_BEHIND, fast-forward it
         base already holds the reviewed commit          -> INSIDE_BASE, review again
 
-    The first twelve causes leave the pass in place, so the step they name
+    The first thirteen causes leave the pass in place, so the step they name
     needs no new review. The last two say the pass covered base work.
     """
 
@@ -159,6 +166,7 @@ class WithheldCredit(Enum):
     NO_BASE_OR_BRANCH = NO_BASE_OR_BRANCH_CAUSE
     OTHER_REMOTE = OTHER_REMOTE_CAUSE
     TOOL_NO_BASE = TOOL_NO_BASE_CAUSE
+    HEAD_UNREAD = HEAD_UNREAD_CAUSE
     BASE_UNREAD = BASE_UNREAD_CAUSE
     BRANCHES_UNREAD = BRANCHES_UNREAD_CAUSE
     HELD_BY_OTHER_REFERENCE = HELD_BY_OTHER_REFERENCE_CAUSE
@@ -188,9 +196,12 @@ class OpenRequest:
             reads when the open names no base, or None when none applies.
         head_owner: The owner a ``user:branch`` head names, or None when the
             head names no owner.
-        is_plain_words: False when bash may expand a brace, a glob, an extended
-            glob or a tilde in the create's words, so the gate cannot tell the head,
-            base or repository gh reads.
+        is_plain_words: False when bash may split or change a create word, or
+            expand a flag or its value, so the gate cannot tell the head, base or
+            repository gh reads.
+        is_head_read_on_github: False when GitHub did not answer the read of
+            the head branch, so ``head`` is the clone's copy, which may not be
+            the tip gh opens.
     """
 
     owner: str
@@ -203,6 +214,7 @@ class OpenRequest:
     base_setting_branch: str | None = field(default=None, compare=False)
     head_owner: str | None = field(default=None, compare=False)
     is_plain_words: bool = field(default=True, compare=False)
+    is_head_read_on_github: bool = field(default=True, compare=False)
 
     @property
     def slug(self) -> str:
@@ -252,8 +264,8 @@ class ShellOpenCall:
         is_lone_create: True when the whole command is this one gh create,
             so nothing in it can change the git config or the host gh reads.
             Only such a create gives an earlier pass credit.
-        is_plain_words: False when bash may expand a brace, a glob, an extended
-            glob or a tilde in the create's words before gh reads them.
+        is_plain_words: False when bash may split or change a create word, or
+            expand a flag or its value, before gh reads them.
     """
 
     repository: tuple[str, str] | None
@@ -315,16 +327,17 @@ def _payload_folder(all_payload_fields: dict[str, object]) -> str | None:
 def open_request_for(call: OpenCall) -> OpenRequest:
     """Read the repository and the head commit one open would use.
 
-    A tool call reads its head branch from GitHub first::
+    Both kinds of call read their head branch from GitHub first::
 
         ToolOpenCall acme/tools, head feature pushed at abc123 -> OpenRequest(acme, tools, abc123)
-        ShellOpenCall, no --repo, origin names acme/tools      -> OpenRequest(acme, tools, <HEAD commit>)
+        ShellOpenCall, no --repo, origin names acme/tools      -> OpenRequest(acme, tools, <GitHub tip of the checkout branch>)
         a read that failed or ran out of time                  -> that part empty, or head None
         ShellOpenCall whose folder change was not followed     -> head None, no read
 
     A fork head ``user:branch`` reads the repository of ``user``. A branch
-    GitHub does not list, and every branch of a shell create, resolves in the
-    call's folder as ``origin/<branch>`` first.
+    GitHub does not list resolves in the call's folder as ``origin/<branch>``
+    first. A tool call whose GitHub read fails resolves there too, while a
+    shell create whose GitHub read fails gets no head.
 
     Args:
         call: One open from ``open_calls_from``.
@@ -338,21 +351,22 @@ def open_request_for(call: OpenCall) -> OpenRequest:
 
 
 def _tool_open_request(call: ToolOpenCall) -> OpenRequest:
-    head = (
-        _pushed_commit(call.owner, call.repo, call.branch)
-        or _branch_commit(call.branch, call.folder)
+    branch = _branch_name(call.branch, call.folder) if call.branch else None
+    settled_head = (
+        _settled_head(call.branch, branch, call.owner, call.repo, call.folder)
         if call.branch
-        else None
+        else _SettledHead(None, False)
     )
     return OpenRequest(
         owner=call.owner,
         repo=call.repo,
-        head=head,
+        head=settled_head.commit,
         folder=call.folder,
-        branch=_branch_name(call.branch, call.folder) if call.branch else None,
+        branch=branch,
         base=call.base,
         unknown_base_cause=None if call.base is not None else WithheldCredit.TOOL_NO_BASE,
         head_owner=_head_owner(call.branch) if call.branch else None,
+        is_head_read_on_github=settled_head.is_read_on_github,
     )
 
 
@@ -367,10 +381,11 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         return OpenRequest(owner=owner, repo=repo, head=None, is_plain_words=call.is_plain_words)
     owner, repo = call.repository or _origin_repository(call.folder)
     branch = _branch_name(call.branch, call.folder)
+    settled_head = _settled_head(call.branch, branch, owner, repo, call.folder)
     return OpenRequest(
         owner=owner,
         repo=repo,
-        head=_branch_commit(call.branch, call.folder),
+        head=settled_head.commit,
         folder=call.folder,
         branch=branch,
         base=call.base,
@@ -378,7 +393,44 @@ def _shell_open_request(call: ShellOpenCall) -> OpenRequest:
         base_setting_branch=branch if call.base is None else None,
         head_owner=_head_owner(call.branch),
         is_plain_words=call.is_plain_words,
+        is_head_read_on_github=settled_head.is_read_on_github,
     )
+
+
+@dataclass(frozen=True)
+class _SettledHead:
+    """The commit an open uses, and whether GitHub answered the read of its head branch."""
+
+    commit: str | None
+    is_read_on_github: bool
+
+
+def _settled_head(
+    branch: str, branch_name: str | None, owner: str, repo: str, folder: str | None
+) -> _SettledHead:
+    """Return the commit an open uses, which is the tip GitHub holds for its head branch.
+
+    gh and the create tool send the branch name, and GitHub opens the pull
+    request at its own tip, whatever the clone's ``origin/<branch>`` holds::
+
+        GitHub lists feature at abc123, origin/feature at def456 -> abc123, read
+        GitHub lists no such branch                               -> origin/<branch>, then <branch>, read
+        the read fails, head feature                              -> origin/<branch>, then <branch>, not read
+        the read fails, fork head someone:feature                 -> None, not read
+        no branch name, owner or repository                       -> the local commit, not read
+
+    A fork head ``user:branch`` reads the repository of ``user``, and its
+    branch is never read from origin while that read fails.
+    """
+    head_owner = _head_owner(branch)
+    if not branch_name or not owner or not repo:
+        return _SettledHead(_branch_commit(branch, folder), False)
+    pushed_head = _pushed_head(head_owner or owner, repo, branch_name)
+    if pushed_head.commit:
+        return _SettledHead(pushed_head.commit, True)
+    if not pushed_head.is_read and head_owner:
+        return _SettledHead(None, False)
+    return _SettledHead(_branch_commit(branch, folder), pushed_head.is_read)
 
 
 def _unknown_base_cause(
@@ -999,12 +1051,11 @@ def _floor_open_call(command: str, folder: str | None, is_lone_create: bool) -> 
         --base=a -Bb                -> base b
         --base a --base "" or -dBb  -> a flag the patterns cannot read: base unreadable
 
-    A ``--repo`` on another host also leaves the base unreadable. A create
-    whose text holds a brace, a glob character or a leading tilde, in a
-    command that holds one outside quotes, is not plain words.
+    A ``--repo`` on another host also leaves the base unreadable. The words
+    after the create, outside its title and body values, are not plain words
+    when ``_is_first_create_plain`` finds one bash may split or change.
     """
     options_only = CREATE_TEXT_OPTION_PATTERN.sub(" ", command)
-    is_expanding_text = holds_unquoted_expansion(command)
     create_match = GH_PR_CREATE_PATTERN.search(
         options_only
     ) or PULL_REQUEST_SCRIPT_CREATE_PATTERN.search(options_only)
@@ -1028,8 +1079,33 @@ def _floor_open_call(command: str, folder: str | None, is_lone_create: bool) -> 
         is_base_readable=is_each_flag_read
         and all(_is_github_repository_value(each_value) for each_value in all_repository_values),
         is_lone_create=is_lone_create,
-        is_plain_words=not (is_expanding_text and _holds_expansion_text(create_match["rest"])),
+        is_plain_words=_is_first_create_plain(command, create_match["rest"]),
     )
+
+
+def _is_first_create_plain(command: str, raw_create_text: str) -> bool:
+    """Return whether the words after the first create, outside its title and body values, are plain.
+
+    Each logical line is read with its quotes, as bash reads them::
+
+        gh pr create --fill --base main $X                        -> False
+        gh pr create --title "a [b]" --body "$(cat <<'B' ... B)"  -> True, quoted values
+        cd ~/c && gh pr create --body "- [x] done"                -> True, the ~ is not the create's
+
+    Only an unquoted expansion counts here, since the walk judges every word
+    the create runs with. A command whose quotes do not close, or whose first
+    create sits where no logical line holds it, such as a heredoc body, is
+    read raw: a brace, glob or leading tilde in the create's text, in a
+    command that holds one outside quotes, is not plain.
+    """
+    for each_line in quote_aware_lines(command) or []:
+        options_only = CREATE_TEXT_OPTION_PATTERN.sub(" ", expansion_marked_line(each_line))
+        create_match = GH_PR_CREATE_PATTERN.search(options_only) or PULL_REQUEST_SCRIPT_CREATE_PATTERN.search(
+            options_only
+        )
+        if create_match:
+            return UNREADABLE_WORD_MARK not in create_match["rest"]
+    return not (holds_unquoted_expansion(command) and _holds_expansion_text(raw_create_text))
 
 
 def _holds_expansion_text(create_text: str) -> bool:
@@ -1073,16 +1149,21 @@ def _branch_commit(branch: str, folder: str | None) -> str | None:
     return None
 
 
-def _pushed_commit(owner: str, repo: str, branch: str) -> str | None:
-    head_owner, separator, head_branch = branch.partition(":")
-    if not separator:
-        head_owner, head_branch = owner, branch
-    if not head_owner or not repo or not head_branch:
-        return None
-    reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=head_branch)
-    remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=head_owner, repo=repo)
+@dataclass(frozen=True)
+class _PushedHead:
+    """What GitHub answered for one branch: whether the read ran, and the tip it lists or None."""
+
+    is_read: bool
+    commit: str | None
+
+
+def _pushed_head(owner: str, repo: str, branch: str) -> _PushedHead:
+    reference = REMOTE_BRANCH_REFERENCE_TEMPLATE.format(branch=branch)
+    remote_url = GITHUB_REMOTE_URL_TEMPLATE.format(owner=owner, repo=repo)
     listing = _remote_listing(remote_url, reference)
-    return _listed_commit(listing, reference) if listing is not None else None
+    if listing is None:
+        return _PushedHead(is_read=False, commit=None)
+    return _PushedHead(is_read=True, commit=_listed_commit(listing, reference))
 
 
 def _remote_listing(remote_url: str, reference: str) -> str | None:

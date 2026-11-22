@@ -46,7 +46,10 @@ that holds the head. Each line must exist in the file at that head::
 ``hooks/blocking/merge_review_gate.py`` allows a merge pinned to the head of
 the newest pass only when that pass is clean or filed. It allows a pull request open
 whose head has a clean ``open`` pass, or whose head sits on fix commits above the
-head of any ``open`` pass. An ``open`` pass does not take ``--filed`` and does
+head of an ``open`` pass recorded on the same branch, under the checks
+``merge_review_gate.py`` lists. A pass recorded outside that branch's checkout
+names no branch, counts only at its own head, and its verdict line says to
+record it again from the checkout. An ``open`` pass does not take ``--filed`` and does
 not count toward the three full passes on the pull request. It allows a merge pinned to that same
 head only when the ``open`` pass found zero findings. Ruled-out findings need
 a numbered pass that links the rulings comment on the pull request.
@@ -398,7 +401,7 @@ def _record_open_pass(
         parser.error(f"an {OPEN_TARGET_WORD} pass needs the full 40 character commit")
     all_rulings = _checked_open_rulings(parser, parsed)
     try:
-        record_open_review(parsed.slug, parsed.head, parsed.findings, all_rulings)
+        receipt_written = record_open_review(parsed.slug, parsed.head, parsed.findings, all_rulings)
     except ValueError as problem:
         parser.error(str(problem))
     if is_clean_open_pass(_open_receipt(parsed.head, parsed.findings, all_rulings)):
@@ -409,6 +412,19 @@ def _record_open_pass(
         )
         stdout.write(f"CLEAN {parsed.slug} {OPEN_TARGET_WORD} {parsed.head}{ruled_out_note}\n")
         return 0
+    if not (read_receipt(receipt_written) or {}).get(RECEIPT_BRANCH_KEY):
+        stdout.write(
+            f"REVIEWED {parsed.slug} {OPEN_TARGET_WORD} {parsed.head} {parsed.findings} findings, "
+            f"recorded with no branch, so the pass counts only at {parsed.head} itself and fix "
+            "commits on top of it get no credit yet. This folder has no checkout branch whose own "
+            f"work {parsed.head} is: it is another folder, a detached HEAD, or another local or "
+            f"remote branch also holds {parsed.head}. Run this command again from the checkout "
+            "of the branch you will open, with that branch checked out. When another branch, "
+            f"such as a backup copy, holds {parsed.head}, delete that copy first; when it is the "
+            "branch this one stacks on, the pass covers that branch, so review this branch's own "
+            "commits\n"
+        )
+        return 1
     stdout.write(
         f"REVIEWED {parsed.slug} {OPEN_TARGET_WORD} {parsed.head} {parsed.findings} findings "
         f"(fix them in new commits on top of {parsed.head}, then open the pull request; "

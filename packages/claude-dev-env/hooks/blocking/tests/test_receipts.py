@@ -93,6 +93,13 @@ def test_should_find_no_earlier_open_review_whose_receipt_names_no_branch() -> N
     assert open_reviewed_heads_among("tools", [HEAD], "feature") == []
 
 
+def test_should_list_only_receipts_with_no_branch_when_asked_for_no_branch() -> None:
+    _write_open_receipt(2)
+    assert open_reviewed_heads_among("tools", [HEAD], None) == [HEAD]
+    _write_open_receipt(2, {"branch": "feature"})
+    assert open_reviewed_heads_among("tools", [HEAD], None) == []
+
+
 def test_should_skip_an_open_review_whose_finding_count_is_not_a_count() -> None:
     path = open_receipt_path("acme", "tools", HEAD)
     path.parent.mkdir(parents=True, exist_ok=True)

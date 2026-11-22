@@ -36,7 +36,11 @@ if hooks_directory not in sys.path:
 
 from blocking.followup_pr_dedupe import create_arguments
 from blocking.merge_review_gate_parts.folder_state import FolderState, state_after_folder_change
-from blocking.merge_review_gate_parts.quoted_lines import holds_unquoted_expansion, quote_aware_lines
+from blocking.merge_review_gate_parts.quoted_lines import (
+    expansion_marked_line,
+    holds_unquoted_expansion,
+    quote_aware_lines,
+)
 from blocking.merge_review_gate_parts.wrapped_creates import unplaced_creates
 from hooks_constants.merge_review_gate_constants import (
     ALL_BACKGROUND_OPERATORS,
@@ -45,6 +49,12 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_COMPOUND_BODY_WORDS,
     ALL_COMPOUND_CLOSE_WORDS,
     ALL_COMPOUND_OPEN_WORDS,
+    ALL_CREATE_TEXT_OPTIONS,
+    ALL_EXPANSION_MARKS,
+    ALL_EXPANSION_OPENER_CHARACTERS,
+    ALL_JOINED_CREATE_TEXT_OPTION_PREFIXES,
+    QUOTED_EXPANSION_MARK,
+    UNREADABLE_WORD_MARK,
     ALL_FOLDER_CHANGE_WORDS,
     ALL_PIPE_OPERATORS,
     ALL_SHELL_EXPANSION_CHARACTERS,
@@ -92,9 +102,10 @@ class PlacedCreate:
         is_folder_followed: False when a folder change before it could not be followed.
         all_command_words: The words of the simple command that runs it, in the order bash
             passes them, or empty when the create was read without them.
-        is_plain_words: False when a word of the create holds a brace, a glob
-            character, an extended glob such as ``@(x)`` or a leading tilde and its shell text holds one outside
-            quotes, so bash may hand gh other words than these.
+        is_plain_words: False when an option word bash may split or change,
+            such as an unquoted ``$X`` or brace, or a ``$`` expansion in a flag
+            or its value other than a text value such as a title, body or label, so bash may hand gh
+            other words than these.
     """
 
     all_arguments: tuple[str, ...]
@@ -118,7 +129,8 @@ class _Scope:
     compound_depth: int = 0
     all_saved: list[FolderState] = field(default_factory=list)
     all_live_substitution_keys: frozenset[str] = frozenset()
-    is_expanding_text: bool = False
+    all_marks_by_word: dict[str, frozenset[str]] | None = None
+    is_expanding_text: bool = True
 
 
 def all_placed_creates(command: str, folder: str | None) -> list[PlacedCreate]:
@@ -162,13 +174,16 @@ def _walk_text(walk: _Walk, text: str, state: FolderState, depth: int) -> Folder
         if _may_hold_create(text):
             walk.all_creates.append(PlacedCreate((), None, False))
         return state
-    all_token_lines = _posix_token_lines(text)
-    if all_token_lines is None:
+    all_lines = quote_aware_lines(text)
+    all_token_lines = _posix_token_lines(all_lines) if all_lines is not None else None
+    if all_lines is None or all_token_lines is None:
         return _walk_unbalanced_text(walk, text, state, depth)
+    all_marks_by_word = _marks_by_word(all_lines, all_token_lines)
     scope = _Scope(
         state,
         all_live_substitution_keys=_substitution_keys(text),
-        is_expanding_text=holds_unquoted_expansion(text),
+        all_marks_by_word=all_marks_by_word,
+        is_expanding_text=all_marks_by_word is None and holds_unquoted_expansion(text),
     )
     return _walk_token_lines(walk, all_token_lines, scope, depth)
 
@@ -178,16 +193,35 @@ def _may_hold_create(text: str) -> bool:
     return bool(is_gh_create or LOOSE_PULL_REQUEST_SCRIPT_PATTERN.search(text))
 
 
-def _posix_token_lines(text: str) -> list[list[str]] | None:
-    all_lines = quote_aware_lines(text)
-    if all_lines is None:
-        return None
+def _posix_token_lines(all_lines: list[str]) -> list[list[str]] | None:
     all_token_lines = [
         each_tokens
         for each_line in all_lines
         if (each_tokens := operator_aware_tokens(each_line, IS_POSIX_TOKENIZATION)) is not None
     ]
     return all_token_lines if len(all_token_lines) == len(all_lines) else None
+
+
+def _marks_by_word(all_lines: list[str], all_token_lines: list[list[str]]) -> dict[str, frozenset[str]] | None:
+    """Return the expansion marks each POSIX word of a text carries, gathered over every place it appears.
+
+    ::
+
+        gh pr create --body "$(date)" --head x  -> {"$(date)": {quoted mark}, ...}
+        X=--head=y; gh pr create $X             -> {"$X": {unreadable mark}, ...}
+
+    A word that appears twice, once quoted and once not, carries both
+    marks. None means a marked line split into other words, so no word can
+    be judged.
+    """
+    all_marks_by_word: dict[str, set[str]] = {}
+    for each_line, each_tokens in zip(all_lines, all_token_lines):
+        all_marked_tokens = operator_aware_tokens(expansion_marked_line(each_line), IS_POSIX_TOKENIZATION)
+        if all_marked_tokens is None or len(all_marked_tokens) != len(each_tokens):
+            return None
+        for each_token, each_marked_token in zip(each_tokens, all_marked_tokens):
+            all_marks_by_word.setdefault(each_token, set()).update(ALL_EXPANSION_MARKS.intersection(each_marked_token))
+    return {each_word: frozenset(each_marks) for each_word, each_marks in all_marks_by_word.items()}
 
 
 def _walk_unbalanced_text(
@@ -285,7 +319,7 @@ def _segment_step(
     for each_reading in all_readings:
         all_arguments = create_arguments(each_reading)
         if all_arguments is not None:
-            is_plain_words = not (scope.is_expanding_text and _holds_expansion_word(all_arguments))
+            is_plain_words = _are_plain_words(all_arguments, scope)
             walk.all_creates.append(
                 PlacedCreate(
                     tuple(all_arguments), state.folder, state.is_followed, tuple(each_reading), is_plain_words
@@ -303,12 +337,59 @@ def _segment_step(
     return next_state
 
 
-def _holds_expansion_word(all_words: list[str]) -> bool:
-    return any(
-        each_word.startswith(TILDE_CHARACTER)
-        or not ALL_SHELL_EXPANSION_CHARACTERS.isdisjoint(each_word)
-        or EXTENDED_GLOB_WORD_PATTERN.search(each_word) is not None
-        for each_word in all_words
+def _are_plain_words(all_create_words: list[str], scope: _Scope) -> bool:
+    """Return whether bash hands gh the create options the walk read, one for one.
+
+    Each option word is judged on its own quoting::
+
+        --head feature, --base main, --title "a [b] $(date)"  -> True
+        --body "$(cat <<'EOF' ... EOF)"                        -> True, a title or body value in quotes
+        $X, "$@", --he{ad=a,ad=b}, --body $(cat f)             -> False, bash may split or change the word
+        --label "$L", --reviewer "$(gh api user -q .login)"    -> True, gh takes the quoted word as that flag's value
+        --head "$B", --base "$M", -R "$REPO"                   -> False, a flag or its value the gate cannot read
+
+    A title, body, body file, label, reviewer, assignee, milestone, project
+    or template value may hold an expansion inside quotes, since bash keeps
+    it one word that gh takes as that flag's value. Any other word must hold
+    none.
+    """
+    for each_index, each_word in enumerate(all_create_words):
+        all_marks = _word_marks(each_word, scope)
+        if UNREADABLE_WORD_MARK in all_marks:
+            return False
+        is_text_value = each_word.startswith(ALL_JOINED_CREATE_TEXT_OPTION_PREFIXES) or (
+            each_index > 0 and all_create_words[each_index - 1] in ALL_CREATE_TEXT_OPTIONS
+        )
+        if QUOTED_EXPANSION_MARK in all_marks and not is_text_value:
+            return False
+    return True
+
+
+def _word_marks(word: str, scope: _Scope) -> frozenset[str]:
+    """Return the marks of one word: from the marked lines, or from its own characters when no line marked it.
+
+    ::
+
+        a word the marked lines hold           -> the marks gathered there
+        a word with $ or a backtick, unmarked  -> the quoted mark
+        a brace, glob or leading ~ word in a
+        text that holds one outside quotes     -> the unreadable mark
+    """
+    if scope.all_marks_by_word is not None and word in scope.all_marks_by_word:
+        return scope.all_marks_by_word[word]
+    all_marks: set[str] = set(ALL_EXPANSION_MARKS.intersection(word))
+    if not ALL_EXPANSION_OPENER_CHARACTERS.isdisjoint(word):
+        all_marks.add(QUOTED_EXPANSION_MARK)
+    if scope.is_expanding_text and _holds_expansion_word(word):
+        all_marks.add(UNREADABLE_WORD_MARK)
+    return frozenset(all_marks)
+
+
+def _holds_expansion_word(word: str) -> bool:
+    return (
+        word.startswith(TILDE_CHARACTER)
+        or not ALL_SHELL_EXPANSION_CHARACTERS.isdisjoint(word)
+        or EXTENDED_GLOB_WORD_PATTERN.search(word) is not None
     )
 
 

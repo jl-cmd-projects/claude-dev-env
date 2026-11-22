@@ -12,7 +12,11 @@ import shlex
 
 import pytest
 
-from blocking.merge_review_gate_parts.quoted_lines import holds_unquoted_expansion, quote_aware_lines
+from blocking.merge_review_gate_parts.quoted_lines import (
+    expansion_marked_line,
+    holds_unquoted_expansion,
+    quote_aware_lines,
+)
 
 
 def _words(text: str) -> list[list[str]]:
@@ -121,3 +125,38 @@ def test_should_find_a_character_bash_expands_outside_quotes(text: str) -> None:
 )
 def test_should_find_no_expansion_in_quoted_or_escaped_text(text: str) -> None:
     assert holds_unquoted_expansion(text) is False
+
+
+UNREADABLE = ""
+QUOTED = ""
+
+
+@pytest.mark.parametrize(
+    ("line", "marked"),
+    [
+        ("a $X b", f"a {UNREADABLE}X b"),
+        ('a "$X" b', f'a "{QUOTED}X" b'),
+        ('a "$@" "${x[@]}"', f'a "{UNREADABLE}@" "{UNREADABLE}{{x[@]}}"'),
+        ("a `b` {c} ~d", f"a {UNREADABLE}b{UNREADABLE} {UNREADABLE}c{UNREADABLE} {UNREADABLE}d"),
+        ("a '$X {b}' \\$Y \\*", "a '$X {b}' \\$Y \\*"),
+        ('a "- [x] *.py"', 'a "- [x] *.py"'),
+        ("a --he@(x)", f"a --he{UNREADABLE}(x)"),
+    ],
+)
+def test_should_mark_each_character_bash_expands_by_its_own_quoting(line: str, marked: str) -> None:
+    assert expansion_marked_line(line) == marked
+
+
+@pytest.mark.parametrize(
+    ("text", "word"),
+    [
+        ("a $'\\x61\\x6g\\x'", "a\x06g\\x"),
+        ("a $'\\101\\0101\\18'", "A\x081\x018"),
+        ("a $'\\u0041\\U00000042'", "AB"),
+        ("a $'\\cA'", "\x01"),
+        ("a $'b\\0c'd", "bd"),
+        ("a $'\\xff'", UNREADABLE),
+    ],
+)
+def test_should_decode_an_ansi_c_value_as_bash_does(text: str, word: str) -> None:
+    assert _words(text) == [["a", word]]

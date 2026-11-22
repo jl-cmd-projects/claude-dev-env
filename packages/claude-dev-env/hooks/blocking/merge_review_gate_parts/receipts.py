@@ -241,7 +241,7 @@ def has_clean_open_review(repo: str, head: str) -> bool:
 
 
 def open_reviewed_heads_among(
-    repo: str, all_earlier_heads: Sequence[str], branch: str
+    repo: str, all_earlier_heads: Sequence[str], branch: str | None
 ) -> list[str]:
     """Return which of some earlier commits a pass recorded on a branch before its open saw.
 
@@ -253,14 +253,17 @@ def open_reviewed_heads_among(
         {head: abc1234..., findings: 2, branch: feature}, second, earlier [abc1234...]             -> []
         {head: abc1234..., findings: 2}, feature, earlier [abc1234...]                             -> []
         {head: abc1234..., findings: 0, branch: feature}, feature, earlier [def5678...]            -> []
+        {head: abc1234..., findings: 2}, None, earlier [abc1234...]                                -> [abc1234...]
 
     A receipt with no branch counts only at its own head, through
-    ``has_clean_open_review``. The owner is left out of the match, as there.
+    ``has_clean_open_review``; ``branch`` None lists those receipts, so a deny
+    can name them. The owner is left out of the match, as there.
 
     Args:
         repo: Repository name.
         all_earlier_heads: Full commit names before the head the open names.
-        branch: The branch the pull request opens from.
+        branch: The branch the pull request opens from, or None for receipts
+            that name no branch.
 
     Returns:
         The recorded heads, lowercased and sorted.
@@ -276,7 +279,7 @@ def open_reviewed_heads_among(
     )
 
 
-def _recorded_pass_head(all_receipt_fields: dict[str, object] | None, branch: str) -> str | None:
+def _recorded_pass_head(all_receipt_fields: dict[str, object] | None, branch: str | None) -> str | None:
     if all_receipt_fields is None or not _is_count(all_receipt_fields.get(RECEIPT_FINDINGS_KEY)):
         return None
     if all_receipt_fields.get(RECEIPT_BRANCH_KEY) != branch:

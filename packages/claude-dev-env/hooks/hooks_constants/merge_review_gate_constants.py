@@ -135,6 +135,69 @@ EXTENDED_GLOB_OPENER_PATTERN = re.compile(r"[@+!]\(")
 EXTENDED_GLOB_WORD_PATTERN = re.compile(r"[@+!](?:\(|$)")
 ALL_SHELL_WORD_START_CHARACTERS = frozenset(";&|()<>")
 ANSI_C_QUOTE_PREFIX = "$"
+ANSI_C_NUMERIC_ESCAPE_PATTERN = re.compile(
+    r"\\(?:x(?P<hex>[0-9A-Fa-f]{1,2})|u(?P<short_unicode>[0-9A-Fa-f]{1,4})"
+    r"|U(?P<long_unicode>[0-9A-Fa-f]{1,8})|(?P<octal>[0-7]{1,3})|c(?P<control>.))",
+    re.DOTALL,
+)
+ANSI_C_STRING_END_CHARACTER = "\0"
+CONTROL_CHARACTER_MASK = 0x1F
+BYTE_MASK = 0xFF
+ASCII_MAXIMUM = 0x7F
+OCTAL_BASE = 8
+HEX_BASE = 16
+SURROGATE_FIRST = 0xD800
+SURROGATE_LAST = 0xDFFF
+UNREADABLE_WORD_MARK = ""
+QUOTED_EXPANSION_MARK = ""
+ALL_EXPANSION_MARKS = frozenset({UNREADABLE_WORD_MARK, QUOTED_EXPANSION_MARK})
+EXPANSION_START_CHARACTER = "$"
+ALL_EXPANSION_OPENER_CHARACTERS = frozenset({EXPANSION_START_CHARACTER, "`"})
+SPLITTING_PARAMETER_CHARACTER = "@"
+PARAMETER_BRACE_OPEN = "{"
+PARAMETER_BRACE_CLOSE = "}"
+ALL_CREATE_TEXT_OPTIONS = frozenset(
+    {
+        "-t",
+        "--title",
+        "-b",
+        "--body",
+        "-F",
+        "--body-file",
+        "-l",
+        "--label",
+        "-r",
+        "--reviewer",
+        "-a",
+        "--assignee",
+        "-m",
+        "--milestone",
+        "-p",
+        "--project",
+        "-T",
+        "--template",
+    }
+)
+ALL_JOINED_CREATE_TEXT_OPTION_PREFIXES = (
+    "--title=",
+    "--body=",
+    "--body-file=",
+    "--label=",
+    "--reviewer=",
+    "--assignee=",
+    "--milestone=",
+    "--project=",
+    "--template=",
+    "-t",
+    "-b",
+    "-F",
+    "-l",
+    "-r",
+    "-a",
+    "-m",
+    "-p",
+    "-T",
+)
 ALL_LONE_CREATE_REFUSED_CHARACTERS = (
     frozenset("();<>|&#$`\n\r") | ALL_SHELL_EXPANSION_CHARACTERS | {TILDE_CHARACTER}
 )
@@ -354,13 +417,32 @@ FINDINGS_AT_HEAD_REASON_TEMPLATE = (
     "the fixes come next. Fix each valid finding in a new commit on top of {head}, push the "
     "branch with `git push origin HEAD:refs/heads/{branch}`, then open the pull request again: "
     "the fix commits need no second pass. When the fix commits are already made, push them: "
-    "the create pull request tool reads the head from GitHub."
+    "gh and the create pull request tool open the pull request at the head GitHub holds, and "
+    "the gate reads that head."
+)
+BRANCHLESS_PASS_REASON_TEMPLATE = (
+    "{slug} has no clean review for head {head}, which this pull request would open with. "
+    "A review pass on {reviewed}, a commit before it on this branch, is recorded with "
+    "{finding_count} findings and no branch, because it was recorded outside a checkout of "
+    "`{branch}`: in another folder, on a detached HEAD, or while another branch held "
+    "{reviewed}. A pass with no branch counts only at its own head, so the fix commits on top "
+    "get no credit yet. Record it again from the checkout of `{branch}`, with `{branch}` "
+    "checked out: `"
+    + RECORD_COMMAND
+    + " {slug} "
+    + OPEN_TARGET_WORD
+    + " {reviewed} {finding_count}`, then open again. No new review pass is needed. When the "
+    "script still says it records no branch, another branch holds {reviewed}; its output "
+    "names the step."
 )
 EXPANDED_WORDS_REASON = (
-    "This pull request create holds a brace, a glob character (* ? [), an extended glob such "
-    "as @(x), or a word that starts with ~ outside quotes, and bash expands those before gh runs, so the gate cannot tell "
-    "which head, base or repository gh reads. Write each flag as a plain word, such as "
-    "`--base main` or `--head feature`, quote any title or body text, then open again."
+    "This pull request create has a word bash expands before gh runs, so the gate cannot tell "
+    "which head, base or repository gh reads: a `$` or backtick expansion in a flag, or in a value "
+    "of `--head`, `--base` or `--repo`, "
+    "or, outside quotes in any word, a `$` or backtick expansion, a brace, a glob character "
+    "(* ? [), an extended glob such as @(x) or a word that starts with ~. Write each flag as a "
+    "plain word with a plain value, such as `--base main` or `--head feature`. Put title and body "
+    "text in quotes, or pass the body with `--body-file <file>`, then open again."
 )
 WITHHELD_CREDIT_REASON_PREFIX = (
     "{slug} has no clean review for head {head}, which this pull request would open with. "
@@ -398,6 +480,13 @@ OTHER_REMOTE_CAUSE = (
 TOOL_NO_BASE_CAUSE = (
     "the create pull request tool call names no base. Set its `base` field to the branch the "
     "pull request merges into."
+)
+HEAD_UNREAD_CAUSE = (
+    "the gate could not read the head branch `{branch}` on GitHub, so it cannot tell that the "
+    "commit this clone holds is the tip GitHub opens the pull request with. Check that the "
+    "branch is pushed and that `git ls-remote https://github.com/{slug}.git {branch}` answers "
+    "from this session, running `gh auth setup-git` when git has no GitHub sign-in, then open "
+    "again."
 )
 BASE_UNREAD_CAUSE = (
     "the gate could not read the base {base} of {slug} on GitHub. Check that the branch is "

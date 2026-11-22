@@ -647,13 +647,42 @@ def test_should_refuse_filed_on_an_open_pass(
     assert list(receipt_folder.iterdir()) == []
 
 
-def test_should_name_the_fix_commits_route_when_an_open_pass_reports_findings() -> None:
+def test_should_name_the_fix_commits_route_when_an_open_pass_reports_findings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
     verdict_stream = StringIO()
-    assert merge_review_receipt.main(["acme/tools", "open", HEAD, "2"], verdict_stream) == 1
+    assert merge_review_receipt.main(["acme/tools", "open", head, "2"], verdict_stream) == 1
     assert verdict_stream.getvalue() == (
-        f"REVIEWED acme/tools open {HEAD} 2 findings (fix them in new commits on top of "
-        f"{HEAD}, then open the pull request; the fix commits need no second pass)\n"
+        f"REVIEWED acme/tools open {head} 2 findings (fix them in new commits on top of "
+        f"{head}, then open the pull request; the fix commits need no second pass)\n"
     )
+
+
+@pytest.mark.parametrize("place", ["outside any checkout", "detached HEAD"])
+def test_should_say_to_record_again_from_the_branch_checkout_when_a_pass_with_findings_names_no_branch(
+    place: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    head = _checkout_with_file(tmp_path, monkeypatch)
+    if place == "detached HEAD":
+        subprocess.run(["git", "checkout", "--quiet", "--detach", head], check=True)
+    else:
+        outside_folder = tmp_path / "outside"
+        outside_folder.mkdir()
+        monkeypatch.chdir(outside_folder)
+    verdict_stream = StringIO()
+    assert merge_review_receipt.main(["acme/tools", "open", head, "2"], verdict_stream) == 1
+    verdict = verdict_stream.getvalue()
+    assert verdict.startswith(f"REVIEWED acme/tools open {head} 2 findings, recorded with no branch")
+    assert f"counts only at {head} itself" in verdict
+    assert "Run this command again from the checkout of the branch you will open" in verdict
+    assert "the fix commits need no second pass" not in verdict
+
+
+def test_should_describe_only_a_same_branch_pass_as_covering_fix_commits_in_the_module_docstring() -> None:
+    module_text = merge_review_receipt.__doc__ or ""
+    assert "above the\nhead of any ``open`` pass" not in module_text
+    assert "recorded on the same branch" in module_text
 
 
 def test_should_name_the_filed_route_when_a_pass_after_the_third_reports_findings() -> None:

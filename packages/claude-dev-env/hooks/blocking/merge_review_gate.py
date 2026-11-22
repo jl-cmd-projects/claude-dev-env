@@ -125,6 +125,7 @@ from hooks_constants.merge_review_gate_constants import (
     LOOSE_PULL_REQUEST_SCRIPT_PATTERN,
     MATCH_HEAD_PATTERN,
     MERGE_TOOL_SUFFIX,
+    BRANCHLESS_PASS_REASON_TEMPLATE,
     FETCH_BASE_COMMAND,
     FETCH_NAMED_BASE_COMMAND_TEMPLATE,
     MISSING_BASE_COMMIT_REASON_TEMPLATE,
@@ -198,8 +199,11 @@ def open_deny_reason(request: OpenRequest) -> str | None:
     pass gets no credit, the reason names that pass and its
     ``WithheldCredit`` cause. When no earlier pass is recorded and a pass
     with findings is recorded at the head itself, the reason names that pass
-    and its finding count and says to commit and push the fixes. A create
-    whose words bash expands is denied before any receipt is read.
+    and its finding count and says to commit and push the fixes. When the
+    only earlier pass names no branch, the reason says to record it again
+    from the branch's checkout. A head GitHub did not answer for gives no
+    credit to an earlier pass. A create whose words bash expands is denied
+    before any receipt is read.
 
     Args:
         request: The open the tool call asks for.
@@ -251,27 +255,20 @@ def _earlier_own_pass_denial(
     request: OpenRequest, head: str, branch: str, no_pass_reason: str
 ) -> str | None:
     all_ancestors = first_parent_ancestors(head, request.folder)
-    all_reviewed_heads = sorted(
-        open_reviewed_heads_among(request.repo, all_ancestors, branch),
-        key=[each_ancestor.casefold() for each_ancestor in all_ancestors].index,
+    all_reviewed_heads = _newest_first(
+        open_reviewed_heads_among(request.repo, all_ancestors, branch), all_ancestors
     )
     if not all_reviewed_heads:
-        return no_pass_reason
+        return _branchless_pass_reason(request, head, branch, all_ancestors) or no_pass_reason
     newest_reviewed_head = all_reviewed_heads[0]
-    if request.unknown_base_cause is not None:
-        return _withheld_reason(request, _Withheld(request.unknown_base_cause, newest_reviewed_head))
+    unread_cause = _unread_cause(request)
+    if unread_cause is not None:
+        return _withheld_reason(request, _Withheld(unread_cause, newest_reviewed_head))
     base_commit = base_tip(request)
     if base_commit is None:
         return _withheld_reason(request, _Withheld(WithheldCredit.BASE_UNREAD, newest_reviewed_head))
     if not is_stored_locally(base_commit, request.folder):
-        fetch_command = (
-            FETCH_NAMED_BASE_COMMAND_TEMPLATE.format(base=request.base)
-            if request.base
-            else FETCH_BASE_COMMAND
-        )
-        return MISSING_BASE_COMMIT_REASON_TEMPLATE.format(
-            slug=request.slug, base_commit=base_commit, fetch_command=fetch_command
-        )
+        return _missing_base_reason(request, base_commit)
     own_reference = own_tracking_reference(request)
     all_withheld: list[_Withheld] = []
     for each_reviewed_head in all_reviewed_heads:
@@ -280,6 +277,60 @@ def _earlier_own_pass_denial(
             return None
         all_withheld.append(withheld)
     return _withheld_reason(request, all_withheld[0])
+
+
+def _missing_base_reason(request: OpenRequest, base_commit: str) -> str:
+    fetch_command = (
+        FETCH_NAMED_BASE_COMMAND_TEMPLATE.format(base=request.base)
+        if request.base
+        else FETCH_BASE_COMMAND
+    )
+    return MISSING_BASE_COMMIT_REASON_TEMPLATE.format(
+        slug=request.slug, base_commit=base_commit, fetch_command=fetch_command
+    )
+
+
+def _newest_first(all_heads: list[str], all_ancestors: tuple[str, ...]) -> list[str]:
+    ancestor_order = [each_ancestor.casefold() for each_ancestor in all_ancestors]
+    return sorted(all_heads, key=ancestor_order.index)
+
+
+def _unread_cause(request: OpenRequest) -> WithheldCredit | None:
+    if request.unknown_base_cause is not None:
+        return request.unknown_base_cause
+    if not request.is_head_read_on_github:
+        return WithheldCredit.HEAD_UNREAD
+    return None
+
+
+def _branchless_pass_reason(
+    request: OpenRequest, head: str, branch: str, all_ancestors: tuple[str, ...]
+) -> str | None:
+    """Return the deny reason for an earlier pass whose receipt names no branch, or None when none is recorded.
+
+    ::
+
+        receipt {head: abc123, findings: 2}, no branch, abc123 before the head -> names abc123 and the re-record step
+        no such receipt                                                         -> None
+
+    A pass recorded in another folder, on a detached HEAD, or while another
+    branch held the reviewed commit names no branch, so it counts only at
+    its own head. Recording it again from the checkout of the branch gives
+    it that branch.
+    """
+    all_branchless_heads = _newest_first(
+        open_reviewed_heads_among(request.repo, all_ancestors, None), all_ancestors
+    )
+    if not all_branchless_heads:
+        return None
+    reviewed_head = all_branchless_heads[0]
+    return BRANCHLESS_PASS_REASON_TEMPLATE.format(
+        slug=request.slug,
+        head=head,
+        reviewed=reviewed_head,
+        branch=branch,
+        finding_count=recorded_open_finding_count(request.repo, reviewed_head),
+    )
 
 
 def _withheld_from(
