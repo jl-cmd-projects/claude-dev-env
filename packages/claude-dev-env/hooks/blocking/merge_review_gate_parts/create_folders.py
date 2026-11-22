@@ -51,6 +51,7 @@ from blocking.merge_review_gate_parts.settled_steps import (
     is_settled_create_segment,
     is_settled_pipe_reader,
     is_settled_step,
+    with_launcher_home_written,
 )
 from blocking.merge_review_gate_parts.wrapped_creates import unplaced_creates
 from hooks_constants.merge_review_gate_constants import (
@@ -217,6 +218,10 @@ def _walk_text(walk: _Walk, text: str, state: FolderState, depth: int) -> Folder
     if all_lines is None or all_token_lines is None:
         return _walk_unbalanced_text(walk, text, state, depth)
     all_marks_by_word = _marks_by_word(all_lines, all_token_lines)
+    all_token_lines = [
+        with_launcher_home_written(each_line, each_tokens)
+        for each_line, each_tokens in zip(all_lines, all_token_lines, strict=True)
+    ]
     scope = _Scope(
         state,
         all_live_substitution_keys=_substitution_keys(text),

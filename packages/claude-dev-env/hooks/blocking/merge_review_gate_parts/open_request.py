@@ -22,6 +22,7 @@ from blocking.merge_review_gate_parts.quoted_lines import (
     holds_unquoted_expansion,
     quote_aware_lines,
 )
+from blocking.merge_review_gate_parts.settled_steps import is_managed_launcher, with_managed_launcher_home
 from blocking.gate_run_reads import (
     ReadSlice,
     answer_once,
@@ -35,7 +36,6 @@ from hooks_constants.merge_review_gate_constants import (
     ALL_LONE_CREATE_SUBCOMMANDS,
     ALL_LONE_CREATE_REFUSED_CHARACTERS,
     ALL_LONE_LAUNCHER_FLAG_OPTIONS,
-    ALL_MANAGED_LAUNCHER_PATH_PARTS,
     ALL_LONE_LAUNCHER_REQUIRED_OPTIONS,
     ALL_LONE_LAUNCHER_VALUE_OPTIONS,
     ALL_ORIGIN_PUSH_KEYS,
@@ -48,7 +48,6 @@ from hooks_constants.merge_review_gate_constants import (
     LONE_LAUNCHER_OPTION_PREFIX,
     LONE_LAUNCHER_OPTION_VALUE_SEPARATOR,
     LONE_LAUNCHER_PYTHON_PATTERN,
-    MANAGED_LAUNCHER_HOME_PREFIX_PATTERN,
     MERGE_SETTING_KEY,
     PUSH_DEFAULT_REMOTE_KEY,
     REMOTE_LISTING_QUESTION,
@@ -1066,7 +1065,7 @@ def _is_lone_create(command: str) -> bool:
     Returns:
         True when the command is one create and nothing else.
     """
-    all_words = _lone_command_words(_with_managed_launcher_home(command))
+    all_words = _lone_command_words(with_managed_launcher_home(command))
     if not all_words:
         return False
     program = _bare_program_name(all_words[0])
@@ -1119,48 +1118,6 @@ def _lone_command_words(command: str) -> list[str] | None:
     return all_words if is_each_word_plain else None
 
 
-def _with_managed_launcher_home(command: str) -> str:
-    """Return the command with a home prefix on the managed launcher path written out as the home folder.
-
-    Bash turns a leading ``~`` or ``$HOME`` into the home folder, and the
-    gate runs with the same home::
-
-        python3 ~/.agents/skills/pull-request/scripts/pull_request.py create ...
-            -> python3 <home>/.agents/skills/pull-request/scripts/pull_request.py create ...
-        $HOME/.agents/skills/pull-request/scripts/pull_request.py create ... -> <home>/.agents/...
-        python3 ~/x/pull_request.py create ..., ~other/.agents/..., '~'/.agents/... -> unchanged
-
-    Only the script word of the launcher changes, so any other ``~`` or
-    ``$`` still makes the command not lone.
-    """
-    home_folder = shlex.quote(Path.home().as_posix())
-    return MANAGED_LAUNCHER_HOME_PREFIX_PATTERN.sub(
-        lambda each_match: each_match["lead"] + home_folder, command, count=1
-    )
-
-
-def _is_managed_launcher(script_word: str) -> bool:
-    """Return whether a script word names the launcher at ``~/.agents/skills/pull-request/scripts/pull_request.py``.
-
-    ::
-
-        <home>/.agents/skills/pull-request/scripts/pull_request.py           -> True
-        <home>/.agents/skills/pull-request/scripts/../scripts/pull_request.py -> True
-        pull_request.py, ./pull_request.py, scripts/pull_request.py            -> False
-        /tmp/x/pull_request.py, /repo/.agents/skills/pull-request/...          -> False
-
-    A relative word is never the launcher, since the gate cannot tell which
-    folder bash runs it from. Both paths resolve links and letter case
-    before the compare.
-    """
-    if not os.path.isabs(script_word):
-        return False
-    managed_launcher = Path.home().joinpath(*ALL_MANAGED_LAUNCHER_PATH_PARTS)
-    return os.path.normcase(os.path.realpath(script_word)) == os.path.normcase(
-        os.path.realpath(managed_launcher)
-    )
-
-
 def _is_lone_launcher_create(program: str | None, all_words: list[str]) -> bool:
     """Return whether shell words run the managed ``pull_request.py create`` launcher with one repository, base and head.
 
@@ -1189,7 +1146,7 @@ def _is_lone_launcher_create(program: str | None, all_words: list[str]) -> bool:
     if len(all_launcher_words) < LONE_LAUNCHER_LEAD_WIDTH:
         return False
     script_word, action_word = all_launcher_words[:LONE_LAUNCHER_LEAD_WIDTH]
-    if action_word != LONE_LAUNCHER_CREATE_WORD or not _is_managed_launcher(script_word):
+    if action_word != LONE_LAUNCHER_CREATE_WORD or not is_managed_launcher(script_word):
         return False
     all_values_by_option = _launcher_option_values(all_launcher_words[LONE_LAUNCHER_LEAD_WIDTH:])
     if all_values_by_option is None:

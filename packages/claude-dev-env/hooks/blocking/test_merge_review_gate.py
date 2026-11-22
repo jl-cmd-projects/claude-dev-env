@@ -883,6 +883,40 @@ def test_should_allow_a_clean_head_to_a_create_whose_program_word_is_a_bare_name
     assert _reason(_bash_in(folder, command)) is None
 
 
+ALL_UNMANAGED_LAUNCHER_CREATES = [
+    "uv run ./pull_request.py create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "uv run pull_request.py create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "/tmp/x/pull_request.py create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "python3 ./pull_request.py create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    "python3 pull_request.py create --repo acme/tools --base main --head feature --title t --body-file body.md",
+    f"python3 /opt/lookalike/{MANAGED_LAUNCHER_TAIL} create --repo acme/tools --base main --head feature "
+    "--title t --body-file body.md",
+]
+
+
+@pytest.mark.parametrize("command", ALL_UNMANAGED_LAUNCHER_CREATES)
+def test_should_deny_a_clean_head_to_a_launcher_create_whose_script_is_not_the_managed_launcher(
+    branch_checkout: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch, command: str
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    _managed_launcher_path(tmp_path, monkeypatch)
+    reason = _deny_reason(_bash_in(folder, command))
+    assert f"acme/tools has a clean review for head {head}" in reason
+    assert "run the create on its own" in reason
+
+
+def test_should_allow_a_clean_head_to_a_managed_launcher_create_behind_a_settled_step(
+    branch_checkout: tuple[Path, str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    folder, head = branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", head, 0)
+    script_path = _managed_launcher_path(tmp_path, monkeypatch)
+    assert _reason(_bash_in(folder, "cd . && " + _launcher_create(script_path))) is None
+    assert _reason(_bash_in(folder, "cd . && uv run " + _launcher_create(script_path))) is None
+    assert _reason(_bash_in(folder, "cd . && " + _launcher_create(f"~/{MANAGED_LAUNCHER_TAIL}"))) is None
+
+
 @pytest.mark.parametrize(
     "launcher_options",
     [
@@ -908,14 +942,19 @@ def test_should_give_no_earlier_pass_credit_to_a_launcher_create_whose_repo_base
     "command",
     [
         "gh pr create --fill --base main --head feature --head=",
-        "python3 /x/pull_request.py create --repo acme/tools --base main --head feature "
+        "python3 {launcher} create --repo acme/tools --base main --head feature "
         "--title t --body-file body.md --head=",
     ],
 )
 def test_should_give_no_credit_to_an_open_whose_last_head_is_empty_while_the_branch_tracks_another_name(
-    branch_checkout: tuple[Path, str], github_repository: Path, command: str
+    branch_checkout: tuple[Path, str],
+    github_repository: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    command: str,
 ) -> None:
     folder, reviewed_head = branch_checkout
+    command = command.format(launcher=_managed_launcher_path(tmp_path, monkeypatch))
     _git(github_repository, "update-ref", "refs/heads/other", reviewed_head)
     _git(folder, "config", "branch.feature.remote", "origin")
     _git(folder, "config", "branch.feature.merge", "refs/heads/other")
@@ -2092,12 +2131,6 @@ def test_should_leave_a_call_that_opens_and_merges_nothing_to_run(
         "gh --repo=acme/tools pr create --head second",
         "GH_REPO=acme/tools gh pr create --head second",
         'bash -c "gh pr create --head second"',
-        "python3.11 pull_request.py create --head second",
-        "python3 -u pull_request.py create --head second",
-        "python -X dev pull_request.py create --head second",
-        "py -3 pull_request.py create --head second",
-        "uv run python pull_request.py create --head second",
-        "uv run pull_request.py create --head second",
         "python3 ~/.agents/skills/pull-request/scripts/pull_request.py create --head second",
     ],
 )
@@ -2108,6 +2141,27 @@ def test_should_deny_every_create_spelling_whose_head_has_no_review(
     merge_review_receipt.record_open_review("acme/tools", first_head, 0)
     reviewed_command = command.replace("--head second", "--head feature")
     assert _reason(_bash_in(folder, reviewed_command)) is None
+    assert f"no clean review for head {second_head}" in _deny_reason(_bash_in(folder, command))
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "python3.11 pull_request.py create --head second",
+        "python3 -u pull_request.py create --head second",
+        "python -X dev pull_request.py create --head second",
+        "py -3 pull_request.py create --head second",
+        "uv run python pull_request.py create --head second",
+        "uv run pull_request.py create --head second",
+    ],
+)
+def test_should_deny_every_unmanaged_launcher_create_spelling_whatever_review_its_head_has(
+    two_branch_checkout: tuple[Path, str, str], command: str
+) -> None:
+    folder, first_head, second_head = two_branch_checkout
+    merge_review_receipt.record_open_review("acme/tools", first_head, 0)
+    reviewed_command = command.replace("--head second", "--head feature")
+    assert "run the create on its own" in _deny_reason(_bash_in(folder, reviewed_command))
     assert f"no clean review for head {second_head}" in _deny_reason(_bash_in(folder, command))
 
 

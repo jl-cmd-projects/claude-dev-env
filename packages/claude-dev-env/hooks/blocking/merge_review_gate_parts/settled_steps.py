@@ -18,6 +18,8 @@ calls the unsettled expansion check on each level of text it reads.
 
 from __future__ import annotations
 
+import os
+import shlex
 import sys
 from pathlib import Path
 
@@ -26,11 +28,12 @@ if hooks_directory not in sys.path:
     sys.path.insert(0, hooks_directory)
 
 from blocking.followup_pr_dedupe import create_arguments
-from blocking.merge_review_gate_parts.quoted_lines import quote_aware_lines
+from blocking.merge_review_gate_parts.quoted_lines import expansion_marked_line, quote_aware_lines
 from hooks_constants.followup_pr_dedupe_constants import WINDOWS_EXECUTABLE_SUFFIX
 from hooks_constants.merge_review_gate_constants import (
     ALL_EXPANSION_OPENER_CHARACTERS,
     ALL_IGNORED_FOLDER_NAME_END_CHARACTERS,
+    ALL_MANAGED_LAUNCHER_PATH_PARTS,
     FOLDER_PATH_SEPARATOR_PATTERN,
     FOLDER_STACK_ROTATION_PREFIX,
     ALL_OUTPUT_REDIRECT_OPERATORS,
@@ -49,10 +52,18 @@ from hooks_constants.merge_review_gate_constants import (
     FILE_DESCRIPTOR_COPY_OPERATOR,
     FILE_DESCRIPTOR_COPY_TARGET_PATTERN,
     FUNCTION_DEFINITION_TOKEN,
+    GH_PROGRAM_NAME,
     GIT_FOLDER_NAME,
     HEREDOC_OPERATOR_TOKEN,
-    LAUNCHER_SCRIPT_FILE_NAME,
+    HOME_EXPANSION_MARK,
+    HOME_VARIABLE_PATTERN,
+    IS_POSIX_TOKENIZATION,
     LINE_FEED,
+    LONE_LAUNCHER_CREATE_WORD,
+    LONE_LAUNCHER_LEAD_WIDTH,
+    LONE_LAUNCHER_PYTHON_PATTERN,
+    MANAGED_LAUNCHER_HOME_PREFIX_PATTERN,
+    MARKED_MANAGED_LAUNCHER_WORD,
     NULL_DEVICE_PATH,
     OPTION_PREFIX,
     PRINTF_PROGRAM_NAME,
@@ -73,6 +84,7 @@ from hooks_constants.pytest_invocation import unquoted_token
 from hooks_constants.shell_command_pipeline import (
     PendingHeredoc,
     closes_the_heredoc,
+    operator_aware_tokens,
     pending_heredoc_opened_by,
 )
 from hooks_constants.shell_command_segments import LEADING_ASSIGNMENT_PATTERN, token_basename
@@ -285,14 +297,21 @@ def is_settled_create_segment(all_tokens: list[str], has_expanding_heredoc: bool
         env gh pr create, command gh pr create, then gh ...     -> False
         gh pr create --fill > .git/HEAD                         -> False
         ./gh pr create, /tmp/x/python3 pull_request.py create   -> False
+        python3 <home>/.agents/skills/pull-request/scripts/pull_request.py create -> True
+        uv run ./pull_request.py create, python3 /x/pull_request.py create -> False
+        PYTHONPATH=/x python3 <home>/.agents/.../pull_request.py create     -> False
 
     The words before the program are assignments whose values hold no ``$``
     or backtick, and whose names are not ``GIT_``, ``LD_``, ``DYLD_``,
-    ``XDG_``, ``HOME``, ``PATH``, or a ``GH_`` name but the repository one. The first other word
+    ``XDG_``, ``UV_``, ``PYTHON``, ``HOME``, ``PATH``, or a ``GH_`` name but the repository one. The first other word
     is the program, with no wrapper or compound word before it but a bare
-    ``uv run``, as in ``uv run pull_request.py create``. The program is a
-    bare word with no ``/`` or ``\\``, which bash finds on PATH, unless it
-    is the ``pull_request.py`` script itself. Names match in any
+    ``uv run``. A gh program is a bare word with no ``/`` or ``\\``, which
+    bash finds on PATH. Any other create runs ``pull_request.py``, and its
+    script word must be the managed launcher, alone or after a bare
+    ``python`` or ``python3``, so a script that could move the head after the
+    gate read it never counts. Its home is written out only by
+    ``with_launcher_home_written``, so a ``~`` left in the word never
+    counts. Names match in any
     case, since Windows reads ``gh_repo`` as ``GH_REPO``, and only the upper
     case ``GH_REPO`` is kept. Output goes only to /dev/null, a descriptor
     copy, or a plain path outside ``.git``: one with no ``$``, backtick,
@@ -328,9 +347,146 @@ def is_settled_create_segment(all_tokens: list[str], has_expanding_heredoc: bool
     program_word = token_basename(program_token).removesuffix(WINDOWS_EXECUTABLE_SUFFIX)
     if program_word != segment_program_and_arguments(all_tokens)[0]:
         return False
-    if FOLDER_PATH_SEPARATOR_PATTERN.search(program_token) and program_word != LAUNCHER_SCRIPT_FILE_NAME:
+    if program_word.lower() == GH_PROGRAM_NAME:
+        if FOLDER_PATH_SEPARATOR_PATTERN.search(program_token):
+            return False
+    elif not _runs_managed_launcher(all_tokens[program_index:]):
         return False
     return all(_is_kept_write_target(each_target) for each_target in _write_targets(all_tokens))
+
+
+def with_managed_launcher_home(command: str) -> str:
+    """Return the command with a home prefix on the managed launcher path written out as the home folder.
+
+    Bash turns a leading ``~`` or ``$HOME`` into the home folder, and the
+    gate runs with the same home::
+
+        python3 ~/.agents/skills/pull-request/scripts/pull_request.py create ...
+            -> python3 <home>/.agents/skills/pull-request/scripts/pull_request.py create ...
+        $HOME/.agents/skills/pull-request/scripts/pull_request.py create ... -> <home>/.agents/...
+        python3 ~/x/pull_request.py create ..., ~other/.agents/..., '~'/.agents/... -> unchanged
+
+    Only the script word of the launcher changes, so any other ``~`` or
+    ``$`` still makes the command not lone.
+
+    Args:
+        command: The shell command text.
+
+    Returns:
+        The command with the launcher's home prefix written out.
+    """
+    home_folder = shlex.quote(Path.home().as_posix())
+    return MANAGED_LAUNCHER_HOME_PREFIX_PATTERN.sub(
+        lambda each_match: each_match["lead"] + home_folder, command, count=1
+    )
+
+
+def is_managed_launcher(script_word: str) -> bool:
+    """Return whether a script word names the launcher at ``~/.agents/skills/pull-request/scripts/pull_request.py``.
+
+    ::
+
+        <home>/.agents/skills/pull-request/scripts/pull_request.py           -> True
+        <home>/.agents/skills/pull-request/scripts/../scripts/pull_request.py -> True
+        pull_request.py, ./pull_request.py, scripts/pull_request.py            -> False
+        /tmp/x/pull_request.py, /repo/.agents/skills/pull-request/...          -> False
+
+    A relative word is never the launcher, since the gate cannot tell which
+    folder bash runs it from. Both paths resolve links and letter case
+    before the compare.
+
+    Args:
+        script_word: The script word with any home prefix written out.
+
+    Returns:
+        True when the word resolves to the managed launcher.
+    """
+    if not os.path.isabs(script_word):
+        return False
+    managed_launcher = Path.home().joinpath(*ALL_MANAGED_LAUNCHER_PATH_PARTS)
+    return os.path.normcase(os.path.realpath(script_word)) == os.path.normcase(
+        os.path.realpath(managed_launcher)
+    )
+
+
+def _runs_managed_launcher(all_program_tokens: list[str]) -> bool:
+    """Return whether the words from the program on run ``create`` of the managed launcher.
+
+    ::
+
+        <home>/.agents/.../pull_request.py create, python3 <home>/.agents/.../pull_request.py create -> True
+        python3 ~/.agents/.../pull_request.py create, python3 '<home>/.agents/...' create          -> False
+        pull_request.py create, python3 ./pull_request.py create, py -3 <launcher> create          -> False
+
+    The words are POSIX words, so the script word is compared as bash
+    hands it over. A ``~`` or ``$HOME`` the walk left in it is one bash
+    does not expand, and a quote left in it is part of the file name.
+    """
+    program_word = unquoted_token(all_program_tokens[0])
+    is_interpreter = (
+        FOLDER_PATH_SEPARATOR_PATTERN.search(program_word) is None
+        and LONE_LAUNCHER_PYTHON_PATTERN.fullmatch(program_word) is not None
+    )
+    all_lead_words = all_program_tokens[int(is_interpreter) :][:LONE_LAUNCHER_LEAD_WIDTH]
+    if len(all_lead_words) < LONE_LAUNCHER_LEAD_WIDTH:
+        return False
+    script_word, action_word = all_lead_words
+    return unquoted_token(action_word) == LONE_LAUNCHER_CREATE_WORD and is_managed_launcher(script_word)
+
+
+def with_launcher_home_written(line: str, all_tokens: list[str]) -> list[str]:
+    """Return a line's POSIX words with each managed launcher word whose home bash expands written out.
+
+    ::
+
+        python3 ~/.agents/.../pull_request.py create       -> python3 <home>/.agents/.../pull_request.py create
+        python3 "$HOME/.agents/.../pull_request.py" create -> python3 <home>/.agents/.../pull_request.py create
+        python3 '~/.agents/...', "~/.agents/...", \\~/.agents/..., ~"/.agents/..." -> unchanged
+        python3 '$HOME/.agents/...', \\$HOME/.agents/..., $"HOME"/.agents/...       -> unchanged
+
+    The POSIX split drops quotes and backslashes, so the words alone cannot
+    tell ``~/x`` from ``'~/x'``. The raw line can. A word-leading ``~``
+    right before an unquoted ``/``, or a ``$HOME`` outside single quotes,
+    is the home bash writes out. A line the marks cannot split one for one
+    keeps its words, so its launcher word stays unread.
+
+    Args:
+        line: One logical line from ``quote_aware_lines``.
+        all_tokens: The line's POSIX words.
+
+    Returns:
+        The words, with each launcher word whose home bash expands written as the home folder.
+    """
+    if HOME_EXPANSION_MARK in line:
+        return all_tokens
+    all_marked_tokens = operator_aware_tokens(_home_marked_line(line), IS_POSIX_TOKENIZATION)
+    if all_marked_tokens is None or len(all_marked_tokens) != len(all_tokens):
+        return all_tokens
+    managed_launcher = Path.home().joinpath(*ALL_MANAGED_LAUNCHER_PATH_PARTS).as_posix()
+    return [
+        managed_launcher if each_marked_token == MARKED_MANAGED_LAUNCHER_WORD else each_token
+        for each_token, each_marked_token in zip(all_tokens, all_marked_tokens, strict=True)
+    ]
+
+
+def _home_marked_line(line: str) -> str:
+    expansion_line = expansion_marked_line(line)
+    all_pieces: list[str] = []
+    index = 0
+    while index < len(line):
+        home_width = _expanded_home_width(line, expansion_line, index)
+        all_pieces.append(HOME_EXPANSION_MARK if home_width else line[index])
+        index += home_width or 1
+    return "".join(all_pieces)
+
+
+def _expanded_home_width(line: str, expansion_line: str, index: int) -> int:
+    if expansion_line[index] == line[index]:
+        return 0
+    if line.startswith(HOME_FOLDER_PREFIX, index):
+        return len(HOME_FOLDER)
+    home_variable = HOME_VARIABLE_PATTERN.match(line, index)
+    return len(home_variable.group()) if home_variable else 0
 
 
 def is_settled_pipe_reader(all_tokens: list[str], has_expanding_heredoc: bool) -> bool:
