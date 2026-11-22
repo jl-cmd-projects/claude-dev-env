@@ -186,18 +186,18 @@ def record_review(
     Returns:
         The receipt path written.
     """
-    pass_number, is_history_unverified = _next_pass(
+    pass_number, all_unverified_heads = _next_pass(
         slug, number, head, should_read_github=bool(filed.strip())
     )
     receipt = _numbered_receipt(
-        head, finding_count, ruled_out_count, rulings, filed, pass_number, is_history_unverified
+        head, finding_count, ruled_out_count, rulings, filed, pass_number, all_unverified_heads
     )
     return _write_receipt(slug, number, receipt)
 
 
 def _next_pass(
     slug: str, number: int, head: str, should_read_github: bool = False
-) -> tuple[int, bool]:
+) -> tuple[int, list[str]]:
     """Return which review pass on the pull request a record of ``head`` is.
 
     A new head is the next pass. Recording the head the previous receipt names
@@ -216,11 +216,13 @@ def _next_pass(
 
     A previous receipt that cannot be read counts as no receipt. A local pass
     past the full pass count already allows a filed pass, so GitHub is not
-    read for it. A read that GitHub did not finish leaves the local count and
-    marks the receipt, and the next record reads GitHub again::
+    read for it. A read that GitHub did not finish marks the receipt with the
+    heads recorded since, and the next record reads GitHub again. Those heads
+    count as passes beside the failing commits GitHub lists, each head once::
 
-        no receipt, GitHub unreachable            -> pass 1, receipt marked
-        receipt marked, GitHub reachable, 3 prior -> pass 4, mark cleared
+        no receipt, GitHub unreachable                      -> pass 1, marked [h1]
+        marked [h1], head h2, GitHub lists 2 failing others -> pass 4, mark cleared
+        marked [h1], head h2, GitHub lists h1 and 2 others  -> pass 4, mark cleared
 
     Args:
         slug: Repository as ``owner/name``.
@@ -229,18 +231,39 @@ def _next_pass(
         should_read_github: True when the record carries ``--filed``.
 
     Returns:
-        The pass number, from 1, and whether the GitHub read was left unfinished.
+        The pass number, from 1, and the heads that carry the unfinished read
+        mark, empty when the read was finished or not needed.
     """
     owner, repo = slug.split("/", 1)
     previous_receipt = read_receipt(receipt_path(owner, repo, number))
     local_pass_number = _local_pass_number(previous_receipt, head)
-    is_history_marked = bool(previous_receipt and previous_receipt.get(RECEIPT_UNVERIFIED_KEY))
+    all_marked_heads = _marked_heads(previous_receipt)
     is_fresh_session = previous_receipt is None
-    is_read_wanted = should_read_github or is_fresh_session or is_history_marked
+    is_read_wanted = should_read_github or is_fresh_session or bool(all_marked_heads)
     if not is_read_wanted or local_pass_number > FULL_REVIEW_PASS_COUNT:
-        return local_pass_number, False
-    failed_review_count, is_count_verified = _failed_review_head_count(owner, repo, number, head)
-    return max(local_pass_number, failed_review_count + 1), not is_count_verified
+        return local_pass_number, []
+    all_failed_shas, is_count_verified = _failed_review_heads(owner, repo, number, head)
+    all_local_only_heads = [
+        each_head
+        for each_head in all_marked_heads
+        if not same_commit(each_head, head)
+        and not any(same_commit(each_head, each_sha) for each_sha in all_failed_shas)
+    ]
+    reviewed_pass_number = len(all_failed_shas) + len(all_local_only_heads) + 1
+    pass_number = max(local_pass_number, reviewed_pass_number)
+    if is_count_verified:
+        return pass_number, []
+    all_other_marked_heads = [
+        each_head for each_head in all_marked_heads if not same_commit(each_head, head)
+    ]
+    return pass_number, [*all_other_marked_heads, head]
+
+
+def _marked_heads(all_previous_receipt_fields: dict[str, object] | None) -> list[str]:
+    all_marked_entries = (all_previous_receipt_fields or {}).get(RECEIPT_UNVERIFIED_KEY)
+    if not isinstance(all_marked_entries, list):
+        return []
+    return [each_head for each_head in all_marked_entries if isinstance(each_head, str) and each_head]
 
 
 def _local_pass_number(all_previous_receipt_fields: dict[str, object] | None, head: str) -> int:
@@ -254,10 +277,10 @@ def _local_pass_number(all_previous_receipt_fields: dict[str, object] | None, he
     return previous_pass_number if is_same_pass else previous_pass_number + 1
 
 
-def _failed_review_head_count(
+def _failed_review_heads(
     owner: str, repo: str, number: int, head: str
-) -> tuple[int, bool]:
-    """Return how many earlier commits of the pull request had a failing review run.
+) -> tuple[list[str], bool]:
+    """Return the earlier commits of the pull request that had a failing review run.
 
     Earlier commits are the ones the pull request lists before the head. A
     commit counts when its newest ``Merge review`` status is ``failure``, the
@@ -266,18 +289,18 @@ def _failed_review_head_count(
     request and that commit. The walk starts at the newest earlier commit,
     reads at most a fixed number of them in parallel within one deadline, and
     stops at the full pass count. Reads still running at that point are
-    stopped. The count is a lower bound, so it only ever raises a pass, and it
-    is flagged unverified when a read GitHub did not answer could have changed
-    it::
+    stopped. The commits are a lower bound, so they only ever raise a pass, and
+    the answer is flagged unverified when a read GitHub did not answer could
+    have changed it::
 
-        commits c1 (failing review run), c2 (none), head -> 1, verified
-        commits c1, head, c2 (failing review run)        -> 0, verified
-        commit c1 (failure by another app), head         -> 0, verified
-        commit c1 (run titled for another pull request)  -> 0, verified
-        commit list page 2 unreadable                    -> 0, unverified
-        head missing from the commit list                -> 0, unverified
-        c1 status unreadable, 3 other failing reviews    -> 3, verified
-        c1 status unreadable, 1 other failing review     -> 1, unverified
+        commits c1 (failing review run), c2 (none), head -> [c1], verified
+        commits c1, head, c2 (failing review run)        -> [], verified
+        commit c1 (failure by another app), head         -> [], verified
+        commit c1 (run titled for another pull request)  -> [], verified
+        commit list page 2 unreadable                    -> [], unverified
+        head missing from the commit list                -> [], unverified
+        c1 status unreadable, 3 other failing reviews    -> 3 commits, verified
+        c1 status unreadable, 1 other failing review     -> 1 commit, unverified
 
     Args:
         owner: Repository owner.
@@ -286,39 +309,40 @@ def _failed_review_head_count(
         head: The commit the pass reviewed, left out of the count.
 
     Returns:
-        The count, from 0 to the full pass count, and whether every read that
-        could change it was answered.
+        The failing commits, at most the full pass count of them, and whether
+        every read that could change them was answered.
     """
     deadline = time.monotonic() + GITHUB_COUNT_DEADLINE_SECONDS
     all_earlier_shas = _commits_before_head(owner, repo, number, head, deadline)
     if all_earlier_shas is None:
-        return 0, False
+        return [], False
     all_newest_first_shas = list(reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]))
     stop_reading = threading.Event()
     executor = ThreadPoolExecutor(max_workers=STATUS_READ_WORKER_COUNT)
     try:
-        all_reads = [
+        sha_by_read = {
             executor.submit(
                 _is_failed_review_commit, owner, repo, number, each_sha, deadline, stop_reading
-            )
+            ): each_sha
             for each_sha in all_newest_first_shas
-        ]
-        return _tally_failed_reviews(all_reads)
+        }
+        return _tally_failed_reviews(sha_by_read)
     finally:
         stop_reading.set()
         executor.shutdown(wait=True, cancel_futures=True)
 
 
-def _tally_failed_reviews(all_reads: list[Future[bool | None]]) -> tuple[int, bool]:
-    failed_count = 0
+def _tally_failed_reviews(sha_by_read: dict[Future[bool | None], str]) -> tuple[list[str], bool]:
+    all_failed_shas: list[str] = []
     is_unverified = False
-    for each_read in as_completed(all_reads):
+    for each_read in as_completed(sha_by_read):
         verdict = each_read.result()
         is_unverified = is_unverified or verdict is None
-        failed_count += 1 if verdict else 0
-        if failed_count >= FULL_REVIEW_PASS_COUNT:
-            return FULL_REVIEW_PASS_COUNT, True
-    return failed_count, not is_unverified
+        if verdict:
+            all_failed_shas.append(sha_by_read[each_read])
+        if len(all_failed_shas) >= FULL_REVIEW_PASS_COUNT:
+            return all_failed_shas, True
+    return all_failed_shas, not is_unverified
 
 
 def _is_failed_review_commit(
@@ -493,12 +517,12 @@ def _numbered_receipt(
     rulings: str,
     filed: str,
     pass_number: int,
-    is_history_unverified: bool = False,
+    all_unverified_heads: Sequence[str] = (),
 ) -> dict[str, object]:
     receipt = _receipt_fields(head, finding_count, ruled_out_count, RECEIPT_RULINGS_KEY, rulings)
     receipt[RECEIPT_PASS_KEY] = pass_number
-    if is_history_unverified:
-        receipt[RECEIPT_UNVERIFIED_KEY] = True
+    if all_unverified_heads:
+        receipt[RECEIPT_UNVERIFIED_KEY] = list(all_unverified_heads)
     if filed:
         receipt[RECEIPT_FILED_KEY] = filed
     return receipt
@@ -861,7 +885,7 @@ def _record_numbered_pass(
     parser: argparse.ArgumentParser, parsed: argparse.Namespace, stdout: TextIO
 ) -> int:
     rulings = _checked_rulings_link(parser, parsed)
-    pass_number, is_history_unverified = _next_pass(
+    pass_number, all_unverified_heads = _next_pass(
         parsed.slug, parsed.number, parsed.head, should_read_github=bool(parsed.filed.strip())
     )
     filed = _checked_filed_link(parser, parsed, pass_number)
@@ -872,7 +896,7 @@ def _record_numbered_pass(
         rulings,
         filed,
         pass_number,
-        is_history_unverified,
+        all_unverified_heads,
     )
     _write_receipt(parsed.slug, parsed.number, receipt)
     owner, repo = parsed.slug.split("/", 1)
