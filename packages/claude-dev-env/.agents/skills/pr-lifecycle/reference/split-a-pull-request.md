@@ -23,7 +23,7 @@ Apply the bar to each pull request, including each stack level. The bar only say
 - Over 400 lines, look for a seam that passes the four tests. When none passes, keep the slice whole and state the reason in the pull request body.
 - Over 1,000 lines, split first. Keep it whole only when no seam passes the four tests.
 
-The pull request lifecycle gate refuses the first create over 1,000 changed lines against its base, with generated files and lockfiles left out. Create each stacked level with `--base` set to the branch below it, so each counts only its own lines. The gate passes a second create for the same branch and base. Retry the create only when no seam passes the four tests. A create with no `--base` is counted against the branch `branch.<name>.gh-merge-base` names, when git config holds one.
+The pull request lifecycle gate refuses the first create over 1,000 changed lines against its base, with generated files and lockfiles left out. Create each stacked level with `--base` set to the branch below it, so each counts only its own lines. The gate passes a second create for the same branch and base. It also passes a create after the user says in the session that this one stays one pull request. Retry the create only when no seam passes the four tests. A create with no `--base` is counted against the branch `branch.<name>.gh-merge-base` names, when git config holds one.
 
 Sources: [Google small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html) and [SmartBear code review practices](https://smartbear.com/learn/code-review/best-practices-for-peer-code-review/).
 
