@@ -943,6 +943,7 @@ def test_should_give_no_earlier_pass_credit_to_a_managed_launcher_create_behind_
     assert f"acme/tools has a clean review for head {head}" in reason
     assert "run the create on its own" in reason
     assert "no `uv run`, `env` or other wrapper and no assignment" in reason
+    assert "Run the launcher after a bare `python3`." in reason
 
 
 @pytest.mark.parametrize(
