@@ -5,7 +5,6 @@ The gate holds the stop for these shapes, and only in a session it covers::
 
     hold:  "I deferred the backoff setting."        no question card after it
     hold:  "Nothing is deferred."                   a marker line; negation does not cancel it
-    allow: "Noted for you:", then "- 9372 waits on your date."   a note lists one-item needs
     allow: a marker line, then an answered AskUserQuestion call
     allow: an Edit call, then "Done."               nothing in progress, no closing line owed
     hold:  an Edit call, then "Done."               task #28 in_progress: the footer is owed
@@ -21,13 +20,7 @@ newest text after the last work call. Each reply's In progress footer, as
 ``closing_question_round_footer.split_footer`` reads it, is scanned with the
 status markers "pending", "blocked", "not done", and "not run" left out, so a
 footer may say where work stands while a question, a deferral, or an ask of
-the user in it still counts. A ``Noted for you:`` note, as
-``user_step_wording.split_closing_note`` cuts it, lists needs that block one
-item only. It is not scanned in a message that closed its turn, one that no
-work call follows before the next prompt, and it is scanned in a message
-that a work call follows. When the closing reply carries a note, only the
-records after this gate's last hold are scanned, so a reply that moves the
-held lines into the note ends the hold. A marker line is a prose
+the user in it still counts. A marker line is a prose
 line ``closing_question_round_open_items`` finds in the texts: a marker word or
 a line that ends with a question mark. Work is any tool call that is no
 question call and that sits in the stretch after the last record whose final
@@ -138,7 +131,6 @@ from closing_question_round_transcript import (
     top_level_records,
 )
 from open_tasks_transcript_records import _content_blocks, is_assistant_record
-from user_step_wording import split_closing_note
 
 from hooks_constants.closing_question_round_gate_constants import (
     ALL_REASON_LEADS,
@@ -205,10 +197,8 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     CURSOR_CONVERSATION_ID_KEY,
     HOOK_EVENT_NAME,
     MESSAGE_KEY,
-    META_RECORD_FLAG_KEY,
     RECORD_TYPE_KEY,
     STOP_HOOK_FEEDBACK_PREFIX,
-    TOOL_RESULT_BLOCK_TYPE,
     TOOL_USE_BLOCK_TYPE,
     TRANSCRIPT_PATH_KEY,
     USER_RECORD_TYPE,
@@ -1127,10 +1117,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         )
     all_texts = [
         _scanned_text(each_text)
-        for each_text in [
-            *_open_item_texts(_records_since_note_answer(all_stretch_records, closing_reply)),
-            *(split_closing_note(each_payload_text)[0] for each_payload_text in all_payload_texts),
-        ]
+        for each_text in [*_open_item_texts(all_stretch_records), *all_payload_texts]
     ]
     if not has_background_work(all_hook_input_fields):
         all_open_item_lines = marked_open_lines(all_texts, deadline_at)
@@ -1148,58 +1135,18 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     )
 
 
-def _records_since_note_answer(
-    all_stretch_records: list[dict[str, object]], closing_reply: str
-) -> list[dict[str, object]]:
-    if not split_closing_note(closing_reply)[1]:
-        return all_stretch_records
-    all_hold_positions = [
-        each_position for each_position, each_record in enumerate(all_stretch_records) if _is_own_hold(each_record)
-    ]
-    return all_stretch_records[all_hold_positions[-1] + 1 :] if all_hold_positions else all_stretch_records
-
-
-def _is_prompt_record(all_record_fields: dict[str, object]) -> bool:
-    if all_record_fields.get(RECORD_TYPE_KEY) != USER_RECORD_TYPE or all_record_fields.get(META_RECORD_FLAG_KEY):
-        return False
-    if any(each_block.get(RECORD_TYPE_KEY) == TOOL_RESULT_BLOCK_TYPE for each_block in _content_blocks(all_record_fields)):
-        return False
-    prompt_text = _record_text(all_record_fields).lstrip()
-    return bool(prompt_text) and not prompt_text.startswith(STOP_HOOK_FEEDBACK_PREFIX)
-
-
-def _closing_message_keys(all_stretch_records: list[dict[str, object]]) -> set[object]:
-    all_closing_keys: set[object] = set()
-    all_waiting_keys: list[object] = []
-    for each_position, each_record in enumerate(all_stretch_records):
-        if has_work_call([each_record]):
-            all_waiting_keys.clear()
-        elif _is_prompt_record(each_record):
-            all_closing_keys.update(all_waiting_keys)
-            all_waiting_keys.clear()
-        elif is_assistant_record(each_record) and block_texts(each_record):
-            all_waiting_keys.append(_message_key(each_position, each_record))
-    all_closing_keys.update(all_waiting_keys)
-    return all_closing_keys
-
-
-def _message_key(position: int, all_record_fields: dict[str, object]) -> object:
-    message_id = _message_id(all_record_fields)
-    return position if message_id is None else message_id
-
-
 def _open_item_texts(all_stretch_records: list[dict[str, object]]) -> list[str]:
-    all_closing_keys = _closing_message_keys(all_stretch_records)
     all_parts_by_message: dict[object, list[str]] = {}
     for each_position, each_record in enumerate(all_stretch_records):
         all_record_texts = block_texts(each_record) if is_assistant_record(each_record) else []
-        if all_record_texts:
-            all_parts_by_message.setdefault(_message_key(each_position, each_record), []).extend(all_record_texts)
+        if not all_record_texts:
+            continue
+        message_id = _message_id(each_record)
+        message_key = each_position if message_id is None else message_id
+        all_parts_by_message.setdefault(message_key, []).extend(all_record_texts)
     all_texts: list[str] = []
-    for each_message_key, each_message_parts in all_parts_by_message.items():
+    for each_message_parts in all_parts_by_message.values():
         message_text = joined_reply_parts(each_message_parts)
-        if each_message_key in all_closing_keys:
-            message_text = split_closing_note(message_text)[0]
         all_texts.extend([message_text] if is_within_scan_cap(message_text) else each_message_parts)
     return all_texts
 

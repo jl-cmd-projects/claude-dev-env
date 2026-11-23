@@ -90,7 +90,6 @@ once::
     block: "What I deferred:" over 3 or more items             no question tool call this turn
     allow: the same list after an AskUserQuestion call
     allow: an "In progress:" footer over 9 items     the list check reads only the reply above the footer
-    allow: a closing "Noted for you:" note over 3 items   the list check skips the note
     allow: the same promise after the prompt "report back when the run ends"
     allow: any reply when the transcript cannot be read
 
@@ -289,10 +288,6 @@ def stale_list_reason(all_items: list[TaskItem]) -> str | None:
     )
 
 
-def _note_free_reply(reply_value: object) -> object:
-    return split_closing_note(reply_value)[0] if isinstance(reply_value, str) else reply_value
-
-
 def _reply_text(all_hook_input_fields: dict[str, object]) -> str:
     reply_text = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
     return reply_text if isinstance(reply_text, str) else ""
@@ -472,15 +467,11 @@ def _judged_findings(all_hook_input_fields: dict[str, object], replay: Transcrip
         log_no_verdict(MARKER_UNREADABLE_REASON)
     if is_claimed is not False:
         return []
-    reply_body, closing_note = split_closing_note(_judged_reply_text(all_hook_input_fields))
-    if not reply_body.strip():
+    reply_text = _judged_reply_text(all_hook_input_fields)
+    if not reply_text:
         return []
-    verdict = judged_verdict(replay.turn_prompt_text, reply_body, replay.has_turn_question_tool)
-    all_findings = [] if verdict is None else _verdict_findings(verdict, reply_body)
-    note_promise = promised_report_phrase(closing_note, replay.turn_prompt_text) if closing_note else None
-    if note_promise is not None and not (verdict and verdict.promise_span):
-        all_findings.append(_promise_finding(note_promise))
-    return all_findings
+    verdict = judged_verdict(replay.turn_prompt_text, reply_text, replay.has_turn_question_tool)
+    return [] if verdict is None else _verdict_findings(verdict, reply_text)
 
 
 def closing_reply_findings(
@@ -505,10 +496,7 @@ def closing_reply_findings(
     where work stands, as ``closing_question_round_footer.list_check_text``
     cuts it, because that footer is a status list that
     ``closing_question_round_gate.py`` checks. A footer that asks the user
-    something stays in. Neither list check reads the closing ``Noted for you:``
-    note, as ``user_step_wording.split_closing_note`` cuts it: the judge gets
-    the reply without the note, and the phrase check for a promised report
-    reads the note. The phrase checks read the whole reply for a promise.
+    something stays in. The promised report finding reads the whole reply.
     """
     if is_judged_payload(all_hook_input_fields, replay):
         return _judged_findings(all_hook_input_fields, replay)
@@ -522,7 +510,7 @@ def closing_reply_findings(
     item_list = (
         None
         if replay.has_turn_question_tool
-        else open_item_list(list_check_text(split_closing_note(reply_text)[0]), replay.turn_prompt_text)
+        else open_item_list(list_check_text(reply_text), replay.turn_prompt_text)
     )
     if item_list is not None:
         all_findings.append(_list_finding(item_list.lead, item_list.item_count))
@@ -546,7 +534,7 @@ def turn_block_reason(all_hook_input_fields: dict[str, object], replay: Transcri
         tracker finding only           -> the finding, then "Then end the turn. Leave the reply as it stands."
         promise and list findings      -> both findings, the list's closing line, then both keep conditions
 
-    A Codex continuation asks for the next authorized step when the closing text above its ``Noted for you:`` note still describes unfinished work.
+    A Codex continuation asks for the next authorized step when the closing text still describes unfinished work.
     """
     all_tracker_reasons = tracker_reasons(all_hook_input_fields, replay)
     all_step_reasons = (
@@ -564,7 +552,7 @@ def turn_block_reason(all_hook_input_fields: dict[str, object], replay: Transcri
         *(each_finding.reason for each_finding in all_reply_findings),
     ]
     if (all_hook_input_fields.get(CODEX_TURN_ID_KEY) or replay.is_codex_turn) and not all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
-        review = continuation_review(_note_free_reply(all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)), replay.turn_prompt_text, replay.has_turn_question_tool)
+        review = continuation_review(all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY), replay.turn_prompt_text, replay.has_turn_question_tool)
         if review:
             return WORD_SEPARATOR.join([*all_reasons, review])
     if not all_reasons:
@@ -658,7 +646,7 @@ def main() -> int:
         if hook_input.get("hook_event_name") != CHILD_STOP_EVENT or is_held_stop(hook_input):
             return ALLOW_EXIT_CODE
         child_turn = replayed_transcript(hook_input.get(AGENT_TRANSCRIPT_KEY))
-        block_reason = continuation_review(_note_free_reply(hook_input.get(LAST_ASSISTANT_MESSAGE_KEY)), child_turn.turn_prompt_text, child_turn.has_turn_question_tool)
+        block_reason = continuation_review(hook_input.get(LAST_ASSISTANT_MESSAGE_KEY), child_turn.turn_prompt_text, child_turn.has_turn_question_tool)
     else:
         block_reason = _stop_block_reason(hook_input)
     if block_reason is None:

@@ -6,6 +6,6 @@ Run gate steps unasked. Card only a job-stopping blocker; note one-item needs un
 
 Ask in the tool: Claude `AskUserQuestion`, Codex `request_user_input_async` or `request_user_input`. Honor mode rules; if unusable, ask in chat.
 
-End a user-started session with a card per blocker; after work, while a job runs, a plain-words `In progress:` list, resent on change. A hook enforces it.
+End a user-started session with a card per open item; after work, while a job runs, a plain-words `In progress:` list, resent on change. A hook enforces it.
 
 **Full text:** [guide](../docs/rule-guides/question-presentation.md); it covers handovers, option cards, Codex visuals.
