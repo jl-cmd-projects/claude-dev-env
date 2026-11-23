@@ -1,11 +1,11 @@
 # Present questions clearly
 
-Before each ask, repeats too, brief in chat: context, each choice's effect, visuals.
+Brief each ask in chat, repeats too: context, each choice's effect, visuals.
 
-One question per item, no chat list: two or three choices, each a label and sentence. Reuse labels in brief, comparison, picker. Cap a turn's pre-question chat at 450 words and 15 list or table items; a Claude hook refuses more.
+Run gate steps unasked. Card only a job-stopping blocker; note one-item needs under `Noted for you:`. One question per item, no chat list: 2 or 3 choices, each a label and sentence. Reuse labels in brief and picker. Cap a turn's pre-ask chat at 450 words and 15 list or table items; a Claude hook refuses more.
 
-Question and choices go in the tool: Claude `AskUserQuestion`, Codex `request_user_input_async` or `request_user_input`. Honor mode rules; if unusable, ask in chat.
+Ask in the tool: Claude `AskUserQuestion`, Codex `request_user_input_async` or `request_user_input`. Honor mode rules; if unusable, ask in chat.
 
-End a user-started session with a card per open item; after work, while a task or job runs, a plain-words `In progress:` list, resent on change. A hook enforces it.
+End a user-started session with a card per open item; after work, while a job runs, a plain-words `In progress:` list, resent on change. A hook enforces it.
 
-**Full text:** [`~/.claude/docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md); read it for handovers, option cards, Codex visuals.
+**Full text:** [guide](../docs/rule-guides/question-presentation.md); it covers handovers, option cards, Codex visuals.

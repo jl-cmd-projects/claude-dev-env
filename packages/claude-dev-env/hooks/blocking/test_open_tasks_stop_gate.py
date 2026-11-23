@@ -609,7 +609,7 @@ def test_should_block_a_reply_that_hands_the_user_a_step_without_a_read_or_a_que
     assert absent_text not in block_output["reason"]
     assert "read the live state of each item you show as open" in block_output["reason"]
     assert "end the turn and leave the reply as it stands." in block_output["reason"]
-    assert block_output["reason"].endswith("keep working on what does not wait on the answer.")
+    assert block_output["reason"].endswith('it goes under "Noted for you:" or, when it stops the whole job, on a question card.')
     assert "hold the turn again" not in block_output["reason"]
 
 
@@ -1399,12 +1399,15 @@ def test_should_not_hold_a_parked_need_that_only_another_hook_held(
     assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PARKED_NEED_REPLY) == {}
 
 
-def test_should_tell_the_first_step_hold_that_a_noted_need_is_still_a_step(
+def test_should_tell_the_first_step_hold_how_to_sort_each_item(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
     first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
-    assert "a need only the user can meet is a step even when you note it and move on" in first_reason
+    assert "is already authorized: run it now and ask nothing" in first_reason
+    assert 'under a line that reads only "Noted for you:"' in first_reason
+    assert "without which the whole job stops: send it in this turn" in first_reason
+    assert "stays a need when you mention it in chat prose and move on" in first_reason
 
 
 def test_should_give_the_parked_need_reason_only_after_a_step_hold_with_no_question_call(tmp_path: Path) -> None:
@@ -1659,3 +1662,60 @@ def test_should_keep_a_delivered_card_through_a_hold_that_asked_only_for_a_read(
     assert "sent no question" not in first_reason
     write_records(transcript_path, [*carded_turn, own_feedback_record(first_reason, "feedback-1"), READ_CALL])
     assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=NO_NEED_REPLY) == {}
+
+
+NOTED_REPLY = (
+    "Pull request 9375 merged and its checks passed. I kept the other release work going.\n\n"
+    "Noted for you:\n- Pull request 9371 waits on your scope decision before it can merge."
+)
+
+
+def test_should_pass_a_one_item_need_noted_at_the_end_of_the_closing_report(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=NOTED_REPLY) == {}
+
+
+def test_should_hold_a_need_in_the_prose_above_the_closing_note(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    prose_reply = f"Pull request 9375 waits on your words.\n\n{NOTED_REPLY}"
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=prose_reply)["reason"].startswith(STEP_HOLD_START)
+
+
+def test_should_release_a_parked_need_that_moved_into_the_closing_note(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    write_records(transcript_path, [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1")])
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=NOTED_REPLY) == {}
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DISMISSING_REPLY)[
+        "reason"
+    ].startswith(PARKED_NEED_START)
+
+
+def test_should_split_the_closing_note_from_the_reply() -> None:
+    reply_body, closing_note = open_tasks_stop_gate.split_closing_note("Done.\n\n**Noted for you:**\n- 9371 needs your scope.")
+    assert reply_body == "Done.\n\n"
+    assert closing_note == "- 9371 needs your scope."
+    assert open_tasks_stop_gate.split_closing_note("9371 needs you.") == ("9371 needs you.", "")
+    assert open_tasks_stop_gate.split_closing_note("We noted for you: a list.")[1] == ""
+
+
+def test_should_keep_a_delivered_card_across_a_task_notification(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    notification_prompt = keyed_prompt_record("<task-notification>The lint job finished.</task-notification>", "prompt-2")
+    all_records = [
+        *orchestration_turn(),
+        QUESTION_CALL,
+        question_result_record(),
+        notification_prompt,
+        TRACKER_CALL,
+        READ_CALL,
+    ]
+    transcript_path = write_records(tmp_path / "s.jsonl", all_records)
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY) == {}

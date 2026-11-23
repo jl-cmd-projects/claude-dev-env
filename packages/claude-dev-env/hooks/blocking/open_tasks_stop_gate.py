@@ -174,6 +174,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     KEEP_REPLY_INSTRUCTION,
     MAXIMUM_STEP_HOLD_COUNT,
     NO_STEP_INSTRUCTION,
+    NOTED_FOR_YOU_LEAD_PATTERN,
     OWN_STEP_HOLD_PATTERN,
     PARKED_NEED_REASON,
     OPEN_ITEM_LIST_KEEP_CONDITION,
@@ -288,10 +289,35 @@ def stale_list_reason(all_items: list[TaskItem]) -> str | None:
     )
 
 
-def turn_waiting_phrase(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> str | None:
-    """Return the first phrase the closing reply or a sent text file uses to say something waits on the user; a path sent twice is read once."""
+def split_closing_note(reply_text: str) -> tuple[str, str]:
+    """Return the reply above its "Noted for you:" line, and the note below it.
+
+    ::
+
+        "Two merged.\n\nNoted for you:\n- 9371 needs your scope."  -> ("Two merged.\n\n", "- 9371 needs your scope.")
+        "**Noted for you:**\n- 9371 needs your scope."              -> ("", "- 9371 needs your scope.")
+        "9371 needs your scope."                                    -> ("9371 needs your scope.", "")
+
+    The note is where the closing report lists needs that block one item
+    only, so its words that something waits on the user are no step to hold.
+    The first line that reads only the lead, in any letter case, with heading
+    or emphasis marks around it, starts the note, which runs to the end.
+    """
+    note_lead = NOTED_FOR_YOU_LEAD_PATTERN.search(reply_text)
+    if note_lead is None:
+        return reply_text, ""
+    return reply_text[: note_lead.start()], reply_text[note_lead.end() :].strip()
+
+
+def _reply_text(all_hook_input_fields: dict[str, object]) -> str:
     reply_text = all_hook_input_fields.get(LAST_ASSISTANT_MESSAGE_KEY)
-    reply_phrase = waiting_phrase(reply_text) if isinstance(reply_text, str) else None
+    return reply_text if isinstance(reply_text, str) else ""
+
+
+def turn_waiting_phrase(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> str | None:
+    """Return the first phrase the closing reply above its note, or a sent text file, uses to say something waits on the user; a path sent twice is read once."""
+    reply_body, _ = split_closing_note(_reply_text(all_hook_input_fields))
+    reply_phrase = waiting_phrase(reply_body)
     if reply_phrase is not None:
         return reply_phrase
     working_directory = all_hook_input_fields.get(WORKING_DIRECTORY_KEY)
@@ -324,7 +350,7 @@ def user_step_reasons(all_hook_input_fields: dict[str, object], replay: Transcri
         each_reason
         for each_reason, has_turn_call in (
             (UNREAD_STEP_REASON, replay.has_turn_read_tool),
-            (UNASKED_STEP_REASON, replay.has_turn_question_tool),
+            (UNASKED_STEP_REASON, replay.has_turn_question_tool or replay.has_delivered_question_since_prompt),
         )
         if not has_turn_call
     ]
@@ -354,13 +380,15 @@ def step_hold_count(replay: TranscriptReplay) -> int:
     )
 
 
-def parked_need_reason(replay: TranscriptReplay) -> str | None:
+def parked_need_reason(replay: TranscriptReplay, reply_text: str = "") -> str | None:
     """Return the parked need reason for a held stop after this gate's user-step hold, or None.
 
     ::
 
         step hold in the turn, no question call, "it hands you no step"  -> the parked need reason
         the same turn after an AskUserQuestion call that reached the user -> None
+        the same turn, reply ends "Noted for you:\n- 9371 needs your scope." -> None
+        the same note with "9371 waits on your words." above it           -> the parked need reason
         the same turn after an AskUserQuestion call a hook refused        -> the parked need reason
         two step holds in the turn already                                -> None
         only another Stop hook held the turn                              -> None
@@ -368,12 +396,17 @@ def parked_need_reason(replay: TranscriptReplay) -> str | None:
     ``step_hold_count`` counts the holds. Holds and question calls count from
     the last prompt that is no event wake, such as a ``<task-notification>``,
     so a job that ends mid-turn keeps the hold.
-    The need was named in the reply this gate held, so the reply that follows
-    the hold does not release it. Only a question call whose tool result is
-    no error does, or the hold limit, which lets a host with no question tool
-    end the turn.
+    The need was named in the reply this gate held, so a reply that follows
+    the hold and only drops the words does not release it. A question call
+    whose tool result is no error releases it, and so does a closing reply
+    whose "Noted for you:" note holds text and whose words above the note say
+    nothing waits on the user. The hold limit lets a host with no question
+    tool end the turn.
     """
     if replay.has_delivered_question_since_prompt:
+        return None
+    reply_body, closing_note = split_closing_note(reply_text)
+    if closing_note and waiting_phrase(reply_body) is None:
         return None
     hold_count = step_hold_count(replay)
     if not hold_count or hold_count >= MAXIMUM_STEP_HOLD_COUNT:
@@ -530,7 +563,7 @@ def turn_block_reason(all_hook_input_fields: dict[str, object], replay: Transcri
         if step_hold_count(replay) < MAXIMUM_STEP_HOLD_COUNT
         else []
     )
-    parked_reason = None if all_step_reasons else parked_need_reason(replay)
+    parked_reason = None if all_step_reasons else parked_need_reason(replay, _reply_text(all_hook_input_fields))
     if parked_reason is not None:
         all_step_reasons = [parked_reason]
     all_reply_findings = closing_reply_findings(all_hook_input_fields, replay)
@@ -579,7 +612,7 @@ def continued_stop_reason(all_hook_input_fields: dict[str, object], replay: Tran
     """
     if all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
         return None
-    parked_reason = parked_need_reason(replay)
+    parked_reason = parked_need_reason(replay, _reply_text(all_hook_input_fields))
     if parked_reason is not None:
         return parked_reason
     if replay.turn_key is None:

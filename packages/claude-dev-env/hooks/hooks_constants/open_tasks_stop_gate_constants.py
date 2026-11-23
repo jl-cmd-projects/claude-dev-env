@@ -144,29 +144,33 @@ USER_STEP_LEAD_TEMPLATE = (
 )
 UNREAD_STEP_REASON = "The turn ran no read call."
 UNASKED_STEP_OPENING = "The turn sent no question through the native question tool."
-UNASKED_STEP_REASON = (
-    UNASKED_STEP_OPENING + " Hand over each step on its own"
-    " through AskUserQuestion (Codex: request_user_input), one step per question: one short sentence"
-    " on what the step does, with the command block to paste or the link to open inside the"
-    " question. Keep long guides out of it. Where the host has no question tool, give each step its"
-    " own short paragraph with its block or link."
+NOTED_FOR_YOU_LEAD = "Noted for you:"
+NOTED_FOR_YOU_LEAD_PATTERN = re.compile(
+    r"^[ \t]*(?:#{1,6}[ \t]+)?[*_]{0,3}Noted for you[*_]{0,3}:[*_]{0,3}[ \t]*$", re.IGNORECASE | re.MULTILINE
 )
+ITEM_SORTING_INSTRUCTION = (
+    "Sort each open item. A step that a gate the user built asks for, such as a run, an eval, a preview, or"
+    " a dispatch, paid or not, is already authorized: run it now and ask nothing. A need that blocks one item"
+    " only: keep the other items going, take the words that it waits on the user out of the reply's prose,"
+    f' and note it once at the end of the closing report, under a line that reads only "{NOTED_FOR_YOU_LEAD}".'
+    " A hard blocker, a need only the user can meet without which the whole job stops: send it in this turn"
+    " through AskUserQuestion (Codex: request_user_input), one item per question, with its context and the"
+    " command block or link inside the question. Where the host has no question tool, give each hard blocker"
+    " its own short paragraph."
+)
+UNASKED_STEP_REASON = UNASKED_STEP_OPENING + " " + ITEM_SORTING_INSTRUCTION
 NO_STEP_INSTRUCTION = (
     "When the live read shows the wording hands the user no step, end the turn and leave the reply as it"
-    " stands. A reply that says an item waits on the user's answer, words, scope decision, or approval hands"
-    " them a step: a need only the user can meet is a step even when you note it and move on. Send it through"
-    " the question tool in this turn, and keep working on what does not wait on the answer."
+    " stands. A need only the user can meet stays a need when you mention it in chat prose and move on, so"
+    f' it goes under "{NOTED_FOR_YOU_LEAD}" or, when it stops the whole job, on a question card.'
 )
 PARKED_NEED_OPENING = "Earlier in this turn this gate held a reply that told the user something waits on them"
 PARKED_NEED_REASON = (
-    PARKED_NEED_OPENING + ", and no question call in this turn has reached the user. A call a hook refused has"
-    " not reached them, so send it again. A need"
-    " only the user can meet, such as their answer, their words, a scope decision, or an approval, goes to"
-    " them as a question card in the turn you find it. Wording such as \"noted it and moved on\" or \"this"
-    " hands you no step\" does not release it. Send each such item now as its own AskUserQuestion question"
-    " (Codex: request_user_input), with its context and links in the question text, then keep working on"
-    " what does not wait on the answer. When the live read showed every such item done, say so in one"
-    " sentence and end the turn."
+    PARKED_NEED_OPENING + ", and since then no question has reached the user and the closing reply has no"
+    f' "{NOTED_FOR_YOU_LEAD}" note. Wording such as "noted it and moved on" or "this hands you no step" does'
+    " not release it. " + ITEM_SORTING_INSTRUCTION + " A question call a hook refused has not reached the"
+    " user, so send it again. When the live read showed every such item done, say so in one sentence and"
+    " end the turn."
 )
 MAXIMUM_STEP_HOLD_COUNT = 2
 TRACKER_REASON_PREFIX_PATTERN = (
