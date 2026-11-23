@@ -1624,7 +1624,7 @@ def test_should_clear_a_parked_need_at_a_pasted_notice_a_person_typed(
     assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DISMISSING_REPLY) == {}
 
 
-def test_should_clear_a_parked_need_at_a_typed_prompt_that_pastes_hook_feedback(
+def test_should_start_a_new_turn_at_a_typed_prompt_that_pastes_hook_feedback(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
@@ -1635,6 +1635,14 @@ def test_should_clear_a_parked_need_at_a_typed_prompt_that_pastes_hook_feedback(
     }
     write_records(
         transcript_path,
-        [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1"), pasted_prompt, TRACKER_CALL],
+        [
+            *orchestration_turn(),
+            own_feedback_record(first_reason, "feedback-1"),
+            pasted_prompt,
+            TRACKER_CALL,
+            READ_CALL,
+        ],
     )
-    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DISMISSING_REPLY) == {}
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"].startswith(
+        STEP_HOLD_START
+    )
