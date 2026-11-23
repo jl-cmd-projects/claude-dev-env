@@ -190,7 +190,8 @@ function staleGateRelativePaths(settingsPath, claudeHome, allWantedGates) {
  * other. An entry left with an older interpreter spelling or timeout is replaced. The
  * file as it was before either change is copied to a timestamped `.bak`. A
  * gate the profile already runs from its own copy of the script is left as
- * it is, and so is a gate the main settings do not hold.
+ * it is. When the main settings hold one gate and no longer hold another, the
+ * profile's entry for the other one, pointing at the main home, is removed.
  *
  * @param {{ mainSettingsPath: string, claudeHome: string, allProfileSettingsPaths: string[],
  *   homeDirectory: string, now?: Date }} options
@@ -200,13 +201,21 @@ export function addStopGatesToProfiles(options) {
     const allMainGates = mainStopGateHooks(options.mainSettingsPath, options.claudeHome);
     const timestamp = (options.now ?? new Date()).toISOString().replace(/[:.]/g, '-');
     const allOutcomes = [];
+    const allRetiredRelativePaths = allMainGates.length === 0 ? [] : ALL_PROFILE_STOP_GATE_HOOK_RELATIVE_PATHS.filter(
+        (eachRelativePath) => !allMainGates.some(({ hookRelativePath }) => hookRelativePath === eachRelativePath),
+    );
     for (const eachPath of options.allProfileSettingsPaths) {
+        const originalText = readFileSync(eachPath, 'utf8');
+        const hasRetiredRemoval = removeStopGatesFromProfiles({
+            claudeHome: options.claudeHome,
+            allProfileSettingsPaths: [eachPath],
+            allHookRelativePaths: allRetiredRelativePaths,
+        }).length > 0;
         const allWantedGates = allMainGates.filter(
             ({ hookRelativePath }) => !profileRunsItsOwnGate(eachPath, options.claudeHome, hookRelativePath),
         );
         if (allWantedGates.length === 0) continue;
         const allStaleRelativePaths = staleGateRelativePaths(eachPath, options.claudeHome, allWantedGates);
-        const originalText = readFileSync(eachPath, 'utf8');
         removeStopGatesFromProfiles({
             claudeHome: options.claudeHome,
             allProfileSettingsPaths: [eachPath],
@@ -221,7 +230,7 @@ export function addStopGatesToProfiles(options) {
                 items: allWantedGates.map(({ gateHook }) => ({ hooks: [gateHook] })),
             }],
         });
-        if (outcome.backupPath && allStaleRelativePaths.length > 0) {
+        if (outcome.backupPath && (allStaleRelativePaths.length > 0 || hasRetiredRemoval)) {
             writeFileSync(outcome.backupPath, originalText);
         }
         allOutcomes.push(outcome);
