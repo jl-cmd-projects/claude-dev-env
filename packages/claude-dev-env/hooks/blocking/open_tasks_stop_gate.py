@@ -454,7 +454,7 @@ def _verdict_findings(verdict: JudgeVerdict, reply_text: str) -> list[ClosingRep
     all_findings: list[ClosingReplyFinding] = []
     if verdict.promise_span:
         all_findings.append(_promise_finding(verdict.promise_span))
-    reply_body = list_check_text(split_closing_note(reply_text)[0])
+    reply_body = list_check_text(reply_text)
     if verdict.list_span and verdict.list_span in reply_body:
         all_findings.append(_list_finding(verdict.list_span, item_count_under(reply_body, verdict.list_span)))
     return all_findings
@@ -472,11 +472,15 @@ def _judged_findings(all_hook_input_fields: dict[str, object], replay: Transcrip
         log_no_verdict(MARKER_UNREADABLE_REASON)
     if is_claimed is not False:
         return []
-    reply_text = _judged_reply_text(all_hook_input_fields)
-    if not reply_text:
+    reply_body, closing_note = split_closing_note(_judged_reply_text(all_hook_input_fields))
+    if not reply_body.strip():
         return []
-    verdict = judged_verdict(replay.turn_prompt_text, reply_text, replay.has_turn_question_tool)
-    return [] if verdict is None else _verdict_findings(verdict, reply_text)
+    verdict = judged_verdict(replay.turn_prompt_text, reply_body, replay.has_turn_question_tool)
+    all_findings = [] if verdict is None else _verdict_findings(verdict, reply_body)
+    note_promise = promised_report_phrase(closing_note, replay.turn_prompt_text) if closing_note else None
+    if note_promise is not None and not (verdict and verdict.promise_span):
+        all_findings.append(_promise_finding(note_promise))
+    return all_findings
 
 
 def closing_reply_findings(
@@ -502,8 +506,9 @@ def closing_reply_findings(
     cuts it, because that footer is a status list that
     ``closing_question_round_gate.py`` checks. A footer that asks the user
     something stays in. Neither list check reads the closing ``Noted for you:``
-    note, as ``user_step_wording.split_closing_note`` cuts it. The promised
-    report finding reads the whole reply.
+    note, as ``user_step_wording.split_closing_note`` cuts it: the judge gets
+    the reply without the note, and the phrase check for a promised report
+    reads the note. The phrase checks read the whole reply for a promise.
     """
     if is_judged_payload(all_hook_input_fields, replay):
         return _judged_findings(all_hook_input_fields, replay)

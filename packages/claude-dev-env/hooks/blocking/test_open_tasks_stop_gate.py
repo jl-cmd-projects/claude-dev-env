@@ -1800,3 +1800,23 @@ def test_should_drop_a_judged_list_that_sits_in_the_closing_note(
         tmp_path / "s.jsonl", [keyed_prompt_record(WORK_PROMPT, "prompt-1"), TRACKER_CALL, READ_CALL]
     )
     assert (run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text) != {}) == is_expected_hold
+
+
+def test_should_send_the_judge_the_reply_without_its_closing_note(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_judged_replies: list[str] = []
+
+    def record_judged_reply(prompt_text: str, reply_text: str, has_question: bool) -> closing_reply_judge.JudgeVerdict:
+        all_judged_replies.append(reply_text)
+        return closing_reply_judge.JudgeVerdict("", "")
+
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(open_tasks_stop_gate, "is_judged_payload", lambda *_: True)
+    monkeypatch.setattr(open_tasks_stop_gate, "judged_verdict", record_judged_reply)
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [keyed_prompt_record(WORK_PROMPT, "prompt-1"), TRACKER_CALL, READ_CALL]
+    )
+    noted_reply = f"Both builds passed.\n\nNoted for you:\nWhat I deferred:\n{THREE_BULLETS}"
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=noted_reply) == {}
+    assert all_judged_replies == ["Both builds passed.\n\n"]

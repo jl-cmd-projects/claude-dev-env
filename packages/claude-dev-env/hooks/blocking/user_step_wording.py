@@ -177,6 +177,8 @@ from hooks_constants.user_step_wording_constants import (
     CLAUSE_LEAD_WINDOW_CHARACTERS,
     CLAUSE_WORD_PATTERN,
     CODE_SPAN_SPACE,
+    CARRIAGE_RETURN,
+    CARRIAGE_RETURN_STAND_IN,
     CODE_SPAN_STAND_IN,
     EMPHASIS_MARKS,
     HTML_BLOCK_SEPARATOR,
@@ -188,6 +190,7 @@ from hooks_constants.user_step_wording_constants import (
     HTML_SOURCE_SPACE,
     HTML_SOURCE_SPACE_PATTERN,
     LINE_BREAK,
+    LINE_END_CHARACTERS,
     LINE_ENDING_PATTERN,
     MARKER_WORD_PATTERN,
     MAXIMUM_SENT_FILE_BYTES,
@@ -525,24 +528,28 @@ def split_closing_note(reply_text: str) -> tuple[str, str]:
 
 
 def _prose_line_spans(reply_text: str) -> list[tuple[int, int, str]]:
-    all_fenced_spans = _fenced_spans(reply_text)
+    remaining_fenced_spans = iter(_fenced_spans(reply_text))
+    current_fenced_span = next(remaining_fenced_spans, None)
     all_prose_lines: list[tuple[int, int, str]] = []
     line_offset = 0
     for each_line in reply_text.splitlines(keepends=True):
-        if not any(each_start <= line_offset < each_end for each_start, each_end in all_fenced_spans):
-            all_prose_lines.append((line_offset, line_offset + len(each_line), each_line.rstrip("\r\n")))
+        while current_fenced_span is not None and current_fenced_span[1] <= line_offset:
+            current_fenced_span = next(remaining_fenced_spans, None)
+        if current_fenced_span is None or line_offset < current_fenced_span[0]:
+            all_prose_lines.append((line_offset, line_offset + len(each_line), each_line.rstrip(LINE_END_CHARACTERS)))
         line_offset += len(each_line)
     return all_prose_lines
 
 
 def _fenced_spans(reply_text: str) -> list[tuple[int, int]]:
+    line_feed_text = reply_text.replace(CARRIAGE_RETURN, CARRIAGE_RETURN_STAND_IN)
     all_fenced_spans: list[tuple[int, int]] = []
     search_from = 0
-    while (fence_opener := FENCE_OPENER_PATTERN.search(reply_text, search_from)) is not None:
+    while (fence_opener := FENCE_OPENER_PATTERN.search(line_feed_text, search_from)) is not None:
         fence_text = next(each_mark for each_mark in fence_opener.groups() if each_mark)
         fence_closer = re.compile(
             FENCE_CLOSER_PREFIX + re.escape(fence_text) + re.escape(fence_text[0]) + FENCE_CLOSER_SUFFIX, re.MULTILINE
-        ).search(reply_text, fence_opener.end())
+        ).search(line_feed_text, fence_opener.end())
         if fence_closer is None:
             search_from = fence_opener.end()
             continue

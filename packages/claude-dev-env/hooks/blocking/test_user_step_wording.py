@@ -548,3 +548,15 @@ def test_should_split_the_closing_note_from_the_reply(reply_text: str, expected_
 def test_should_keep_a_note_line_inside_a_longer_outer_fence() -> None:
     nested_reply = "````md\n```\nNoted for you:\n```\n````\n9371 needs you."
     assert user_step_wording.split_closing_note(nested_reply) == (nested_reply, "")
+
+
+def test_should_keep_a_note_line_inside_a_fence_with_windows_line_endings() -> None:
+    fenced_reply = "```\r\nNoted for you:\r\n```\r\n9371 needs you."
+    assert user_step_wording.split_closing_note(fenced_reply) == (fenced_reply, "")
+
+
+def test_should_split_a_reply_of_many_fences_in_linear_time() -> None:
+    many_fences_reply = "```\nx\n```\n" * 8000 + "Noted for you:\n- 9371 needs your scope."
+    started_at = time.process_time()
+    assert user_step_wording.split_closing_note(many_fences_reply)[1] == "- 9371 needs your scope."
+    assert time.process_time() - started_at < 1.0

@@ -417,6 +417,31 @@ def test_should_read_a_note_in_a_message_before_the_closing_reply(
     assert f'"- {DEFERRAL_LINE}"' in hold_reason
 
 
+def test_should_end_the_hold_once_the_held_line_moves_into_the_closing_note(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    first_records = [typed_prompt_record(), reply_record(DEFERRAL_LINE)]
+    first_reason = held_reason(monkeypatch, capsys, tmp_path, first_records)
+    assert first_reason is not None
+    noted_reply = reply_record(f"The flag is in place.\n\nNoted for you:\n- {DEFERRAL_LINE}")
+    all_records = [*first_records, stop_feedback_record(f"Stop hook feedback:\n{first_reason}"), noted_reply]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None
+    plain_reply = reply_record("The flag is in place.")
+    assert held_reason(monkeypatch, capsys, tmp_path, [*all_records[:-1], plain_reply]) is not None
+
+
+def test_should_keep_a_note_that_closed_an_earlier_turn_out_of_the_scan(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_records = [
+        typed_prompt_record(),
+        reply_record(f"The flag is in place.\n\nNoted for you:\n- {DEFERRAL_LINE}"),
+        typed_prompt_record(),
+        reply_record("The tests passed."),
+    ]
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None
+
+
 def test_should_offer_the_closing_note_in_the_closing_round_reason(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
