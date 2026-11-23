@@ -249,6 +249,42 @@ test('a profile that already holds the open tasks gate gets only the closing que
     assert.ok(outcome.additions[0].includes('closing_question_round_gate.py'));
 });
 
+test('a profile loses the closing question round entry once the main settings hold only the open tasks gate', (context) => {
+    const { homeDirectory, claudeHome, mainSettingsPath, gateCommand } = makeHome(context);
+    const mainClosingGateCommand = gateCommand.replace('open_tasks_stop_gate.py', 'closing_question_round_gate.py');
+    const ownCopyCommand = 'python3 /elsewhere/hooks/blocking/closing_question_round_gate.py';
+    const profilePath = writeProfile(homeDirectory, 'holds-both', {
+        hooks: {
+            Stop: [{
+                hooks: [
+                    { type: 'command', command: gateCommand, timeout: 10 },
+                    { type: 'command', command: mainClosingGateCommand, timeout: 10 },
+                    { type: 'command', command: ownCopyCommand, timeout: 10 },
+                ],
+            }],
+        },
+    });
+
+    const [outcome] = addStopGatesToProfiles({ mainSettingsPath, claudeHome, allProfileSettingsPaths: [profilePath], homeDirectory });
+
+    assert.deepEqual(stopCommands(profilePath), [gateCommand, ownCopyCommand]);
+    assert.equal(outcome.hasRetiredRemoval, true);
+    assert.deepEqual(backupFileNames(profilePath).length, 1);
+    assert.deepEqual(stopCommands(outcome.backupPath), [gateCommand, mainClosingGateCommand, ownCopyCommand]);
+});
+
+test('a profile keeps its closing question round entry while the main settings hold no gate', (context) => {
+    const { homeDirectory, claudeHome, mainSettingsPath, closingGateCommand } = makeTwoGateHome(context);
+    writeFileSync(mainSettingsPath, JSON.stringify({ hooks: {} }));
+    const profilePath = writeProfile(homeDirectory, 'holds-closing-round', {
+        hooks: { Stop: [{ hooks: [{ type: 'command', command: closingGateCommand, timeout: 10 }] }] },
+    });
+
+    addStopGatesToProfiles({ mainSettingsPath, claudeHome, allProfileSettingsPaths: [profilePath], homeDirectory });
+
+    assert.deepEqual(stopCommands(profilePath), [closingGateCommand]);
+});
+
 test('a profile that already holds the closing question round gate gets only the open tasks gate', (context) => {
     const { homeDirectory, claudeHome, mainSettingsPath, gateCommand, closingGateCommand } = makeTwoGateHome(context);
     const profilePath = writeProfile(homeDirectory, 'holds-closing-round', {

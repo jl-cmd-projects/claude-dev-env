@@ -44,6 +44,7 @@ import {
     MANAGED_HOOKS_DIRECTORY_NAME,
     MANAGED_SCRIPTS_DIRECTORY_NAME,
     SETTINGS_FILE_NAME,
+    CLOSING_QUESTION_ROUND_HOOK_RELATIVE_PATH,
     CODEX_HOME_ENVIRONMENT_VARIABLE,
     DEFAULT_CODEX_DIRECTORY_NAME,
     CODEX_RULES_PACKAGE_DIRECTORY_NAME,
@@ -3457,6 +3458,10 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     for (const eachLine of describeProfileSettingsOutcome(mergeOutcome, false)) {
         console.log(`  Profile settings: ${eachLine}`);
     }
+    pruneRetiredHookRegistrations(
+        join(CLAUDE_HOME, SETTINGS_FILE_NAME),
+        new Set([CLOSING_QUESTION_ROUND_HOOK_RELATIVE_PATH.join('/')]),
+    );
     for (const eachOutcome of addStopGatesToProfiles({
         mainSettingsPath: join(CLAUDE_HOME, SETTINGS_FILE_NAME),
         claudeHome: CLAUDE_HOME,
@@ -3465,6 +3470,9 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
     })) {
         if (eachOutcome.additions.length > 0) {
             console.log(`  Profile settings: Stop gates added to ${eachOutcome.settingsPath}`);
+        }
+        if (eachOutcome.hasRetiredRemoval) {
+            console.log(`  Profile settings: retired Stop gate entry removed from ${eachOutcome.settingsPath}`);
         }
     }
 

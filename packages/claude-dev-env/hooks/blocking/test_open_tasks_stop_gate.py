@@ -13,6 +13,7 @@ import pytest
 
 import closing_reply_judge
 import open_tasks_stop_gate
+from hooks_constants.closing_question_round_gate_constants import CLOSING_ROUND_REASON_LEAD
 from open_tasks_transcript import TaskItem, replayed_transcript
 
 if TYPE_CHECKING:
@@ -43,6 +44,7 @@ def isolated_home(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     monkeypatch.delenv("CLAUDE_CODE_TASK_LIST_ID", raising=False)
     monkeypatch.delenv("CLAUDE_TURN_REVIEW_CHILD", raising=False)
     monkeypatch.setattr(shutil, "which", _which_without_claude)
+    monkeypatch.setattr(open_tasks_stop_gate, "closing_round_hold_reason", lambda payload_bytes: None)
 
 
 def user_prompt_record(prompt_text: str) -> dict[str, object]:
@@ -1286,3 +1288,173 @@ def test_should_hold_a_judged_promise_inside_the_in_progress_footer(
     assert block_reason.startswith(PROMISE_REASON_START)
     assert "The closing reply lists" not in block_reason
     assert len(judge_stub.calls()) == 1
+
+
+ROUND_REASON = "The closing round reason."
+CLOSING_ROUND_HOLD_REASON = open_tasks_stop_gate.closing_round_hold_reason
+
+
+def stub_closing_round(monkeypatch: pytest.MonkeyPatch, round_reason: str | None) -> list[bytes]:
+    all_round_payloads: list[bytes] = []
+
+    def answer_round(payload_bytes: bytes) -> str | None:
+        all_round_payloads.append(payload_bytes)
+        return round_reason
+
+    monkeypatch.setattr(open_tasks_stop_gate, "closing_round_hold_reason", answer_round)
+    return all_round_payloads
+
+
+def test_should_hold_with_the_closing_round_reason_alone_when_no_own_finding_stands(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_round_payloads = stub_closing_round(monkeypatch, ROUND_REASON)
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(WORK_PROMPT, READ_CALL))
+    assert run_gate(monkeypatch, capsys, transcript_path)["reason"] == ROUND_REASON
+    assert json.loads(all_round_payloads[0])["session_id"] == SESSION_ID
+
+
+def test_should_send_the_closing_round_reason_first_then_the_own_findings(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    stub_closing_round(monkeypatch, ROUND_REASON)
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(WORK_PROMPT, READ_CALL))
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text="I'll report back once CI ends.")["reason"]
+    assert block_reason.startswith(f"{ROUND_REASON}\n\n{PROMISE_REASON_START}")
+
+
+def test_should_leave_out_the_list_finding_when_the_closing_round_reason_quotes_the_open_item_lines(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    quoting_reason = f"{CLOSING_ROUND_REASON_LEAD}\nThe lines:"
+    stub_closing_round(monkeypatch, quoting_reason)
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(WORK_PROMPT, READ_CALL))
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)["reason"] == quoting_reason
+
+
+def test_should_keep_the_list_finding_beside_a_closing_round_reason_that_asks_for_something_else(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    stub_closing_round(monkeypatch, ROUND_REASON)
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(WORK_PROMPT, READ_CALL))
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)["reason"]
+    assert block_reason.startswith(f"{ROUND_REASON}\n\n{LIST_REASON_START}")
+
+
+@pytest.mark.parametrize(
+    ("all_hook_input_fields", "review_child_marker", "is_expected_round"),
+    [
+        ({"session_id": SESSION_ID}, None, True),
+        ({"conversation_id": "c-1"}, None, False),
+        ({"turn_id": "t-1"}, None, False),
+        ({"session_id": SESSION_ID}, "1", False),
+    ],
+)
+def test_should_run_the_closing_round_only_for_a_claude_code_stop_outside_a_review_child(
+    monkeypatch: pytest.MonkeyPatch,
+    all_hook_input_fields: dict[str, object],
+    review_child_marker: str | None,
+    is_expected_round: bool,
+) -> None:
+    if review_child_marker is not None:
+        monkeypatch.setenv("CLAUDE_TURN_REVIEW_CHILD", review_child_marker)
+    assert open_tasks_stop_gate.has_closing_round(all_hook_input_fields) is is_expected_round
+
+
+def test_should_skip_the_closing_round_for_a_cursor_payload(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_round_payloads = stub_closing_round(monkeypatch, ROUND_REASON)
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(WORK_PROMPT, READ_CALL))
+    hook_input = {"conversation_id": "c-1", "status": "completed", "transcript_path": str(transcript_path)}
+    monkeypatch.setattr("sys.stdin", io.TextIOWrapper(io.BytesIO(json.dumps(hook_input).encode("utf-8"))))
+    assert open_tasks_stop_gate.main() == 0
+    assert ROUND_REASON not in capsys.readouterr().out
+    assert all_round_payloads == []
+
+
+def test_should_read_the_closing_round_reason_from_the_round_gate_script(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CLAUDE_CODE_SESSION_ATTENDED", "1")
+    transcript_path = write_records(
+        tmp_path / "s.jsonl",
+        [*closing_turn(WORK_PROMPT, READ_CALL), assistant_text_record(DEFERRED_REPLY)],
+    )
+    hook_input = {
+        "hook_event_name": "Stop",
+        "session_id": SESSION_ID,
+        "transcript_path": str(transcript_path),
+        "last_assistant_message": DEFERRED_REPLY,
+    }
+    round_reason = CLOSING_ROUND_HOLD_REASON(json.dumps(hook_input).encode("utf-8"))
+    assert round_reason is not None
+    assert round_reason.startswith(CLOSING_ROUND_REASON_LEAD)
+
+
+def test_should_read_no_closing_round_reason_for_a_payload_the_round_gate_allows() -> None:
+    assert CLOSING_ROUND_HOLD_REASON(b"not json") is None
+
+
+def test_should_drop_only_the_list_finding_the_closing_round_reason_covers() -> None:
+    list_finding = open_tasks_stop_gate.ClosingReplyFinding("list", "", open_tasks_stop_gate.OPEN_ITEM_LIST_KEEP_CONDITION)
+    promise_finding = open_tasks_stop_gate.ClosingReplyFinding(
+        "promise", "", open_tasks_stop_gate.PROMISED_REPORT_KEEP_CONDITION
+    )
+    all_findings = [promise_finding, list_finding]
+    assert open_tasks_stop_gate.without_round_duplicate(all_findings, None) == all_findings
+    assert open_tasks_stop_gate.without_round_duplicate(all_findings, ROUND_REASON) == all_findings
+    assert open_tasks_stop_gate.without_round_duplicate(all_findings, CLOSING_ROUND_REASON_LEAD) == [promise_finding]
+
+
+def test_should_claim_the_turn_when_the_closing_round_covers_the_list_finding(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    quoting_reason = f"{CLOSING_ROUND_REASON_LEAD}\nThe lines:"
+    stub_closing_round(monkeypatch, quoting_reason)
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [keyed_prompt_record(WORK_PROMPT, "prompt-1"), TRACKER_CALL, READ_CALL]
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)["reason"] == quoting_reason
+    stub_closing_round(monkeypatch, None)
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DEFERRED_REPLY) == {}
+
+
+def test_should_wait_for_the_closing_round_only_after_the_reply_findings(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    all_events: list[str] = []
+
+    def findings_first(*all_arguments: object) -> list[object]:
+        all_events.append("findings")
+        return []
+
+    def waited_round() -> str | None:
+        all_events.append("round")
+        return ROUND_REASON
+
+    monkeypatch.setattr(open_tasks_stop_gate, "closing_reply_findings", findings_first)
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(WORK_PROMPT, READ_CALL))
+    hook_input: dict[str, object] = {"session_id": SESSION_ID, "transcript_path": str(transcript_path)}
+    stop_reasons = open_tasks_stop_gate._stop_block_reason(hook_input, lambda: waited_round)
+    assert all_events[0] == "findings"
+    assert stop_reasons.round_reason == ROUND_REASON
+    assert stop_reasons.joined() == ROUND_REASON
+
+
+def test_should_log_only_the_own_findings_of_a_hold(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_logged_reasons: list[str] = []
+    monkeypatch.setattr(
+        open_tasks_stop_gate,
+        "log_hook_block",
+        lambda hook_name, event_name, logged_reason: all_logged_reasons.append(logged_reason),
+    )
+    stub_closing_round(monkeypatch, ROUND_REASON)
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(WORK_PROMPT, READ_CALL))
+    assert run_gate(monkeypatch, capsys, transcript_path)["reason"] == ROUND_REASON
+    assert all_logged_reasons == []
+    run_gate(monkeypatch, capsys, transcript_path, reply_text="I'll report back once CI ends.")
+    assert len(all_logged_reasons) == 1
+    assert all_logged_reasons[0].startswith(PROMISE_REASON_START)

@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Stop hook that keeps the task list in step with the work an ask started.
+"""Stop hook that keeps the task list in step with the work an ask started, and runs the closing round checks.
+
+This is the one registered Stop gate for the closing reply. On a Claude Code
+stop it also runs the checks in ``closing_question_round_gate.py`` and sends
+one reason for both::
+
+    closing round reason only             -> that reason
+    closing round reason and own findings -> the closing round reason, a blank line, the own findings
+    the closing round reason quotes the open-item lines -> the own open item list finding is left out
+
+A Cursor payload, a Codex turn and a review child get the own checks only.
 
 The user follows a session's work in its task list. A turn that works on an ask
 leaves a trace there: at least one tracker call after the prompt::
@@ -113,8 +123,12 @@ call that a Cursor ``CallDynamicTool`` call wraps counts as a TodoWrite call.
 
 from __future__ import annotations
 
+import json
 import os
+import subprocess
 import sys
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import NamedTuple
 
@@ -138,6 +152,12 @@ from user_step_wording import file_waiting_phrase, waiting_phrase
 from codex_continuation_review import continuation_review, user_requested_stop
 from hooks_constants.codex_continuation_constants import AGENT_TRANSCRIPT_KEY, CHILD_FLAG, CHILD_STOP_EVENT
 from closing_question_round_footer import list_check_text
+from hooks_constants.closing_question_round_gate_constants import (
+    CLOSING_ROUND_REASON_LEAD,
+    STOP_DEADLINE_SECONDS,
+    WATCHDOG_GRACE_SECONDS,
+)
+from hooks_constants.stop_hook_hold_constants import BLOCK_EXIT_CODE
 from closing_reply_shapes import item_count_under, open_item_list, promised_report_phrase
 from closing_reply_judge import JudgeVerdict, is_judge_available, judged_verdict, log_no_verdict
 from turn_review_transcript import _last_assistant_message_text, _ReversedTranscript
@@ -152,6 +172,8 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_OWN_REASON_OPENINGS,
     ALLOW_EXIT_CODE,
     CLOSING_REPLY_HOLD_MARKER_NAME,
+    CLOSING_ROUND_GATE_FILE_NAME,
+    CLOSING_ROUND_START_ALLOWANCE_SECONDS,
     COMPLETED_ITEMS_REASON_TEMPLATE,
     COMPLETED_STATUS,
     CURSOR_COMPLETED_STATUS,
@@ -166,6 +188,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     OPEN_ITEM_LIST_REASON_TEMPLATE,
     PROMISED_REPORT_KEEP_CONDITION,
     PROMISED_REPORT_REASON_TEMPLATE,
+    REASON_SEPARATOR,
     REWORKED_REPLY_INSTRUCTION,
     SHORT_REPLY_INSTRUCTION,
     STOP_HOOK_ACTIVE_KEY,
@@ -444,6 +467,26 @@ def closing_reply_findings(
     return all_findings
 
 
+def without_round_duplicate(
+    all_reply_findings: list[ClosingReplyFinding], round_reason: str | None
+) -> list[ClosingReplyFinding]:
+    """Drop the open item list finding when the closing round reason already asks for the question cards.
+
+    ::
+
+        list finding, round reason quotes the open-item lines  -> []
+        list finding, round reason asks for the footer         -> the list finding
+        promise finding, any round reason                      -> the promise finding
+    """
+    if round_reason is None or CLOSING_ROUND_REASON_LEAD not in round_reason:
+        return all_reply_findings
+    return [
+        each_finding
+        for each_finding in all_reply_findings
+        if each_finding.keep_condition != OPEN_ITEM_LIST_KEEP_CONDITION
+    ]
+
+
 def _closing_lines(has_step_reason: bool, all_reply_findings: list[ClosingReplyFinding]) -> list[str]:
     if all_reply_findings:
         return [
@@ -453,19 +496,40 @@ def _closing_lines(has_step_reason: bool, all_reply_findings: list[ClosingReplyF
     return [NO_STEP_INSTRUCTION if has_step_reason else KEEP_REPLY_INSTRUCTION]
 
 
-def turn_block_reason(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> str | None:
+def _no_closing_round() -> str | None:
+    return None
+
+
+def _reply_findings_beside_round(
+    all_hook_input_fields: dict[str, object], replay: TranscriptReplay, closing_round: Callable[[], str | None]
+) -> list[ClosingReplyFinding]:
+    all_reply_findings = closing_reply_findings(all_hook_input_fields, replay)
+    all_kept_findings = without_round_duplicate(all_reply_findings, closing_round())
+    if len(all_kept_findings) < len(all_reply_findings) and replay.turn_key is not None:
+        claim_turn_showing(CLOSING_REPLY_HOLD_MARKER_NAME, all_hook_input_fields, replay.turn_key)
+    return all_kept_findings
+
+
+def turn_block_reason(
+    all_hook_input_fields: dict[str, object],
+    replay: TranscriptReplay,
+    closing_round: Callable[[], str | None] = _no_closing_round,
+) -> str | None:
     """Return one reason that carries every finding on the turn, or None when the turn may end.
 
     ::
 
         tracker finding only           -> the finding, then "Then end the turn. Leave the reply as it stands."
         promise and list findings      -> both findings, the list's closing line, then both keep conditions
+        list finding, and the closing round reason quotes the open-item lines -> None, and the turn is claimed
+
+    ``closing_round`` is read after the reply findings, so the closing round child runs beside the judge call.
 
     A Codex continuation asks for the next authorized step when the closing text still describes unfinished work.
     """
     all_tracker_reasons = tracker_reasons(all_hook_input_fields, replay)
     all_step_reasons = user_step_reasons(all_hook_input_fields, replay)
-    all_reply_findings = closing_reply_findings(all_hook_input_fields, replay)
+    all_reply_findings = _reply_findings_beside_round(all_hook_input_fields, replay, closing_round)
     all_reasons = [
         *all_tracker_reasons,
         *all_step_reasons,
@@ -494,7 +558,11 @@ def _has_turn_hold_from_this_gate(replay: TranscriptReplay) -> bool:
     )
 
 
-def continued_stop_reason(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> str | None:
+def continued_stop_reason(
+    all_hook_input_fields: dict[str, object],
+    replay: TranscriptReplay,
+    closing_round: Callable[[], str | None] = _no_closing_round,
+) -> str | None:
     """Return the closing-reply reason for a Claude Code stop that a Stop hook already held, at most once per turn.
 
     ::
@@ -503,6 +571,7 @@ def continued_stop_reason(all_hook_input_fields: dict[str, object], replay: Tran
         the same turn again                                                    -> None
         a stop after this gate held the turn                                   -> None
         no turn key, a Cursor payload, or a marker that cannot be kept         -> None
+        only a list finding, and the closing round reason quotes the lines     -> None, and the turn is claimed
 
     The turn key is the ``uuid`` of the prompt record that started the turn.
     Tracker and user-step reasons stay off such a stop.
@@ -511,7 +580,7 @@ def continued_stop_reason(all_hook_input_fields: dict[str, object], replay: Tran
         return None
     if _has_turn_hold_from_this_gate(replay):
         return None
-    all_reply_findings = closing_reply_findings(all_hook_input_fields, replay)
+    all_reply_findings = _reply_findings_beside_round(all_hook_input_fields, replay, closing_round)
     if not all_reply_findings:
         return None
     if claim_turn_showing(CLOSING_REPLY_HOLD_MARKER_NAME, all_hook_input_fields, replay.turn_key) is not True:
@@ -531,23 +600,100 @@ def is_held_stop(all_hook_input_fields: dict[str, object]) -> bool:
     return has_sent_followup or (stop_status is not None and stop_status != CURSOR_COMPLETED_STATUS)
 
 
-def _stop_block_reason(all_hook_input_fields: dict[str, object]) -> str | None:
+def closing_round_hold_reason(payload_bytes: bytes) -> str | None:
+    """Return the reason the closing round checks hold a Stop payload with, or None when the stop may end.
+
+    The checks live in ``closing_question_round_gate.py``, which runs here as a child process::
+
+        a payload whose stretch holds "I deferred the backoff setting."  -> the closing round reason
+        a payload with nothing in progress and no open-item line         -> None
+        a run that outlasts its deadline, or cannot start                -> None
+    """
+    round_gate_path = Path(__file__).resolve().parent / CLOSING_ROUND_GATE_FILE_NAME
+    try:
+        completed_round = subprocess.run(
+            [sys.executable, str(round_gate_path)],
+            input=payload_bytes,
+            capture_output=True,
+            check=False,
+            timeout=STOP_DEADLINE_SECONDS + WATCHDOG_GRACE_SECONDS + CLOSING_ROUND_START_ALLOWANCE_SECONDS,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if completed_round.returncode != BLOCK_EXIT_CODE:
+        return None
+    return completed_round.stderr.decode(UTF8_ENCODING, errors=DECODE_ERRORS_POLICY).strip() or None
+
+
+def has_closing_round(all_hook_input_fields: dict[str, object]) -> bool:
+    """Return True for a payload the closing round checks read: a stop with no Cursor or Codex key, outside a review child."""
     if os.environ.get(REVIEW_CHILD_ENVIRONMENT_VARIABLE) == REVIEW_CHILD_MARKER:
-        return None
-    is_claude_held_stop = all_hook_input_fields.get(STOP_HOOK_ACTIVE_KEY) is True
-    if is_held_stop(all_hook_input_fields) and not is_claude_held_stop:
-        return None
-    replay = replayed_transcript(all_hook_input_fields.get(TRANSCRIPT_PATH_KEY))
-    if replay.is_codex_turn and user_requested_stop(replay.turn_prompt_text):
-        return None
-    if is_claude_held_stop:
+        return False
+    return not (
+        all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY) or all_hook_input_fields.get(CODEX_TURN_ID_KEY)
+    )
+
+
+class StopReasons(NamedTuple):
+    """The two parts of one hold: the closing round reason and this gate's own findings."""
+
+    round_reason: str | None
+    own_reason: str | None
+
+    def joined(self) -> str | None:
+        """Return the closing round reason, a blank line, then the own findings, or None when both are missing."""
+        all_reasons = [each_reason for each_reason in self if each_reason]
+        return REASON_SEPARATOR.join(all_reasons) if all_reasons else None
+
+
+def _own_block_reason(
+    all_hook_input_fields: dict[str, object], replay: TranscriptReplay, closing_round: Callable[[], str | None]
+) -> str | None:
+    if all_hook_input_fields.get(STOP_HOOK_ACTIVE_KEY) is True:
         if all_hook_input_fields.get(CODEX_TURN_ID_KEY) or replay.is_codex_turn:
             return None
-        return continued_stop_reason(all_hook_input_fields, replay)
-    block_reason = turn_block_reason(all_hook_input_fields, replay)
+        return continued_stop_reason(all_hook_input_fields, replay, closing_round)
+    block_reason = turn_block_reason(all_hook_input_fields, replay, closing_round)
     if block_reason is not None and replay.turn_key is not None:
         claim_turn_showing(CLOSING_REPLY_HOLD_MARKER_NAME, all_hook_input_fields, replay.turn_key)
     return block_reason
+
+
+def _stop_block_reason(
+    all_hook_input_fields: dict[str, object],
+    start_closing_round: Callable[[], Callable[[], str | None]] = lambda: _no_closing_round,
+) -> StopReasons:
+    """Return the reasons for the stop: the closing round reason and this gate's own findings.
+
+    ::
+
+        closing round holds, no own finding       -> the closing round reason alone
+        closing round holds, a promised report    -> the closing round reason and the promise finding
+        a Codex turn                              -> the own findings only, and no closing round starts
+
+    ``start_closing_round`` starts the closing round and returns the call that waits for its reason.
+    """
+    if os.environ.get(REVIEW_CHILD_ENVIRONMENT_VARIABLE) == REVIEW_CHILD_MARKER:
+        return StopReasons(None, None)
+    is_claude_held_stop = all_hook_input_fields.get(STOP_HOOK_ACTIVE_KEY) is True
+    if is_held_stop(all_hook_input_fields) and not is_claude_held_stop:
+        return StopReasons(None, None)
+    replay = replayed_transcript(all_hook_input_fields.get(TRANSCRIPT_PATH_KEY))
+    if replay.is_codex_turn and user_requested_stop(replay.turn_prompt_text):
+        return StopReasons(None, None)
+    closing_round = _no_closing_round if replay.is_codex_turn else start_closing_round()
+    own_reason = _own_block_reason(all_hook_input_fields, replay, closing_round)
+    return StopReasons(closing_round(), own_reason)
+
+
+def _stop_reasons_with_closing_round(all_hook_input_fields: dict[str, object]) -> StopReasons:
+    if not has_closing_round(all_hook_input_fields):
+        return _stop_block_reason(all_hook_input_fields)
+    payload_bytes = json.dumps(all_hook_input_fields).encode(UTF8_ENCODING)
+    with ThreadPoolExecutor(max_workers=1) as round_pool:
+        return _stop_block_reason(
+            all_hook_input_fields, lambda: round_pool.submit(closing_round_hold_reason, payload_bytes).result
+        )
 
 
 def main() -> int:
@@ -560,11 +706,15 @@ def main() -> int:
             return ALLOW_EXIT_CODE
         child_turn = replayed_transcript(hook_input.get(AGENT_TRANSCRIPT_KEY))
         block_reason = continuation_review(hook_input.get(LAST_ASSISTANT_MESSAGE_KEY), child_turn.turn_prompt_text, child_turn.has_turn_question_tool)
+        own_reason = block_reason
     else:
-        block_reason = _stop_block_reason(hook_input)
+        stop_reasons = _stop_reasons_with_closing_round(hook_input)
+        block_reason = stop_reasons.joined()
+        own_reason = stop_reasons.own_reason
     if block_reason is None:
         return ALLOW_EXIT_CODE
-    log_hook_block(Path(__file__).name, CHILD_STOP_EVENT if is_child_stop else HOOK_EVENT_NAME, block_reason)
+    if own_reason is not None:
+        log_hook_block(Path(__file__).name, CHILD_STOP_EVENT if is_child_stop else HOOK_EVENT_NAME, own_reason)
     return hold_stop(hook_input, block_reason)
 
 
