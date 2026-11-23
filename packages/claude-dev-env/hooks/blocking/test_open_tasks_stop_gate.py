@@ -1622,3 +1622,19 @@ def test_should_clear_a_parked_need_at_a_pasted_notice_a_person_typed(
         [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1"), pasted_prompt, TRACKER_CALL],
     )
     assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DISMISSING_REPLY) == {}
+
+
+def test_should_clear_a_parked_need_at_a_typed_prompt_that_pastes_hook_feedback(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    pasted_prompt = {
+        **keyed_prompt_record(f"Stop hook feedback:\n{first_reason}\n\nWhy did this fire?", "prompt-2"),
+        "turnOrigin": "human",
+    }
+    write_records(
+        transcript_path,
+        [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1"), pasted_prompt, TRACKER_CALL],
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DISMISSING_REPLY) == {}

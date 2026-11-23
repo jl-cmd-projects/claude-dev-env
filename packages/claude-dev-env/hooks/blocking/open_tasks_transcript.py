@@ -51,7 +51,9 @@ Two more notes run from the last prompt that is no event wake, as
 ``session.tracking_nudge.is_event_wake`` reads it, and no
 ``[SYSTEM NOTIFICATION - NOT USER INPUT]`` prompt, so a job that ends
 mid-turn does not clear them. A typed prompt clears them, and so does any
-prompt record whose ``turnOrigin`` is ``human``::
+prompt record whose ``turnOrigin`` is ``human``, even one whose pasted text
+opens with ``Stop hook feedback``, since a hook's own feedback record carries
+no ``turnOrigin``::
 
     has_delivered_question_since_prompt
                              a main-thread question call whose tool result,
@@ -339,13 +341,15 @@ class TranscriptReplay:
             self.start_turn(prompt_text)
             self.is_codex_turn = True
             return
-        prompt_text = claude_prompt_text(all_record_fields)
+        is_typed_by_a_person = all_record_fields.get(TURN_ORIGIN_KEY) == HUMAN_TURN_ORIGIN
+        feedback_text = stop_feedback_text(all_record_fields)
+        prompt_text = feedback_text if is_typed_by_a_person else None
+        prompt_text = prompt_text if prompt_text is not None else claude_prompt_text(all_record_fields)
         if prompt_text is not None:
-            self.start_turn(prompt_text, all_record_fields.get(TURN_ORIGIN_KEY) == HUMAN_TURN_ORIGIN)
+            self.start_turn(prompt_text, is_typed_by_a_person)
             prompt_uuid = all_record_fields.get(RECORD_UUID_KEY)
             self.turn_key = prompt_uuid if isinstance(prompt_uuid, str) and prompt_uuid else None
             return
-        feedback_text = stop_feedback_text(all_record_fields)
         if feedback_text is not None:
             self.turn_stop_feedback_texts.append(feedback_text)
             self.prompt_stop_feedback_texts.append(feedback_text)
