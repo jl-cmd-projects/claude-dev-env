@@ -64,7 +64,15 @@ A read call is a shell, a file or web read, a subagent, or a tool whose name
 carries a read word, as ``open_tasks_transcript.is_read_tool_name`` lists. The
 gate checks that a read ran, and leaves which item it read to the agent. Each
 such hold tells the agent to read the live state of every item it shows as
-open, and to end the turn when the wording hands the user no step.
+open, and to end the turn when the live read shows the wording hands the user
+no step. A need only the user can meet is a step even when the agent notes it
+and moves on, so a held stop after that hold is held again while the turn
+still has no question tool call, whatever the new reply says::
+
+    block: hold on "Pull request 9371 waits on your words.", then "It hands you no step."
+    allow: the same stop after an AskUserQuestion call
+    allow: a third stop, after two such holds    (a host with no question tool)
+    allow: a held stop that only another Stop hook held
 
 The closing reply also gets two checks of its own: a promised later report,
 and open items sent as a list. On a Claude Code stop with ``claude`` on PATH,
@@ -161,7 +169,10 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     HOOK_EVENT_NAME,
     INCOMPLETE_STATUSES,
     KEEP_REPLY_INSTRUCTION,
+    MAXIMUM_STEP_HOLD_COUNT,
     NO_STEP_INSTRUCTION,
+    PARKED_NEED_OPENING,
+    PARKED_NEED_REASON,
     OPEN_ITEM_LIST_KEEP_CONDITION,
     OPEN_ITEM_LIST_REASON_TEMPLATE,
     PROMISED_REPORT_KEEP_CONDITION,
@@ -181,6 +192,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     UNASKED_STEP_REASON,
     UNREAD_STEP_REASON,
     UNTRACKED_WORK_REASON,
+    USER_STEP_HOLD_OPENING,
     USER_STEP_LEAD_TEMPLATE,
     UTF8_ENCODING,
     WORD_SEPARATOR,
@@ -318,6 +330,31 @@ def user_step_reasons(all_hook_input_fields: dict[str, object], replay: Transcri
         return []
     phrase = turn_waiting_phrase(all_hook_input_fields, replay)
     return [] if phrase is None else [USER_STEP_LEAD_TEMPLATE.format(phrase=phrase), *all_reasons]
+
+
+def parked_need_reason(replay: TranscriptReplay) -> str | None:
+    """Return the parked need reason for a held stop after this gate's user-step hold, or None.
+
+    ::
+
+        step hold in the turn, no question call, "it hands you no step"  -> the parked need reason
+        the same turn after an AskUserQuestion call                       -> None
+        two step holds in the turn already                                -> None
+        only another Stop hook held the turn                              -> None
+
+    The need was named in the reply this gate held, so the reply that follows
+    the hold does not release it. Only a question call in the turn does, or
+    the hold limit, which lets a host with no question tool end the turn.
+    """
+    if replay.has_turn_question_tool:
+        return None
+    step_hold_count = sum(
+        USER_STEP_HOLD_OPENING in each_feedback or PARKED_NEED_OPENING in each_feedback
+        for each_feedback in replay.turn_stop_feedback_texts
+    )
+    if not step_hold_count or step_hold_count >= MAXIMUM_STEP_HOLD_COUNT:
+        return None
+    return PARKED_NEED_REASON
 
 
 def tracker_reasons(all_hook_input_fields: dict[str, object], replay: TranscriptReplay) -> list[str]:
@@ -503,11 +540,18 @@ def continued_stop_reason(all_hook_input_fields: dict[str, object], replay: Tran
         the same turn again                                                    -> None
         a stop after this gate held the turn                                   -> None
         no turn key, a Cursor payload, or a marker that cannot be kept         -> None
+        this gate's user-step hold in the turn and no question call since      -> the parked need reason
 
     The turn key is the ``uuid`` of the prompt record that started the turn.
-    Tracker and user-step reasons stay off such a stop.
+    Tracker and first user-step reasons stay off such a stop. The parked need
+    reason comes from ``parked_need_reason`` and needs no turn key.
     """
-    if all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY) or replay.turn_key is None:
+    if all_hook_input_fields.get(CURSOR_CONVERSATION_ID_KEY):
+        return None
+    parked_reason = parked_need_reason(replay)
+    if parked_reason is not None:
+        return parked_reason
+    if replay.turn_key is None:
         return None
     if _has_turn_hold_from_this_gate(replay):
         return None

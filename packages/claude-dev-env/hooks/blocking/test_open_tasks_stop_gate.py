@@ -607,7 +607,8 @@ def test_should_block_a_reply_that_hands_the_user_a_step_without_a_read_or_a_que
     assert expected_text in block_output["reason"]
     assert absent_text not in block_output["reason"]
     assert "read the live state of each item you show as open" in block_output["reason"]
-    assert block_output["reason"].endswith("end the turn and leave the reply as it stands.")
+    assert "end the turn and leave the reply as it stands." in block_output["reason"]
+    assert block_output["reason"].endswith("hold the turn again when the question does not go out.")
 
 
 def test_should_allow_a_step_reply_after_a_read_call_and_a_question_call(
@@ -1286,3 +1287,104 @@ def test_should_hold_a_judged_promise_inside_the_in_progress_footer(
     assert block_reason.startswith(PROMISE_REASON_START)
     assert "The closing reply lists" not in block_reason
     assert len(judge_stub.calls()) == 1
+
+
+ORCHESTRATION_PROMPT = "Drive the open pull requests to merge. Do not block on me: note what needs me and move on."
+PARKED_NEED_REPLY = (
+    "Pull request 9371 waits on your words, and pull request 9375 needs you: that scope answer is yours."
+    " I will hand you this step with the others at the end."
+)
+DISMISSING_REPLY = "I noted it and moved on. The wording hands you no step in this turn, so I end the turn here."
+NO_NEED_REPLY = "Both pull requests merged and their checks passed."
+STEP_HOLD_START = "This turn tells the user that something waits on them"
+PARKED_NEED_START = "Earlier in this turn this gate held a reply that told the user something waits on them"
+
+
+def own_feedback_record(reason_text: str, feedback_uuid: str) -> dict[str, object]:
+    return {
+        "type": "user",
+        "isMeta": True,
+        "uuid": feedback_uuid,
+        "message": {"role": "user", "content": f"Stop hook feedback:\n{reason_text}"},
+    }
+
+
+def orchestration_turn() -> list[dict[str, object]]:
+    return [keyed_prompt_record(ORCHESTRATION_PROMPT, "prompt-1"), TRACKER_CALL, READ_CALL]
+
+
+def test_should_hold_a_parked_need_again_when_the_reply_says_it_hands_the_user_no_step(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    assert first_reason.startswith(STEP_HOLD_START)
+    write_records(transcript_path, [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1")])
+    second_output = run_gate(
+        monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DISMISSING_REPLY
+    )
+    assert second_output["decision"] == "block"
+    assert second_output["reason"].startswith(PARKED_NEED_START)
+    assert "AskUserQuestion" in second_output["reason"]
+    assert "hands you no step" in second_output["reason"]
+
+
+def test_should_end_a_parked_need_turn_once_the_question_card_went_out(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    write_records(
+        transcript_path, [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1"), QUESTION_CALL]
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PARKED_NEED_REPLY) == {}
+
+
+def test_should_let_a_parked_need_go_after_the_hold_limit(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    all_records = [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1")]
+    write_records(transcript_path, all_records)
+    second_reason = run_gate(
+        monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DISMISSING_REPLY
+    )["reason"]
+    write_records(transcript_path, [*all_records, own_feedback_record(second_reason, "feedback-2")])
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DISMISSING_REPLY) == {}
+
+
+def test_should_end_a_reply_with_no_user_need_cleanly(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=NO_NEED_REPLY) == {}
+    write_records(transcript_path, [*orchestration_turn(), OTHER_HOOK_FEEDBACK])
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=NO_NEED_REPLY) == {}
+
+
+def test_should_not_hold_a_parked_need_that_only_another_hook_held(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", [*orchestration_turn(), OTHER_HOOK_FEEDBACK])
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PARKED_NEED_REPLY) == {}
+
+
+def test_should_tell_the_first_step_hold_that_a_noted_need_is_still_a_step(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    assert "a need only the user can meet is a step even when you note it and move on" in first_reason
+
+
+def test_should_give_the_parked_need_reason_only_after_a_step_hold_with_no_question_call(tmp_path: Path) -> None:
+    step_feedback = own_feedback_record(f"{STEP_HOLD_START} (\"needs you\").", "feedback-1")
+    transcript_path = write_records(tmp_path / "s.jsonl", [*orchestration_turn(), step_feedback])
+    assert open_tasks_stop_gate.parked_need_reason(replayed_transcript(str(transcript_path))).startswith(
+        PARKED_NEED_START
+    )
+    write_records(transcript_path, [*orchestration_turn(), step_feedback, QUESTION_CALL])
+    assert open_tasks_stop_gate.parked_need_reason(replayed_transcript(str(transcript_path))) is None
+    write_records(transcript_path, [*orchestration_turn(), OTHER_HOOK_FEEDBACK])
+    assert open_tasks_stop_gate.parked_need_reason(replayed_transcript(str(transcript_path))) is None

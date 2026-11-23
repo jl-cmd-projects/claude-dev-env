@@ -132,8 +132,9 @@ COMPLETED_ITEMS_REASON_TEMPLATE = (
     " TaskUpdate with status deleted (TodoWrite or update_plan: send the list without it)."
 )
 KEEP_REPLY_INSTRUCTION = "Then end the turn. Leave the reply as it stands."
+USER_STEP_HOLD_OPENING = "This turn tells the user that something waits on them"
 USER_STEP_LEAD_TEMPLATE = (
-    'This turn tells the user that something waits on them ("{phrase}"). An item can close while it'
+    USER_STEP_HOLD_OPENING + ' ("{phrase}"). An item can close while it'
     " sits on a list, so in this turn read the live state of each item you show as open: the pull"
     " request, the session, the setting, or the log. Drop each one that is done, and show the user"
     " only what still stands open."
@@ -146,7 +147,24 @@ UNASKED_STEP_REASON = (
     " question. Keep long guides out of it. Where the host has no question tool, give each step its"
     " own short paragraph with its block or link."
 )
-NO_STEP_INSTRUCTION = "When the wording hands the user no step, end the turn and leave the reply as it stands."
+NO_STEP_INSTRUCTION = (
+    "When the live read shows the wording hands the user no step, end the turn and leave the reply as it"
+    " stands. A reply that says an item waits on the user's answer, words, scope decision, or approval hands"
+    " them a step: a need only the user can meet is a step even when you note it and move on. Send it through"
+    " the question tool in this turn, keep working on what does not wait on the answer, and expect this gate"
+    " to hold the turn again when the question does not go out."
+)
+PARKED_NEED_OPENING = "Earlier in this turn this gate held a reply that told the user something waits on them"
+PARKED_NEED_REASON = (
+    PARKED_NEED_OPENING + ", and the turn has still sent no question through the native question tool. A need"
+    " only the user can meet, such as their answer, their words, a scope decision, or an approval, goes to"
+    " them as a question card in the turn you find it. Wording such as \"noted it and moved on\" or \"this"
+    " hands you no step\" does not release it. Send each such item now as its own AskUserQuestion question"
+    " (Codex: request_user_input), with its context and links in the question text, then keep working on"
+    " what does not wait on the answer. When the live read showed every such item done, say so in one"
+    " sentence and end the turn."
+)
+MAXIMUM_STEP_HOLD_COUNT = 2
 WORKING_DIRECTORY_KEY = "cwd"
 SENT_FILES_KEY = "files"
 ALL_READ_TOOL_NAMES = frozenset(
@@ -271,7 +289,8 @@ CLOSING_REPLY_HOLD_MARKER_NAME = "closing_reply_hold"
 ALL_OWN_REASON_OPENINGS = (
     "This turn worked on the user's ask and left the task list unchanged.",
     "The task list shows completed work beside open items",
-    "This turn tells the user that something waits on them",
+    USER_STEP_HOLD_OPENING,
+    PARKED_NEED_OPENING,
     "The closing reply promises the user a later report",
     "The closing reply lists",
 )
