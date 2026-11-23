@@ -48,14 +48,16 @@ The replay also notes what the current turn did::
     is_codex_turn            a Codex ``response_item`` user message started the turn
 
 Two more notes run from the last prompt that is no event wake, as
-``session.tracking_nudge.is_event_wake`` reads it, so a job that ends
+``session.tracking_nudge.is_event_wake`` reads it, and no
+``[SYSTEM NOTIFICATION - NOT USER INPUT]`` prompt, so a job that ends
 mid-turn does not clear them, and a typed prompt does::
 
     has_delivered_question_since_prompt
-                             a question call whose tool result, matched by
-                             ``tool_use_id``, is no error, or a Codex
-                             request_user_input call; a call a hook refused
-                             does not count
+                             a main-thread question call whose tool result,
+                             matched by ``tool_use_id``, is no error, or a
+                             Codex request_user_input call, after this gate's
+                             last user-step hold; a call a hook refused and a
+                             call in an ``isSidechain`` record do not count
     prompt_stop_feedback_texts
                              the text of each ``Stop hook feedback`` record
 
@@ -86,9 +88,12 @@ hooks_root_directory = str(Path(__file__).resolve().parent.parent)
 if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
+from hooks_constants.background_silence_prompt_constants import BACKGROUND_EVENT_PATTERN
 from session.tracking_nudge import is_event_wake
 from hooks_constants.open_tasks_stop_gate_constants import (
     ASSISTANT_RECORD_TYPE,
+    OWN_STEP_HOLD_PATTERN,
+    SIDECHAIN_FLAG_KEY,
     ALL_QUESTION_TOOL_NAMES,
     ALL_TRACKER_TOOL_LISTING_NAMES,
     ALL_TRACKER_TOOL_NAMES,
@@ -312,7 +317,7 @@ class TranscriptReplay:
         self.has_turn_work_tool = False
         self.has_turn_question_tool = False
         self.turn_question_tool_use_ids = set()
-        if not is_event_wake(prompt_text):
+        if not is_event_wake(prompt_text) and BACKGROUND_EVENT_PATTERN.match(prompt_text.lstrip()) is None:
             self.has_delivered_question_since_prompt = False
             self.prompt_stop_feedback_texts = []
         self.has_turn_read_tool = False
@@ -337,6 +342,8 @@ class TranscriptReplay:
         if feedback_text is not None:
             self.turn_stop_feedback_texts.append(feedback_text)
             self.prompt_stop_feedback_texts.append(feedback_text)
+            if OWN_STEP_HOLD_PATTERN.search(feedback_text) is not None:
+                self.has_delivered_question_since_prompt = False
             return
         tool_listing = listed_tool_names(all_record_fields)
         if tool_listing is not None:
@@ -358,6 +365,7 @@ class TranscriptReplay:
             return
         is_typed_assistant_record = all_record_fields.get(RECORD_TYPE_KEY) == ASSISTANT_RECORD_TYPE
         is_from_assistant = is_assistant_record(all_record_fields)
+        is_main_thread = not all_record_fields.get(SIDECHAIN_FLAG_KEY)
         for each_block in _content_blocks(all_record_fields):
             plan_input = each_block.get(TOOL_INPUT_KEY)
             if is_typed_assistant_record and each_block.get(TOOL_NAME_KEY) == CCD_PLAN_TOOL_NAME and isinstance(plan_input, dict):
@@ -365,7 +373,7 @@ class TranscriptReplay:
                 self.has_turn_tracker_write = True
                 self.has_tracker_tool = True
             else:
-                self.apply_block(each_block, is_from_assistant)
+                self.apply_block(each_block, is_from_assistant, is_main_thread)
 
     def apply_desktop_plan(self, all_plan_fields: dict[str, object]) -> None:
         all_listed_entries = all_plan_fields.get(CCD_PLAN_ITEMS_KEY)
@@ -398,7 +406,9 @@ class TranscriptReplay:
         self.plan_items = all_own_items + all_carried_items
         self.own_plan_count = len(all_own_items)
 
-    def apply_block(self, all_block_fields: dict[str, object], is_from_assistant: bool) -> None:
+    def apply_block(
+        self, all_block_fields: dict[str, object], is_from_assistant: bool, is_main_thread: bool = True
+    ) -> None:
         block_type = all_block_fields.get(RECORD_TYPE_KEY)
         tool_input = all_block_fields.get(TOOL_INPUT_KEY)
         if block_type == TOOL_USE_BLOCK_TYPE and isinstance(tool_input, dict):
@@ -406,11 +416,14 @@ class TranscriptReplay:
             self.apply_tool_use(tool_name, str(all_block_fields.get(TASK_ID_KEY)), all_tool_arguments)
             if is_from_assistant:
                 self.note_turn_tool(tool_name)
-                if tool_name in ALL_QUESTION_TOOL_NAMES:
-                    self.turn_question_tool_use_ids.add(str(all_block_fields.get(TASK_ID_KEY)))
+                self.note_question_call(tool_name, str(all_block_fields.get(TASK_ID_KEY)), is_main_thread)
                 self.turn_sent_file_paths.extend(send_call_file_paths(tool_name, all_tool_arguments))
         elif block_type == TOOL_RESULT_BLOCK_TYPE:
             self.apply_tool_result(all_block_fields)
+
+    def note_question_call(self, tool_name: str, tool_use_id: str, is_main_thread: bool) -> None:
+        if tool_name in ALL_QUESTION_TOOL_NAMES and is_main_thread:
+            self.turn_question_tool_use_ids.add(tool_use_id)
 
     def note_turn_tool(self, tool_name: str) -> None:
         if tool_name in ALL_QUESTION_TOOL_NAMES:

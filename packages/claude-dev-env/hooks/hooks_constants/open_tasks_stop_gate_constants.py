@@ -58,7 +58,8 @@ FIRST_ITEM_NUMBER = 1
 TASK_CREATED_PATTERN = r"Task #(\d+) created"
 CREATED_TASK_ID_GROUP_INDEX = 1
 TASK_NUMBER_REFERENCE_TEMPLATE = "#{task_id}"
-ALL_SKIPPED_PROMPT_FLAGS = ("isMeta", "isSidechain", "isCompactSummary")
+SIDECHAIN_FLAG_KEY = "isSidechain"
+ALL_SKIPPED_PROMPT_FLAGS = ("isMeta", SIDECHAIN_FLAG_KEY, "isCompactSummary")
 USER_ROLE = "user"
 USER_RECORD_TYPE = "user"
 CODEX_MESSAGE_TYPE = "message"
@@ -173,7 +174,7 @@ TRACKER_REASON_PREFIX_PATTERN = (
     ) + " )?"
 )
 OWN_STEP_HOLD_PATTERN = re.compile(
-    r"^(?:\[[^\]\n]*\]: )?" + TRACKER_REASON_PREFIX_PATTERN
+    r"^(?:" + re.escape(STOP_HOOK_FEEDBACK_PREFIX) + r":[ \t]*)?(?:\[[^\]\n]*\]: )?" + TRACKER_REASON_PREFIX_PATTERN
     + "(?:" + re.escape(USER_STEP_HOLD_OPENING) + "|" + re.escape(PARKED_NEED_OPENING) + ")",
     re.MULTILINE,
 )
