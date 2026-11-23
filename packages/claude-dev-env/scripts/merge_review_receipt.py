@@ -259,8 +259,8 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     link is a GitHub Actions run of the review workflow that succeeded and is
     titled for this repository, this pull request and that commit. The walk
     starts at the newest earlier commit, reads at most a fixed number of them
-    in parallel within one deadline, and stops at the full pass count. Reads still running at that point are
-    stopped::
+    in parallel within one deadline, and stops at the full pass count. Reads
+    still running at that point are stopped. Examples::
 
         commits c1 (failing review run), c2 (none), head -> 1
         commits c1, head, c2 (failing review run)        -> 0
