@@ -10,7 +10,7 @@ The user may see only the question dialog or the closing line of a reply. Each t
 
 An item can close while it sits on a list. Before a reply or a sent file says something waits on the user, read the live state of each item it shows as open: the pull request, the session, the setting, or the log. Drop each one that is done. Send each step that still stands open as its own question through the question tool: one short sentence on what the step does, with the command block to paste or the link to open inside the question. Where the host has no question tool, give each step its own short paragraph with its block or link.
 
-A need found mid-work goes to the user as a question card in the turn you find it. Work that does not depend on the answer continues while the card waits. An instruction such as "do not block on me, note it and move on" means exactly that: the note is the card, and a sentence in chat that the item waits on the user is no note.
+A need found mid-work goes to the user as a question card in the turn you find it, one card for each item that needs the user. Work that does not depend on the answer continues. Where the question tool pauses the session until the user answers, as Claude Code's `AskUserQuestion` does, start that work first, such as a background agent or job, then send the card before the turn ends. An instruction such as "do not block on me, note it and move on" means exactly that: the note is the card, and a sentence in chat that the item waits on the user is no note.
 
 Remove completed items from the task list before the turn ends, so the list shows only open work.
 
