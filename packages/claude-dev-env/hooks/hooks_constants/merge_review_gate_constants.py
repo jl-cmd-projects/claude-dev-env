@@ -82,7 +82,6 @@ HOME_FOLDER_PREFIX = "~/"
 UNSETTLED_PREFIX_NAME_PATTERN = re.compile(
     r"(?i:(?:GIT|LD|DYLD|XDG|UV)_\w*|PYTHON\w*|HOME|PATH)|(?!GH_REPO\Z)(?i:GH_\w*)"
 )
-ALL_SETTLED_CREATE_LAUNCHER_WORDS = ("uv", "run")
 ASSIGNMENT_SEPARATOR = "="
 APPEND_ASSIGNMENT_MARK = "+"
 ALL_PATH_PARAMETER_NAMES = frozenset({"-path", "-literalpath"})
@@ -520,7 +519,11 @@ UNSETTLED_HEAD_REASON_TEMPLATE = (
     "process substitution or a pipe into the create, that runs before the create or beside it. "
     "That step may move the head, the branch or the repository after the gate reads it, so the "
     "review does not cover the head gh opens. Run the other steps first, then run the create on "
-    "its own. Before it, the command may hold only `cd` or `pushd` with one plain folder outside "
+    "its own, with no `uv run`, `env` or other wrapper and no assignment before the managed "
+    "launcher. When the create selects its author with `GITHUB_DEFAULT_ACCOUNT`, export that "
+    "variable in the shell environment before the create, so the launcher still reads it. When the "
+    "create uses the managed launcher, run it after a bare `python` or `python3`, whichever is "
+    "installed. Before it, the command may hold only `cd` or `pushd` with one plain folder outside "
     ".git, or a bare `cat`, `echo`, `printf`, `head` or `tail` that writes no file. Title and "
     "body substitutions may run only `cat`, `echo` or `printf`, with a quoted heredoc delimiter, "
     "and no `$[`, `$((` or substring offset arithmetic may appear outside single quotes. "
