@@ -376,11 +376,7 @@ def _reviewed_heads_by_run_title(
     all_heads: list[str] = []
     for each_page in range(1, REVIEW_RUNS_PAGE_LIMIT + 1):
         all_page_runs = _review_runs_page(runs_repository, created_at[:ISO_DATE_LENGTH], each_page, deadline)
-        all_heads += [
-            each_head
-            for each_head in _titled_heads(all_page_runs, title_pattern)
-            if each_head not in all_heads
-        ]
+        all_heads += _unlisted_heads(_titled_heads(all_page_runs, title_pattern), all_heads)
         if len(all_page_runs) < REVIEW_RUNS_PAGE_SIZE:
             break
     return all_heads
@@ -400,6 +396,15 @@ def _review_runs_page(
     )
     all_page_runs = runs_answer.get(REVIEW_RUNS_KEY) if isinstance(runs_answer, dict) else None
     return all_page_runs if isinstance(all_page_runs, list) else []
+
+
+def _unlisted_heads(all_candidates: list[str], all_listed: list[str]) -> list[str]:
+    all_unlisted: list[str] = []
+    for each_candidate in all_candidates:
+        all_seen = [*all_listed, *all_unlisted]
+        if not any(same_commit(each_candidate, each_seen) for each_seen in all_seen):
+            all_unlisted.append(each_candidate)
+    return all_unlisted
 
 
 def _titled_heads(all_runs: list[object], title_pattern: re.Pattern[str]) -> list[str]:

@@ -768,6 +768,26 @@ def test_should_count_reviews_a_rebase_dropped_when_the_runs_repository_is_set(
     assert _filed_pass(receipt_folder) == 4
 
 
+def test_should_list_a_head_once_when_two_runs_carry_its_title(
+    gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", RUNS_REPOSITORY)
+    _serve_rebased_review_history(gh_issues)
+    gh_issues[RUNS_API_PATH] = {
+        "workflow_runs": [
+            {"display_title": f"Merge review acme/tools#12 {each_sha} base main"}
+            for each_sha in [*EARLIER_COMMITS, *EARLIER_COMMITS]
+        ]
+    }
+    _serve_issues(gh_issues)
+
+    all_heads = merge_review_receipt._reviewed_heads_by_run_title(
+        "acme", "tools", 12, time.monotonic() + 30
+    )
+
+    assert all_heads == EARLIER_COMMITS
+
+
 def test_should_keep_the_commit_list_count_when_the_runs_repository_is_unset(
     receipt_folder: Path, gh_issues: dict[str, object]
 ) -> None:
