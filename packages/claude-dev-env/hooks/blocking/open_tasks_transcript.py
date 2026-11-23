@@ -47,8 +47,9 @@ The replay also notes what the current turn did::
                              the turn holds
     is_codex_turn            a Codex ``response_item`` user message started the turn
 
-Two more notes run from the last prompt that is no ``<task-notification>``
-envelope, so a job that ends mid-turn does not clear them::
+Two more notes run from the last prompt that is no whole
+``<task-notification>`` envelope, so a job that ends mid-turn does not clear
+them, and a typed prompt that only opens with the tag does::
 
     has_delivered_question_since_prompt
                              a question call whose tool result, matched by
@@ -87,7 +88,7 @@ if hooks_root_directory not in sys.path:
 
 from hooks_constants.open_tasks_stop_gate_constants import (
     ASSISTANT_RECORD_TYPE,
-    ALL_CARRIED_TURN_ENVELOPE_OPENINGS,
+    CARRIED_TURN_ENVELOPE_PATTERN,
     ALL_QUESTION_TOOL_NAMES,
     ALL_TRACKER_TOOL_LISTING_NAMES,
     ALL_TRACKER_TOOL_NAMES,
@@ -311,7 +312,7 @@ class TranscriptReplay:
         self.has_turn_work_tool = False
         self.has_turn_question_tool = False
         self.turn_question_tool_use_ids = set()
-        if not prompt_text.lstrip().startswith(ALL_CARRIED_TURN_ENVELOPE_OPENINGS):
+        if CARRIED_TURN_ENVELOPE_PATTERN.fullmatch(prompt_text) is None:
             self.has_delivered_question_since_prompt = False
             self.prompt_stop_feedback_texts = []
         self.has_turn_read_tool = False

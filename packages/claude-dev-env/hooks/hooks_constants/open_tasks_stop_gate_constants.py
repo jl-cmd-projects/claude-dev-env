@@ -82,8 +82,7 @@ INTERROGATIVE_START_PATTERN = (
     r"|should|shall|may|what|why|how|when|where|which|who|whose)\b"
 )
 ALL_ASK_ONLY_ENVELOPE_MARKERS = ("<agent-message",)
-ALL_CARRIED_TURN_ENVELOPE_OPENINGS = ("<task-notification",)
-HOOK_REASON_LABEL_SEPARATOR = "]: "
+CARRIED_TURN_ENVELOPE_PATTERN = re.compile(r"\s*<task-notification[\s>].*</task-notification>\s*", re.DOTALL)
 SYSTEM_REMINDER_BLOCK_PATTERN = r"<system-reminder>.*?</system-reminder>"
 ACKNOWLEDGEMENT_PATTERN = (
     r"^\s*(?:ok(?:ay)?|k|thanks?|thank\s+you|thx|ty|cool|great|nice|perfect|awesome|got\s+it"
@@ -168,6 +167,10 @@ PARKED_NEED_REASON = (
     " sentence and end the turn."
 )
 MAXIMUM_STEP_HOLD_COUNT = 2
+OWN_STEP_HOLD_PATTERN = re.compile(
+    r"(?:^|\]: |[.!?] )(?:" + re.escape(USER_STEP_HOLD_OPENING) + "|" + re.escape(PARKED_NEED_OPENING) + ")",
+    re.MULTILINE,
+)
 WORKING_DIRECTORY_KEY = "cwd"
 SENT_FILES_KEY = "files"
 ALL_READ_TOOL_NAMES = frozenset(

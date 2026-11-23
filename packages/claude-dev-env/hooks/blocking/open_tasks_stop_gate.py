@@ -161,7 +161,6 @@ from hooks_constants.spawn_readiness_hook_constants import CODEX_TURN_ID_KEY
 from hooks_constants.turn_review_gate_constants import REVIEW_CHILD_ENVIRONMENT_VARIABLE, REVIEW_CHILD_MARKER
 from hooks_constants.open_tasks_stop_gate_constants import (
     ALL_OWN_REASON_OPENINGS,
-    HOOK_REASON_LABEL_SEPARATOR,
     ALLOW_EXIT_CODE,
     CLOSING_REPLY_HOLD_MARKER_NAME,
     COMPLETED_ITEMS_REASON_TEMPLATE,
@@ -175,7 +174,7 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     KEEP_REPLY_INSTRUCTION,
     MAXIMUM_STEP_HOLD_COUNT,
     NO_STEP_INSTRUCTION,
-    PARKED_NEED_OPENING,
+    OWN_STEP_HOLD_PATTERN,
     PARKED_NEED_REASON,
     OPEN_ITEM_LIST_KEEP_CONDITION,
     OPEN_ITEM_LIST_REASON_TEMPLATE,
@@ -196,7 +195,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     UNASKED_STEP_REASON,
     UNREAD_STEP_REASON,
     UNTRACKED_WORK_REASON,
-    USER_STEP_HOLD_OPENING,
     USER_STEP_LEAD_TEMPLATE,
     UTF8_ENCODING,
     WORD_SEPARATOR,
@@ -336,11 +334,22 @@ def user_step_reasons(all_hook_input_fields: dict[str, object], replay: Transcri
     return [] if phrase is None else [USER_STEP_LEAD_TEMPLATE.format(phrase=phrase), *all_reasons]
 
 
-def _is_own_step_hold(feedback_text: str) -> bool:
-    return any(
-        each_line.split(HOOK_REASON_LABEL_SEPARATOR, 1)[-1].lstrip().startswith(each_opening)
-        for each_line in feedback_text.splitlines()
-        for each_opening in (USER_STEP_HOLD_OPENING, PARKED_NEED_OPENING)
+def step_hold_count(replay: TranscriptReplay) -> int:
+    """Return how many user-step holds this gate made since the last prompt that is no task notification.
+
+    ::
+
+        "Stop hook feedback:\nThis turn tells the user that something waits on them ..."           -> 1
+        "Stop hook feedback:\nThis turn worked on ... (TaskCreate). This turn tells the user ..."  -> 1
+        "Stop hook feedback:\n[gate]: Earlier in this turn this gate held a reply ..."             -> 1
+        "Stop hook feedback:\nThe closing reply holds \"This turn tells the user that ...\""        -> 0
+
+    A record counts once when this gate's reason opens a line, follows a
+    ``[hook]: `` label, or opens a sentence, so the reason still counts after
+    the tracker reason on the same line. Another hook that quotes it adds none.
+    """
+    return sum(
+        OWN_STEP_HOLD_PATTERN.search(each_feedback) is not None for each_feedback in replay.prompt_stop_feedback_texts
     )
 
 
@@ -355,11 +364,9 @@ def parked_need_reason(replay: TranscriptReplay) -> str | None:
         two step holds in the turn already                                -> None
         only another Stop hook held the turn                              -> None
 
-    A hold counts when a line of a ``Stop hook feedback`` record opens with
-    this gate's reason, after an optional ``[hook]: `` label, so another
-    hook that quotes the reason further into a line adds no hold. Holds and
-    question calls count from the last prompt that is no
-    ``<task-notification>``, so a job that ends mid-turn keeps the hold.
+    ``step_hold_count`` counts the holds. Holds and question calls count from
+    the last prompt that is no whole ``<task-notification>`` envelope, so a
+    job that ends mid-turn keeps the hold.
     The need was named in the reply this gate held, so the reply that follows
     the hold does not release it. Only a question call whose tool result is
     no error does, or the hold limit, which lets a host with no question tool
@@ -367,8 +374,8 @@ def parked_need_reason(replay: TranscriptReplay) -> str | None:
     """
     if replay.has_delivered_question_since_prompt:
         return None
-    step_hold_count = sum(map(_is_own_step_hold, replay.prompt_stop_feedback_texts))
-    if not step_hold_count or step_hold_count >= MAXIMUM_STEP_HOLD_COUNT:
+    hold_count = step_hold_count(replay)
+    if not hold_count or hold_count >= MAXIMUM_STEP_HOLD_COUNT:
         return None
     return PARKED_NEED_REASON
 
@@ -517,7 +524,11 @@ def turn_block_reason(all_hook_input_fields: dict[str, object], replay: Transcri
     A Codex continuation asks for the next authorized step when the closing text still describes unfinished work.
     """
     all_tracker_reasons = tracker_reasons(all_hook_input_fields, replay)
-    all_step_reasons = user_step_reasons(all_hook_input_fields, replay)
+    all_step_reasons = (
+        user_step_reasons(all_hook_input_fields, replay)
+        if step_hold_count(replay) < MAXIMUM_STEP_HOLD_COUNT
+        else []
+    )
     parked_reason = None if all_step_reasons else parked_need_reason(replay)
     if parked_reason is not None:
         all_step_reasons = [parked_reason]

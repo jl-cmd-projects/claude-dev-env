@@ -1461,3 +1461,46 @@ def test_should_count_a_step_hold_behind_a_hook_label(
     transcript_path = write_records(tmp_path / "s.jsonl", [*orchestration_turn(), labelled_feedback])
     block_reason = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DISMISSING_REPLY)["reason"]
     assert block_reason.startswith(PARKED_NEED_START)
+
+
+def test_should_count_a_step_hold_that_follows_the_tracker_reason_on_its_line(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    untracked_turn = [keyed_prompt_record(ORCHESTRATION_PROMPT, "prompt-1"), READ_CALL, tool_call_record("Bash")]
+    transcript_path = write_records(tmp_path / "s.jsonl", untracked_turn)
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    assert first_reason.startswith("This turn worked on the user's ask")
+    write_records(transcript_path, [*untracked_turn, own_feedback_record(first_reason, "feedback-1"), TRACKER_CALL])
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DISMISSING_REPLY)["reason"]
+    assert block_reason.startswith(PARKED_NEED_START)
+
+
+def test_should_clear_a_parked_need_at_a_typed_prompt_that_opens_with_the_notification_tag(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    typed_prompt = keyed_prompt_record("<task-notification> is broken. Fix it.", "prompt-2")
+    write_records(
+        transcript_path,
+        [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1"), typed_prompt, TRACKER_CALL],
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DISMISSING_REPLY) == {}
+
+
+def test_should_keep_the_two_hold_limit_across_a_task_notification(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    all_records = [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1")]
+    write_records(transcript_path, all_records)
+    second_reason = run_gate(
+        monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=PARKED_NEED_REPLY
+    )["reason"]
+    notification_prompt = keyed_prompt_record("<task-notification>The lint job finished.</task-notification>", "prompt-2")
+    write_records(
+        transcript_path,
+        [*all_records, own_feedback_record(second_reason, "feedback-2"), notification_prompt, TRACKER_CALL, READ_CALL],
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY) == {}
