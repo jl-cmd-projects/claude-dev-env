@@ -152,11 +152,12 @@ if hooks_root_directory not in sys.path:
 
 from final_reply_gate import prose_paragraphs_with_code_as
 from hooks_constants.closing_question_round_gate_constants import FOOTER_HEADING_PATTERN
-from hooks_constants.open_tasks_stop_gate_constants import (
-    NOTE_CODE_FENCE_PATTERN,
-    NOTED_FOR_YOU_LEAD_PATTERN,
-    UTF8_ENCODING,
+from hooks_constants.final_reply_gate_constants import (
+    FENCE_CLOSER_PREFIX,
+    FENCE_CLOSER_SUFFIX,
+    FENCE_OPENER_PATTERN,
 )
+from hooks_constants.open_tasks_stop_gate_constants import NOTED_FOR_YOU_LEAD_PATTERN, UTF8_ENCODING
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.user_step_wording_constants import (
     ALL_ABSENCE_WORDS,
@@ -498,10 +499,12 @@ def split_closing_note(reply_text: str) -> tuple[str, str]:
         "```\nNoted for you:\n```\n9371 needs your scope."         -> (the whole reply, "")
 
     The note is where the closing report lists needs that block one item
-    only, so the Stop gates read no step in its words. The first line outside
-    a code fence that reads only the lead, in any letter case, with heading or
-    emphasis marks around it, starts the note. It runs to an ``In progress:``
-    footer heading below it, which stays in the reply, or to the end.
+    only, so the Stop gates read no step in its words. A code fence closes
+    the way ``final_reply_gate`` reads one: on a line of the same mark, at
+    least as long. The first line outside a closed fence that reads only the
+    lead, in any letter case, with heading or emphasis marks around it,
+    starts the note. It runs to an ``In progress:`` footer heading below it,
+    which stays in the reply, or to the end.
     """
     all_prose_lines = _prose_line_spans(reply_text)
     note_lead = next(
@@ -522,14 +525,27 @@ def split_closing_note(reply_text: str) -> tuple[str, str]:
 
 
 def _prose_line_spans(reply_text: str) -> list[tuple[int, int, str]]:
+    all_fenced_spans = _fenced_spans(reply_text)
     all_prose_lines: list[tuple[int, int, str]] = []
-    is_inside_fence = False
     line_offset = 0
     for each_line in reply_text.splitlines(keepends=True):
-        line_text = each_line.rstrip("\r\n")
-        is_fence_line = NOTE_CODE_FENCE_PATTERN.match(line_text) is not None
-        is_inside_fence = is_inside_fence != is_fence_line
-        if not (is_inside_fence or is_fence_line):
-            all_prose_lines.append((line_offset, line_offset + len(each_line), line_text))
+        if not any(each_start <= line_offset < each_end for each_start, each_end in all_fenced_spans):
+            all_prose_lines.append((line_offset, line_offset + len(each_line), each_line.rstrip("\r\n")))
         line_offset += len(each_line)
     return all_prose_lines
+
+
+def _fenced_spans(reply_text: str) -> list[tuple[int, int]]:
+    all_fenced_spans: list[tuple[int, int]] = []
+    search_from = 0
+    while (fence_opener := FENCE_OPENER_PATTERN.search(reply_text, search_from)) is not None:
+        fence_text = next(each_mark for each_mark in fence_opener.groups() if each_mark)
+        fence_closer = re.compile(
+            FENCE_CLOSER_PREFIX + re.escape(fence_text) + re.escape(fence_text[0]) + FENCE_CLOSER_SUFFIX, re.MULTILINE
+        ).search(reply_text, fence_opener.end())
+        if fence_closer is None:
+            search_from = fence_opener.end()
+            continue
+        all_fenced_spans.append((fence_opener.start(), fence_closer.end()))
+        search_from = fence_closer.end()
+    return all_fenced_spans

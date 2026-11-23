@@ -1733,3 +1733,70 @@ def test_should_keep_a_delivered_card_across_a_task_notification(
     ]
     transcript_path = write_records(tmp_path / "s.jsonl", all_records)
     assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY) == {}
+
+
+CODEX_BLOCKED_LINE = "The second release is still blocked until you choose a date."
+
+
+@pytest.mark.parametrize(
+    ("reply_text", "is_expected_hold"),
+    [
+        (f"The first release shipped.\n\nNoted for you:\n- {CODEX_BLOCKED_LINE}", False),
+        (f"The first release shipped. {CODEX_BLOCKED_LINE}", True),
+    ],
+)
+def test_should_leave_the_closing_note_out_of_the_codex_continuation_check(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    reply_text: str,
+    is_expected_hold: bool,
+) -> None:
+    plan_arguments = json.dumps({"plan": [{"step": "Ship the first release", "status": "completed"}]})
+    plan_call = codex_record({"type": "function_call", "name": "update_plan", "arguments": plan_arguments})
+    read_call = codex_record({"type": "function_call", "name": "shell", "arguments": "{}"})
+    transcript_path = write_records(tmp_path / "rollout.jsonl", [codex_prompt(WORK_PROMPT), plan_call, read_call])
+    assert (run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text) != {}) == is_expected_hold
+
+
+@pytest.mark.parametrize(
+    ("reply_text", "is_expected_hold"),
+    [
+        (f"Both builds passed.\n\nNoted for you:\nWhat I deferred:\n{THREE_BULLETS}", False),
+        (f"Both builds passed.\n\nWhat I deferred:\n{THREE_BULLETS}", True),
+    ],
+)
+def test_should_leave_the_closing_note_out_of_the_list_check(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    reply_text: str,
+    is_expected_hold: bool,
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(WORK_PROMPT, READ_CALL))
+    assert (run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text) != {}) == is_expected_hold
+
+
+@pytest.mark.parametrize(
+    ("reply_text", "is_expected_hold"),
+    [
+        (f"Both builds passed.\n\nNoted for you:\nWhat I deferred:\n{THREE_BULLETS}", False),
+        (f"Both builds passed.\n\nWhat I deferred:\n{THREE_BULLETS}", True),
+    ],
+)
+def test_should_drop_a_judged_list_that_sits_in_the_closing_note(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    reply_text: str,
+    is_expected_hold: bool,
+) -> None:
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    monkeypatch.setattr(open_tasks_stop_gate, "is_judged_payload", lambda *_: True)
+    monkeypatch.setattr(
+        open_tasks_stop_gate, "judged_verdict", lambda *_: closing_reply_judge.JudgeVerdict("", "What I deferred:")
+    )
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [keyed_prompt_record(WORK_PROMPT, "prompt-1"), TRACKER_CALL, READ_CALL]
+    )
+    assert (run_gate(monkeypatch, capsys, transcript_path, reply_text=reply_text) != {}) == is_expected_hold

@@ -402,6 +402,30 @@ def test_should_skip_only_the_closing_note_when_reading_open_item_lines(
     assert (hold_reason is not None) == is_expected_hold
 
 
+def test_should_read_a_note_in_a_message_before_the_closing_reply(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_records = [
+        typed_prompt_record(),
+        reply_record(f"Noted for you:\n- {DEFERRAL_LINE}"),
+        tool_call_record("Read"),
+        tool_result_record("Read", "file text"),
+        reply_record("The flag is in place."),
+    ]
+    hold_reason = held_reason(monkeypatch, capsys, tmp_path, all_records)
+    assert hold_reason is not None
+    assert f'"- {DEFERRAL_LINE}"' in hold_reason
+
+
+def test_should_offer_the_closing_note_in_the_closing_round_reason(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    hold_reason = held_reason(monkeypatch, capsys, tmp_path, [typed_prompt_record(), reply_record(DEFERRAL_LINE)])
+    assert hold_reason is not None
+    assert '"Noted for you:"' in hold_reason
+    assert "Send a card only for an item that stops the whole job." in hold_reason
+
+
 def test_should_hold_for_a_marker_that_sits_beside_a_negated_one(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

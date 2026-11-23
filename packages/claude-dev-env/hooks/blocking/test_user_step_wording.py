@@ -543,3 +543,8 @@ def test_html_text_blocks_should_mark_a_summary_label_as_a_heading() -> None:
 def test_should_split_the_closing_note_from_the_reply(reply_text: str, expected_split: tuple[str, str]) -> None:
     assert user_step_wording.split_closing_note(reply_text) == expected_split
 
+
+
+def test_should_keep_a_note_line_inside_a_longer_outer_fence() -> None:
+    nested_reply = "````md\n```\nNoted for you:\n```\n````\n9371 needs you."
+    assert user_step_wording.split_closing_note(nested_reply) == (nested_reply, "")

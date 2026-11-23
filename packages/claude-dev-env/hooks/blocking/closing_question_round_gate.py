@@ -21,9 +21,9 @@ newest text after the last work call. Each reply's In progress footer, as
 ``closing_question_round_footer.split_footer`` reads it, is scanned with the
 status markers "pending", "blocked", "not done", and "not run" left out, so a
 footer may say where work stands while a question, a deferral, or an ask of
-the user in it still counts. A reply's ``Noted for you:`` note, as
+the user in it still counts. The closing reply's ``Noted for you:`` note, as
 ``user_step_wording.split_closing_note`` cuts it, is not scanned, since it
-lists needs that block one item only. A marker line is a prose
+lists needs that block one item only. A note in an earlier message is. A marker line is a prose
 line ``closing_question_round_open_items`` finds in the texts: a marker word or
 a line that ends with a question mark. Work is any tool call that is no
 question call and that sits in the stretch after the last record whose final
@@ -1120,7 +1120,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
             all_wake_counts[-1],
         )
     all_texts = [
-        _scanned_text(split_closing_note(each_text)[0])
+        _scanned_text(_without_closing_note(each_text, closing_reply))
         for each_text in [*_open_item_texts(all_stretch_records), *all_payload_texts]
     ]
     if not has_background_work(all_hook_input_fields):
@@ -1137,6 +1137,12 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         all_counted_records,
         all_wake_counts,
     )
+
+
+def _without_closing_note(reply_text: str, closing_reply: str) -> str:
+    if not closing_reply or not is_same_reply(reply_text, closing_reply):
+        return reply_text
+    return split_closing_note(reply_text)[0]
 
 
 def _open_item_texts(all_stretch_records: list[dict[str, object]]) -> list[str]:

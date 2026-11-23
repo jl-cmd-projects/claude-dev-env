@@ -257,6 +257,10 @@ REMAINING_LINES_TEMPLATE = "Earlier lines left out here: {remaining_count}."
 CODE_SPAN_SHOWN_TEXT = "`...`"
 READ_ITEMS_INSTRUCTION = (
     "Read the task list, your notes, and the live state of each item. Drop each item that is done."
+    " Sort each item that still stands. A step that a gate the user built asks for is already authorized:"
+    " run it and ask nothing. Move a need that blocks one item only under a closing line that reads only"
+    ' "Noted for you:", above the In progress footer when one is owed; this gate does not read that note.'
+    " Send a card only for an item that stops the whole job."
 )
 CARD_INSTRUCTION = (
     "Write one short chat brief that covers every item that still stands, with each link in it."
@@ -265,7 +269,7 @@ CARD_INSTRUCTION = (
     " question past 450 words or 15 items. Keep the brief short enough that the total stays"
     " inside that limit. When the reply above is already over it, write a one-line brief and send"
     " the cards: that first call is refused, and a refused question starts a new count, so send"
-    " the same cards again at once with no new text. Send each item as its own AskUserQuestion"
+    " the same cards again at once with no new text. Send each such item as its own AskUserQuestion"
     " question. Put at most four questions in one call, so a longer round takes more calls. Give"
     " each question a header of 12 characters or fewer and two or three options, your"
     " recommendation first. Give each option a one-sentence description. A card shows plain"

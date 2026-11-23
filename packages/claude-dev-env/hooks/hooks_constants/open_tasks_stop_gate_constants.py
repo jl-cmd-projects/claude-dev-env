@@ -148,7 +148,6 @@ NOTED_FOR_YOU_LEAD = "Noted for you:"
 NOTED_FOR_YOU_LEAD_PATTERN = re.compile(
     r"^[ \t]*(?:#{1,6}[ \t]+)?[*_]{0,3}Noted for you[*_]{0,3}:[*_]{0,3}[ \t]*$", re.IGNORECASE | re.MULTILINE
 )
-NOTE_CODE_FENCE_PATTERN = re.compile(r"^[ \t]{0,3}(?:```|~~~)")
 ITEM_SORTING_INSTRUCTION = (
     "Sort each open item. A step that a gate the user built asks for, such as a run, an eval, a preview, or"
     " a dispatch, paid or not, is already authorized: run it now and ask nothing. A need that blocks one item"
