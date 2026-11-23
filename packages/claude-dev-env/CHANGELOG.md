@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.137.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.1...claude-dev-env-v8.137.2) (2026-11-23)
+
+
+### Bug Fixes
+
+* **merge-review:** count review rounds per pull request and read them on the first record ([#2497](https://github.com/jl-cmd-projects/claude-dev-env/issues/2497)) ([d1c9762](https://github.com/jl-cmd-projects/claude-dev-env/commit/d1c9762bc12ad93650b4576587c2b0f1ffbbfb41))
+
 ## [8.137.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.0...claude-dev-env-v8.137.1) (2026-11-22)
 
 
