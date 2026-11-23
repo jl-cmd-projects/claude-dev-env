@@ -156,7 +156,8 @@ NO_STEP_INSTRUCTION = (
 )
 PARKED_NEED_OPENING = "Earlier in this turn this gate held a reply that told the user something waits on them"
 PARKED_NEED_REASON = (
-    PARKED_NEED_OPENING + ", and the turn has still sent no question through the native question tool. A need"
+    PARKED_NEED_OPENING + ", and no question call in this turn has reached the user. A call a hook refused has"
+    " not reached them, so send it again. A need"
     " only the user can meet, such as their answer, their words, a scope decision, or an approval, goes to"
     " them as a question card in the turn you find it. Wording such as \"noted it and moved on\" or \"this"
     " hands you no step\" does not release it. Send each such item now as its own AskUserQuestion question"

@@ -66,11 +66,14 @@ gate checks that a read ran, and leaves which item it read to the agent. Each
 such hold tells the agent to read the live state of every item it shows as
 open, and to end the turn when the live read shows the wording hands the user
 no step. A need only the user can meet is a step even when the agent notes it
-and moves on, so a held stop after that hold is held again while the turn
-still has no question tool call, whatever the new reply says::
+and moves on, so a held stop after that hold is held again while no
+question call in the turn has reached the user, whatever the new reply says.
+A question call reaches the user when its tool result is no error, so a call
+that a hook refused does not count::
 
     block: hold on "Pull request 9371 waits on your words.", then "It hands you no step."
-    allow: the same stop after an AskUserQuestion call
+    allow: the same stop after an AskUserQuestion call that reached the user
+    block: the same stop after an AskUserQuestion call a hook refused
     allow: a third stop, after two such holds    (a host with no question tool)
     allow: a held stop that only another Stop hook held
 
@@ -338,15 +341,17 @@ def parked_need_reason(replay: TranscriptReplay) -> str | None:
     ::
 
         step hold in the turn, no question call, "it hands you no step"  -> the parked need reason
-        the same turn after an AskUserQuestion call                       -> None
+        the same turn after an AskUserQuestion call that reached the user -> None
+        the same turn after an AskUserQuestion call a hook refused        -> the parked need reason
         two step holds in the turn already                                -> None
         only another Stop hook held the turn                              -> None
 
     The need was named in the reply this gate held, so the reply that follows
-    the hold does not release it. Only a question call in the turn does, or
-    the hold limit, which lets a host with no question tool end the turn.
+    the hold does not release it. Only a question call whose tool result is
+    no error does, or the hold limit, which lets a host with no question tool
+    end the turn.
     """
-    if replay.has_turn_question_tool:
+    if replay.has_turn_delivered_question:
         return None
     step_hold_count = sum(
         USER_STEP_HOLD_OPENING in each_feedback or PARKED_NEED_OPENING in each_feedback

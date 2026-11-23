@@ -482,3 +482,21 @@ def test_should_give_a_codex_turn_no_turn_key(tmp_path: Path) -> None:
     assert replay.turn_prompt_text == "Export the APKs"
     assert replay.turn_key is None
     assert replay.is_codex_turn is True
+
+
+@pytest.mark.parametrize(("is_error", "is_expected_delivered"), [(False, True), (True, False)])
+def test_should_count_a_question_as_delivered_only_when_its_result_is_no_error(
+    tmp_path: Path, is_error: bool, is_expected_delivered: bool
+) -> None:
+    question_call = {"type": "tool_use", "id": "toolu_q1", "name": "AskUserQuestion", "input": {"questions": []}}
+    question_result = {"type": "tool_result", "tool_use_id": "toolu_q1", "content": "answered", "is_error": is_error}
+    all_records = [
+        {"type": "user", "message": {"role": "user", "content": "Drive the open pull requests"}},
+        {"type": "assistant", "message": {"role": "assistant", "content": [question_call]}},
+        {"type": "user", "message": {"role": "user", "content": [question_result]}},
+    ]
+    transcript_path = tmp_path / "s.jsonl"
+    transcript_path.write_text("\n".join(json.dumps(each_record) for each_record in all_records), encoding="utf-8")
+    replay = replayed_transcript(str(transcript_path))
+    assert replay.has_turn_question_tool
+    assert replay.has_turn_delivered_question is is_expected_delivered
