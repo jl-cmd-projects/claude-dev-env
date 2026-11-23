@@ -1606,3 +1606,19 @@ def test_should_count_a_step_hold_on_the_feedback_header_line(
     transcript_path = write_records(tmp_path / "s.jsonl", [*orchestration_turn(), inline_feedback])
     block_reason = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DISMISSING_REPLY)["reason"]
     assert block_reason.startswith(PARKED_NEED_START)
+
+
+def test_should_clear_a_parked_need_at_a_pasted_notice_a_person_typed(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    pasted_prompt = {
+        **keyed_prompt_record("[SYSTEM NOTIFICATION - NOT USER INPUT]\nThe job failed.\n\nFix the docs build.", "prompt-2"),
+        "turnOrigin": "human",
+    }
+    write_records(
+        transcript_path,
+        [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1"), pasted_prompt, TRACKER_CALL],
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DISMISSING_REPLY) == {}

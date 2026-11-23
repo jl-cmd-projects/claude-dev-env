@@ -50,7 +50,8 @@ The replay also notes what the current turn did::
 Two more notes run from the last prompt that is no event wake, as
 ``session.tracking_nudge.is_event_wake`` reads it, and no
 ``[SYSTEM NOTIFICATION - NOT USER INPUT]`` prompt, so a job that ends
-mid-turn does not clear them, and a typed prompt does::
+mid-turn does not clear them. A typed prompt clears them, and so does any
+prompt record whose ``turnOrigin`` is ``human``::
 
     has_delivered_question_since_prompt
                              a main-thread question call whose tool result,
@@ -94,6 +95,8 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     ASSISTANT_RECORD_TYPE,
     OWN_STEP_HOLD_PATTERN,
     SIDECHAIN_FLAG_KEY,
+    TURN_ORIGIN_KEY,
+    HUMAN_TURN_ORIGIN,
     ALL_QUESTION_TOOL_NAMES,
     ALL_TRACKER_TOOL_LISTING_NAMES,
     ALL_TRACKER_TOOL_NAMES,
@@ -274,6 +277,10 @@ def unwrapped_tool_call(tool_name: str, all_input_fields: dict[str, object]) -> 
     return inner_name, all_inner_arguments
 
 
+def _is_background_event(prompt_text: str) -> bool:
+    return is_event_wake(prompt_text) or BACKGROUND_EVENT_PATTERN.match(prompt_text.lstrip()) is not None
+
+
 class TranscriptReplay:
     """Fold transcript records into the newest task list they describe and what the current turn did."""
 
@@ -311,13 +318,13 @@ class TranscriptReplay:
         if not ALL_TRACKER_TOOL_LISTING_NAMES.isdisjoint(all_tool_names):
             self.has_tracker_tool = True
 
-    def start_turn(self, prompt_text: str) -> None:
+    def start_turn(self, prompt_text: str, is_typed_by_a_person: bool = False) -> None:
         self.turn_prompt_text = prompt_text
         self.has_turn_tracker_write = False
         self.has_turn_work_tool = False
         self.has_turn_question_tool = False
         self.turn_question_tool_use_ids = set()
-        if not is_event_wake(prompt_text) and BACKGROUND_EVENT_PATTERN.match(prompt_text.lstrip()) is None:
+        if is_typed_by_a_person or not _is_background_event(prompt_text):
             self.has_delivered_question_since_prompt = False
             self.prompt_stop_feedback_texts = []
         self.has_turn_read_tool = False
@@ -334,7 +341,7 @@ class TranscriptReplay:
             return
         prompt_text = claude_prompt_text(all_record_fields)
         if prompt_text is not None:
-            self.start_turn(prompt_text)
+            self.start_turn(prompt_text, all_record_fields.get(TURN_ORIGIN_KEY) == HUMAN_TURN_ORIGIN)
             prompt_uuid = all_record_fields.get(RECORD_UUID_KEY)
             self.turn_key = prompt_uuid if isinstance(prompt_uuid, str) and prompt_uuid else None
             return
