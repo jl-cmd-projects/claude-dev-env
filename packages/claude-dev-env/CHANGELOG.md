@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.137.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.2...claude-dev-env-v8.137.3) (2026-11-23)
+
+
+### Bug Fixes
+
+* **hooks:** send one hold for the closing reply gates ([#2500](https://github.com/jl-cmd-projects/claude-dev-env/issues/2500)) ([f6ac81b](https://github.com/jl-cmd-projects/claude-dev-env/commit/f6ac81b0dc79a3186a9d33263fa0a99ad217fdf9))
+
 ## [8.137.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.1...claude-dev-env-v8.137.2) (2026-11-23)
 
 
