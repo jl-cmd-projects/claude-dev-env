@@ -145,7 +145,7 @@ from hooks_constants.stop_hook_hold import hold_stop
 from once_per_session import claim_turn_showing, is_turn_claimed
 from open_task_asks import claude_home, is_ask
 from open_tasks_transcript import TaskItem, TranscriptReplay, normalized_text, parsed_object, replayed_transcript
-from user_step_wording import file_waiting_phrase, waiting_phrase
+from user_step_wording import file_waiting_phrase, split_closing_note, waiting_phrase
 from codex_continuation_review import continuation_review, user_requested_stop
 from hooks_constants.codex_continuation_constants import AGENT_TRANSCRIPT_KEY, CHILD_FLAG, CHILD_STOP_EVENT
 from closing_question_round_footer import list_check_text
@@ -174,7 +174,6 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     KEEP_REPLY_INSTRUCTION,
     MAXIMUM_STEP_HOLD_COUNT,
     NO_STEP_INSTRUCTION,
-    NOTED_FOR_YOU_LEAD_PATTERN,
     OWN_STEP_HOLD_PATTERN,
     PARKED_NEED_REASON,
     OPEN_ITEM_LIST_KEEP_CONDITION,
@@ -287,26 +286,6 @@ def stale_list_reason(all_items: list[TaskItem]) -> str | None:
     return COMPLETED_ITEMS_REASON_TEMPLATE.format(
         completed_count=completed_count, item_count=completed_count + open_count
     )
-
-
-def split_closing_note(reply_text: str) -> tuple[str, str]:
-    """Return the reply above its "Noted for you:" line, and the note below it.
-
-    ::
-
-        "Two merged.\n\nNoted for you:\n- 9371 needs your scope."  -> ("Two merged.\n\n", "- 9371 needs your scope.")
-        "**Noted for you:**\n- 9371 needs your scope."              -> ("", "- 9371 needs your scope.")
-        "9371 needs your scope."                                    -> ("9371 needs your scope.", "")
-
-    The note is where the closing report lists needs that block one item
-    only, so its words that something waits on the user are no step to hold.
-    The first line that reads only the lead, in any letter case, with heading
-    or emphasis marks around it, starts the note, which runs to the end.
-    """
-    note_lead = NOTED_FOR_YOU_LEAD_PATTERN.search(reply_text)
-    if note_lead is None:
-        return reply_text, ""
-    return reply_text[: note_lead.start()], reply_text[note_lead.end() :].strip()
 
 
 def _reply_text(all_hook_input_fields: dict[str, object]) -> str:

@@ -383,6 +383,25 @@ def test_should_allow_a_line_with_no_marker_and_no_work(
     )
 
 
+@pytest.mark.parametrize(
+    ("closing_reply", "is_expected_hold"),
+    [
+        (f"The flag is in place.\n\nNoted for you:\n- {DEFERRAL_LINE}", False),
+        (f"{DEFERRAL_LINE}\n\nNoted for you:\n- The date is yours to confirm.", True),
+        (f"```\nNoted for you:\n```\n{DEFERRAL_LINE}", True),
+    ],
+)
+def test_should_skip_only_the_closing_note_when_reading_open_item_lines(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    closing_reply: str,
+    is_expected_hold: bool,
+) -> None:
+    hold_reason = held_reason(monkeypatch, capsys, tmp_path, [typed_prompt_record(), reply_record(closing_reply)])
+    assert (hold_reason is not None) == is_expected_hold
+
+
 def test_should_hold_for_a_marker_that_sits_beside_a_negated_one(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:

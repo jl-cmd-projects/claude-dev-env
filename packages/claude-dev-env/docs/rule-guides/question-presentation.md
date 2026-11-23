@@ -11,10 +11,10 @@ The user may see only the question dialog or the closing line of a reply. Each t
 An item can close while it sits on a list. Before a reply or a sent file says something waits on the user, read the live state of each item it shows as open: the pull request, the session, the setting, or the log. Drop each one that is done, then sort each item that still stands open.
 
 - **A step a gate asks for.** A gate the user built, such as a review gate, a proof gate, or an eval rule, already authorizes the run, eval, preview, or dispatch it asks for, paid or not. Run it and ask nothing.
-- **A need that blocks one item.** Keep the other items going. Do not write in chat, mid-work, that the item waits on the user. Note it once at the end of the closing report, under a line that reads only `Noted for you:`.
+- **A need that blocks one item.** Keep the other items going. Do not write in chat, mid-work, that the item waits on the user. Note it once in the closing report, under a line that reads only `Noted for you:`. The note goes last, or just above the `In progress:` footer when one is owed, so the footer stays last. A `Noted for you:` line inside a code fence starts no note.
 - **A hard blocker.** A need only the user can meet, without which the whole job stops, goes to the user as a question card in the turn you find it, one card per blocker: one short sentence on what it needs, with the command block to paste or the link to open inside the question. Where the question tool pauses the session until the user answers, as Claude Code's `AskUserQuestion` does, start the work that does not depend on the answer first, such as a background agent or job, then send the card before the turn ends. Where the host has no question tool, give each hard blocker its own short paragraph.
 
-An instruction such as "do not block on me, note it and move on" means the note at the end of the closing report. A sentence in chat that an item waits on the user is no note.
+An instruction such as "do not block on me, note it and move on" means the `Noted for you:` note in the closing report. A sentence in chat that an item waits on the user is no note.
 
 Remove completed items from the task list before the turn ends, so the list shows only open work.
 

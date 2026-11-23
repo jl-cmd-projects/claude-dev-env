@@ -151,7 +151,12 @@ if hooks_root_directory not in sys.path:
     sys.path.insert(0, hooks_root_directory)
 
 from final_reply_gate import prose_paragraphs_with_code_as
-from hooks_constants.open_tasks_stop_gate_constants import UTF8_ENCODING
+from hooks_constants.closing_question_round_gate_constants import FOOTER_HEADING_PATTERN
+from hooks_constants.open_tasks_stop_gate_constants import (
+    NOTE_CODE_FENCE_PATTERN,
+    NOTED_FOR_YOU_LEAD_PATTERN,
+    UTF8_ENCODING,
+)
 from hooks_constants.setup_project_paths_constants import DECODE_ERRORS_POLICY
 from hooks_constants.user_step_wording_constants import (
     ALL_ABSENCE_WORDS,
@@ -480,3 +485,51 @@ def file_waiting_phrase(file_path_text: str, working_directory: object) -> str |
             each_reading for each_block in all_blocks for each_reading in (each_block, each_block.replace(CODE_SPAN_STAND_IN, ""))
         )
     return waiting_phrase(file_text)
+
+
+def split_closing_note(reply_text: str) -> tuple[str, str]:
+    """Return the reply without its "Noted for you:" note, and the note.
+
+    ::
+
+        "Two merged.\n\nNoted for you:\n- 9371 needs your scope."  -> ("Two merged.\n\n", "- 9371 needs your scope.")
+        "Noted for you:\n- 9371 needs your scope.\n\nIn progress:\n- CI"
+                                                                 -> ("In progress:\n- CI", "- 9371 needs your scope.")
+        "```\nNoted for you:\n```\n9371 needs your scope."         -> (the whole reply, "")
+
+    The note is where the closing report lists needs that block one item
+    only, so the Stop gates read no step in its words. The first line outside
+    a code fence that reads only the lead, in any letter case, with heading or
+    emphasis marks around it, starts the note. It runs to an ``In progress:``
+    footer heading below it, which stays in the reply, or to the end.
+    """
+    all_prose_lines = _prose_line_spans(reply_text)
+    note_lead = next(
+        (each_line for each_line in all_prose_lines if NOTED_FOR_YOU_LEAD_PATTERN.match(each_line[2]) is not None),
+        None,
+    )
+    if note_lead is None:
+        return reply_text, ""
+    note_end = next(
+        (
+            each_start
+            for each_start, _, each_text in all_prose_lines
+            if each_start > note_lead[0] and FOOTER_HEADING_PATTERN.fullmatch(each_text.strip()) is not None
+        ),
+        len(reply_text),
+    )
+    return reply_text[: note_lead[0]] + reply_text[note_end:], reply_text[note_lead[1] : note_end].strip()
+
+
+def _prose_line_spans(reply_text: str) -> list[tuple[int, int, str]]:
+    all_prose_lines: list[tuple[int, int, str]] = []
+    is_inside_fence = False
+    line_offset = 0
+    for each_line in reply_text.splitlines(keepends=True):
+        line_text = each_line.rstrip("\r\n")
+        is_fence_line = NOTE_CODE_FENCE_PATTERN.match(line_text) is not None
+        is_inside_fence = is_inside_fence != is_fence_line
+        if not (is_inside_fence or is_fence_line):
+            all_prose_lines.append((line_offset, line_offset + len(each_line), line_text))
+        line_offset += len(each_line)
+    return all_prose_lines

@@ -148,11 +148,13 @@ NOTED_FOR_YOU_LEAD = "Noted for you:"
 NOTED_FOR_YOU_LEAD_PATTERN = re.compile(
     r"^[ \t]*(?:#{1,6}[ \t]+)?[*_]{0,3}Noted for you[*_]{0,3}:[*_]{0,3}[ \t]*$", re.IGNORECASE | re.MULTILINE
 )
+NOTE_CODE_FENCE_PATTERN = re.compile(r"^[ \t]{0,3}(?:```|~~~)")
 ITEM_SORTING_INSTRUCTION = (
     "Sort each open item. A step that a gate the user built asks for, such as a run, an eval, a preview, or"
     " a dispatch, paid or not, is already authorized: run it now and ask nothing. A need that blocks one item"
     " only: keep the other items going, take the words that it waits on the user out of the reply's prose,"
-    f' and note it once at the end of the closing report, under a line that reads only "{NOTED_FOR_YOU_LEAD}".'
+    f' and note it once in the closing report, under a line that reads only "{NOTED_FOR_YOU_LEAD}", at the end'
+    ' or just above an "In progress:" footer.'
     " A hard blocker, a need only the user can meet without which the whole job stops: send it in this turn"
     " through AskUserQuestion (Codex: request_user_input), one item per question, with its context and the"
     " command block or link inside the question. Where the host has no question tool, give each hard blocker"

@@ -1697,12 +1697,26 @@ def test_should_release_a_parked_need_that_moved_into_the_closing_note(
     ].startswith(PARKED_NEED_START)
 
 
-def test_should_split_the_closing_note_from_the_reply() -> None:
-    reply_body, closing_note = open_tasks_stop_gate.split_closing_note("Done.\n\n**Noted for you:**\n- 9371 needs your scope.")
-    assert reply_body == "Done.\n\n"
-    assert closing_note == "- 9371 needs your scope."
-    assert open_tasks_stop_gate.split_closing_note("9371 needs you.") == ("9371 needs you.", "")
-    assert open_tasks_stop_gate.split_closing_note("We noted for you: a list.")[1] == ""
+@pytest.mark.parametrize(
+    "closing_reply",
+    [
+        f"```\nNoted for you:\n```\nPull request 9375 waits on your words.\n\n{NOTED_REPLY}",
+        f"Noted for you:\n- 9372 is noted.\n\nIn progress:\n- Pull request 9375 waits on your words.",
+    ],
+)
+def test_should_hold_a_need_outside_the_closing_note(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path, closing_reply: str
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=closing_reply)["reason"].startswith(STEP_HOLD_START)
+
+
+def test_should_pass_a_closing_note_above_the_in_progress_footer(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    footer_reply = f"{NOTED_REPLY}\n\nIn progress:\n- The CI run for 9375 is going."
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=footer_reply) == {}
 
 
 def test_should_keep_a_delivered_card_across_a_task_notification(

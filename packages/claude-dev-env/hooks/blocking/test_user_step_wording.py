@@ -525,3 +525,21 @@ def test_html_text_blocks_should_mark_a_checkbox_with_the_task_box_mark() -> Non
 def test_html_text_blocks_should_mark_a_summary_label_as_a_heading() -> None:
     page_markup = "<details><summary>Can I use it offline?</summary><p>After a sync.</p></details>"
     assert user_step_wording.html_text_blocks(page_markup, "# ") == ["# Can I use it offline?", "After a sync."]
+
+
+@pytest.mark.parametrize(
+    ("reply_text", "expected_split"),
+    [
+        ("Done.\n\n**Noted for you:**\n- 9371 needs your scope.", ("Done.\n\n", "- 9371 needs your scope.")),
+        ("9371 needs you.", ("9371 needs you.", "")),
+        ("We noted for you: a list.", ("We noted for you: a list.", "")),
+        (
+            "Noted for you:\n- 9371 needs your scope.\n\nIn progress:\n- CI runs.",
+            ("In progress:\n- CI runs.", "- 9371 needs your scope."),
+        ),
+        ("```\nNoted for you:\n```\n9371 needs you.", ("```\nNoted for you:\n```\n9371 needs you.", "")),
+    ],
+)
+def test_should_split_the_closing_note_from_the_reply(reply_text: str, expected_split: tuple[str, str]) -> None:
+    assert user_step_wording.split_closing_note(reply_text) == expected_split
+

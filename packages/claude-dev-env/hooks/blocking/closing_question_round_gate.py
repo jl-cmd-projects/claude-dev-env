@@ -5,6 +5,7 @@ The gate holds the stop for these shapes, and only in a session it covers::
 
     hold:  "I deferred the backoff setting."        no question card after it
     hold:  "Nothing is deferred."                   a marker line; negation does not cancel it
+    allow: "Noted for you:", then "- 9372 waits on your date."   a note lists one-item needs
     allow: a marker line, then an answered AskUserQuestion call
     allow: an Edit call, then "Done."               nothing in progress, no closing line owed
     hold:  an Edit call, then "Done."               task #28 in_progress: the footer is owed
@@ -20,7 +21,9 @@ newest text after the last work call. Each reply's In progress footer, as
 ``closing_question_round_footer.split_footer`` reads it, is scanned with the
 status markers "pending", "blocked", "not done", and "not run" left out, so a
 footer may say where work stands while a question, a deferral, or an ask of
-the user in it still counts. A marker line is a prose
+the user in it still counts. A reply's ``Noted for you:`` note, as
+``user_step_wording.split_closing_note`` cuts it, is not scanned, since it
+lists needs that block one item only. A marker line is a prose
 line ``closing_question_round_open_items`` finds in the texts: a marker word or
 a line that ends with a question mark. Work is any tool call that is no
 question call and that sits in the stretch after the last record whose final
@@ -131,6 +134,7 @@ from closing_question_round_transcript import (
     top_level_records,
 )
 from open_tasks_transcript_records import _content_blocks, is_assistant_record
+from user_step_wording import split_closing_note
 
 from hooks_constants.closing_question_round_gate_constants import (
     ALL_REASON_LEADS,
@@ -1116,7 +1120,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
             all_wake_counts[-1],
         )
     all_texts = [
-        _scanned_text(each_text)
+        _scanned_text(split_closing_note(each_text)[0])
         for each_text in [*_open_item_texts(all_stretch_records), *all_payload_texts]
     ]
     if not has_background_work(all_hook_input_fields):
