@@ -1405,3 +1405,56 @@ def test_should_drop_only_the_list_finding_the_closing_round_reason_covers() -> 
     assert open_tasks_stop_gate.without_round_duplicate(all_findings, None) == all_findings
     assert open_tasks_stop_gate.without_round_duplicate(all_findings, ROUND_REASON) == all_findings
     assert open_tasks_stop_gate.without_round_duplicate(all_findings, CLOSING_ROUND_REASON_LEAD) == [promise_finding]
+
+
+def test_should_claim_the_turn_when_the_closing_round_covers_the_list_finding(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    quoting_reason = f"{CLOSING_ROUND_REASON_LEAD}\nThe lines:"
+    stub_closing_round(monkeypatch, quoting_reason)
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [keyed_prompt_record(WORK_PROMPT, "prompt-1"), TRACKER_CALL, READ_CALL]
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DEFERRED_REPLY)["reason"] == quoting_reason
+    stub_closing_round(monkeypatch, None)
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DEFERRED_REPLY) == {}
+
+
+def test_should_wait_for_the_closing_round_only_after_the_reply_findings(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    all_events: list[str] = []
+
+    def findings_first(*all_arguments: object) -> list[object]:
+        all_events.append("findings")
+        return []
+
+    def waited_round() -> str | None:
+        all_events.append("round")
+        return ROUND_REASON
+
+    monkeypatch.setattr(open_tasks_stop_gate, "closing_reply_findings", findings_first)
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(WORK_PROMPT, READ_CALL))
+    hook_input: dict[str, object] = {"session_id": SESSION_ID, "transcript_path": str(transcript_path)}
+    stop_reasons = open_tasks_stop_gate._stop_block_reason(hook_input, lambda: waited_round)
+    assert all_events[0] == "findings"
+    assert stop_reasons.round_reason == ROUND_REASON
+    assert stop_reasons.joined() == ROUND_REASON
+
+
+def test_should_log_only_the_own_findings_of_a_hold(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    all_logged_reasons: list[str] = []
+    monkeypatch.setattr(
+        open_tasks_stop_gate,
+        "log_hook_block",
+        lambda hook_name, event_name, logged_reason: all_logged_reasons.append(logged_reason),
+    )
+    stub_closing_round(monkeypatch, ROUND_REASON)
+    transcript_path = write_records(tmp_path / "s.jsonl", closing_turn(WORK_PROMPT, READ_CALL))
+    assert run_gate(monkeypatch, capsys, transcript_path)["reason"] == ROUND_REASON
+    assert all_logged_reasons == []
+    run_gate(monkeypatch, capsys, transcript_path, reply_text="I'll report back once CI ends.")
+    assert len(all_logged_reasons) == 1
+    assert all_logged_reasons[0].startswith(PROMISE_REASON_START)

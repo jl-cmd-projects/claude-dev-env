@@ -3471,6 +3471,9 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         if (eachOutcome.additions.length > 0) {
             console.log(`  Profile settings: Stop gates added to ${eachOutcome.settingsPath}`);
         }
+        if (eachOutcome.hasRetiredRemoval) {
+            console.log(`  Profile settings: retired Stop gate entry removed from ${eachOutcome.settingsPath}`);
+        }
     }
 
     const agentsHubSource = join(PACKAGE_ROOT, 'AGENTS.md');

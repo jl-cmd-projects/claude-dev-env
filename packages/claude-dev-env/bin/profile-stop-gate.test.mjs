@@ -265,9 +265,12 @@ test('a profile loses the closing question round entry once the main settings ho
         },
     });
 
-    addStopGatesToProfiles({ mainSettingsPath, claudeHome, allProfileSettingsPaths: [profilePath], homeDirectory });
+    const [outcome] = addStopGatesToProfiles({ mainSettingsPath, claudeHome, allProfileSettingsPaths: [profilePath], homeDirectory });
 
     assert.deepEqual(stopCommands(profilePath), [gateCommand, ownCopyCommand]);
+    assert.equal(outcome.hasRetiredRemoval, true);
+    assert.deepEqual(backupFileNames(profilePath).length, 1);
+    assert.deepEqual(stopCommands(outcome.backupPath), [gateCommand, mainClosingGateCommand, ownCopyCommand]);
 });
 
 test('a profile keeps its closing question round entry while the main settings hold no gate', (context) => {

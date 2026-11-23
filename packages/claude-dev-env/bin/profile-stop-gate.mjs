@@ -195,7 +195,9 @@ function staleGateRelativePaths(settingsPath, claudeHome, allWantedGates) {
  *
  * @param {{ mainSettingsPath: string, claudeHome: string, allProfileSettingsPaths: string[],
  *   homeDirectory: string, now?: Date }} options
- * @returns {{ settingsPath: string, additions: string[], backupPath: string|null }[]}
+ * @returns {{ settingsPath: string, additions: string[], backupPath: string|null, hasRetiredRemoval: boolean }[]}
+ *   hasRetiredRemoval is true for a profile that lost such an entry, and its backupPath then names the copy
+ *   of the file as it was.
  */
 export function addStopGatesToProfiles(options) {
     const allMainGates = mainStopGateHooks(options.mainSettingsPath, options.claudeHome);
@@ -214,7 +216,14 @@ export function addStopGatesToProfiles(options) {
         const allWantedGates = allMainGates.filter(
             ({ hookRelativePath }) => !profileRunsItsOwnGate(eachPath, options.claudeHome, hookRelativePath),
         );
-        if (allWantedGates.length === 0) continue;
+        const retiredBackupPath = `${eachPath}.${timestamp}.bak`;
+        if (hasRetiredRemoval) writeFileSync(retiredBackupPath, originalText);
+        if (allWantedGates.length === 0) {
+            if (hasRetiredRemoval) {
+                allOutcomes.push({ settingsPath: eachPath, additions: [], removals: [], backupPath: retiredBackupPath, hasRetiredRemoval });
+            }
+            continue;
+        }
         const allStaleRelativePaths = staleGateRelativePaths(eachPath, options.claudeHome, allWantedGates);
         removeStopGatesFromProfiles({
             claudeHome: options.claudeHome,
@@ -233,7 +242,11 @@ export function addStopGatesToProfiles(options) {
         if (outcome.backupPath && (allStaleRelativePaths.length > 0 || hasRetiredRemoval)) {
             writeFileSync(outcome.backupPath, originalText);
         }
-        allOutcomes.push(outcome);
+        allOutcomes.push({
+            ...outcome,
+            backupPath: outcome.backupPath ?? (hasRetiredRemoval ? retiredBackupPath : null),
+            hasRetiredRemoval,
+        });
     }
     return allOutcomes;
 }
