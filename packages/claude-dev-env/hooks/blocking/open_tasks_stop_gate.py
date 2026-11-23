@@ -335,7 +335,7 @@ def user_step_reasons(all_hook_input_fields: dict[str, object], replay: Transcri
 
 
 def step_hold_count(replay: TranscriptReplay) -> int:
-    """Return how many user-step holds this gate made since the last prompt that is no task notification.
+    """Return how many user-step holds this gate made since the last prompt that is no event wake.
 
     ::
 
@@ -343,10 +343,11 @@ def step_hold_count(replay: TranscriptReplay) -> int:
         "Stop hook feedback:\nThis turn worked on ... (TaskCreate). This turn tells the user ..."  -> 1
         "Stop hook feedback:\n[gate]: Earlier in this turn this gate held a reply ..."             -> 1
         "Stop hook feedback:\nThe closing reply holds \"This turn tells the user that ...\""        -> 0
+        "Stop hook feedback:\n> Done. This turn tells the user that ..."                        -> 0
 
-    A record counts once when this gate's reason opens a line, follows a
-    ``[hook]: `` label, or opens a sentence, so the reason still counts after
-    the tracker reason on the same line. Another hook that quotes it adds none.
+    A record counts once when a line opens with this gate's reason, after an
+    optional ``[hook]: `` label and this gate's own tracker reasons. Another
+    hook that quotes the reason, mid-sentence or after a sentence, adds none.
     """
     return sum(
         OWN_STEP_HOLD_PATTERN.search(each_feedback) is not None for each_feedback in replay.prompt_stop_feedback_texts
@@ -365,8 +366,8 @@ def parked_need_reason(replay: TranscriptReplay) -> str | None:
         only another Stop hook held the turn                              -> None
 
     ``step_hold_count`` counts the holds. Holds and question calls count from
-    the last prompt that is no whole ``<task-notification>`` envelope, so a
-    job that ends mid-turn keeps the hold.
+    the last prompt that is no event wake, such as a ``<task-notification>``,
+    so a job that ends mid-turn keeps the hold.
     The need was named in the reply this gate held, so the reply that follows
     the hold does not release it. Only a question call whose tool result is
     no error does, or the hold limit, which lets a host with no question tool

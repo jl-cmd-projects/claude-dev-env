@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+import closing_question_round_gate
 import closing_reply_judge
 import open_tasks_stop_gate
 from open_tasks_transcript import TaskItem, replayed_transcript
@@ -1504,3 +1505,47 @@ def test_should_keep_the_two_hold_limit_across_a_task_notification(
         [*all_records, own_feedback_record(second_reason, "feedback-2"), notification_prompt, TRACKER_CALL, READ_CALL],
     )
     assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY) == {}
+
+
+def test_should_keep_a_parked_need_across_a_task_notification_that_carries_a_reminder(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    notification_prompt = keyed_prompt_record(
+        "<task-notification>The lint job finished.</task-notification>\n<system-reminder>Usage is fine.</system-reminder>",
+        "prompt-2",
+    )
+    write_records(
+        transcript_path,
+        [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1"), notification_prompt, TRACKER_CALL],
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DISMISSING_REPLY)["reason"].startswith(
+        PARKED_NEED_START
+    )
+
+
+def test_should_clear_a_parked_need_at_typed_words_between_two_notifications(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    pasted_prompt = keyed_prompt_record(
+        "<task-notification>A.</task-notification> Merge the docs pull request. <task-notification>B.</task-notification>",
+        "prompt-2",
+    )
+    write_records(
+        transcript_path,
+        [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1"), pasted_prompt, TRACKER_CALL],
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DISMISSING_REPLY) == {}
+
+
+def test_should_not_count_a_closing_round_hold_that_quotes_this_gate_after_a_sentence(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    quoted_reason = closing_question_round_gate.closing_round_reason([f"Done. {STEP_HOLD_START} and more."])
+    transcript_path = write_records(
+        tmp_path / "s.jsonl", [*orchestration_turn(), own_feedback_record(quoted_reason, "feedback-1")]
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=NO_NEED_REPLY) == {}
