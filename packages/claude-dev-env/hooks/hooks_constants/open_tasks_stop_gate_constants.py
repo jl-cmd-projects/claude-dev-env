@@ -143,8 +143,9 @@ USER_STEP_LEAD_TEMPLATE = (
     " only what still stands open."
 )
 UNREAD_STEP_REASON = "The turn ran no read call."
+UNASKED_STEP_OPENING = "The turn sent no question through the native question tool."
 UNASKED_STEP_REASON = (
-    "The turn sent no question through the native question tool. Hand over each step on its own"
+    UNASKED_STEP_OPENING + " Hand over each step on its own"
     " through AskUserQuestion (Codex: request_user_input), one step per question: one short sentence"
     " on what the step does, with the command block to paste or the link to open inside the"
     " question. Keep long guides out of it. Where the host has no question tool, give each step its"
@@ -154,8 +155,7 @@ NO_STEP_INSTRUCTION = (
     "When the live read shows the wording hands the user no step, end the turn and leave the reply as it"
     " stands. A reply that says an item waits on the user's answer, words, scope decision, or approval hands"
     " them a step: a need only the user can meet is a step even when you note it and move on. Send it through"
-    " the question tool in this turn, keep working on what does not wait on the answer, and expect this gate"
-    " to hold the turn again when the question does not go out."
+    " the question tool in this turn, and keep working on what does not wait on the answer."
 )
 PARKED_NEED_OPENING = "Earlier in this turn this gate held a reply that told the user something waits on them"
 PARKED_NEED_REASON = (

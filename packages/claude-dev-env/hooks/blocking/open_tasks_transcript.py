@@ -59,8 +59,10 @@ no ``turnOrigin``::
                              a main-thread question call whose tool result,
                              matched by ``tool_use_id``, is no error, or a
                              Codex request_user_input call, after this gate's
-                             last user-step hold; a call a hook refused and a
-                             call in an ``isSidechain`` record do not count
+                             last hold that asked for a question; a call a
+                             hook refused and a call in an ``isSidechain``
+                             record do not count, and a hold that asked only
+                             for a read keeps an earlier card
     prompt_stop_feedback_texts
                              the text of each ``Stop hook feedback`` record
 
@@ -98,6 +100,8 @@ from hooks_constants.open_tasks_stop_gate_constants import (
     OWN_STEP_HOLD_PATTERN,
     SIDECHAIN_FLAG_KEY,
     TURN_ORIGIN_KEY,
+    UNASKED_STEP_OPENING,
+    PARKED_NEED_OPENING,
     HUMAN_TURN_ORIGIN,
     ALL_QUESTION_TOOL_NAMES,
     ALL_TRACKER_TOOL_LISTING_NAMES,
@@ -353,7 +357,9 @@ class TranscriptReplay:
         if feedback_text is not None:
             self.turn_stop_feedback_texts.append(feedback_text)
             self.prompt_stop_feedback_texts.append(feedback_text)
-            if OWN_STEP_HOLD_PATTERN.search(feedback_text) is not None:
+            if OWN_STEP_HOLD_PATTERN.search(feedback_text) is not None and (
+                UNASKED_STEP_OPENING in feedback_text or PARKED_NEED_OPENING in feedback_text
+            ):
                 self.has_delivered_question_since_prompt = False
             return
         tool_listing = listed_tool_names(all_record_fields)

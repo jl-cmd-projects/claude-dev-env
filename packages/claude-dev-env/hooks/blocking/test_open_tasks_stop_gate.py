@@ -609,7 +609,8 @@ def test_should_block_a_reply_that_hands_the_user_a_step_without_a_read_or_a_que
     assert absent_text not in block_output["reason"]
     assert "read the live state of each item you show as open" in block_output["reason"]
     assert "end the turn and leave the reply as it stands." in block_output["reason"]
-    assert block_output["reason"].endswith("hold the turn again when the question does not go out.")
+    assert block_output["reason"].endswith("keep working on what does not wait on the answer.")
+    assert "hold the turn again" not in block_output["reason"]
 
 
 def test_should_allow_a_step_reply_after_a_read_call_and_a_question_call(
@@ -1558,7 +1559,7 @@ def test_should_require_a_question_after_the_newest_step_hold(
     notification_prompt = keyed_prompt_record("<task-notification>The lint job finished.</task-notification>", "prompt-2")
     all_records = [*orchestration_turn(), *earlier_card, notification_prompt, TRACKER_CALL]
     transcript_path = write_records(tmp_path / "s.jsonl", all_records)
-    first_reason = f'{STEP_HOLD_START} ("needs you").'
+    first_reason = f'{STEP_HOLD_START} ("needs you"). The turn sent no question through the native question tool.'
     write_records(transcript_path, [*all_records, own_feedback_record(first_reason, "feedback-1")])
     block_reason = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DISMISSING_REPLY)["reason"]
     assert block_reason.startswith(PARKED_NEED_START)
@@ -1646,3 +1647,15 @@ def test_should_start_a_new_turn_at_a_typed_prompt_that_pastes_hook_feedback(
     assert run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"].startswith(
         STEP_HOLD_START
     )
+
+
+def test_should_keep_a_delivered_card_through_a_hold_that_asked_only_for_a_read(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    carded_turn = [keyed_prompt_record(ORCHESTRATION_PROMPT, "prompt-1"), TRACKER_CALL, QUESTION_CALL, question_result_record()]
+    transcript_path = write_records(tmp_path / "s.jsonl", carded_turn)
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    assert "ran no read call" in first_reason
+    assert "sent no question" not in first_reason
+    write_records(transcript_path, [*carded_turn, own_feedback_record(first_reason, "feedback-1"), READ_CALL])
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=NO_NEED_REPLY) == {}
