@@ -142,6 +142,16 @@ from hooks_constants.merge_review_gate_constants import (
     REVIEW_RUN_COMPLETED_STATUS,
     REVIEW_RUN_SUCCESS_CONCLUSION,
     REVIEW_RUN_TITLE_TEMPLATE,
+    REVIEW_RUN_TITLE_HEAD_PATTERN,
+    REVIEW_RUNS_API_PATH_TEMPLATE,
+    REVIEW_RUNS_KEY,
+    REVIEW_RUNS_PAGE_LIMIT,
+    REVIEW_RUNS_PAGE_SIZE,
+    REVIEW_RUNS_REPOSITORY_ENVIRONMENT_VARIABLE,
+    REVIEW_RUNS_REPOSITORY_PATTERN,
+    PULL_REQUEST_API_PATH_TEMPLATE,
+    PULL_REQUEST_CREATED_AT_KEY,
+    ISO_DATE_LENGTH,
     REVIEW_RUN_WORKFLOW_FILE,
     REVIEW_STATUS_APP_LOGIN,
     REVIEW_STATUS_CREATOR_TYPE,
@@ -281,6 +291,12 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     deadline = time.monotonic() + GITHUB_COUNT_DEADLINE_SECONDS
     all_earlier_shas = _commits_before_head(owner, repo, number, head, deadline)
     all_newest_first_shas = list(reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]))
+    all_newest_first_shas += [
+        each_sha
+        for each_sha in _reviewed_heads_by_run_title(owner, repo, number, deadline)
+        if not same_commit(each_sha, head)
+        and not any(same_commit(each_sha, each_listed) for each_listed in all_newest_first_shas)
+    ]
     stop_reading = threading.Event()
     executor = ThreadPoolExecutor(max_workers=STATUS_READ_WORKER_COUNT)
     try:
@@ -316,6 +332,84 @@ def _is_failed_review_commit(
     return isinstance(all_statuses, list) and _is_review_app_failure(
         all_statuses, f"{owner}/{repo}", number, sha, deadline, stop_reading
     )
+
+
+def _reviewed_heads_by_run_title(
+    owner: str, repo: str, number: int, deadline: float
+) -> list[str]:
+    """Return the heads that review runs titled for this pull request name.
+
+    The runs live in the repository that the review runs setting names, so
+    the heads a rebase dropped from the commit list still count. With the
+    setting unset or malformed, or the pull request unreadable, no head is
+    added::
+
+        setting unset                                  -> []
+        run titled acme/tools#12 <sha> base main       -> [sha]
+        run titled acme/tools#13 <sha> base main       -> []
+        run titled acme/tools# <sha> base main         -> []
+
+    Args:
+        owner: Repository owner.
+        repo: Repository name.
+        number: Pull request number.
+        deadline: The monotonic time after which no read starts.
+
+    Returns:
+        The heads, newest run first, each once.
+    """
+    runs_repository = os.environ.get(REVIEW_RUNS_REPOSITORY_ENVIRONMENT_VARIABLE, "").strip()
+    if REVIEW_RUNS_REPOSITORY_PATTERN.fullmatch(runs_repository) is None:
+        return []
+    pull_request = _github_answer(
+        PULL_REQUEST_API_PATH_TEMPLATE.format(owner=owner, repo=repo, number=number), deadline
+    )
+    created_at = pull_request.get(PULL_REQUEST_CREATED_AT_KEY) if isinstance(pull_request, dict) else None
+    if not isinstance(created_at, str) or len(created_at) < ISO_DATE_LENGTH:
+        return []
+    title_pattern = re.compile(
+        REVIEW_RUN_TITLE_TEMPLATE.format(
+            repository=re.escape(f"{owner}/{repo}"), number=number, head=REVIEW_RUN_TITLE_HEAD_PATTERN
+        ),
+        re.IGNORECASE,
+    )
+    all_heads: list[str] = []
+    for each_page in range(1, REVIEW_RUNS_PAGE_LIMIT + 1):
+        all_page_runs = _review_runs_page(runs_repository, created_at[:ISO_DATE_LENGTH], each_page, deadline)
+        all_heads += [
+            each_head
+            for each_head in _titled_heads(all_page_runs, title_pattern)
+            if each_head not in all_heads
+        ]
+        if len(all_page_runs) < REVIEW_RUNS_PAGE_SIZE:
+            break
+    return all_heads
+
+
+def _review_runs_page(
+    runs_repository: str, created_on: str, page: int, deadline: float
+) -> list[object]:
+    runs_answer = _github_answer(
+        REVIEW_RUNS_API_PATH_TEMPLATE.format(
+            repository=runs_repository,
+            workflow=REVIEW_RUN_WORKFLOW_FILE,
+            page=page,
+            created_on=created_on,
+        ),
+        deadline,
+    )
+    all_page_runs = runs_answer.get(REVIEW_RUNS_KEY) if isinstance(runs_answer, dict) else None
+    return all_page_runs if isinstance(all_page_runs, list) else []
+
+
+def _titled_heads(all_runs: list[object], title_pattern: re.Pattern[str]) -> list[str]:
+    all_heads: list[str] = []
+    for each_run in all_runs:
+        title = each_run.get(RUN_TITLE_KEY) if isinstance(each_run, dict) else None
+        title_match = title_pattern.fullmatch(title) if isinstance(title, str) else None
+        if title_match is not None:
+            all_heads.append(title_match["head"].lower())
+    return all_heads
 
 
 def _commits_before_head(
