@@ -14,13 +14,15 @@ clean once the rulings are posted and linked::
         -> CLEAN owner/name#12 def5678 (2 findings ruled out: <url>)
 
 Each numbered receipt counts its pass on the pull request. A new head is the
-next pass, and recording the same head again keeps its pass. A record with
-``--filed`` also reads GitHub: its pass is never lower than one more than the
-earlier commits of the pull request whose review run failed, run by the
-review workflow for this repository, pull request and commit, so the count
-survives a new session::
+next pass, and recording the same head again keeps its pass. The first record
+of a pull request with no receipt, and a record with ``--filed``, also read
+GitHub: the pass is never lower than one more than the earlier commits of the
+pull request whose Merge review status failed, run by the review workflow for
+this repository, pull request number and commit, so the count survives a new
+session::
 
-    --filed, no receipt, 3 earlier commits with a failing review run -> pass 4
+    no receipt, 3 earlier commits with a failing review status -> pass 4
+    REVIEWED owner/name#12 def5678 2 findings (pass 4: file these findings ...)
 
 The loop runs
 three full passes with fixes. When pass 4 or a later one still reports
@@ -72,8 +74,10 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Sequence
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import TextIO
 
@@ -114,6 +118,7 @@ from hooks_constants.merge_review_gate_constants import (
     GITHUB_API_HOST,
     GITHUB_API_HOST_OPTION,
     GITHUB_API_READ_TIMEOUT_SECONDS,
+    GITHUB_API_STOP_POLL_SECONDS,
     GITHUB_API_SUBCOMMAND,
     GITHUB_COUNT_DEADLINE_SECONDS,
     LOCAL_BRANCH_REFERENCE_TEMPLATE,
@@ -151,6 +156,7 @@ from hooks_constants.merge_review_gate_constants import (
     RUN_TITLE_KEY,
     STATUS_CONTEXT_KEY,
     STATUS_CREATOR_KEY,
+    STATUS_READ_WORKER_COUNT,
     STATUS_STATE_KEY,
     STATUS_TARGET_URL_KEY,
 )
@@ -197,15 +203,16 @@ def _next_pass_number(
 
     A new head is the next pass. Recording the head the previous receipt names
     again, such as after posting rulings or filing an issue, keeps its pass,
-    unless the GitHub count below raises it. A record that carries ``--filed``
-    also reads GitHub, so a new session keeps the count: the pass is never
-    lower than one more than the earlier commits of this pull request whose
-    review run GitHub shows as failing::
+    unless the GitHub count below raises it. A record with no receipt before
+    it, and a record that carries ``--filed``, also read GitHub, so a new
+    session keeps the count: the pass is never lower than one more than the
+    earlier commits of this pull request whose Merge review status GitHub
+    shows as failing::
 
-        no receipt yet                                   -> 1
+        no receipt, no failing reviews                   -> 1
         previous receipt pass 3 at abc1234, head def5678 -> 4
         previous receipt pass 3 at abc1234, head abc1234 -> 3
-        --filed, no receipt, 3 earlier failing reviews   -> 4
+        no receipt, 3 earlier failing reviews            -> 4
         --filed, previous receipt pass 1, 3 earlier ones -> 4
 
     A previous receipt that cannot be read counts as no receipt. A local pass
@@ -222,8 +229,10 @@ def _next_pass_number(
         The pass number, from 1.
     """
     owner, repo = slug.split("/", 1)
-    local_pass_number = _local_pass_number(read_receipt(receipt_path(owner, repo, number)), head)
-    if not should_read_github or local_pass_number > FULL_REVIEW_PASS_COUNT:
+    previous_receipt = read_receipt(receipt_path(owner, repo, number))
+    local_pass_number = _local_pass_number(previous_receipt, head)
+    is_fresh_session = previous_receipt is None
+    if not (should_read_github or is_fresh_session) or local_pass_number > FULL_REVIEW_PASS_COUNT:
         return local_pass_number
     reviewed_pass_number = _failed_review_head_count(owner, repo, number, head) + 1
     return max(local_pass_number, reviewed_pass_number)
@@ -250,7 +259,8 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     link is a GitHub Actions run of the review workflow that succeeded and is
     titled for this repository, this pull request and that commit. The walk
     starts at the newest earlier commit, reads at most a fixed number of them
-    within one deadline, and stops at the full pass count::
+    in parallel within one deadline, and stops at the full pass count. Reads
+    still running at that point are stopped. Examples::
 
         commits c1 (failing review run), c2 (none), head -> 1
         commits c1, head, c2 (failing review run)        -> 0
@@ -270,19 +280,42 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     """
     deadline = time.monotonic() + GITHUB_COUNT_DEADLINE_SECONDS
     all_earlier_shas = _commits_before_head(owner, repo, number, head, deadline)
+    all_newest_first_shas = list(reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]))
+    stop_reading = threading.Event()
+    executor = ThreadPoolExecutor(max_workers=STATUS_READ_WORKER_COUNT)
+    try:
+        all_reads = [
+            executor.submit(
+                _is_failed_review_commit, owner, repo, number, each_sha, deadline, stop_reading
+            )
+            for each_sha in all_newest_first_shas
+        ]
+        return _count_failed_reviews(all_reads)
+    finally:
+        stop_reading.set()
+        executor.shutdown(wait=True, cancel_futures=True)
+
+
+def _count_failed_reviews(all_reads: list[Future[bool]]) -> int:
     failed_count = 0
-    for each_sha in reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]):
+    for each_read in as_completed(all_reads):
+        failed_count += 1 if each_read.result() else 0
         if failed_count >= FULL_REVIEW_PASS_COUNT:
-            break
-        all_statuses = _github_answer(
-            COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=each_sha),
-            deadline,
-        )
-        if isinstance(all_statuses, list) and _is_review_app_failure(
-            all_statuses, f"{owner}/{repo}", number, each_sha, deadline
-        ):
-            failed_count += 1
+            return FULL_REVIEW_PASS_COUNT
     return failed_count
+
+
+def _is_failed_review_commit(
+    owner: str, repo: str, number: int, sha: str, deadline: float, stop_reading: threading.Event
+) -> bool:
+    all_statuses = _github_answer(
+        COMMIT_STATUSES_API_PATH_TEMPLATE.format(owner=owner, repo=repo, sha=sha),
+        deadline,
+        stop_reading,
+    )
+    return isinstance(all_statuses, list) and _is_review_app_failure(
+        all_statuses, f"{owner}/{repo}", number, sha, deadline, stop_reading
+    )
 
 
 def _commits_before_head(
@@ -346,7 +379,12 @@ def _review_run_page_of_failure(all_statuses: list[object]) -> re.Match[str] | N
 
 
 def _is_review_app_failure(
-    all_statuses: list[object], repository: str, number: int, sha: str, deadline: float
+    all_statuses: list[object],
+    repository: str,
+    number: int,
+    sha: str,
+    deadline: float,
+    stop_reading: threading.Event,
 ) -> bool:
     run_page = _review_run_page_of_failure(all_statuses)
     if run_page is None:
@@ -356,6 +394,7 @@ def _is_review_app_failure(
             repository=run_page["repository"], run_id=run_page["run_id"]
         ),
         deadline,
+        stop_reading,
     )
     return _is_successful_review_run_for(
         review_run, int(run_page["run_id"]), repository, number, sha
@@ -382,7 +421,9 @@ def _is_successful_review_run_for(
     )
 
 
-def _github_answer(api_path: str, deadline: float | None = None) -> object:
+def _github_answer(
+    api_path: str, deadline: float | None = None, stop_reading: threading.Event | None = None
+) -> object:
     client_path = shutil.which(GITHUB_API_CLIENT_NAME)
     if client_path is None:
         return None
@@ -392,7 +433,7 @@ def _github_answer(api_path: str, deadline: float | None = None) -> object:
     if timeout_seconds <= 0:
         return None
     try:
-        completed = subprocess.run(
+        with subprocess.Popen(
             [
                 client_path,
                 GITHUB_API_SUBCOMMAND,
@@ -400,13 +441,29 @@ def _github_answer(api_path: str, deadline: float | None = None) -> object:
                 GITHUB_API_HOST,
                 api_path,
             ],
-            capture_output=True,
-            timeout=timeout_seconds,
-            check=False,
-        )
-        return json.loads(completed.stdout) if completed.returncode == 0 else None
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+        ) as read_process:
+            return _read_process_answer(read_process, timeout_seconds, stop_reading)
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
+
+
+def _read_process_answer(
+    read_process: subprocess.Popen[bytes],
+    timeout_seconds: float,
+    stop_reading: threading.Event | None,
+) -> object:
+    give_up_at = time.monotonic() + timeout_seconds
+    while True:
+        if (stop_reading is not None and stop_reading.is_set()) or time.monotonic() >= give_up_at:
+            read_process.kill()
+            return None
+        try:
+            answer_bytes, _ = read_process.communicate(timeout=GITHUB_API_STOP_POLL_SECONDS)
+        except subprocess.TimeoutExpired:
+            continue
+        return json.loads(answer_bytes) if read_process.returncode == 0 else None
 
 
 def _numbered_receipt(
