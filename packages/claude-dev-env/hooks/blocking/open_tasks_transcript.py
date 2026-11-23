@@ -35,11 +35,6 @@ The replay also notes what the current turn did::
                              TaskList, TaskGet, and the Codex request_user_input card
     has_turn_question_tool   an AskUserQuestion, hearthbot decision card, or Codex
                              request_user_input call ran
-    has_turn_delivered_question
-                             a question call whose tool result, matched by
-                             ``tool_use_id``, is no error, or a Codex
-                             request_user_input call; a call a hook refused
-                             does not count
     has_turn_read_tool       a call ran that can read state: a shell, a file or web
                              read, a subagent, or a tool whose name carries a read
                              word such as ``get``, ``list`` or ``read`` and no
@@ -51,6 +46,17 @@ The replay also notes what the current turn did::
     turn_stop_feedback_texts the text of each ``Stop hook feedback`` record
                              the turn holds
     is_codex_turn            a Codex ``response_item`` user message started the turn
+
+Two more notes run from the last prompt that is no ``<task-notification>``
+envelope, so a job that ends mid-turn does not clear them::
+
+    has_delivered_question_since_prompt
+                             a question call whose tool result, matched by
+                             ``tool_use_id``, is no error, or a Codex
+                             request_user_input call; a call a hook refused
+                             does not count
+    prompt_stop_feedback_texts
+                             the text of each ``Stop hook feedback`` record
 
 Across the whole session, the replay also notes whether a tracker tool exists::
 
@@ -81,6 +87,7 @@ if hooks_root_directory not in sys.path:
 
 from hooks_constants.open_tasks_stop_gate_constants import (
     ASSISTANT_RECORD_TYPE,
+    ALL_CARRIED_TURN_ENVELOPE_OPENINGS,
     ALL_QUESTION_TOOL_NAMES,
     ALL_TRACKER_TOOL_LISTING_NAMES,
     ALL_TRACKER_TOOL_NAMES,
@@ -276,7 +283,8 @@ class TranscriptReplay:
         self.has_turn_tracker_write = False
         self.has_turn_work_tool = False
         self.has_turn_question_tool = False
-        self.has_turn_delivered_question = False
+        self.has_delivered_question_since_prompt = False
+        self.prompt_stop_feedback_texts: list[str] = []
         self.turn_question_tool_use_ids: set[str] = set()
         self.has_turn_read_tool = False
         self.turn_sent_file_paths: list[str] = []
@@ -302,8 +310,10 @@ class TranscriptReplay:
         self.has_turn_tracker_write = False
         self.has_turn_work_tool = False
         self.has_turn_question_tool = False
-        self.has_turn_delivered_question = False
         self.turn_question_tool_use_ids = set()
+        if not prompt_text.lstrip().startswith(ALL_CARRIED_TURN_ENVELOPE_OPENINGS):
+            self.has_delivered_question_since_prompt = False
+            self.prompt_stop_feedback_texts = []
         self.has_turn_read_tool = False
         self.turn_sent_file_paths = []
         self.turn_key = None
@@ -325,6 +335,7 @@ class TranscriptReplay:
         feedback_text = stop_feedback_text(all_record_fields)
         if feedback_text is not None:
             self.turn_stop_feedback_texts.append(feedback_text)
+            self.prompt_stop_feedback_texts.append(feedback_text)
             return
         tool_listing = listed_tool_names(all_record_fields)
         if tool_listing is not None:
@@ -338,7 +349,7 @@ class TranscriptReplay:
             return
         if is_codex_question_call(all_record_fields):
             self.has_turn_question_tool = True
-            self.has_turn_delivered_question = True
+            self.has_delivered_question_since_prompt = True
             return
         if is_codex_work_call(all_record_fields):
             self.has_turn_work_tool = True
@@ -440,7 +451,7 @@ class TranscriptReplay:
     def apply_tool_result(self, all_block_fields: dict[str, object]) -> None:
         answered_id = str(all_block_fields.get(TOOL_USE_ID_KEY))
         if answered_id in self.turn_question_tool_use_ids and not all_block_fields.get(TOOL_RESULT_IS_ERROR_KEY):
-            self.has_turn_delivered_question = True
+            self.has_delivered_question_since_prompt = True
         task_edit = self.task_edit_by_tool_use_id.pop(str(all_block_fields.get(TOOL_USE_ID_KEY)), None)
         if task_edit is not None and not all_block_fields.get(TOOL_RESULT_IS_ERROR_KEY):
             edited_id, new_subject, new_description = task_edit

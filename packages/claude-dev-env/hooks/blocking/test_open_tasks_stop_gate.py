@@ -1415,3 +1415,49 @@ def test_should_give_the_parked_need_reason_only_after_a_step_hold_with_no_quest
     assert open_tasks_stop_gate.parked_need_reason(replayed_transcript(str(transcript_path))) is None
     write_records(transcript_path, [*orchestration_turn(), OTHER_HOOK_FEEDBACK])
     assert open_tasks_stop_gate.parked_need_reason(replayed_transcript(str(transcript_path))) is None
+
+
+def test_should_keep_a_parked_need_across_a_task_notification_in_the_turn(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    notification_prompt = keyed_prompt_record("<task-notification>The lint job finished.</task-notification>", "prompt-2")
+    write_records(
+        transcript_path,
+        [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1"), notification_prompt, TRACKER_CALL],
+    )
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=DISMISSING_REPLY)["reason"]
+    assert block_reason.startswith(PARKED_NEED_START)
+
+
+def test_should_clear_a_parked_need_at_the_next_typed_prompt(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    transcript_path = write_records(tmp_path / "s.jsonl", orchestration_turn())
+    first_reason = run_gate(monkeypatch, capsys, transcript_path, reply_text=PARKED_NEED_REPLY)["reason"]
+    typed_prompt = keyed_prompt_record("Merge the docs pull request", "prompt-2")
+    write_records(
+        transcript_path,
+        [*orchestration_turn(), own_feedback_record(first_reason, "feedback-1"), typed_prompt, TRACKER_CALL],
+    )
+    assert run_gate(monkeypatch, capsys, transcript_path, reply_text=DISMISSING_REPLY) == {}
+
+
+def test_should_not_count_another_hook_quoting_this_gate_as_a_step_hold(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    quoted_feedback = own_feedback_record(
+        f'The closing reply holds an open line: "{STEP_HOLD_START} (\\"needs you\\")." Send it as a card.', "feedback-1"
+    )
+    transcript_path = write_records(tmp_path / "s.jsonl", [*orchestration_turn(), quoted_feedback])
+    assert run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=NO_NEED_REPLY) == {}
+
+
+def test_should_count_a_step_hold_behind_a_hook_label(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
+) -> None:
+    labelled_feedback = own_feedback_record(f'[python3 open_tasks_stop_gate.py]: {STEP_HOLD_START} ("needs you").', "feedback-1")
+    transcript_path = write_records(tmp_path / "s.jsonl", [*orchestration_turn(), labelled_feedback])
+    block_reason = run_gate(monkeypatch, capsys, transcript_path, is_stop_hook_active=True, reply_text=DISMISSING_REPLY)["reason"]
+    assert block_reason.startswith(PARKED_NEED_START)

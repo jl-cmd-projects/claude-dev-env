@@ -499,4 +499,4 @@ def test_should_count_a_question_as_delivered_only_when_its_result_is_no_error(
     transcript_path.write_text("\n".join(json.dumps(each_record) for each_record in all_records), encoding="utf-8")
     replay = replayed_transcript(str(transcript_path))
     assert replay.has_turn_question_tool
-    assert replay.has_turn_delivered_question is is_expected_delivered
+    assert replay.has_delivered_question_since_prompt is is_expected_delivered
