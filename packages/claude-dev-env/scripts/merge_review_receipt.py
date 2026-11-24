@@ -295,9 +295,8 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     all_newest_first_shas = list(reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]))
     all_newest_first_shas += [
         each_sha
-        for each_sha in _reviewed_heads_by_run_title(owner, repo, number, deadline)
-        if not same_commit(each_sha, head)
-        and not any(same_commit(each_sha, each_listed) for each_listed in all_newest_first_shas)
+        for each_sha in _reviewed_heads_by_run_title(owner, repo, number, head, deadline)
+        if not any(same_commit(each_sha, each_listed) for each_listed in all_newest_first_shas)
     ]
     del all_newest_first_shas[EARLIER_COMMIT_READ_LIMIT:]
     stop_reading = threading.Event()
@@ -338,28 +337,33 @@ def _is_failed_review_commit(
 
 
 def _reviewed_heads_by_run_title(
-    owner: str, repo: str, number: int, deadline: float
+    owner: str, repo: str, number: int, head: str, deadline: float
 ) -> list[str]:
     """Return the heads that review runs titled for this pull request name.
 
     The runs live in the repository that the review runs setting names, so
-    the heads a rebase dropped from the commit list still count. With the
-    setting unset or malformed, or the pull request unreadable, no head is
-    added::
+    the heads a rebase dropped from the commit list still count. Only runs
+    older than the run for the reviewed head count, so a receipt recorded
+    after the pull request advanced leaves the later reviews out. With the
+    setting unset or malformed, the pull request unreadable, or no run
+    titled for the reviewed head, no head is added::
 
         setting unset                                  -> []
-        run titled acme/tools#12 <sha> base main       -> [sha]
-        run titled acme/tools#13 <sha> base main       -> []
+        runs for <head>, then acme/tools#12 <sha>      -> [sha]
+        runs for <later>, <head>, then <sha>           -> [sha]
+        runs for acme/tools#13 <sha> only              -> []
         run titled acme/tools# <sha> base main         -> []
+        no run titled for <head>                       -> []
 
     Args:
         owner: Repository owner.
         repo: Repository name.
         number: Pull request number.
+        head: The commit the pass reviewed, which bounds the heads returned.
         deadline: The monotonic time after which no read starts.
 
     Returns:
-        The heads, newest run first, each once.
+        The heads from runs older than the head's run, newest run first, each once.
     """
     runs_repository = os.environ.get(REVIEW_RUNS_REPOSITORY_ENVIRONMENT_VARIABLE, "").strip()
     if REVIEW_RUNS_REPOSITORY_PATTERN.fullmatch(runs_repository) is None:
@@ -382,7 +386,11 @@ def _reviewed_heads_by_run_title(
         all_heads += _unlisted_heads(_titled_heads(all_page_runs, title_pattern), all_heads)
         if len(all_page_runs) < REVIEW_RUNS_PAGE_SIZE:
             break
-    return all_heads
+    head_index = next(
+        (each_index for each_index, each_sha in enumerate(all_heads) if same_commit(each_sha, head)),
+        None,
+    )
+    return [] if head_index is None else all_heads[head_index + 1 :]
 
 
 def _review_runs_page(
