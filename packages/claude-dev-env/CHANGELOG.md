@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.137.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.4...claude-dev-env-v8.137.5) (2026-11-24)
+
+
+### Maintenance
+
+* **pstack:** point marketplace repository to jl-cmd-projects/pstack-claude ([#2504](https://github.com/jl-cmd-projects/claude-dev-env/issues/2504)) ([037e81c](https://github.com/jl-cmd-projects/claude-dev-env/commit/037e81c75b5e2465bc2ff59115241a255a9ace70))
+
 ## [8.137.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.3...claude-dev-env-v8.137.4) (2026-11-24)
 
 
