@@ -3948,12 +3948,21 @@ test('install prints no Action needed block when every side step finished', (con
     assert.equal(result.stderr.includes('Action needed'), false, result.stderr);
 });
 
-test('install adds the open tasks and closing question round Stop gates to every profile with its own settings.json, and uninstall removes both', (context) => {
+test('install adds the open tasks Stop gate to every profile with its own settings.json and removes an older closing question round entry, and uninstall removes the gate', (context) => {
     const homeDirectory = mkdtempSync(join(tmpdir(), 'cde-profile-gate-install-'));
     context.after(() => rmSync(homeDirectory, { recursive: true, force: true }));
     const profileSettingsPath = join(homeDirectory, '.claude-profiles', 'prefs-only', 'settings.json');
     mkdirSync(dirname(profileSettingsPath), { recursive: true });
-    writeFileSync(profileSettingsPath, JSON.stringify({ outputStyle: 'plain' }, null, 4));
+    const mainSettingsPath = join(homeDirectory, '.claude', 'settings.json');
+    mkdirSync(dirname(mainSettingsPath), { recursive: true });
+    const olderClosingRoundEntry = {
+        type: 'command',
+        command: `python3 ${join(homeDirectory, '.claude', 'hooks', 'blocking', 'closing_question_round_gate.py').replace(/\\/g, '/')}`,
+        timeout: 10,
+    };
+    const olderStopHooks = { Stop: [{ hooks: [olderClosingRoundEntry] }] };
+    writeFileSync(mainSettingsPath, JSON.stringify({ hooks: olderStopHooks }, null, 4));
+    writeFileSync(profileSettingsPath, JSON.stringify({ outputStyle: 'plain', hooks: olderStopHooks }, null, 4));
     const runInstaller = (argumentsList) => spawnSync(process.execPath, [join(dirname(fileURLToPath(import.meta.url)), 'install.mjs'), ...argumentsList], {
         cwd: dirname(dirname(fileURLToPath(import.meta.url))),
         encoding: 'utf8',
@@ -3976,14 +3985,19 @@ test('install adds the open tasks and closing question round Stop gates to every
             TMP: homeDirectory,
         },
     });
-    const profileStopCommands = () => (JSON.parse(readFileSync(profileSettingsPath, 'utf8')).hooks?.Stop ?? [])
+    const stopCommands = (settingsPath) => (JSON.parse(readFileSync(settingsPath, 'utf8')).hooks?.Stop ?? [])
         .flatMap((eachGroup) => eachGroup.hooks.map((eachHook) => eachHook.command));
+    const profileStopCommands = () => stopCommands(profileSettingsPath);
 
     const installation = runInstaller([]);
     assert.equal(installation.status, 0, installation.stderr);
     assert.deepEqual(
         profileStopCommands().map((eachCommand) => eachCommand.replace(/\\/g, '/').split('/').pop()),
-        ['open_tasks_stop_gate.py', 'closing_question_round_gate.py'],
+        ['open_tasks_stop_gate.py'],
+    );
+    assert.equal(
+        stopCommands(mainSettingsPath).some((eachCommand) => eachCommand.includes('closing_question_round_gate.py')),
+        false,
     );
     assert.ok(installation.stdout.includes(`Profile settings: Stop gates added to ${profileSettingsPath}`), installation.stdout);
 
