@@ -3,7 +3,7 @@ import { existsSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { findFolderLockers, lockedFolderAdvice, namesALockedFolder } from './folder-lockers.mjs';
 
-export const PSTACK_MARKETPLACE_REPOSITORY = 'jl-cmd/pstack-claude';
+export const PSTACK_MARKETPLACE_REPOSITORY = 'jl-cmd-projects/pstack-claude';
 export const PSTACK_MARKETPLACE_NAME = 'pstack-claude';
 export const PSTACK_PLUGIN_IDENTIFIER = `pstack@${PSTACK_MARKETPLACE_NAME}`;
 export const PSTACK_PLUGIN_HOSTS = Object.freeze(['claude', 'codex']);

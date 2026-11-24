@@ -200,9 +200,9 @@ test('a failing command reports that host and still installs the next one', () =
 test('should report every line of a multi-line marketplace add error', () => {
     const cloneFailure = [
         'Failed to add marketplace: Fetching the marketplace from GitHub failed on both attempts.'
-            + ' HTTPS (https://github.com/jl-cmd/pstack-claude.git): HTTPS clone timed out',
+            + ' HTTPS (https://github.com/jl-cmd-projects/pstack-claude.git): HTTPS clone timed out',
         '',
-        'SSH (git@github.com:jl-cmd/pstack-claude.git): git@github.com: Permission denied (publickey).',
+        'SSH (git@github.com:jl-cmd-projects/pstack-claude.git): git@github.com: Permission denied (publickey).',
         'fatal: Could not read from remote repository.',
         '',
         'Please make sure you have the correct access rights',
@@ -218,8 +218,8 @@ test('should report every line of a multi-line marketplace add error', () => {
         claude.warning,
         `claude plugin marketplace add ${PSTACK_MARKETPLACE_REPOSITORY} failed: `
         + 'Failed to add marketplace: Fetching the marketplace from GitHub failed on both attempts.'
-        + ' HTTPS (https://github.com/jl-cmd/pstack-claude.git): HTTPS clone timed out'
-        + ' SSH (git@github.com:jl-cmd/pstack-claude.git): git@github.com: Permission denied (publickey).'
+        + ' HTTPS (https://github.com/jl-cmd-projects/pstack-claude.git): HTTPS clone timed out'
+        + ' SSH (git@github.com:jl-cmd-projects/pstack-claude.git): git@github.com: Permission denied (publickey).'
         + ' fatal: Could not read from remote repository.'
         + ' Please make sure you have the correct access rights and the repository exists.',
     );
