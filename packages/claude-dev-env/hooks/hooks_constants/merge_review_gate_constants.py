@@ -361,7 +361,7 @@ REVIEW_RUN_WORKFLOW_FILE = "efficient-review.yml"
 REVIEW_RUN_TITLE_TEMPLATE = r"Merge review {repository}#{number} {head} base \S+"
 REVIEW_RUN_TITLE_HEAD_PATTERN = r"(?P<head>[0-9a-fA-F]{40})"
 REVIEW_RUNS_REPOSITORY_ENVIRONMENT_VARIABLE = "CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY"
-REVIEW_RUNS_REPOSITORY_PATTERN = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
+REVIEW_RUNS_REPOSITORY_PATTERN = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*/[A-Za-z0-9_][A-Za-z0-9_.-]*")
 REVIEW_RUNS_API_PATH_TEMPLATE = (
     "repos/{repository}/actions/workflows/{workflow}/runs"
     "?per_page=100&page={page}&created=%3E%3D{created_on}"

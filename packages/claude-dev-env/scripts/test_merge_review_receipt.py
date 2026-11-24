@@ -788,6 +788,39 @@ def test_should_list_a_head_once_when_two_runs_carry_its_title(
     assert all_heads == EARLIER_COMMITS
 
 
+def test_should_count_nothing_from_run_titles_when_the_commit_list_cannot_be_read(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", RUNS_REPOSITORY)
+    _serve_rebased_review_history(gh_issues)
+    del gh_issues[COMMITS_API_PATH]
+    _serve_issues(gh_issues)
+
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
+
+    assert _stored_receipt(receipt_folder)["pass"] == 1
+
+
+def test_should_read_no_more_heads_than_the_read_limit_when_run_titles_add_heads(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", RUNS_REPOSITORY)
+    monkeypatch.setattr(merge_review_receipt, "EARLIER_COMMIT_READ_LIMIT", 2)
+    _serve_rebased_review_history(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 2
+
+
+def test_should_refuse_a_runs_repository_setting_with_a_dot_segment() -> None:
+    all_malformed_settings = ["../x", "x/..", "./x", ".x/y"]
+
+    assert [
+        each_setting
+        for each_setting in all_malformed_settings
+        if merge_review_receipt.REVIEW_RUNS_REPOSITORY_PATTERN.fullmatch(each_setting)
+    ] == []
+
+
 def test_should_keep_the_commit_list_count_when_the_runs_repository_is_unset(
     receipt_folder: Path, gh_issues: dict[str, object]
 ) -> None:

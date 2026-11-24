@@ -290,6 +290,8 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     """
     deadline = time.monotonic() + GITHUB_COUNT_DEADLINE_SECONDS
     all_earlier_shas = _commits_before_head(owner, repo, number, head, deadline)
+    if all_earlier_shas is None:
+        return 0
     all_newest_first_shas = list(reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]))
     all_newest_first_shas += [
         each_sha
@@ -297,6 +299,7 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
         if not same_commit(each_sha, head)
         and not any(same_commit(each_sha, each_listed) for each_listed in all_newest_first_shas)
     ]
+    del all_newest_first_shas[EARLIER_COMMIT_READ_LIMIT:]
     stop_reading = threading.Event()
     executor = ThreadPoolExecutor(max_workers=STATUS_READ_WORKER_COUNT)
     try:
@@ -419,7 +422,7 @@ def _titled_heads(all_runs: list[object], title_pattern: re.Pattern[str]) -> lis
 
 def _commits_before_head(
     owner: str, repo: str, number: int, head: str, deadline: float
-) -> list[str]:
+) -> list[str] | None:
     all_earlier_shas: list[str] = []
     for each_page in range(1, PULL_REQUEST_COMMITS_PAGE_LIMIT + 1):
         all_page_commits = _github_answer(
@@ -429,7 +432,7 @@ def _commits_before_head(
             deadline,
         )
         if not isinstance(all_page_commits, list):
-            return []
+            return None
         all_page_shas = _commit_shas_in(all_page_commits)
         head_index = next(
             (
@@ -443,8 +446,8 @@ def _commits_before_head(
             return all_earlier_shas + all_page_shas[:head_index]
         all_earlier_shas.extend(all_page_shas)
         if len(all_page_commits) < PULL_REQUEST_COMMITS_PAGE_SIZE:
-            return []
-    return []
+            return None
+    return None
 
 
 def _commit_shas_in(all_commits: list[object]) -> list[str]:
