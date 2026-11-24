@@ -3353,13 +3353,13 @@ test('a full install adds the pstack marketplace and plugin on both hosts', t =>
     const installerOutput = runPstackInstaller(sandbox.homeDirectory, [], sandbox.environment);
 
     assert.deepEqual(sandbox.recordedCommands(), [
-        'claude plugin marketplace add jl-cmd/pstack-claude',
+        'claude plugin marketplace add jl-cmd-projects/pstack-claude',
         'claude plugin marketplace update pstack-claude',
         'claude plugin install pstack@pstack-claude',
         'claude plugin update pstack@pstack-claude --scope user',
         'codex plugin remove pstack@pstack-claude',
         'codex plugin marketplace remove pstack-claude',
-        'codex plugin marketplace add jl-cmd/pstack-claude',
+        'codex plugin marketplace add jl-cmd-projects/pstack-claude',
         'codex plugin add pstack@pstack-claude',
     ]);
     assert.match(installerOutput, /Pstack \(claude\): installed/);
