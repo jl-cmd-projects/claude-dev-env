@@ -56,6 +56,7 @@ def gh_issues(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, obje
     (executable_folder / "gh.cmd").write_text(f'@"{sys.executable}" "%~dp0gh" %*\r\n')
     monkeypatch.setenv("PATH", str(executable_folder) + os.pathsep + os.environ.get("PATH", ""))
     monkeypatch.setenv("GH_ISSUE_STUB", str(tmp_path / "gh_issues.json"))
+    monkeypatch.delenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", raising=False)
     all_responses: dict[str, object] = {ISSUE_API_PATH: {"html_url": ISSUE_LINK, "number": 40}}
     _serve_issues(all_responses)
     if sys.platform == "win32":
@@ -727,6 +728,170 @@ def test_should_signal_stalled_reads_to_stop_once_three_failing_reviews_are_coun
 
     assert pass_number == 4
     assert time.monotonic() - started_at < 10
+
+
+RUNS_REPOSITORY = "acme/reviews"
+PULL_REQUEST_API_PATH = "repos/acme/tools/pulls/12"
+RUNS_API_PATH = (
+    "repos/acme/reviews/actions/workflows/efficient-review.yml/runs"
+    "?per_page=100&page=1&created=%3E%3D2026-11-01"
+)
+
+
+def _serve_rebased_review_history(
+    gh_issues: dict[str, object], titled_number: int = 12
+) -> None:
+    _serve_review_statuses(gh_issues)
+    gh_issues[COMMITS_API_PATH] = [{"sha": "6" * 40}, {"sha": HEAD}]
+    gh_issues[_statuses_api_path("6" * 40)] = []
+    gh_issues[PULL_REQUEST_API_PATH] = {"created_at": "2026-11-01T10:00:00Z"}
+    gh_issues[RUNS_API_PATH] = {
+        "workflow_runs": [
+            {"display_title": f"Merge review acme/tools#{titled_number} {each_sha} base main"}
+            for each_sha in [HEAD, *EARLIER_COMMITS]
+        ]
+    }
+    if titled_number != 12:
+        for each_index, each_sha in enumerate(EARLIER_COMMITS):
+            gh_issues[_run_api_path(FIRST_RUN_ID + each_index)] = _review_run(
+                FIRST_RUN_ID + each_index, each_sha, titled_number
+            )
+    _serve_issues(gh_issues)
+
+
+def test_should_count_reviews_a_rebase_dropped_when_the_runs_repository_is_set(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", RUNS_REPOSITORY)
+    _serve_rebased_review_history(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 4
+
+
+def test_should_list_a_head_once_when_two_runs_carry_its_title(
+    gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", RUNS_REPOSITORY)
+    _serve_rebased_review_history(gh_issues)
+    gh_issues[RUNS_API_PATH] = {
+        "workflow_runs": [
+            {"display_title": f"Merge review acme/tools#12 {each_sha} base main"}
+            for each_sha in [HEAD, *EARLIER_COMMITS, *EARLIER_COMMITS]
+        ]
+    }
+    _serve_issues(gh_issues)
+
+    all_heads = merge_review_receipt._reviewed_heads_by_run_title(
+        "acme", "tools", 12, HEAD, time.monotonic() + 30
+    )
+
+    assert all_heads == EARLIER_COMMITS
+
+
+def test_should_leave_out_reviews_of_commits_after_the_recorded_head_when_a_receipt_is_late(
+    gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", RUNS_REPOSITORY)
+    _serve_rebased_review_history(gh_issues)
+    later_commits = ["7" * 40, "8" * 40, "9" * 40]
+    gh_issues[RUNS_API_PATH] = {
+        "workflow_runs": [
+            {"display_title": f"Merge review acme/tools#12 {each_sha} base main"}
+            for each_sha in [*later_commits, HEAD, *EARLIER_COMMITS]
+        ]
+    }
+    _serve_issues(gh_issues)
+
+    all_heads = merge_review_receipt._reviewed_heads_by_run_title(
+        "acme", "tools", 12, HEAD, time.monotonic() + 30
+    )
+
+    assert all_heads == EARLIER_COMMITS
+
+
+def test_should_count_no_run_titled_heads_when_no_run_is_titled_for_the_recorded_head(
+    gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", RUNS_REPOSITORY)
+    _serve_rebased_review_history(gh_issues)
+    gh_issues[RUNS_API_PATH] = {
+        "workflow_runs": [
+            {"display_title": f"Merge review acme/tools#12 {each_sha} base main"}
+            for each_sha in EARLIER_COMMITS
+        ]
+    }
+    _serve_issues(gh_issues)
+
+    all_heads = merge_review_receipt._reviewed_heads_by_run_title(
+        "acme", "tools", 12, HEAD, time.monotonic() + 30
+    )
+
+    assert all_heads == []
+
+
+def test_should_count_nothing_from_run_titles_when_the_commit_list_cannot_be_read(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", RUNS_REPOSITORY)
+    _serve_rebased_review_history(gh_issues)
+    del gh_issues[COMMITS_API_PATH]
+    _serve_issues(gh_issues)
+
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
+
+    assert _stored_receipt(receipt_folder)["pass"] == 1
+
+
+def test_should_read_no_more_heads_than_the_read_limit_when_run_titles_add_heads(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", RUNS_REPOSITORY)
+    monkeypatch.setattr(merge_review_receipt, "EARLIER_COMMIT_READ_LIMIT", 2)
+    _serve_rebased_review_history(gh_issues)
+
+    assert _filed_pass(receipt_folder) == 2
+
+
+def test_should_refuse_a_runs_repository_setting_with_a_dot_segment() -> None:
+    all_malformed_settings = ["../x", "x/..", "./x", ".x/y"]
+
+    assert [
+        each_setting
+        for each_setting in all_malformed_settings
+        if merge_review_receipt.REVIEW_RUNS_REPOSITORY_PATTERN.fullmatch(each_setting)
+    ] == []
+
+
+def test_should_keep_the_commit_list_count_when_the_runs_repository_is_unset(
+    receipt_folder: Path, gh_issues: dict[str, object]
+) -> None:
+    _serve_rebased_review_history(gh_issues)
+
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
+
+    assert _stored_receipt(receipt_folder)["pass"] == 1
+
+
+def test_should_leave_out_runs_titled_for_another_pull_request(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", RUNS_REPOSITORY)
+    _serve_rebased_review_history(gh_issues, titled_number=13)
+
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
+
+    assert _stored_receipt(receipt_folder)["pass"] == 1
+
+
+def test_should_ignore_a_malformed_runs_repository_setting(
+    receipt_folder: Path, gh_issues: dict[str, object], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("CLAUDE_MERGE_REVIEW_RUNS_REPOSITORY", "not a repository")
+    _serve_rebased_review_history(gh_issues)
+
+    merge_review_receipt.record_review("acme/tools", 12, HEAD, 2)
+
+    assert _stored_receipt(receipt_folder)["pass"] == 1
 
 
 def test_should_read_only_the_newest_earlier_commits(

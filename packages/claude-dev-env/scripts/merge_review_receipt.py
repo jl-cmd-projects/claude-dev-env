@@ -142,6 +142,16 @@ from hooks_constants.merge_review_gate_constants import (
     REVIEW_RUN_COMPLETED_STATUS,
     REVIEW_RUN_SUCCESS_CONCLUSION,
     REVIEW_RUN_TITLE_TEMPLATE,
+    REVIEW_RUN_TITLE_HEAD_PATTERN,
+    REVIEW_RUNS_API_PATH_TEMPLATE,
+    REVIEW_RUNS_KEY,
+    REVIEW_RUNS_PAGE_LIMIT,
+    REVIEW_RUNS_PAGE_SIZE,
+    REVIEW_RUNS_REPOSITORY_ENVIRONMENT_VARIABLE,
+    REVIEW_RUNS_REPOSITORY_PATTERN,
+    PULL_REQUEST_API_PATH_TEMPLATE,
+    PULL_REQUEST_CREATED_AT_KEY,
+    ISO_DATE_LENGTH,
     REVIEW_RUN_WORKFLOW_FILE,
     REVIEW_STATUS_APP_LOGIN,
     REVIEW_STATUS_CREATOR_TYPE,
@@ -280,7 +290,15 @@ def _failed_review_head_count(owner: str, repo: str, number: int, head: str) -> 
     """
     deadline = time.monotonic() + GITHUB_COUNT_DEADLINE_SECONDS
     all_earlier_shas = _commits_before_head(owner, repo, number, head, deadline)
+    if all_earlier_shas is None:
+        return 0
     all_newest_first_shas = list(reversed(all_earlier_shas[-EARLIER_COMMIT_READ_LIMIT:]))
+    all_newest_first_shas += [
+        each_sha
+        for each_sha in _reviewed_heads_by_run_title(owner, repo, number, head, deadline)
+        if not any(same_commit(each_sha, each_listed) for each_listed in all_newest_first_shas)
+    ]
+    del all_newest_first_shas[EARLIER_COMMIT_READ_LIMIT:]
     stop_reading = threading.Event()
     executor = ThreadPoolExecutor(max_workers=STATUS_READ_WORKER_COUNT)
     try:
@@ -318,9 +336,101 @@ def _is_failed_review_commit(
     )
 
 
-def _commits_before_head(
+def _reviewed_heads_by_run_title(
     owner: str, repo: str, number: int, head: str, deadline: float
 ) -> list[str]:
+    """Return the heads that review runs titled for this pull request name.
+
+    The runs live in the repository that the review runs setting names, so
+    the heads a rebase dropped from the commit list still count. Only runs
+    older than the run for the reviewed head count, so a receipt recorded
+    after the pull request advanced leaves the later reviews out. With the
+    setting unset or malformed, the pull request unreadable, or no run
+    titled for the reviewed head, no head is added::
+
+        setting unset                                  -> []
+        runs for <head>, then acme/tools#12 <sha>      -> [sha]
+        runs for <later>, <head>, then <sha>           -> [sha]
+        runs for acme/tools#13 <sha> only              -> []
+        run titled acme/tools# <sha> base main         -> []
+        no run titled for <head>                       -> []
+
+    Args:
+        owner: Repository owner.
+        repo: Repository name.
+        number: Pull request number.
+        head: The commit the pass reviewed, which bounds the heads returned.
+        deadline: The monotonic time after which no read starts.
+
+    Returns:
+        The heads from runs older than the head's run, newest run first, each once.
+    """
+    runs_repository = os.environ.get(REVIEW_RUNS_REPOSITORY_ENVIRONMENT_VARIABLE, "").strip()
+    if REVIEW_RUNS_REPOSITORY_PATTERN.fullmatch(runs_repository) is None:
+        return []
+    pull_request = _github_answer(
+        PULL_REQUEST_API_PATH_TEMPLATE.format(owner=owner, repo=repo, number=number), deadline
+    )
+    created_at = pull_request.get(PULL_REQUEST_CREATED_AT_KEY) if isinstance(pull_request, dict) else None
+    if not isinstance(created_at, str) or len(created_at) < ISO_DATE_LENGTH:
+        return []
+    title_pattern = re.compile(
+        REVIEW_RUN_TITLE_TEMPLATE.format(
+            repository=re.escape(f"{owner}/{repo}"), number=number, head=REVIEW_RUN_TITLE_HEAD_PATTERN
+        ),
+        re.IGNORECASE,
+    )
+    all_heads: list[str] = []
+    for each_page in range(1, REVIEW_RUNS_PAGE_LIMIT + 1):
+        all_page_runs = _review_runs_page(runs_repository, created_at[:ISO_DATE_LENGTH], each_page, deadline)
+        all_heads += _unlisted_heads(_titled_heads(all_page_runs, title_pattern), all_heads)
+        if len(all_page_runs) < REVIEW_RUNS_PAGE_SIZE:
+            break
+    head_index = next(
+        (each_index for each_index, each_sha in enumerate(all_heads) if same_commit(each_sha, head)),
+        None,
+    )
+    return [] if head_index is None else all_heads[head_index + 1 :]
+
+
+def _review_runs_page(
+    runs_repository: str, created_on: str, page: int, deadline: float
+) -> list[object]:
+    runs_answer = _github_answer(
+        REVIEW_RUNS_API_PATH_TEMPLATE.format(
+            repository=runs_repository,
+            workflow=REVIEW_RUN_WORKFLOW_FILE,
+            page=page,
+            created_on=created_on,
+        ),
+        deadline,
+    )
+    all_page_runs = runs_answer.get(REVIEW_RUNS_KEY) if isinstance(runs_answer, dict) else None
+    return all_page_runs if isinstance(all_page_runs, list) else []
+
+
+def _unlisted_heads(all_candidates: list[str], all_listed: list[str]) -> list[str]:
+    all_unlisted: list[str] = []
+    for each_candidate in all_candidates:
+        all_seen = [*all_listed, *all_unlisted]
+        if not any(same_commit(each_candidate, each_seen) for each_seen in all_seen):
+            all_unlisted.append(each_candidate)
+    return all_unlisted
+
+
+def _titled_heads(all_runs: list[object], title_pattern: re.Pattern[str]) -> list[str]:
+    all_heads: list[str] = []
+    for each_run in all_runs:
+        title = each_run.get(RUN_TITLE_KEY) if isinstance(each_run, dict) else None
+        title_match = title_pattern.fullmatch(title) if isinstance(title, str) else None
+        if title_match is not None:
+            all_heads.append(title_match["head"].lower())
+    return all_heads
+
+
+def _commits_before_head(
+    owner: str, repo: str, number: int, head: str, deadline: float
+) -> list[str] | None:
     all_earlier_shas: list[str] = []
     for each_page in range(1, PULL_REQUEST_COMMITS_PAGE_LIMIT + 1):
         all_page_commits = _github_answer(
@@ -330,7 +440,7 @@ def _commits_before_head(
             deadline,
         )
         if not isinstance(all_page_commits, list):
-            return []
+            return None
         all_page_shas = _commit_shas_in(all_page_commits)
         head_index = next(
             (
@@ -344,8 +454,8 @@ def _commits_before_head(
             return all_earlier_shas + all_page_shas[:head_index]
         all_earlier_shas.extend(all_page_shas)
         if len(all_page_commits) < PULL_REQUEST_COMMITS_PAGE_SIZE:
-            return []
-    return []
+            return None
+    return None
 
 
 def _commit_shas_in(all_commits: list[object]) -> list[str]:
