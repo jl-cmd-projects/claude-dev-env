@@ -216,3 +216,8 @@ export const ALL_CURSOR_LIFECYCLE_EVENT_NAMES = new Set([
     'subagentStop',
     'preCompact',
 ]);
+export const ANTIGRAVITY_CONFIG_DIRECTORY_PARTS = Object.freeze(['.gemini', 'config']);
+export const ANTIGRAVITY_HOOKS_FILE_NAME = 'hooks.json';
+export const ANTIGRAVITY_HOOKS_ENTRY_NAME = 'claude-dev-env';
+export const ANTIGRAVITY_HOOK_BRIDGE_SCRIPT_NAME = 'antigravity_hook_bridge.py';
+export const ANTIGRAVITY_HOOK_TIMEOUT_SECONDS = 30;

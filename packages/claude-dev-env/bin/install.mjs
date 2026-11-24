@@ -89,6 +89,10 @@ import {
     writeCursorAgentsGuidanceHooks,
 } from './cursor-agents-guidance.mjs';
 import {
+    removeAntigravityHooks,
+    writeAntigravityHooks,
+} from './antigravity-hooks.mjs';
+import {
     codexSolPromptPath,
     codexSolSettingSnapshotPaths,
     installCodexSolPrompt,
@@ -3233,6 +3237,16 @@ function executeInstallPlanMutations(plan, transactionHelpers) {
         if (cursorGuidanceHooksPath) {
             console.log(`  \u2713 ${cursorGuidanceHooksPath} (Cursor agents guidance and open tasks hooks)`);
         }
+        const antigravityHooksPath = writeAntigravityHooks({
+            antigravityConfigDirectory: INSTALL_ROOT_RESOLUTION.antigravityConfigDirectory,
+            scriptsDirectory: INSTALL_ROOT_RESOLUTION.scriptsInstallDirectory,
+            claudeHomeDirectory: CLAUDE_HOME,
+            pythonCommand,
+            formatPathArgument: commandArgumentFromPath,
+        });
+        if (antigravityHooksPath) {
+            console.log(`  \u2713 ${antigravityHooksPath} (Antigravity lifecycle hook bridge)`);
+        }
     }
     if (!selectedGroups && shouldInstallMarketplacePlugin(PSTACK_PLUGIN_SPEC)) {
         const pstackPlugin = installPstackPluginForHosts();
@@ -3774,6 +3788,7 @@ function executeUninstallPlan(plan, helpers = {}) {
     removeRetiredSessionContinuityHooks(['codex', 'cursor']);
     removeCursorAgentsGuidanceHooks(INSTALL_ROOT_RESOLUTION.cursorInstallDirectory);
     removeDeepStackCursorHooks(INSTALL_ROOT_RESOLUTION.cursorInstallDirectory);
+    removeAntigravityHooks(INSTALL_ROOT_RESOLUTION.antigravityConfigDirectory);
     throwIfFault(FAULT_PHASES.AFTER_SETTINGS_WRITE);
 
     unsetGlobalGitHooksPathIfOurs();
