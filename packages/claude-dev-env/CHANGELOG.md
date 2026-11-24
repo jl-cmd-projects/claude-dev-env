@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.138.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.5...claude-dev-env-v8.138.0) (2026-11-24)
+
+
+### Features
+
+* **antigravity:** add lifecycle hook bridge and installer registration ([#2506](https://github.com/jl-cmd-projects/claude-dev-env/issues/2506)) ([5b0fc01](https://github.com/jl-cmd-projects/claude-dev-env/commit/5b0fc016dfc186f9fbd5a083026eefed79b5769b))
+
 ## [8.137.5](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.4...claude-dev-env-v8.137.5) (2026-11-24)
 
 
