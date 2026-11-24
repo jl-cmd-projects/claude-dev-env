@@ -145,6 +145,9 @@ export function resolveInstallRoot(options = {}) {
     const cursorRulesInstallDirectory = resolve(
         join(cursorInstallDirectory, CURSOR_RULES_DIRECTORY_NAME),
     );
+    const antigravityConfigDirectory = resolve(
+        join(homeDirectory, '.gemini', 'config'),
+    );
     const agentsHome = resolveAgentsHome(managedRoot);
     const skillsInstallDirectory = join(agentsHome, MANAGED_SKILLS_DIRECTORY_NAME);
     const agentsInstallDirectory = join(agentsHome, MANAGED_AGENTS_DIRECTORY_NAME);
@@ -165,11 +168,13 @@ export function resolveInstallRoot(options = {}) {
             codexRulesInstallDirectory,
             codexHooksInstallDirectory,
             cursorInstallDirectory,
+            antigravityConfigDirectory,
             agentsHome,
         ],
         codexRulesInstallDirectory,
         cursorInstallDirectory,
         cursorRulesInstallDirectory,
+        antigravityConfigDirectory,
         agentsHome,
         skillsInstallDirectory,
         agentsInstallDirectory,
