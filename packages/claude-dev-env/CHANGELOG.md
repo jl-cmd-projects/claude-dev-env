@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.137.4](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.3...claude-dev-env-v8.137.4) (2026-11-24)
+
+
+### Bug Fixes
+
+* **merge-review:** count reviews a rebase dropped ([#2502](https://github.com/jl-cmd-projects/claude-dev-env/issues/2502)) ([08d1833](https://github.com/jl-cmd-projects/claude-dev-env/commit/08d1833fbaf713f88d7025d9f4f6f6d7d64703c2))
+
 ## [8.137.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.2...claude-dev-env-v8.137.3) (2026-11-23)
 
 
