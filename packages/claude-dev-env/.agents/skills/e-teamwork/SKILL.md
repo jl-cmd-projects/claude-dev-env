@@ -8,29 +8,30 @@ description: >-
 
 # e-teamwork
 
-Hand the user's request over to an autonomous **team lead** subagent as it is—do
-not attempt the task yourself in the main conversation.
+Hand the user's request over to an autonomous team-lead subagent as it is.
+Leave task execution to the spawned team while the main conversation handles
+intake and user communication.
 
 ## Intake and Handoff Rules
 
-1. **Empty-request check:** If the request after `/e-teamwork` and any leading
-   bracket parameters (such as `[skip-interview]`) is empty, ask the user what
+1. **Empty-request check:** When `/e-teamwork` arrives with no task text beyond
+   optional bracket parameters such as `[skip-interview]`, ask the user what
    they want the team to do before spawning anything.
 2. **Preserve parameters verbatim:** Strip `/e-teamwork`, keep any leading
-   bracket parameters such as `[skip-interview]` at the start of the task prompt
-   exactly as typed, and add none the user did not type.
-3. **Append referenced context:** The spawned team cannot see this conversation
-   history. When the request refers to earlier turns here, append the relevant
-   parts quoted inside the handoff prompt.
-4. **Spawn the team lead:** Launch a dedicated team-lead subagent using your
-   host's subagent-spawning tool with the prepared prompt and the workflow in
-   [the team workflow guide](reference/team-workflow.md).
-5. **Relay loop:** When the team lead (or its interviewer step) sends back
-   updates, clarifying questions, or drafts for the user, follow the
-   instructions in that message and relay them cleanly. When the user asks how
-   the work is going, query the active team-lead subagent rather than inspecting
-   work inline.
+   bracket parameters such as `[skip-interview]` at the start of the task
+   prompt exactly as typed, and add none the user did not type.
+3. **Append referenced context:** The spawned team starts with an isolated
+   history. Append quoted excerpts of any earlier conversation context the
+   request references.
+4. **Spawn the team lead:** Launch a team-lead subagent using your host's
+   subagent-spawning tool with the prepared prompt and the procedure in
+   [the team workflow guide](reference/team-workflow.md). When the host lacks
+   subagent spawning, inform the user clearly that multi-agent delegation
+   requires subagent support in the session.
+5. **Relay loop:** Forward clarifying questions, drafts, and progress updates
+   from the team lead to the user, and route user answers and status inquiries
+   back to that active team-lead subagent.
 
 ## Reference
 
-- [Team workflow](reference/team-workflow.md) — interviewer pass, `[skip-interview]` handling, specialist delegation, context forwarding, and relay loop.
+- [Team workflow](reference/team-workflow.md)

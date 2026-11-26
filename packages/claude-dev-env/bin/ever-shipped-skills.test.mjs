@@ -78,3 +78,8 @@ test('EVER_SHIPPED_SKILL_NAMES retains the retired plugin eval standalone skill'
 test('EVER_SHIPPED_SKILL_NAMES includes the session continuity companion', () => {
     assert.equal(EVER_SHIPPED_SKILL_NAMES.has('session-continuity'), true);
 });
+
+test('EVER_SHIPPED_SKILL_NAMES includes the e-swarm and e-teamwork skills', () => {
+    assert.equal(EVER_SHIPPED_SKILL_NAMES.has('e-swarm'), true);
+    assert.equal(EVER_SHIPPED_SKILL_NAMES.has('e-teamwork'), true);
+});
