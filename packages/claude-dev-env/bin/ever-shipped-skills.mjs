@@ -28,6 +28,8 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'descriptions',
     'e-code-review',
     'e-simplify',
+    'e-swarm',
+    'e-teamwork',
     'efficient-review',
     'eli5',
     'emergencies',
