@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.139.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.138.0...claude-dev-env-v8.139.0) (2026-11-26)
+
+
+### Features
+
+* **skills:** add e-swarm and e-teamwork skills ([#2508](https://github.com/jl-cmd-projects/claude-dev-env/issues/2508)) ([5305d36](https://github.com/jl-cmd-projects/claude-dev-env/commit/5305d361ea252b8acda33b1e958544cf140a9556))
+
 ## [8.138.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.137.5...claude-dev-env-v8.138.0) (2026-11-24)
 
 
