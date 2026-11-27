@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/pii_scanner.py",
+  "message": "packages/claude-dev-env/hooks/blocking/pii_scanner.py:1: File is 417 lines (max 400) - consider splitting",
+  "check_id": "validators/file-length",
+  "severity": "smell",
+  "origin_commit": "eecc530368b13817789d6fb17ff74fa582d48b72"
+}
