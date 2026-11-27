@@ -208,6 +208,108 @@ def test_run_verification_enforces_minimum_tests_for_pytest(tmp_path: Path) -> N
     assert report.checks[0].collected_tests == 0
 
 
+def test_should_start_pytest_once_for_a_check_with_a_test_floor(
+    tmp_path: Path,
+) -> None:
+    session_log = tmp_path / "sessions.log"
+    (tmp_path / "conftest.py").write_text(
+        "from pathlib import Path\n\n"
+        "def pytest_sessionstart(session):\n"
+        f"    with Path({str(session_log)!r}).open('a') as log:\n"
+        "        log.write('session\\n')\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "test_three.py").write_text(
+        "def test_one():\n    pass\n\n"
+        "def test_two():\n    pass\n\n"
+        "def test_three():\n    pass\n",
+        encoding="utf-8",
+    )
+    check = CheckSpec(
+        "pytest", (sys.executable, "-m", "pytest", "test_three.py"), ".", 30.0, 3
+    )
+
+    report = run_verification(
+        _manifest(check), tmp_path, "base-sha", tmp_path / "verification.json"
+    )
+
+    assert report.checks[0].status == "passed"
+    assert report.checks[0].collected_tests == 3
+    assert report.checks[0].collection_exit_code == 0
+    assert session_log.read_text(encoding="utf-8").splitlines() == ["session"]
+
+
+def test_should_count_the_tests_in_a_collection_pass_when_the_run_prints_no_summary(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "test_three.py").write_text(
+        "def test_one():\n    pass\n\n"
+        "def test_two():\n    pass\n\n"
+        "def test_three():\n    pass\n",
+        encoding="utf-8",
+    )
+    check = CheckSpec(
+        "pytest",
+        (sys.executable, "-m", "pytest", "-qq", "test_three.py"),
+        ".",
+        30.0,
+        3,
+    )
+
+    report = run_verification(
+        _manifest(check), tmp_path, "base-sha", tmp_path / "verification.json"
+    )
+
+    assert report.checks[0].status == "passed"
+    assert report.checks[0].collected_tests == 3
+    assert report.checks[0].collection_exit_code == 0
+
+
+def test_should_count_failed_and_deselected_tests_toward_the_floor(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "test_mixed.py").write_text(
+        "def test_kept():\n    pass\n\n"
+        "def test_broken():\n    assert False\n\n"
+        "def test_left_out():\n    pass\n",
+        encoding="utf-8",
+    )
+    check = CheckSpec(
+        "pytest",
+        (sys.executable, "-m", "pytest", "test_mixed.py", "-k", "not left_out"),
+        ".",
+        30.0,
+        3,
+    )
+
+    report = run_verification(
+        _manifest(check), tmp_path, "base-sha", tmp_path / "verification.json"
+    )
+
+    assert report.checks[0].status == "failed"
+    assert report.checks[0].error_kind == "nonzero_exit"
+    assert report.checks[0].collected_tests == 3
+    assert report.checks[0].collection_exit_code == 0
+
+
+def test_should_keep_the_timeout_verdict_for_a_check_with_a_test_floor(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "test_slow.py").write_text(
+        "import time\n\ndef test_slow():\n    time.sleep(60)\n", encoding="utf-8"
+    )
+    check = CheckSpec(
+        "pytest", (sys.executable, "-m", "pytest", "test_slow.py"), ".", 3.0, 1
+    )
+
+    report = run_verification(
+        _manifest(check), tmp_path, "base-sha", tmp_path / "verification.json"
+    )
+
+    assert report.checks[0].status == "incomplete"
+    assert report.checks[0].error_kind == "timeout"
+
+
 def test_run_verification_rejects_all_required_tests_skipped(tmp_path: Path) -> None:
     skipped_test_path = tmp_path / "test_skipped.py"
     skipped_test_path.write_text(

@@ -34,8 +34,14 @@ COLLECTION_ERROR_KIND = "collection_error"
 NONZERO_EXIT_ERROR_KIND = "nonzero_exit"
 SKIPPED_TESTS_ERROR_KIND = "skipped_tests"
 PYTEST_COLLECTION_FLAG = "--collect-only"
-PYTEST_QUIET_FLAG = "-q"
+PYTEST_COLLECTION_VERBOSITY_FLAG = "--verbosity=-1"
 COLLECTED_TESTS_PATTERN = re.compile(r"(?P<count>\d+) tests? collected")
+RUN_SUMMARY_DURATION_PATTERN = re.compile(r"\bin \d+(?:\.\d+)?s\b")
+RUN_OUTCOME_PATTERN = re.compile(
+    r"(\d+) (passed|failed|skipped|deselected|xfailed|xpassed|errors?)\b"
+)
+ALL_COLLECTED_RUN_EXIT_CODES = (0, 1)
+NO_TESTS_COLLECTED_EXIT_CODE = 5
 SKIPPED_TESTS_PATTERN = re.compile(r"(?P<count>\d+) skipped")
 SAFE_LOG_NAME_PATTERN = re.compile(r"[^A-Za-z0-9_.-]+")
 PYTHON_PLACEHOLDER = "{python}"

@@ -12,6 +12,7 @@ from .check_support import (
 )
 from .command_runner import run_command as _run_command
 from .config import (
+    ALL_COLLECTED_RUN_EXIT_CODES,
     CLI_CHECK_FINISH_MESSAGE_TEMPLATE,
     CLI_CHECK_START_MESSAGE_TEMPLATE,
     COLLECTED_TESTS_PATTERN,
@@ -22,10 +23,13 @@ from .config import (
     FAILED_STATUS,
     INCOMPLETE_STATUS,
     MINIMUM_TESTS_ERROR_KIND,
+    NO_TESTS_COLLECTED_EXIT_CODE,
     NONZERO_EXIT_ERROR_KIND,
     PASSED_STATUS,
     PYTEST_COLLECTION_FLAG,
-    PYTEST_QUIET_FLAG,
+    PYTEST_COLLECTION_VERBOSITY_FLAG,
+    RUN_OUTCOME_PATTERN,
+    RUN_SUMMARY_DURATION_PATTERN,
     SAFE_LOG_NAME_PATTERN,
     SKIPPED_TESTS_ERROR_KIND,
     SKIPPED_TESTS_PATTERN,
@@ -113,18 +117,24 @@ def _run_existing_check(
     check_directory: Path,
     check_log_paths: CheckLogPaths,
 ) -> CheckRecord:
-    all_collection_capture = _collect_minimum_tests(
-        check,
-        all_arguments,
-        check_directory,
-        check_log_paths.collection_stdout,
-        check_log_paths.collection_stderr,
-    )
     started_at = time.monotonic()
     command_capture = _run_command(
         all_arguments, check_directory, check.timeout_seconds
     )
     duration_seconds = time.monotonic() - started_at
+    all_collection_capture = _collection_from_run(check, command_capture)
+    if (
+        all_collection_capture is not None
+        and all_collection_capture[1] is None
+        and command_capture.error_kind is None
+    ):
+        all_collection_capture = _collect_minimum_tests(
+            check,
+            all_arguments,
+            check_directory,
+            check_log_paths.collection_stdout,
+            check_log_paths.collection_stderr,
+        )
     return _finish_check(
         check,
         all_arguments,
@@ -220,7 +230,7 @@ def _classify_record(
     command_capture: CommandCapture,
 ) -> tuple[str, str | None, str | None]:
     status, error_kind, error_message = _classify_command(command_capture)
-    if all_collection_capture is None:
+    if all_collection_capture is None or command_capture.error_kind is not None:
         return status, error_kind, error_message
     status, error_kind, error_message = _classify_collection(
         check, all_collection_capture, status, error_kind, error_message
@@ -235,18 +245,50 @@ def _classify_record(
     )
 
 
+def _collection_from_run(
+    check: CheckSpec, command_capture: CommandCapture
+) -> tuple[CommandCapture, int | None] | None:
+    """Read the collection outcome from the check's own pytest run.
+
+    A check with a test floor needs the number of tests pytest collected.
+    The run's summary line already holds it, so no second pytest start is
+    needed. Exit 0 and 1 mean collection worked; any other exit is kept. A
+    run with no summary line, such as one under ``-qq``, reads no count, and
+    the caller then counts the tests in a separate collection pass::
+
+        exit 1, "2 failed, 9 passed, 1 deselected in 3.1s" -> (exit 0, 12 tests)
+        exit 5, "no tests ran in 0.1s"                     -> (exit 5, 0 tests)
+        exit 2, "1 error in 0.3s"                          -> (exit 2, 1 test)
+        exit 0, no summary line under -qq                  -> (exit 0, no count)
+
+    Args:
+        check: The check that ran.
+        command_capture: The check's own run.
+
+    Returns:
+        The collection outcome and its test count, or None for a check
+        without a test floor.
+    """
+    if check.minimum_tests is None:
+        return None
+    collection_exit_code = (
+        SUCCESS_EXIT_CODE
+        if command_capture.exit_code in ALL_COLLECTED_RUN_EXIT_CODES
+        else command_capture.exit_code
+    )
+    collection_capture = CommandCapture(collection_exit_code, "", "", None, None)
+    return collection_capture, _parse_run_tests(command_capture)
+
+
 def _collect_minimum_tests(
     check: CheckSpec,
     all_arguments: tuple[str, ...],
     check_directory: Path,
     stdout_log_path: Path,
     stderr_log_path: Path,
-) -> tuple[CommandCapture, int | None] | None:
-    if check.minimum_tests is None:
-        return None
-    collection_arguments = _collection_arguments(all_arguments)
+) -> tuple[CommandCapture, int | None]:
     collection_capture = _run_command(
-        collection_arguments, check_directory, check.timeout_seconds
+        _collection_arguments(all_arguments), check_directory, check.timeout_seconds
     )
     _write_logs(
         stdout_log_path,
@@ -254,16 +296,14 @@ def _collect_minimum_tests(
         collection_capture.stdout_text,
         collection_capture.stderr_text,
     )
-    collected_tests = _parse_collected_tests(collection_capture)
-    return collection_capture, collected_tests
+    return collection_capture, _parse_collected_tests(collection_capture)
 
 
 def _collection_arguments(all_arguments: tuple[str, ...]) -> tuple[str, ...]:
     all_collection_arguments = list(all_arguments)
     if PYTEST_COLLECTION_FLAG not in all_collection_arguments:
         all_collection_arguments.append(PYTEST_COLLECTION_FLAG)
-    if PYTEST_QUIET_FLAG not in all_collection_arguments:
-        all_collection_arguments.append(PYTEST_QUIET_FLAG)
+    all_collection_arguments.append(PYTEST_COLLECTION_VERBOSITY_FLAG)
     return tuple(all_collection_arguments)
 
 
@@ -271,8 +311,24 @@ def _parse_collected_tests(command_capture: CommandCapture) -> int | None:
     all_text = command_capture.stdout_text + command_capture.stderr_text
     test_match = COLLECTED_TESTS_PATTERN.search(all_text)
     if test_match is None:
-        return 0 if command_capture.exit_code == 5 else None
+        return 0 if command_capture.exit_code == NO_TESTS_COLLECTED_EXIT_CODE else None
     return int(test_match.group("count"))
+
+
+def _parse_run_tests(command_capture: CommandCapture) -> int | None:
+    all_summary_lines = [
+        each_line
+        for each_line in (
+            command_capture.stdout_text + command_capture.stderr_text
+        ).splitlines()
+        if RUN_SUMMARY_DURATION_PATTERN.search(each_line)
+    ]
+    all_outcomes = (
+        RUN_OUTCOME_PATTERN.findall(all_summary_lines[-1]) if all_summary_lines else []
+    )
+    if not all_outcomes:
+        return 0 if command_capture.exit_code == NO_TESTS_COLLECTED_EXIT_CODE else None
+    return sum(int(each_count) for each_count, _outcome in all_outcomes)
 
 
 def _parse_skipped_tests(command_capture: CommandCapture) -> int:
