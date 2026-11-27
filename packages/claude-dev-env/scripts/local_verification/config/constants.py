@@ -33,6 +33,9 @@ START_ERROR_KIND = "start_error"
 COLLECTION_ERROR_KIND = "collection_error"
 NONZERO_EXIT_ERROR_KIND = "nonzero_exit"
 SKIPPED_TESTS_ERROR_KIND = "skipped_tests"
+PYTEST_COLLECTION_FLAG = "--collect-only"
+PYTEST_COLLECTION_VERBOSITY_FLAG = "--verbosity=-1"
+COLLECTED_TESTS_PATTERN = re.compile(r"(?P<count>\d+) tests? collected")
 RUN_SUMMARY_DURATION_PATTERN = re.compile(r"\bin \d+(?:\.\d+)?s\b")
 RUN_OUTCOME_PATTERN = re.compile(
     r"(\d+) (passed|failed|skipped|deselected|xfailed|xpassed|errors?)\b"
@@ -49,6 +52,8 @@ REPOSITORY_POLICY_PLACEHOLDER = "{repository_policy}"
 LOGS_DIRECTORY_SUFFIX = ".logs"
 STDOUT_LOG_SUFFIX = ".stdout.log"
 STDERR_LOG_SUFFIX = ".stderr.log"
+COLLECTION_STDOUT_LOG_SUFFIX = ".collection.stdout.log"
+COLLECTION_STDERR_LOG_SUFFIX = ".collection.stderr.log"
 REPORT_NEWLINE = "\n"
 GIT_EXECUTABLE = "git"
 ALL_GIT_ROOT_ARGUMENTS = ("rev-parse", "--show-toplevel")

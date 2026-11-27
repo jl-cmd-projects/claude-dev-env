@@ -15,7 +15,10 @@ from .config import (
     ALL_COLLECTED_RUN_EXIT_CODES,
     CLI_CHECK_FINISH_MESSAGE_TEMPLATE,
     CLI_CHECK_START_MESSAGE_TEMPLATE,
+    COLLECTED_TESTS_PATTERN,
     COLLECTION_ERROR_KIND,
+    COLLECTION_STDERR_LOG_SUFFIX,
+    COLLECTION_STDOUT_LOG_SUFFIX,
     CRASH_ERROR_KIND,
     FAILED_STATUS,
     INCOMPLETE_STATUS,
@@ -23,6 +26,8 @@ from .config import (
     NO_TESTS_COLLECTED_EXIT_CODE,
     NONZERO_EXIT_ERROR_KIND,
     PASSED_STATUS,
+    PYTEST_COLLECTION_FLAG,
+    PYTEST_COLLECTION_VERBOSITY_FLAG,
     RUN_OUTCOME_PATTERN,
     RUN_SUMMARY_DURATION_PATTERN,
     SAFE_LOG_NAME_PATTERN,
@@ -101,6 +106,8 @@ def _build_check_log_paths(check: CheckSpec, logs_directory: Path) -> CheckLogPa
     return CheckLogPaths(
         logs_directory / (safe_check_id + STDOUT_LOG_SUFFIX),
         logs_directory / (safe_check_id + STDERR_LOG_SUFFIX),
+        logs_directory / (safe_check_id + COLLECTION_STDOUT_LOG_SUFFIX),
+        logs_directory / (safe_check_id + COLLECTION_STDERR_LOG_SUFFIX),
     )
 
 
@@ -116,6 +123,18 @@ def _run_existing_check(
     )
     duration_seconds = time.monotonic() - started_at
     all_collection_capture = _collection_from_run(check, command_capture)
+    if (
+        all_collection_capture is not None
+        and all_collection_capture[1] is None
+        and command_capture.error_kind is None
+    ):
+        all_collection_capture = _collect_minimum_tests(
+            check,
+            all_arguments,
+            check_directory,
+            check_log_paths.collection_stdout,
+            check_log_paths.collection_stderr,
+        )
     return _finish_check(
         check,
         all_arguments,
@@ -233,11 +252,14 @@ def _collection_from_run(
 
     A check with a test floor needs the number of tests pytest collected.
     The run's summary line already holds it, so no second pytest start is
-    needed. Exit 0 and 1 mean collection worked; any other exit is kept::
+    needed. Exit 0 and 1 mean collection worked; any other exit is kept. A
+    run with no summary line, such as one under ``-qq``, reads no count, and
+    the caller then counts the tests in a separate collection pass::
 
         exit 1, "2 failed, 9 passed, 1 deselected in 3.1s" -> (exit 0, 12 tests)
         exit 5, "no tests ran in 0.1s"                     -> (exit 5, 0 tests)
         exit 2, "1 error in 0.3s"                          -> (exit 2, 1 test)
+        exit 0, no summary line under -qq                  -> (exit 0, no count)
 
     Args:
         check: The check that ran.
@@ -256,6 +278,41 @@ def _collection_from_run(
     )
     collection_capture = CommandCapture(collection_exit_code, "", "", None, None)
     return collection_capture, _parse_run_tests(command_capture)
+
+
+def _collect_minimum_tests(
+    check: CheckSpec,
+    all_arguments: tuple[str, ...],
+    check_directory: Path,
+    stdout_log_path: Path,
+    stderr_log_path: Path,
+) -> tuple[CommandCapture, int | None]:
+    collection_capture = _run_command(
+        _collection_arguments(all_arguments), check_directory, check.timeout_seconds
+    )
+    _write_logs(
+        stdout_log_path,
+        stderr_log_path,
+        collection_capture.stdout_text,
+        collection_capture.stderr_text,
+    )
+    return collection_capture, _parse_collected_tests(collection_capture)
+
+
+def _collection_arguments(all_arguments: tuple[str, ...]) -> tuple[str, ...]:
+    all_collection_arguments = list(all_arguments)
+    if PYTEST_COLLECTION_FLAG not in all_collection_arguments:
+        all_collection_arguments.append(PYTEST_COLLECTION_FLAG)
+    all_collection_arguments.append(PYTEST_COLLECTION_VERBOSITY_FLAG)
+    return tuple(all_collection_arguments)
+
+
+def _parse_collected_tests(command_capture: CommandCapture) -> int | None:
+    all_text = command_capture.stdout_text + command_capture.stderr_text
+    test_match = COLLECTED_TESTS_PATTERN.search(all_text)
+    if test_match is None:
+        return 0 if command_capture.exit_code == NO_TESTS_COLLECTED_EXIT_CODE else None
+    return int(test_match.group("count"))
 
 
 def _parse_run_tests(command_capture: CommandCapture) -> int | None:
