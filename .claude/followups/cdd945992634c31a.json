@@ -1,0 +1,8 @@
+{
+  "rule_id": "validators",
+  "file_path": "packages/claude-dev-env/hooks/blocking/pii_scanner.py",
+  "message": "packages/claude-dev-env/hooks/blocking/pii_scanner.py:374: Function 'scan_text_for_pii' has nesting depth 3 (max 2)",
+  "check_id": "validators/nesting-depth",
+  "severity": "smell",
+  "origin_commit": "eecc530368b13817789d6fb17ff74fa582d48b72"
+}

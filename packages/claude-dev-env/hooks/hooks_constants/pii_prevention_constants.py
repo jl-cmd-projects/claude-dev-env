@@ -249,6 +249,8 @@ PEM_PRIVATE_KEY_HEADER_PATTERN: re.Pattern[str] = re.compile(
 )
 
 HOME_PATH_PATTERN: re.Pattern[str] = HARDCODED_USER_PATH_PATTERN
+HOME_PATH_LINE_MARKER_PATTERN: re.Pattern[str] = re.compile(r"users|home", re.IGNORECASE)
+HOME_PATH_SCAN_CHARACTERS_PAST_LINE_END: int = 2
 INTERPOLATED_HOME_USERNAME_PATTERN: re.Pattern[str] = re.compile(r"^\{[A-Za-z_][A-Za-z0-9_]*\}$")
 
 HOME_USERNAME_MARKER_PATTERN: re.Pattern[str] = re.compile(r"[\\/]+(?:users|home)[\\/]+", re.I)
