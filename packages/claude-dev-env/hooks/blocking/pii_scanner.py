@@ -35,6 +35,7 @@ from hooks_constants.pii_prevention_constants import (
     CATEGORY_SECRET,
     CONFTEST_BASENAME,
     EMAIL_PATTERN,
+    HOME_PATH_LINE_MARKER_PATTERN,
     HOME_PATH_PATTERN,
     HOME_USERNAME_MARKER_PATTERN,
     INTERPOLATED_HOME_USERNAME_PATTERN,
@@ -253,14 +254,44 @@ def _find_emails(text: str) -> list[PiiFinding]:
     return all_findings
 
 
+def _home_path_lines(text: str) -> list[str]:
+    """Return the lines of ``text`` that can hold a home path.
+
+    Every branch of the home path pattern spells ``users`` or ``home``, and
+    no branch crosses a newline, so a line without either word holds no
+    match::
+
+        "a\\nC:/Users/x/y\\nb"  ->  ["C:/Users/x/y"]
+
+    Args:
+        text: The text to scan.
+
+    Returns:
+        Each line that holds ``users`` or ``home`` in any letter case, in order.
+    """
+    all_lines: list[str] = []
+    next_line_start = 0
+    for each_marker in HOME_PATH_LINE_MARKER_PATTERN.finditer(text):
+        if each_marker.start() < next_line_start:
+            continue
+        line_start = text.rfind("\n", 0, each_marker.start()) + 1
+        line_end = text.find("\n", each_marker.end())
+        if line_end == -1:
+            line_end = len(text)
+        all_lines.append(text[line_start:line_end])
+        next_line_start = line_end + 1
+    return all_lines
+
+
 def _find_home_paths(text: str) -> list[PiiFinding]:
     all_findings: list[PiiFinding] = []
-    for each_match in HOME_PATH_PATTERN.finditer(text):
-        matched_path = each_match.group(0)
-        username = _username_from_home_path(matched_path)
-        if username is not None and _is_placeholder_home_username(username):
-            continue
-        all_findings.append(_finding(CATEGORY_HOME_PATH, matched_path))
+    for each_line in _home_path_lines(text):
+        for each_match in HOME_PATH_PATTERN.finditer(each_line):
+            matched_path = each_match.group(0)
+            username = _username_from_home_path(matched_path)
+            if username is not None and _is_placeholder_home_username(username):
+                continue
+            all_findings.append(_finding(CATEGORY_HOME_PATH, matched_path))
     return all_findings
 
 
