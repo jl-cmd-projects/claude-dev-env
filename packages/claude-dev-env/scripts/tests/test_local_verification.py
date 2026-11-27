@@ -239,6 +239,32 @@ def test_should_start_pytest_once_for_a_check_with_a_test_floor(
     assert session_log.read_text(encoding="utf-8").splitlines() == ["session"]
 
 
+def test_should_count_the_tests_in_a_collection_pass_when_the_run_prints_no_summary(
+    tmp_path: Path,
+) -> None:
+    (tmp_path / "test_three.py").write_text(
+        "def test_one():\n    pass\n\n"
+        "def test_two():\n    pass\n\n"
+        "def test_three():\n    pass\n",
+        encoding="utf-8",
+    )
+    check = CheckSpec(
+        "pytest",
+        (sys.executable, "-m", "pytest", "-qq", "test_three.py"),
+        ".",
+        30.0,
+        3,
+    )
+
+    report = run_verification(
+        _manifest(check), tmp_path, "base-sha", tmp_path / "verification.json"
+    )
+
+    assert report.checks[0].status == "passed"
+    assert report.checks[0].collected_tests == 3
+    assert report.checks[0].collection_exit_code == 0
+
+
 def test_should_count_failed_and_deselected_tests_toward_the_floor(
     tmp_path: Path,
 ) -> None:

@@ -52,6 +52,8 @@ class CommandCapture:
 class CheckLogPaths:
     stdout: Path
     stderr: Path
+    collection_stdout: Path
+    collection_stderr: Path
 
 
 @dataclass(frozen=True)
