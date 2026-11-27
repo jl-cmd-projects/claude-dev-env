@@ -296,29 +296,33 @@ def _home_path_matches(text: str) -> list[str]:
 
         "C:/Users/Public\\nhello"  ->  ["C:/Users/Public"]
 
+    No match fits in the newline and the one character after it, so every
+    match starts on the marker line.
+
     Args:
         text: The text to scan.
 
     Returns:
         Each matched home path, in text order.
     """
-    all_matches: list[str] = []
-    for line_start, line_end in _home_path_line_spans(text):
-        scan_end = min(len(text), line_end + HOME_PATH_SCAN_CHARACTERS_PAST_LINE_END)
-        for each_match in HOME_PATH_PATTERN.finditer(text, line_start, scan_end):
-            if each_match.start() > line_end:
-                break
-            all_matches.append(each_match.group(0))
-    return all_matches
+    return [
+        each_match.group(0)
+        for each_line_start, each_line_end in _home_path_line_spans(text)
+        for each_match in HOME_PATH_PATTERN.finditer(
+            text,
+            each_line_start,
+            min(len(text), each_line_end + HOME_PATH_SCAN_CHARACTERS_PAST_LINE_END),
+        )
+    ]
 
 
 def _find_home_paths(text: str) -> list[PiiFinding]:
     all_findings: list[PiiFinding] = []
-    for matched_path in _home_path_matches(text):
-        username = _username_from_home_path(matched_path)
+    for each_matched_path in _home_path_matches(text):
+        username = _username_from_home_path(each_matched_path)
         if username is not None and _is_placeholder_home_username(username):
             continue
-        all_findings.append(_finding(CATEGORY_HOME_PATH, matched_path))
+        all_findings.append(_finding(CATEGORY_HOME_PATH, each_matched_path))
     return all_findings
 
 
