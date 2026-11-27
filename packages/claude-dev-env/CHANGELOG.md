@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.139.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.139.0...claude-dev-env-v8.139.1) (2026-11-27)
+
+
+### Performance
+
+* **local-verification:** read the test count from the run of the check ([#2511](https://github.com/jl-cmd-projects/claude-dev-env/issues/2511)) ([4a097f8](https://github.com/jl-cmd-projects/claude-dev-env/commit/4a097f835d0793f4c5dc4215e330e1dc5527c132))
+
 ## [8.139.0](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.138.0...claude-dev-env-v8.139.0) (2026-11-26)
 
 
