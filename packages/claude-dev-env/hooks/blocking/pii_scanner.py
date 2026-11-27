@@ -36,6 +36,7 @@ from hooks_constants.pii_prevention_constants import (
     CONFTEST_BASENAME,
     EMAIL_PATTERN,
     HOME_PATH_LINE_MARKER_PATTERN,
+    HOME_PATH_SCAN_CHARACTERS_PAST_LINE_END,
     HOME_PATH_PATTERN,
     HOME_USERNAME_MARKER_PATTERN,
     INTERPOLATED_HOME_USERNAME_PATTERN,
@@ -254,22 +255,24 @@ def _find_emails(text: str) -> list[PiiFinding]:
     return all_findings
 
 
-def _home_path_lines(text: str) -> list[str]:
-    """Return the lines of ``text`` that can hold a home path.
+def _home_path_line_spans(text: str) -> list[tuple[int, int]]:
+    """Return where the lines of ``text`` that can hold a home path start and end.
 
     Every branch of the home path pattern spells ``users`` or ``home``, and
     no branch crosses a newline, so a line without either word holds no
     match::
 
-        "a\\nC:/Users/x/y\\nb"  ->  ["C:/Users/x/y"]
+        "a\\nC:/Users/x/y\\nb"  ->  [(2, 14)]
 
     Args:
         text: The text to scan.
 
     Returns:
-        Each line that holds ``users`` or ``home`` in any letter case, in order.
+        The start and end offset of each line that holds ``users`` or
+        ``home`` in any letter case, in order. The end offset is the line's
+        newline, or the text's end.
     """
-    all_lines: list[str] = []
+    all_spans: list[tuple[int, int]] = []
     next_line_start = 0
     for each_marker in HOME_PATH_LINE_MARKER_PATTERN.finditer(text):
         if each_marker.start() < next_line_start:
@@ -278,20 +281,44 @@ def _home_path_lines(text: str) -> list[str]:
         line_end = text.find("\n", each_marker.end())
         if line_end == -1:
             line_end = len(text)
-        all_lines.append(text[line_start:line_end])
+        all_spans.append((line_start, line_end))
         next_line_start = line_end + 1
-    return all_lines
+    return all_spans
+
+
+def _home_path_matches(text: str) -> list[str]:
+    """Return every home path match in ``text``, scanning only its marker lines.
+
+    The pattern runs over the whole text, from each marker line's start, and
+    stops one character past that line's newline. The lookbehinds still see
+    the character before the line, and ``$`` still fails before a newline
+    in the middle of the text, so the matches equal a whole-text scan::
+
+        "C:/Users/Public\\nhello"  ->  ["C:/Users/Public"]
+
+    Args:
+        text: The text to scan.
+
+    Returns:
+        Each matched home path, in text order.
+    """
+    all_matches: list[str] = []
+    for line_start, line_end in _home_path_line_spans(text):
+        scan_end = min(len(text), line_end + HOME_PATH_SCAN_CHARACTERS_PAST_LINE_END)
+        for each_match in HOME_PATH_PATTERN.finditer(text, line_start, scan_end):
+            if each_match.start() > line_end:
+                break
+            all_matches.append(each_match.group(0))
+    return all_matches
 
 
 def _find_home_paths(text: str) -> list[PiiFinding]:
     all_findings: list[PiiFinding] = []
-    for each_line in _home_path_lines(text):
-        for each_match in HOME_PATH_PATTERN.finditer(each_line):
-            matched_path = each_match.group(0)
-            username = _username_from_home_path(matched_path)
-            if username is not None and _is_placeholder_home_username(username):
-                continue
-            all_findings.append(_finding(CATEGORY_HOME_PATH, matched_path))
+    for matched_path in _home_path_matches(text):
+        username = _username_from_home_path(matched_path)
+        if username is not None and _is_placeholder_home_username(username):
+            continue
+        all_findings.append(_finding(CATEGORY_HOME_PATH, matched_path))
     return all_findings
 
 

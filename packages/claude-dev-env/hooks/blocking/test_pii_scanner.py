@@ -282,6 +282,11 @@ def test_should_find_home_paths_on_each_line_of_a_many_line_text() -> None:
     ]
 
 
+def test_should_keep_whole_text_end_rules_for_an_excluded_name_that_ends_a_line() -> None:
+    findings = scan_text_for_pii("C:/Users/Public\nhello\n/Users/Shared\n\nend\nC:/Users/Public")
+    assert [item.matched_text for item in findings] == ["C:/Users/Public", "/Users/Shared"]
+
+
 def test_should_find_a_home_path_that_ends_a_line_without_a_trailing_newline() -> None:
     findings = scan_text_for_pii("plain line\nfile:///home/fourth-user")
     assert [item.matched_text for item in findings] == ["file:///home/fourth-user"]
