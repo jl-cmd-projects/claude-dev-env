@@ -8,7 +8,9 @@
       "WebFetch(domain:claude.dev)",
       "WebFetch(domain:*.claude.dev)",
       "WebFetch(domain:www.anthropic.com)",
-      "Read(~/.claude/docs/**)"
+      "Read(~/.claude/docs/**)",
+      "mcp__claude-code-remote__add_repo",
+      "mcp__claude-code-remote__register_repo_root"
     ]
   },
   "autoCompactWindow": 350000,
