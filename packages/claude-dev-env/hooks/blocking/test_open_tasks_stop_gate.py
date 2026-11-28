@@ -1373,19 +1373,22 @@ def test_should_skip_the_closing_round_for_a_cursor_payload(
     assert all_round_payloads == []
 
 
+USER_ITEM_REPLY = f"{DEFERRED_REPLY}\nThe retry budget is your call."
+
+
 def test_should_read_the_closing_round_reason_from_the_round_gate_script(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     monkeypatch.setenv("CLAUDE_CODE_SESSION_ATTENDED", "1")
     transcript_path = write_records(
         tmp_path / "s.jsonl",
-        [*closing_turn(WORK_PROMPT, READ_CALL), assistant_text_record(DEFERRED_REPLY)],
+        [*closing_turn(WORK_PROMPT, READ_CALL), assistant_text_record(USER_ITEM_REPLY)],
     )
     hook_input = {
         "hook_event_name": "Stop",
         "session_id": SESSION_ID,
         "transcript_path": str(transcript_path),
-        "last_assistant_message": DEFERRED_REPLY,
+        "last_assistant_message": USER_ITEM_REPLY,
     }
     round_reason = CLOSING_ROUND_HOLD_REASON(json.dumps(hook_input).encode("utf-8"))
     assert round_reason is not None
