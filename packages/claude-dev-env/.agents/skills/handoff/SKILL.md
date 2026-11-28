@@ -20,7 +20,7 @@ Then write one handoff, in the first person, as if I wrote it. It must be comple
 ## Rules
 
 - State only what is true now and needed to continue. Read the live state of each pull request, branch and run before you write it.
-- State only work that was actually done.
+- State only work that was done.
 - Leave out how-to-work advice, tooling tips, and blockers that were specific to your environment.
 - Leave out every out: no optional steps, "if possible", "or report why", fallbacks, or any wording that lets an agent stop short of the goal.
 - Be concise. A 12 year old should be able to read the handoff and understand it. Use no jargon.
