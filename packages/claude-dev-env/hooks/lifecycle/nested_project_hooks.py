@@ -26,8 +26,12 @@ and a child with no time left does not start. Each child that does not start
 or is stopped writes one line to stderr and adds nothing, so a spent budget
 never denies a call by itself.
 
-When the session directory is itself a checkout or holds its own settings,
-Claude Code already runs those hooks, and this hook exits at once.
+When the session directory holds its own settings, Claude Code already runs
+those hooks. A local session rooted in a checkout forwards nothing. A cloud
+session (``CLAUDE_CODE_REMOTE=true``) rooted in a checkout forwards the sibling
+checkouts beside it, which a thread attaches with add_repo after it starts.
+A checkout that appears after SessionStart runs its start hooks once, before
+the first later event's own hooks, as ``nested_project_hooks_catch_up`` shows.
 """
 
 from __future__ import annotations
@@ -37,6 +41,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,6 +60,8 @@ from hooks_constants.nested_project_hooks_constants import (
     ALL_MATCH_TARGET_KEYS_BY_EVENT,
     PRE_TOOL_USE_EVENT,
     PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE,
+    REMOTE_SESSION_ENVIRONMENT_VARIABLE,
+    REMOTE_SESSION_VALUE,
     ALL_RUN_BUDGET_SECONDS_BY_EVENT,
     CUT_OFF_CHILD_LINE_TEMPLATE,
     NOT_STARTED_OUTCOME,
@@ -71,6 +78,14 @@ from hooks_constants.hook_specific_output_keys import (
 )
 from hooks_constants.hook_time_budget import call_timeout, time_budget
 from hooks_constants.subprocess_window import hidden_window_creation_flags
+from hooks_constants.nested_project_hooks_constants import CATCH_UP_ARGUMENT_COUNT, CATCH_UP_FLAG
+from lifecycle.nested_project_hooks_catch_up import (
+    hook_output_context,
+    json_additional_context,
+    mark_reported,
+    run_catch_up,
+    start_late_checkouts,
+)
 from lifecycle.nested_project_hooks_discovery import NestedHook, collect_nested_hooks
 
 
@@ -91,18 +106,28 @@ def _shell_program() -> str | None:
     return None
 
 
-def _hook_environment(project_directory: Path) -> dict[str, str]:
-    return {**os.environ, PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE: str(project_directory)}
+def _hook_environment(
+    project_directory: Path, all_extra_variables: dict[str, str] | None = None
+) -> dict[str, str]:
+    return {
+        **os.environ,
+        **(all_extra_variables or {}),
+        PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE: str(project_directory),
+    }
 
 
 def run_nested_hook(
-    nested_hook: NestedHook, payload_text: str
+    nested_hook: NestedHook,
+    payload_text: str,
+    all_extra_variables: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str] | None:
     """Run one nested hook the way Claude Code would run it in its own checkout.
 
     Args:
         nested_hook: The hook to run.
         payload_text: The stdin payload Claude Code handed this hook.
+        all_extra_variables: Variables to set for this run on top of the
+            session's own.
 
     Returns:
         The completed process, or None when no shell exists, the command
@@ -122,7 +147,7 @@ def run_nested_hook(
             capture_output=True,
             text=True,
             cwd=nested_hook.project_directory,
-            env=_hook_environment(nested_hook.project_directory),
+            env=_hook_environment(nested_hook.project_directory, all_extra_variables),
             timeout=timeout_seconds,
             check=False,
             creationflags=hidden_window_creation_flags(),
@@ -217,7 +242,7 @@ def pre_tool_use_verdict(
             BLOCKING_EXIT_CODE, "", _joined_reasons([*all_blocking_stderr, *all_deny_reasons])
         )
     all_context_sections = _non_empty_sections(
-        _json_additional_context(each_parsed_output) for each_parsed_output in all_parsed_outputs
+        json_additional_context(each_parsed_output) for each_parsed_output in all_parsed_outputs
     )
     all_distinct_context_sections = list(dict.fromkeys(all_context_sections))
     joined_context = CONTEXT_SECTION_SEPARATOR.join(all_distinct_context_sections)
@@ -245,21 +270,6 @@ def pre_tool_use_verdict(
     return HookVerdict(0, json.dumps(hook_output), "")
 
 
-def _json_additional_context(all_output_fields: dict[str, object]) -> str:
-    specific_output = all_output_fields.get(HOOK_SPECIFIC_OUTPUT_KEY)
-    if not isinstance(specific_output, dict):
-        return ""
-    context_text = specific_output.get(ADDITIONAL_CONTEXT_KEY)
-    return context_text.strip() if isinstance(context_text, str) else ""
-
-
-def _session_start_context(stdout_text: str) -> str:
-    parsed_output = _parsed_hook_output(stdout_text)
-    if parsed_output is None:
-        return stdout_text.strip()
-    return _json_additional_context(parsed_output)
-
-
 def _non_empty_sections(all_sections: Iterable[str]) -> list[str]:
     return [each_section for each_section in all_sections if each_section]
 
@@ -279,7 +289,7 @@ def additional_context_verdict(
         when no child printed any.
     """
     all_context_sections = _non_empty_sections(
-        _session_start_context(each_result.stdout) for each_result in all_results
+        hook_output_context(each_result.stdout) for each_result in all_results
     )
     stderr_text = CONTEXT_SECTION_SEPARATOR.join(
         _non_empty_sections(each_result.stderr.strip() for each_result in all_results)
@@ -309,12 +319,47 @@ def _completed_results(
     return [each_outcome for each_outcome in all_outcomes if each_outcome is not None]
 
 
-def forward_nested_hooks(session_directory: Path, payload_text: str) -> HookVerdict:
+def _with_catch_up_context(
+    verdict: HookVerdict,
+    catch_up_context: str,
+    event_name: str,
+) -> HookVerdict:
+    if not catch_up_context or verdict.exit_code != 0:
+        return verdict
+    hook_output = _parsed_hook_output(verdict.stdout_text) if verdict.stdout_text else {}
+    if hook_output is None:
+        return verdict
+    specific_output = hook_output.get(HOOK_SPECIFIC_OUTPUT_KEY)
+    specific_output = dict(specific_output) if isinstance(specific_output, dict) else {}
+    specific_output.setdefault(HOOK_EVENT_NAME_OUTPUT_KEY, event_name)
+    existing_context = specific_output.get(ADDITIONAL_CONTEXT_KEY)
+    specific_output[ADDITIONAL_CONTEXT_KEY] = CONTEXT_SECTION_SEPARATOR.join(
+        _non_empty_sections(
+            [existing_context if isinstance(existing_context, str) else "", catch_up_context]
+        )
+    )
+    hook_output[HOOK_SPECIFIC_OUTPUT_KEY] = specific_output
+    return HookVerdict(0, json.dumps(hook_output), verdict.stderr_text)
+
+
+def _event_verdict(
+    all_results: list[subprocess.CompletedProcess[str]], event_name: str
+) -> HookVerdict:
+    if event_name == PRE_TOOL_USE_EVENT:
+        return pre_tool_use_verdict(all_results)
+    return additional_context_verdict(all_results, event_name)
+
+
+def forward_nested_hooks(
+    session_directory: Path, payload_text: str, forward_siblings: bool = False
+) -> HookVerdict:
     """Run the nested checkouts' hooks for one payload and fold their results.
 
     Args:
         session_directory: The directory the session started in.
         payload_text: The stdin payload Claude Code handed this hook.
+        forward_siblings: Whether a session rooted in a checkout also forwards
+            the checkouts beside it, as a cloud thread needs.
 
     Returns:
         The verdict for Claude Code. An empty pass for an unreadable payload
@@ -328,22 +373,44 @@ def forward_nested_hooks(session_directory: Path, payload_text: str) -> HookVerd
         return HookVerdict(0, "", "")
     match_target = payload.get(ALL_MATCH_TARGET_KEYS_BY_EVENT[event_name])
     all_nested_hooks = collect_nested_hooks(
-        session_directory, event_name, match_target if isinstance(match_target, str) else ""
+        session_directory,
+        event_name,
+        match_target if isinstance(match_target, str) else "",
+        forward_siblings,
     )
-    with time_budget(ALL_RUN_BUDGET_SECONDS_BY_EVENT[event_name]):
+    run_budget = ALL_RUN_BUDGET_SECONDS_BY_EVENT[event_name]
+    gate_reserve = sum(each.timeout_seconds for each in all_nested_hooks)
+    started_at = time.monotonic()
+    catch_up_report = start_late_checkouts(
+        session_directory, payload, forward_siblings, max(0.0, run_budget - gate_reserve)
+    )
+    with time_budget(run_budget - (time.monotonic() - started_at)):
         all_results = _completed_results(all_nested_hooks, payload_text)
-    if event_name == PRE_TOOL_USE_EVENT:
-        return pre_tool_use_verdict(all_results)
-    return additional_context_verdict(all_results, event_name)
+    verdict = _event_verdict(all_results, event_name)
+    folded_verdict = _with_catch_up_context(verdict, catch_up_report.context, event_name)
+    if folded_verdict is not verdict:
+        mark_reported(payload, catch_up_report.all_finished_checkouts)
+    return folded_verdict
 
 
 def main() -> None:
-    """Entry point: read the payload, forward it, and exit with the verdict."""
+    """Entry point: read the payload, forward it, and exit with the verdict.
+
+    Run as ``nested_project_hooks.py --catch-up <session dir> <session id>
+    <checkout>``, it is the detached runner that one late checkout's start
+    hooks run in.
+    """
+    forward_siblings = os.environ.get(REMOTE_SESSION_ENVIRONMENT_VARIABLE) == REMOTE_SESSION_VALUE
+    all_arguments = sys.argv[1:]
+    if all_arguments[:1] == [CATCH_UP_FLAG] and len(all_arguments) == CATCH_UP_ARGUMENT_COUNT:
+        _, session_directory_argument, session_id, checkout_argument = all_arguments
+        run_catch_up(Path(session_directory_argument), session_id, Path(checkout_argument), forward_siblings)
+        sys.exit(0)
     session_directory_text = os.environ.get(PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE)
     if not session_directory_text:
         sys.exit(0)
     payload_text = sys.stdin.read()
-    verdict = forward_nested_hooks(Path(session_directory_text), payload_text)
+    verdict = forward_nested_hooks(Path(session_directory_text), payload_text, forward_siblings)
     if verdict.stdout_text:
         sys.stdout.write(verdict.stdout_text)
     if verdict.stderr_text:

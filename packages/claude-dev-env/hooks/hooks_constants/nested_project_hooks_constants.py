@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE: str = "CLAUDE_PROJECT_DIR"
+REMOTE_SESSION_ENVIRONMENT_VARIABLE: str = "CLAUDE_CODE_REMOTE"
+REMOTE_SESSION_VALUE: str = "true"
 CHECKOUT_MARKER_NAME: str = ".git"
 SETTINGS_DIRECTORY_NAME: str = ".claude"
 SETTINGS_FILE_NAME: str = "settings.json"
@@ -44,3 +46,28 @@ ASK_PERMISSION_DECISION: str = "ask"
 ALL_FORWARDED_PERMISSION_DECISIONS: tuple[str, ...] = (DENY_PERMISSION_DECISION, ASK_PERMISSION_DECISION)
 ADDITIONAL_CONTEXT_KEY: str = "additionalContext"
 CONTEXT_SECTION_SEPARATOR: str = "\n\n"
+
+SESSION_ID_KEY: str = "session_id"
+SOURCE_KEY: str = "source"
+CWD_KEY: str = "cwd"
+CATCH_UP_SESSION_START_SOURCE: str = "startup"
+ALL_STARTED_STATE_PATH_PARTS: tuple[str, ...] = (".claude", "state", "nested-project-hooks")
+CLAIMED_MARKER_SUFFIX: str = ".claimed"
+DONE_MARKER_SUFFIX: str = ".done"
+LOG_FILE_SUFFIX: str = ".log"
+REPORTED_MARKER_SUFFIX: str = ".reported"
+TAKEOVER_MARKER_TEMPLATE: str = "{claim}.takeover-{generation}"
+CATCH_UP_FLAG: str = "--catch-up"
+CATCH_UP_ARGUMENT_COUNT: int = 4
+CATCH_UP_WAIT_SECONDS: float = 60.0
+CATCH_UP_POLL_SECONDS: float = 0.25
+CATCH_UP_STALE_SLACK_SECONDS: float = 60.0
+RUNNING_NOTE_TEMPLATE: str = (
+    "nested_project_hooks: {checkout} was attached after SessionStart; its start hooks are still running. Log: {log}"
+)
+FINISHED_NOTE_TEMPLATE: str = (
+    "nested_project_hooks: {checkout} was attached after SessionStart; its start hooks ran. Log: {log}\n{output}"
+)
+SESSION_ENV_FILE_VARIABLE: str = "CLAUDE_ENV_FILE"
+ALL_SESSION_ENV_PATH_PARTS: tuple[str, ...] = (".claude", "session-env")
+CATCH_UP_ENV_FILE_TEMPLATE: str = "sessionstart-nested-{checkout}.sh"

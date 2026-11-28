@@ -41,6 +41,13 @@ def _command_group(matcher: str, command: str) -> dict[str, object]:
     return {"matcher": matcher, "hooks": [{"type": "command", "command": command}]}
 
 
+def _timed_command_group(matcher: str, command: str, timeout_seconds: int) -> dict[str, object]:
+    return {
+        "matcher": matcher,
+        "hooks": [{"type": "command", "command": command, "timeout": timeout_seconds}],
+    }
+
+
 def _run_hook(
     session_directory: pathlib.Path, payload: dict[str, object]
 ) -> subprocess.CompletedProcess[str]:
@@ -588,3 +595,314 @@ def test_should_join_plain_and_json_session_start_output_into_one_context() -> N
         }
     }
     assert verdict.stderr_text == "alpha warned"
+
+
+def _run_hook_in_cloud_checkout(
+    session_directory: pathlib.Path, payload: dict[str, object], remote_value: str
+) -> subprocess.CompletedProcess[str]:
+    hook_environment = dict(os.environ)
+    hook_environment["CLAUDE_PROJECT_DIR"] = str(session_directory)
+    hook_environment["CLAUDE_CODE_REMOTE"] = remote_value
+    return subprocess.run(
+        [sys.executable, str(HOOK_SCRIPT_PATH)],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=hook_environment,
+        check=False,
+        timeout=60,
+    )
+
+
+def test_should_forward_a_sibling_deny_in_a_cloud_session_rooted_in_a_checkout(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = _make_checkout(tmp_path, "root-checkout", {})
+    _make_checkout(
+        tmp_path,
+        "sibling-checkout",
+        {"PreToolUse": [_command_group("Bash", f"echo '{json.dumps(_deny_output('sibling gate'))}'")]},
+    )
+
+    completed_process = _run_hook_in_cloud_checkout(
+        session_directory, _pre_tool_use_payload("Bash"), "true"
+    )
+
+    assert "sibling gate" in completed_process.stdout
+
+
+def test_should_not_forward_a_sibling_outside_a_cloud_session(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = _make_checkout(tmp_path, "root-checkout", {})
+    _make_checkout(
+        tmp_path,
+        "sibling-checkout",
+        {"PreToolUse": [_command_group("Bash", f"echo '{json.dumps(_deny_output('sibling gate'))}'")]},
+    )
+
+    completed_process = _run_hook_in_cloud_checkout(
+        session_directory, _pre_tool_use_payload("Bash"), ""
+    )
+
+    assert (completed_process.returncode, completed_process.stdout) == (0, "")
+
+
+def _run_hook_with_home(
+    session_directory: pathlib.Path, payload: dict[str, object], home_directory: pathlib.Path
+) -> subprocess.CompletedProcess[str]:
+    hook_environment = dict(os.environ)
+    hook_environment["CLAUDE_PROJECT_DIR"] = str(session_directory)
+    hook_environment["HOME"] = str(home_directory)
+    hook_environment["USERPROFILE"] = str(home_directory)
+    hook_environment.pop("CLAUDE_ENV_FILE", None)
+    return subprocess.run(
+        [sys.executable, str(HOOK_SCRIPT_PATH)],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=hook_environment,
+        check=False,
+        timeout=90,
+    )
+
+
+def _start_session(
+    session_directory: pathlib.Path, home_directory: pathlib.Path, session_id: str
+) -> None:
+    session_directory.mkdir(parents=True, exist_ok=True)
+    _run_hook_with_home(
+        session_directory, {**_session_start_payload(), "session_id": session_id}, home_directory
+    )
+
+
+def _tool_payload(session_id: str) -> dict[str, object]:
+    return {**_pre_tool_use_payload("Bash"), "session_id": session_id}
+
+
+def test_should_run_start_hooks_once_for_a_checkout_attached_after_session_start(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = tmp_path / "session"
+    home_directory = tmp_path / "home"
+    record_path = tmp_path / "record.txt"
+    start_command = f'echo "$(basename "$CLAUDE_PROJECT_DIR") $CLAUDE_ENV_FILE" >> "{record_path}"'
+    _make_checkout(
+        session_directory, "alpha", {"SessionStart": [_command_group("startup", start_command)]}
+    )
+    _start_session(session_directory, home_directory, "session-one")
+    _make_checkout(
+        session_directory, "beta", {"SessionStart": [_command_group("startup", start_command)]}
+    )
+
+    first_call = _run_hook_with_home(
+        session_directory, _tool_payload("session-one"), home_directory
+    )
+    _run_hook_with_home(session_directory, _tool_payload("session-one"), home_directory)
+
+    assert first_call.returncode == 0
+    expected_env_file = (
+        home_directory / ".claude" / "session-env" / "session-one" / "sessionstart-nested-beta.sh"
+    )
+    assert record_path.read_text(encoding="utf-8").splitlines() == [
+        "alpha ",
+        f"beta {expected_env_file}",
+    ]
+
+
+def test_should_run_late_start_hooks_before_the_event_hooks_of_that_call(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = tmp_path / "session"
+    home_directory = tmp_path / "home"
+    ready_path = tmp_path / "ready.txt"
+    _start_session(session_directory, home_directory, "session-order")
+    _make_checkout(
+        session_directory,
+        "beta",
+        {
+            "SessionStart": [_command_group("", f'sleep 1; echo ready > "{ready_path}"')],
+            "PreToolUse": [
+                _timed_command_group("Bash", f'test -f "{ready_path}" || exit 2', 10)
+            ],
+        },
+    )
+
+    completed_process = _run_hook_with_home(
+        session_directory, _tool_payload("session-order"), home_directory
+    )
+
+    assert completed_process.returncode == 0
+
+
+def test_should_carry_late_start_hook_output_and_errors_as_context(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = tmp_path / "session"
+    home_directory = tmp_path / "home"
+    _start_session(session_directory, home_directory, "session-two")
+    _make_checkout(
+        session_directory,
+        "beta",
+        {"SessionStart": [_command_group("", "echo beta is ready; echo pip failed >&2; exit 3")]},
+    )
+
+    completed_process = _run_hook_with_home(
+        session_directory, _tool_payload("session-two"), home_directory
+    )
+
+    context_text = json.loads(completed_process.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "beta was attached after SessionStart; its start hooks ran" in context_text
+    assert "beta is ready" in context_text
+    assert "pip failed" in context_text
+    assert "exited 3" in context_text
+
+
+def test_should_start_one_runner_when_two_events_race(tmp_path: pathlib.Path) -> None:
+    session_directory = tmp_path / "session"
+    home_directory = tmp_path / "home"
+    record_path = tmp_path / "record.txt"
+    _start_session(session_directory, home_directory, "session-race")
+    _make_checkout(
+        session_directory,
+        "beta",
+        {"SessionStart": [_command_group("", f'sleep 1; echo ran >> "{record_path}"')]},
+    )
+    hook_environment = dict(os.environ)
+    hook_environment.update(
+        {
+            "CLAUDE_PROJECT_DIR": str(session_directory),
+            "HOME": str(home_directory),
+            "USERPROFILE": str(home_directory),
+        }
+    )
+    all_processes = [
+        subprocess.Popen(
+            [sys.executable, str(HOOK_SCRIPT_PATH)],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            text=True,
+            env=hook_environment,
+        )
+        for _ in range(2)
+    ]
+    for each_process in all_processes:
+        assert each_process.stdin is not None
+        each_process.stdin.write(json.dumps(_tool_payload("session-race")))
+        each_process.stdin.close()
+    for each_process in all_processes:
+        each_process.wait(timeout=90)
+        assert each_process.stdout is not None
+        each_process.stdout.close()
+
+    assert record_path.read_text(encoding="utf-8").splitlines() == ["ran"]
+
+
+def test_should_take_over_a_claim_whose_runner_never_finished(tmp_path: pathlib.Path) -> None:
+    session_directory = tmp_path / "session"
+    home_directory = tmp_path / "home"
+    record_path = tmp_path / "record.txt"
+    _start_session(session_directory, home_directory, "session-stale")
+    _make_checkout(
+        session_directory,
+        "beta",
+        {
+            "SessionStart": [
+                {
+                    "hooks": [
+                        {"type": "command", "command": f'echo ran >> "{record_path}"', "timeout": 1}
+                    ]
+                }
+            ]
+        },
+    )
+    state_directory = (
+        home_directory / ".claude" / "state" / "nested-project-hooks" / "session-stale"
+    )
+    state_directory.mkdir(parents=True, exist_ok=True)
+    claim_path = state_directory / "beta.claimed"
+    claim_path.write_text("1", encoding="utf-8")
+    old_time = time.time() - 600
+    os.utime(claim_path, (old_time, old_time))
+
+    _run_hook_with_home(session_directory, _tool_payload("session-stale"), home_directory)
+
+    assert record_path.read_text(encoding="utf-8").splitlines() == ["ran"]
+    assert (state_directory / "beta.done").exists()
+
+
+def test_should_leave_checkouts_pending_after_a_compact_session_start(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = tmp_path / "session"
+    home_directory = tmp_path / "home"
+    record_path = tmp_path / "record.txt"
+    session_directory.mkdir()
+    _make_checkout(
+        session_directory,
+        "beta",
+        {"SessionStart": [_command_group("startup", f'echo ran >> "{record_path}"')]},
+    )
+    _run_hook_with_home(
+        session_directory,
+        {"hook_event_name": "SessionStart", "source": "compact", "session_id": "session-compact"},
+        home_directory,
+    )
+
+    _run_hook_with_home(session_directory, _tool_payload("session-compact"), home_directory)
+
+    assert record_path.read_text(encoding="utf-8").splitlines() == ["ran"]
+
+
+def test_should_report_late_setup_on_the_next_call_when_a_gate_blocks_this_one(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = tmp_path / "session"
+    home_directory = tmp_path / "home"
+    allow_path = tmp_path / "allow.txt"
+    _start_session(session_directory, home_directory, "session-block")
+    _make_checkout(
+        session_directory,
+        "beta",
+        {
+            "SessionStart": [_command_group("", "echo beta is ready")],
+            "PreToolUse": [_timed_command_group("Bash", f'test -f "{allow_path}" || exit 2', 10)],
+        },
+    )
+
+    blocked_call = _run_hook_with_home(
+        session_directory, _tool_payload("session-block"), home_directory
+    )
+    allow_path.write_text("", encoding="utf-8")
+    allowed_call = _run_hook_with_home(
+        session_directory, _tool_payload("session-block"), home_directory
+    )
+
+    assert blocked_call.returncode == 2
+    context_text = json.loads(allowed_call.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "beta is ready" in context_text
+
+
+def test_should_not_wait_for_late_setup_when_the_gates_need_the_whole_budget(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = tmp_path / "session"
+    home_directory = tmp_path / "home"
+    _start_session(session_directory, home_directory, "session-budget")
+    _make_checkout(
+        session_directory,
+        "beta",
+        {
+            "SessionStart": [_command_group("", "sleep 5")],
+            "PreToolUse": [_timed_command_group("Bash", "true", 118)],
+        },
+    )
+
+    started_at = time.monotonic()
+    completed_process = _run_hook_with_home(
+        session_directory, _tool_payload("session-budget"), home_directory
+    )
+
+    assert time.monotonic() - started_at < 4
+    context_text = json.loads(completed_process.stdout)["hookSpecificOutput"]["additionalContext"]
+    assert "its start hooks are still running" in context_text
