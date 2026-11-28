@@ -280,7 +280,7 @@ def start_late_checkouts(
     all_checkouts = find_nested_projects(session_directory, forward_siblings)
     if all_payload_fields.get(HOOK_EVENT_NAME_KEY) == SESSION_START_EVENT:
         if all_payload_fields.get(SOURCE_KEY) == CATCH_UP_SESSION_START_SOURCE:
-            mark_reported(all_payload_fields, tuple(all_checkouts), mark_done=True)
+            _mark_started(all_payload_fields, session_id, all_checkouts)
         return CatchUpReport("", ())
     all_pending = [
         each
@@ -300,25 +300,28 @@ def start_late_checkouts(
     )
 
 
+def _mark_started(
+    all_payload_fields: dict[str, object], session_id: str, all_checkouts: list[Path]
+) -> None:
+    for each_checkout in all_checkouts:
+        _write_atomically(_marker(session_id, each_checkout, DONE_MARKER_SUFFIX), "")
+    mark_reported(all_payload_fields, tuple(all_checkouts))
+
+
 def mark_reported(
     all_payload_fields: dict[str, object],
     all_checkouts: tuple[Path, ...],
-    mark_done: bool = False,
 ) -> None:
     """Record that the finished checkouts' logs reached Claude Code.
 
     Args:
         all_payload_fields: The parsed payload of the current event.
         all_checkouts: The checkouts whose logs the event's context carried.
-        mark_done: Whether to also write each checkout's done marker, as a
-            ``startup`` SessionStart does for the checkouts it ran.
     """
     session_id = _valid_session_id(all_payload_fields)
     if not session_id:
         return
     for each_checkout in all_checkouts:
-        if mark_done:
-            _write_atomically(_marker(session_id, each_checkout, DONE_MARKER_SUFFIX), "")
         _create_exclusively(_marker(session_id, each_checkout, REPORTED_MARKER_SUFFIX), "")
 
 

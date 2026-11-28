@@ -23,7 +23,7 @@ def test_should_take_over_a_stale_claim_once_when_two_events_see_it_stale(
     assert claim_path.exists()
 
 
-def test_should_mark_a_checkout_reported_and_done_only_when_asked(
+def test_should_mark_a_checkout_reported_without_marking_it_done(
     tmp_path: pathlib.Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("HOME", str(tmp_path))
@@ -32,13 +32,8 @@ def test_should_mark_a_checkout_reported_and_done_only_when_asked(
     state_directory = nested_project_hooks_catch_up.session_state_directory("session-mark")
 
     nested_project_hooks_catch_up.mark_reported(payload, (tmp_path / "alpha",))
-    nested_project_hooks_catch_up.mark_reported(payload, (tmp_path / "beta",), mark_done=True)
 
-    assert sorted(each.name for each in state_directory.iterdir()) == [
-        "alpha.reported",
-        "beta.done",
-        "beta.reported",
-    ]
+    assert sorted(each.name for each in state_directory.iterdir()) == ["alpha.reported"]
 
 
 def test_should_report_nothing_for_a_session_id_that_names_a_path(
@@ -49,3 +44,36 @@ def test_should_report_nothing_for_a_session_id_that_names_a_path(
     )
 
     assert report == nested_project_hooks_catch_up.CatchUpReport("", ())
+
+
+@pytest.mark.parametrize(
+    ("source", "all_expected_markers"),
+    [
+        ("startup", ["alpha.done", "alpha.reported"]),
+        ("compact", []),
+    ],
+)
+def test_should_mark_checkouts_done_only_at_a_startup_session_start(
+    tmp_path: pathlib.Path,
+    monkeypatch: pytest.MonkeyPatch,
+    source: str,
+    all_expected_markers: list[str],
+) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
+    session_directory = tmp_path / "session"
+    (session_directory / "alpha" / ".git").mkdir(parents=True)
+    (session_directory / "alpha" / ".claude").mkdir()
+    (session_directory / "alpha" / ".claude" / "settings.json").write_text(
+        '{"hooks": {}}', encoding="utf-8"
+    )
+    payload = {"session_id": "session-start", "hook_event_name": "SessionStart", "source": source}
+
+    report = nested_project_hooks_catch_up.start_late_checkouts(session_directory, payload)
+
+    state_directory = nested_project_hooks_catch_up.session_state_directory("session-start")
+    all_markers = (
+        sorted(each.name for each in state_directory.glob("*")) if state_directory.exists() else []
+    )
+    assert report == nested_project_hooks_catch_up.CatchUpReport("", ())
+    assert all_markers == all_expected_markers
