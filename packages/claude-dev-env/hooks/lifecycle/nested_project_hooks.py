@@ -26,8 +26,10 @@ and a child with no time left does not start. Each child that does not start
 or is stopped writes one line to stderr and adds nothing, so a spent budget
 never denies a call by itself.
 
-When the session directory is itself a checkout or holds its own settings,
-Claude Code already runs those hooks, and this hook exits at once.
+When the session directory holds its own settings, Claude Code already runs
+those hooks. A local session rooted in a checkout forwards nothing. A cloud
+session (``CLAUDE_CODE_REMOTE=true``) rooted in a checkout forwards the sibling
+checkouts beside it, which a thread attaches with add_repo after it starts.
 """
 
 from __future__ import annotations
@@ -55,6 +57,8 @@ from hooks_constants.nested_project_hooks_constants import (
     ALL_MATCH_TARGET_KEYS_BY_EVENT,
     PRE_TOOL_USE_EVENT,
     PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE,
+    REMOTE_SESSION_ENVIRONMENT_VARIABLE,
+    REMOTE_SESSION_VALUE,
     ALL_RUN_BUDGET_SECONDS_BY_EVENT,
     CUT_OFF_CHILD_LINE_TEMPLATE,
     NOT_STARTED_OUTCOME,
@@ -309,12 +313,16 @@ def _completed_results(
     return [each_outcome for each_outcome in all_outcomes if each_outcome is not None]
 
 
-def forward_nested_hooks(session_directory: Path, payload_text: str) -> HookVerdict:
+def forward_nested_hooks(
+    session_directory: Path, payload_text: str, forward_siblings: bool = False
+) -> HookVerdict:
     """Run the nested checkouts' hooks for one payload and fold their results.
 
     Args:
         session_directory: The directory the session started in.
         payload_text: The stdin payload Claude Code handed this hook.
+        forward_siblings: Whether a session rooted in a checkout also forwards
+            the checkouts beside it, as a cloud thread needs.
 
     Returns:
         The verdict for Claude Code. An empty pass for an unreadable payload
@@ -328,7 +336,10 @@ def forward_nested_hooks(session_directory: Path, payload_text: str) -> HookVerd
         return HookVerdict(0, "", "")
     match_target = payload.get(ALL_MATCH_TARGET_KEYS_BY_EVENT[event_name])
     all_nested_hooks = collect_nested_hooks(
-        session_directory, event_name, match_target if isinstance(match_target, str) else ""
+        session_directory,
+        event_name,
+        match_target if isinstance(match_target, str) else "",
+        forward_siblings,
     )
     with time_budget(ALL_RUN_BUDGET_SECONDS_BY_EVENT[event_name]):
         all_results = _completed_results(all_nested_hooks, payload_text)
@@ -343,7 +354,8 @@ def main() -> None:
     if not session_directory_text:
         sys.exit(0)
     payload_text = sys.stdin.read()
-    verdict = forward_nested_hooks(Path(session_directory_text), payload_text)
+    forward_siblings = os.environ.get(REMOTE_SESSION_ENVIRONMENT_VARIABLE) == REMOTE_SESSION_VALUE
+    verdict = forward_nested_hooks(Path(session_directory_text), payload_text, forward_siblings)
     if verdict.stdout_text:
         sys.stdout.write(verdict.stdout_text)
     if verdict.stderr_text:

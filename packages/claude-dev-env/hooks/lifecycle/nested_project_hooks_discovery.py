@@ -46,32 +46,48 @@ def _settings_path(directory: Path) -> Path:
     return directory / SETTINGS_DIRECTORY_NAME / SETTINGS_FILE_NAME
 
 
-def find_nested_projects(session_directory: Path) -> list[Path]:
-    """Return the child checkouts whose project hooks Claude Code skipped.
-
-    Args:
-        session_directory: The directory the session started in.
-
-    Returns:
-        Each immediate child holding both a ``.git`` entry and a
-        ``.claude/settings.json`` file, sorted by name. Empty when the
-        session directory is a checkout or has settings of its own.
-    """
-    if (session_directory / CHECKOUT_MARKER_NAME).exists():
-        return []
-    if _settings_path(session_directory).is_file():
-        return []
+def _checkouts_with_settings(parent_directory: Path, skipped_directory: Path | None) -> list[Path]:
     try:
-        all_children = sorted(session_directory.iterdir())
+        all_children = sorted(parent_directory.iterdir())
     except OSError:
         return []
     return [
         each_child
         for each_child in all_children
         if each_child.is_dir()
+        and each_child != skipped_directory
         and (each_child / CHECKOUT_MARKER_NAME).exists()
         and _settings_path(each_child).is_file()
     ]
+
+
+def find_nested_projects(session_directory: Path, forward_siblings: bool = False) -> list[Path]:
+    """Return the checkouts whose project hooks Claude Code skipped.
+
+    A cloud thread rooted in one checkout gets the others attached beside it::
+
+        /home/user/agent-channels      session directory, Claude Code runs its hooks
+        /home/user/python-automation   sibling, found when forward_siblings is set
+
+    Args:
+        session_directory: The directory the session started in.
+        forward_siblings: Whether a session rooted in a checkout also forwards
+            the checkouts beside it.
+
+    Returns:
+        Each immediate child holding both a ``.git`` entry and a
+        ``.claude/settings.json`` file, sorted by name. For a session
+        directory that is a checkout, the sibling checkouts of that shape
+        when ``forward_siblings`` is set, else none. None for a directory
+        that has settings of its own and is not a checkout.
+    """
+    if (session_directory / CHECKOUT_MARKER_NAME).exists():
+        if not forward_siblings:
+            return []
+        return _checkouts_with_settings(session_directory.parent, session_directory)
+    if _settings_path(session_directory).is_file():
+        return []
+    return _checkouts_with_settings(session_directory, None)
 
 
 def _read_hook_groups(project_directory: Path, event_name: str) -> list[object]:
@@ -147,7 +163,7 @@ def _selected_hook_entries(
 
 
 def collect_nested_hooks(
-    session_directory: Path, event_name: str, match_target: str
+    session_directory: Path, event_name: str, match_target: str, forward_siblings: bool = False
 ) -> list[NestedHook]:
     """Return every nested command hook that this event selects, in order.
 
@@ -155,6 +171,8 @@ def collect_nested_hooks(
         session_directory: The directory the session started in.
         event_name: The hook event being handled.
         match_target: The value the event's matchers compare against.
+        forward_siblings: Whether a session rooted in a checkout also forwards
+            the checkouts beside it.
 
     Returns:
         The selected command hooks, checkout by checkout in name order and
@@ -162,7 +180,7 @@ def collect_nested_hooks(
     """
     all_candidates = (
         _command_hook(each_project, each_entry)
-        for each_project in find_nested_projects(session_directory)
+        for each_project in find_nested_projects(session_directory, forward_siblings)
         for each_entry in _selected_hook_entries(each_project, event_name, match_target)
     )
     return [each_candidate for each_candidate in all_candidates if each_candidate is not None]

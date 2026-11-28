@@ -58,6 +58,44 @@ def test_should_find_no_child_when_the_session_directory_is_a_checkout(
     assert find_nested_projects(tmp_path) == []
 
 
+def test_should_find_the_sibling_checkouts_when_forwarding_siblings_from_a_checkout(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = _make_checkout(tmp_path, "agent-channels", {})
+    beta_directory = _make_checkout(tmp_path, "beta", {})
+    alpha_directory = _make_checkout(tmp_path, "alpha", {})
+    (tmp_path / "no-settings" / ".git").mkdir(parents=True)
+
+    assert find_nested_projects(session_directory, forward_siblings=True) == [
+        alpha_directory,
+        beta_directory,
+    ]
+
+
+def test_should_find_no_sibling_when_not_forwarding_siblings_from_a_checkout(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = _make_checkout(tmp_path, "agent-channels", {})
+    _make_checkout(tmp_path, "alpha", {})
+
+    assert find_nested_projects(session_directory) == []
+
+
+def test_should_collect_a_sibling_hook_when_forwarding_siblings(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = _make_checkout(tmp_path, "agent-channels", {})
+    sibling_directory = _make_checkout(
+        tmp_path,
+        "python-automation",
+        {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "./gate.sh"}]}]},
+    )
+
+    assert collect_nested_hooks(session_directory, "PreToolUse", "Bash", forward_siblings=True) == [
+        NestedHook(sibling_directory, "./gate.sh", DEFAULT_TIMEOUT_SECONDS)
+    ]
+
+
 def test_should_find_no_child_when_the_session_directory_has_its_own_settings(
     tmp_path: pathlib.Path,
 ) -> None:

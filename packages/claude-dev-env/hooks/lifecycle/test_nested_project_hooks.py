@@ -588,3 +588,54 @@ def test_should_join_plain_and_json_session_start_output_into_one_context() -> N
         }
     }
     assert verdict.stderr_text == "alpha warned"
+
+
+def _run_hook_in_cloud_checkout(
+    session_directory: pathlib.Path, payload: dict[str, object], remote_value: str
+) -> subprocess.CompletedProcess[str]:
+    hook_environment = dict(os.environ)
+    hook_environment["CLAUDE_PROJECT_DIR"] = str(session_directory)
+    hook_environment["CLAUDE_CODE_REMOTE"] = remote_value
+    return subprocess.run(
+        [sys.executable, str(HOOK_SCRIPT_PATH)],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=hook_environment,
+        check=False,
+        timeout=60,
+    )
+
+
+def test_should_forward_a_sibling_deny_in_a_cloud_session_rooted_in_a_checkout(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = _make_checkout(tmp_path, "agent-channels", {})
+    _make_checkout(
+        tmp_path,
+        "python-automation",
+        {"PreToolUse": [_command_group("Bash", f"echo '{json.dumps(_deny_output('sibling gate'))}'")]},
+    )
+
+    completed_process = _run_hook_in_cloud_checkout(
+        session_directory, _pre_tool_use_payload("Bash"), "true"
+    )
+
+    assert "sibling gate" in completed_process.stdout
+
+
+def test_should_not_forward_a_sibling_outside_a_cloud_session(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = _make_checkout(tmp_path, "agent-channels", {})
+    _make_checkout(
+        tmp_path,
+        "python-automation",
+        {"PreToolUse": [_command_group("Bash", f"echo '{json.dumps(_deny_output('sibling gate'))}'")]},
+    )
+
+    completed_process = _run_hook_in_cloud_checkout(
+        session_directory, _pre_tool_use_payload("Bash"), ""
+    )
+
+    assert (completed_process.returncode, completed_process.stdout) == (0, "")
