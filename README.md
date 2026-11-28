@@ -227,6 +227,7 @@ that carry them.
 | `everything-search` | Fast Windows file search through the Everything es.exe tool |
 | `fresh-branch` | Fresh branch from origin/main in an isolated worktree |
 | `grok-spawn` | Spawn headless grok worker fleets through preflight and batch spawn |
+| `handoff` | Pause work and write a first-person handoff for a new session in a different environment |
 | `issue-tracker` | File, update, and close GitHub work as one epic with native sub-issues |
 | `mod-playbooks` | Drive a mod, open its menus and panes, and capture each screen |
 | `orchestrator` | Turn the session into an advisor-orchestrator that spawns executor subagents |

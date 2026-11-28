@@ -47,6 +47,7 @@ export const EVER_SHIPPED_SKILL_NAMES = new Set([
     'gotcha',
     'grok-spawn',
     'grokify',
+    'handoff',
     'hitl',
     'icon-review-sheet',
     'imagegen',
