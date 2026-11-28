@@ -41,6 +41,8 @@ const EXPECTED_ALLOW_ENTRIES = [
     'WebFetch(domain:*.claude.dev)',
     'WebFetch(domain:www.anthropic.com)',
     'Read(~/.claude/docs/**)',
+    'mcp__claude-code-remote__add_repo',
+    'mcp__claude-code-remote__register_repo_root',
 ];
 const PROFILE_ALLOW_ENTRIES = DECLARED_PROFILE_SETTINGS
     .find((eachEntry) => eachEntry.keyPath.join('.') === 'permissions.allow').items;
@@ -93,7 +95,7 @@ function runInstallerInSandbox(sandboxHome, installerArguments = []) {
     });
 }
 
-test('package settings.json publishes the docs fetch allows and no managed deny entries', () => {
+test('package settings.json publishes the managed allows and no managed deny entries', () => {
     assert.deepEqual(packageManagedPermissions(), {
         allow: EXPECTED_ALLOW_ENTRIES,
         deny: EXPECTED_DENY_ENTRIES,
