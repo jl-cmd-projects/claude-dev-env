@@ -4,18 +4,23 @@ A cloud thread clones a checkout with add_repo after its SessionStart fired, so
 Claude Code never runs that checkout's start hooks. The first later event
 starts them in a detached runner and waits a short while for it::
 
-    SessionStart       alpha's start hooks run in band; alpha.done is written
+    SessionStart       startup: alpha's start hooks run; alpha.done is written
     add_repo beta
     PreToolUse Bash    beta has no marker: claim beta.claimed, start the runner,
-                       wait up to a minute for beta.done, then run the gates
+                       wait for beta.done while the gates' timeouts still fit
+                       the budget, then run the gates
     runner             beta's start hooks, each with its own timeout;
                        output to beta.log, then beta.done
+    next event         beta's log is carried as context, then beta.reported
 
 The markers live in ``~/.claude/state/nested-project-hooks/<session id>/``. The
 claim is an exclusive create, so two events that race start one runner. The
 done marker is written only after every start hook exits, so a cut-off event
-leaves the checkout pending, and a claim older than its hooks' timeouts plus a
-minute is taken over by the next event.
+leaves the checkout pending. A claim older than its hooks' timeouts plus a
+minute is taken over by the one event that creates the takeover token named
+for that claim's modification time. Only a SessionStart with source
+``startup`` marks its checkouts done; a ``compact``, ``resume`` or ``clear``
+start ran none of their startup hooks.
 """
 
 from __future__ import annotations
@@ -26,6 +31,7 @@ import shutil
 import subprocess
 import sys
 import time
+from dataclasses import dataclass
 from pathlib import Path
 
 from hooks_constants.hook_specific_output_keys import HOOK_SPECIFIC_OUTPUT_KEY
@@ -56,6 +62,7 @@ from hooks_constants.nested_project_hooks_constants import (
     SETTINGS_ENCODING,
     SHELL_COMMAND_FLAG,
     SOURCE_KEY,
+    TAKEOVER_MARKER_TEMPLATE,
 )
 from hooks_constants.subprocess_window import hidden_window_creation_flags
 from lifecycle.nested_project_hooks_discovery import (
@@ -63,6 +70,14 @@ from lifecycle.nested_project_hooks_discovery import (
     collect_nested_hooks,
     find_nested_projects,
 )
+
+
+@dataclass(frozen=True)
+class CatchUpReport:
+    """One event's context, and the finished checkouts to pass to ``mark_reported``."""
+
+    context: str
+    all_finished_checkouts: tuple[Path, ...]
 
 
 def json_additional_context(all_output_fields: dict[str, object]) -> str:
@@ -145,26 +160,34 @@ def _start_hooks(
     return [each for each in all_hooks if each.project_directory == checkout]
 
 
-def _claim_is_stale(claim_path: Path, all_hooks: list[NestedHook]) -> bool:
-    try:
-        claim_age = time.time() - claim_path.stat().st_mtime
-    except OSError:
-        return False
-    allowed_seconds = sum(each.timeout_seconds for each in all_hooks) + CATCH_UP_STALE_SLACK_SECONDS
-    return claim_age > allowed_seconds
+def _allowed_claim_seconds(all_hooks: list[NestedHook]) -> float:
+    return sum(each.timeout_seconds for each in all_hooks) + CATCH_UP_STALE_SLACK_SECONDS
 
 
-def _claim(session_id: str, checkout: Path, all_hooks: list[NestedHook]) -> bool:
-    claim_path = _marker(session_id, checkout, CLAIMED_MARKER_SUFFIX)
-    if _create_exclusively(claim_path, str(os.getpid())):
-        return True
-    if not _claim_is_stale(claim_path, all_hooks):
+def _take_over(claim_path: Path, stale_generation: int) -> bool:
+    takeover_path = claim_path.with_name(
+        TAKEOVER_MARKER_TEMPLATE.format(claim=claim_path.name, generation=stale_generation)
+    )
+    if not _create_exclusively(takeover_path, str(os.getpid())):
         return False
     try:
         claim_path.unlink()
     except OSError:
         return False
     return _create_exclusively(claim_path, str(os.getpid()))
+
+
+def _claim(session_id: str, checkout: Path, all_hooks: list[NestedHook]) -> bool:
+    claim_path = _marker(session_id, checkout, CLAIMED_MARKER_SUFFIX)
+    if _create_exclusively(claim_path, str(os.getpid())):
+        return True
+    try:
+        claim_status = claim_path.stat()
+    except OSError:
+        return False
+    if time.time() - claim_status.st_mtime <= _allowed_claim_seconds(all_hooks):
+        return False
+    return _take_over(claim_path, claim_status.st_mtime_ns)
 
 
 def _spawn_runner(session_directory: Path, session_id: str, checkout: Path) -> None:
@@ -189,8 +212,8 @@ def _spawn_runner(session_directory: Path, session_id: str, checkout: Path) -> N
         return
 
 
-def _wait_for_done(session_id: str, all_checkouts: list[Path]) -> None:
-    deadline = time.monotonic() + CATCH_UP_WAIT_SECONDS
+def _wait_for_done(session_id: str, all_checkouts: list[Path], wait_seconds: float) -> None:
+    deadline = time.monotonic() + min(CATCH_UP_WAIT_SECONDS, wait_seconds)
     while time.monotonic() < deadline:
         if all(_marker(session_id, each, DONE_MARKER_SUFFIX).exists() for each in all_checkouts):
             return
@@ -201,8 +224,6 @@ def _report_line(session_id: str, checkout: Path) -> str:
     log_path = _marker(session_id, checkout, LOG_FILE_SUFFIX)
     if not _marker(session_id, checkout, DONE_MARKER_SUFFIX).exists():
         return RUNNING_NOTE_TEMPLATE.format(checkout=checkout.name, log=log_path)
-    if not _create_exclusively(_marker(session_id, checkout, REPORTED_MARKER_SUFFIX), ""):
-        return ""
     try:
         log_text = log_path.read_text(encoding=SETTINGS_ENCODING).strip()
     except OSError:
@@ -219,11 +240,23 @@ def _valid_session_id(all_payload_fields: dict[str, object]) -> str:
     return session_id
 
 
+def _start_runners(
+    session_directory: Path, session_id: str, all_pending: list[Path], forward_siblings: bool
+) -> None:
+    for each_checkout in all_pending:
+        if _marker(session_id, each_checkout, DONE_MARKER_SUFFIX).exists():
+            continue
+        all_hooks = _start_hooks(session_directory, each_checkout, forward_siblings)
+        if _claim(session_id, each_checkout, all_hooks):
+            _spawn_runner(session_directory, session_id, each_checkout)
+
+
 def start_late_checkouts(
     session_directory: Path,
     all_payload_fields: dict[str, object],
     forward_siblings: bool = False,
-) -> str:
+    wait_seconds: float = CATCH_UP_WAIT_SECONDS,
+) -> CatchUpReport:
     """Start the start hooks of late checkouts and report on them.
 
     Args:
@@ -231,38 +264,62 @@ def start_late_checkouts(
         all_payload_fields: The parsed payload of the current event.
         forward_siblings: Whether a session rooted in a checkout also forwards
             the checkouts beside it.
+        wait_seconds: The most time to wait for a runner, capped at
+            ``CATCH_UP_WAIT_SECONDS``.
 
     Returns:
-        Context for the current event: each late checkout whose runner
-        finished since the last report, with its output, and each one still
-        running, with its log path. Empty at SessionStart, which marks its
-        checkouts done instead, and for a payload with no usable session id.
+        The report for the current event: each late checkout whose runner
+        finished and was not reported yet, with its output, and each one
+        still running, with its log path. Empty at SessionStart, where a
+        ``startup`` source marks its checkouts done, and for a payload with
+        no usable session id.
     """
     session_id = _valid_session_id(all_payload_fields)
     if not session_id:
-        return ""
+        return CatchUpReport("", ())
     all_checkouts = find_nested_projects(session_directory, forward_siblings)
     if all_payload_fields.get(HOOK_EVENT_NAME_KEY) == SESSION_START_EVENT:
-        for each_checkout in all_checkouts:
-            _write_atomically(_marker(session_id, each_checkout, DONE_MARKER_SUFFIX), "")
-            _create_exclusively(_marker(session_id, each_checkout, REPORTED_MARKER_SUFFIX), "")
-        return ""
+        if all_payload_fields.get(SOURCE_KEY) == CATCH_UP_SESSION_START_SOURCE:
+            mark_reported(all_payload_fields, tuple(all_checkouts), mark_done=True)
+        return CatchUpReport("", ())
     all_pending = [
         each
         for each in all_checkouts
         if not _marker(session_id, each, REPORTED_MARKER_SUFFIX).exists()
     ]
     if not all_pending:
-        return ""
-    for each_checkout in all_pending:
-        if _marker(session_id, each_checkout, DONE_MARKER_SUFFIX).exists():
-            continue
-        all_hooks = _start_hooks(session_directory, each_checkout, forward_siblings)
-        if _claim(session_id, each_checkout, all_hooks):
-            _spawn_runner(session_directory, session_id, each_checkout)
-    _wait_for_done(session_id, all_pending)
+        return CatchUpReport("", ())
+    _start_runners(session_directory, session_id, all_pending, forward_siblings)
+    _wait_for_done(session_id, all_pending, wait_seconds)
     all_lines = [_report_line(session_id, each) for each in all_pending]
-    return CONTEXT_SECTION_SEPARATOR.join(each for each in all_lines if each)
+    all_finished = tuple(
+        each for each in all_pending if _marker(session_id, each, DONE_MARKER_SUFFIX).exists()
+    )
+    return CatchUpReport(
+        CONTEXT_SECTION_SEPARATOR.join(each for each in all_lines if each), all_finished
+    )
+
+
+def mark_reported(
+    all_payload_fields: dict[str, object],
+    all_checkouts: tuple[Path, ...],
+    mark_done: bool = False,
+) -> None:
+    """Record that the finished checkouts' logs reached Claude Code.
+
+    Args:
+        all_payload_fields: The parsed payload of the current event.
+        all_checkouts: The checkouts whose logs the event's context carried.
+        mark_done: Whether to also write each checkout's done marker, as a
+            ``startup`` SessionStart does for the checkouts it ran.
+    """
+    session_id = _valid_session_id(all_payload_fields)
+    if not session_id:
+        return
+    for each_checkout in all_checkouts:
+        if mark_done:
+            _write_atomically(_marker(session_id, each_checkout, DONE_MARKER_SUFFIX), "")
+        _create_exclusively(_marker(session_id, each_checkout, REPORTED_MARKER_SUFFIX), "")
 
 
 def _shell_program() -> str | None:

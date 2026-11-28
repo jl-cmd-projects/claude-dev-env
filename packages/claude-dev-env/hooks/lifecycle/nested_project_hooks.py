@@ -82,6 +82,7 @@ from hooks_constants.nested_project_hooks_constants import CATCH_UP_ARGUMENT_COU
 from lifecycle.nested_project_hooks_catch_up import (
     hook_output_context,
     json_additional_context,
+    mark_reported,
     run_catch_up,
     start_late_checkouts,
 )
@@ -341,6 +342,14 @@ def _with_catch_up_context(
     return HookVerdict(0, json.dumps(hook_output), verdict.stderr_text)
 
 
+def _event_verdict(
+    all_results: list[subprocess.CompletedProcess[str]], event_name: str
+) -> HookVerdict:
+    if event_name == PRE_TOOL_USE_EVENT:
+        return pre_tool_use_verdict(all_results)
+    return additional_context_verdict(all_results, event_name)
+
+
 def forward_nested_hooks(
     session_directory: Path, payload_text: str, forward_siblings: bool = False
 ) -> HookVerdict:
@@ -369,16 +378,19 @@ def forward_nested_hooks(
         match_target if isinstance(match_target, str) else "",
         forward_siblings,
     )
+    run_budget = ALL_RUN_BUDGET_SECONDS_BY_EVENT[event_name]
+    gate_reserve = sum(each.timeout_seconds for each in all_nested_hooks)
     started_at = time.monotonic()
-    catch_up_context = start_late_checkouts(session_directory, payload, forward_siblings)
-    budget_left = ALL_RUN_BUDGET_SECONDS_BY_EVENT[event_name] - (time.monotonic() - started_at)
-    with time_budget(budget_left):
+    catch_up_report = start_late_checkouts(
+        session_directory, payload, forward_siblings, max(0.0, run_budget - gate_reserve)
+    )
+    with time_budget(run_budget - (time.monotonic() - started_at)):
         all_results = _completed_results(all_nested_hooks, payload_text)
-    if event_name == PRE_TOOL_USE_EVENT:
-        verdict = pre_tool_use_verdict(all_results)
-    else:
-        verdict = additional_context_verdict(all_results, event_name)
-    return _with_catch_up_context(verdict, catch_up_context, event_name)
+    verdict = _event_verdict(all_results, event_name)
+    folded_verdict = _with_catch_up_context(verdict, catch_up_report.context, event_name)
+    if folded_verdict is not verdict:
+        mark_reported(payload, catch_up_report.all_finished_checkouts)
+    return folded_verdict
 
 
 def main() -> None:

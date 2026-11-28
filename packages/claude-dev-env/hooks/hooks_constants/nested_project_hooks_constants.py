@@ -56,6 +56,7 @@ CLAIMED_MARKER_SUFFIX: str = ".claimed"
 DONE_MARKER_SUFFIX: str = ".done"
 LOG_FILE_SUFFIX: str = ".log"
 REPORTED_MARKER_SUFFIX: str = ".reported"
+TAKEOVER_MARKER_TEMPLATE: str = "{claim}.takeover-{generation}"
 CATCH_UP_FLAG: str = "--catch-up"
 CATCH_UP_ARGUMENT_COUNT: int = 4
 CATCH_UP_WAIT_SECONDS: float = 60.0
