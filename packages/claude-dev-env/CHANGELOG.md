@@ -1,5 +1,17 @@
 # Changelog
 
+## [8.139.3](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.139.2...claude-dev-env-v8.139.3) (2026-11-28)
+
+
+### Bug Fixes
+
+* allow repo attachment in new Claude threads ([ff128ce](https://github.com/jl-cmd-projects/claude-dev-env/commit/ff128cedab94b2b38401ae5ad66c11a2e98617e6))
+
+
+### Tests
+
+* cover the repo attachment permission defaults ([cbf5ef1](https://github.com/jl-cmd-projects/claude-dev-env/commit/cbf5ef1a8f02e9886fc66d294b7325878321e35e))
+
 ## [8.139.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.139.1...claude-dev-env-v8.139.2) (2026-11-27)
 
 
