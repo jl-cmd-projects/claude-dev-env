@@ -61,7 +61,7 @@ def test_should_find_no_child_when_the_session_directory_is_a_checkout(
 def test_should_find_the_sibling_checkouts_when_forwarding_siblings_from_a_checkout(
     tmp_path: pathlib.Path,
 ) -> None:
-    session_directory = _make_checkout(tmp_path, "agent-channels", {})
+    session_directory = _make_checkout(tmp_path, "root-checkout", {})
     beta_directory = _make_checkout(tmp_path, "beta", {})
     alpha_directory = _make_checkout(tmp_path, "alpha", {})
     (tmp_path / "no-settings" / ".git").mkdir(parents=True)
@@ -75,7 +75,7 @@ def test_should_find_the_sibling_checkouts_when_forwarding_siblings_from_a_check
 def test_should_find_no_sibling_when_not_forwarding_siblings_from_a_checkout(
     tmp_path: pathlib.Path,
 ) -> None:
-    session_directory = _make_checkout(tmp_path, "agent-channels", {})
+    session_directory = _make_checkout(tmp_path, "root-checkout", {})
     _make_checkout(tmp_path, "alpha", {})
 
     assert find_nested_projects(session_directory) == []
@@ -84,10 +84,10 @@ def test_should_find_no_sibling_when_not_forwarding_siblings_from_a_checkout(
 def test_should_collect_a_sibling_hook_when_forwarding_siblings(
     tmp_path: pathlib.Path,
 ) -> None:
-    session_directory = _make_checkout(tmp_path, "agent-channels", {})
+    session_directory = _make_checkout(tmp_path, "root-checkout", {})
     sibling_directory = _make_checkout(
         tmp_path,
-        "python-automation",
+        "sibling-checkout",
         {"PreToolUse": [{"matcher": "Bash", "hooks": [{"type": "command", "command": "./gate.sh"}]}]},
     )
 

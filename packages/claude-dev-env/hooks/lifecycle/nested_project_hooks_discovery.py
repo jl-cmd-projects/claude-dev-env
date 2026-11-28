@@ -66,8 +66,8 @@ def find_nested_projects(session_directory: Path, forward_siblings: bool = False
 
     A cloud thread rooted in one checkout gets the others attached beside it::
 
-        /home/user/agent-channels      session directory, Claude Code runs its hooks
-        /home/user/python-automation   sibling, found when forward_siblings is set
+        /home/user/root-checkout      session directory, Claude Code runs its hooks
+        /home/user/sibling-checkout   sibling, found when forward_siblings is set
 
     Args:
         session_directory: The directory the session started in.
