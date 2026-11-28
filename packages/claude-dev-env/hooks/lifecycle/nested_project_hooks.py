@@ -30,6 +30,8 @@ When the session directory holds its own settings, Claude Code already runs
 those hooks. A local session rooted in a checkout forwards nothing. A cloud
 session (``CLAUDE_CODE_REMOTE=true``) rooted in a checkout forwards the sibling
 checkouts beside it, which a thread attaches with add_repo after it starts.
+A checkout that appears after SessionStart runs its start hooks once, on the
+first later event that carries the session id.
 """
 
 from __future__ import annotations
@@ -75,7 +77,22 @@ from hooks_constants.hook_specific_output_keys import (
 )
 from hooks_constants.hook_time_budget import call_timeout, time_budget
 from hooks_constants.subprocess_window import hidden_window_creation_flags
-from lifecycle.nested_project_hooks_discovery import NestedHook, collect_nested_hooks
+from hooks_constants.nested_project_hooks_constants import (
+    ALL_SESSION_ENV_PATH_PARTS,
+    ALL_STARTED_STATE_PATH_PARTS,
+    CATCH_UP_ENV_FILE_TEMPLATE,
+    CATCH_UP_SESSION_START_SOURCE,
+    CWD_KEY,
+    SESSION_ENV_FILE_VARIABLE,
+    SESSION_ID_KEY,
+    SOURCE_KEY,
+    STARTED_STATE_FILE_SUFFIX,
+)
+from lifecycle.nested_project_hooks_discovery import (
+    NestedHook,
+    collect_nested_hooks,
+    find_nested_projects,
+)
 
 
 @dataclass(frozen=True)
@@ -95,18 +112,28 @@ def _shell_program() -> str | None:
     return None
 
 
-def _hook_environment(project_directory: Path) -> dict[str, str]:
-    return {**os.environ, PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE: str(project_directory)}
+def _hook_environment(
+    project_directory: Path, all_extra_variables: dict[str, str] | None = None
+) -> dict[str, str]:
+    return {
+        **os.environ,
+        **(all_extra_variables or {}),
+        PROJECT_DIRECTORY_ENVIRONMENT_VARIABLE: str(project_directory),
+    }
 
 
 def run_nested_hook(
-    nested_hook: NestedHook, payload_text: str
+    nested_hook: NestedHook,
+    payload_text: str,
+    all_extra_variables: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str] | None:
     """Run one nested hook the way Claude Code would run it in its own checkout.
 
     Args:
         nested_hook: The hook to run.
         payload_text: The stdin payload Claude Code handed this hook.
+        all_extra_variables: Variables to set for this run on top of the
+            session's own.
 
     Returns:
         The completed process, or None when no shell exists, the command
@@ -126,7 +153,7 @@ def run_nested_hook(
             capture_output=True,
             text=True,
             cwd=nested_hook.project_directory,
-            env=_hook_environment(nested_hook.project_directory),
+            env=_hook_environment(nested_hook.project_directory, all_extra_variables),
             timeout=timeout_seconds,
             check=False,
             creationflags=hidden_window_creation_flags(),
@@ -313,6 +340,140 @@ def _completed_results(
     return [each_outcome for each_outcome in all_outcomes if each_outcome is not None]
 
 
+def _started_state_path(session_id: str) -> Path:
+    return Path.home().joinpath(*ALL_STARTED_STATE_PATH_PARTS, session_id + STARTED_STATE_FILE_SUFFIX)
+
+
+def _started_checkouts(session_id: str) -> set[str]:
+    try:
+        all_recorded = json.loads(_started_state_path(session_id).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return set()
+    if not isinstance(all_recorded, list):
+        return set()
+    return {each_entry for each_entry in all_recorded if isinstance(each_entry, str)}
+
+
+def _record_started_checkouts(session_id: str, all_checkouts: Iterable[Path]) -> None:
+    state_path = _started_state_path(session_id)
+    all_recorded = _started_checkouts(session_id) | {str(each) for each in all_checkouts}
+    try:
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        state_path.write_text(json.dumps(sorted(all_recorded)), encoding="utf-8")
+    except OSError:
+        return
+
+
+def _catch_up_environment(session_id: str, checkout: Path) -> dict[str, str]:
+    if os.environ.get(SESSION_ENV_FILE_VARIABLE):
+        return {}
+    env_directory = Path.home().joinpath(*ALL_SESSION_ENV_PATH_PARTS, session_id)
+    try:
+        env_directory.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return {}
+    env_file = env_directory / CATCH_UP_ENV_FILE_TEMPLATE.format(checkout=checkout.name)
+    return {SESSION_ENV_FILE_VARIABLE: str(env_file)}
+
+
+def _late_start_results(
+    session_directory: Path,
+    session_id: str,
+    all_started_checkouts: set[str],
+    forward_siblings: bool,
+) -> list[subprocess.CompletedProcess[str]]:
+    start_payload_text = json.dumps(
+        {
+            SESSION_ID_KEY: session_id,
+            HOOK_EVENT_NAME_KEY: SESSION_START_EVENT,
+            SOURCE_KEY: CATCH_UP_SESSION_START_SOURCE,
+            CWD_KEY: str(session_directory),
+        }
+    )
+    all_results: list[subprocess.CompletedProcess[str]] = []
+    for each_hook in collect_nested_hooks(
+        session_directory, SESSION_START_EVENT, CATCH_UP_SESSION_START_SOURCE, forward_siblings
+    ):
+        if str(each_hook.project_directory) in all_started_checkouts:
+            continue
+        outcome = run_nested_hook(
+            each_hook,
+            start_payload_text,
+            _catch_up_environment(session_id, each_hook.project_directory),
+        )
+        if outcome is not None:
+            all_results.append(outcome)
+    return all_results
+
+
+def catch_up_session_start(
+    session_directory: Path,
+    all_payload_fields: dict[str, object],
+    forward_siblings: bool = False,
+) -> list[subprocess.CompletedProcess[str]]:
+    """Run the SessionStart hooks of checkouts attached after the session started.
+
+    A thread that clones a checkout with add_repo after SessionStart fired
+    would never run that checkout's start hooks. The first later event runs
+    them once::
+
+        SessionStart       forward alpha's start hooks, record alpha
+        add_repo beta
+        PreToolUse Bash    beta is unrecorded: run beta's start hooks, record beta
+
+    Args:
+        session_directory: The directory the session started in.
+        all_payload_fields: The parsed payload of the current event.
+        forward_siblings: Whether a session rooted in a checkout also forwards
+            the checkouts beside it.
+
+    Returns:
+        The completed start hooks of the late checkouts. None ran when the
+        payload names no session, or the event is SessionStart itself, which
+        records its checkouts instead.
+    """
+    session_id = all_payload_fields.get(SESSION_ID_KEY)
+    if not isinstance(session_id, str) or not session_id or os.sep in session_id:
+        return []
+    all_checkouts = find_nested_projects(session_directory, forward_siblings)
+    if all_payload_fields.get(HOOK_EVENT_NAME_KEY) == SESSION_START_EVENT:
+        _record_started_checkouts(session_id, all_checkouts)
+        return []
+    all_started_checkouts = _started_checkouts(session_id)
+    all_late_checkouts = [each for each in all_checkouts if str(each) not in all_started_checkouts]
+    if not all_late_checkouts:
+        return []
+    _record_started_checkouts(session_id, all_late_checkouts)
+    return _late_start_results(session_directory, session_id, all_started_checkouts, forward_siblings)
+
+
+def _with_catch_up_context(
+    verdict: HookVerdict,
+    all_catch_up_results: list[subprocess.CompletedProcess[str]],
+    event_name: str,
+) -> HookVerdict:
+    all_sections = _non_empty_sections(
+        _session_start_context(each_result.stdout) for each_result in all_catch_up_results
+    )
+    if not all_sections or verdict.exit_code != 0:
+        return verdict
+    catch_up_context = CONTEXT_SECTION_SEPARATOR.join(all_sections)
+    hook_output = _parsed_hook_output(verdict.stdout_text) if verdict.stdout_text else {}
+    if hook_output is None:
+        return verdict
+    specific_output = hook_output.get(HOOK_SPECIFIC_OUTPUT_KEY)
+    specific_output = dict(specific_output) if isinstance(specific_output, dict) else {}
+    specific_output.setdefault(HOOK_EVENT_NAME_OUTPUT_KEY, event_name)
+    existing_context = specific_output.get(ADDITIONAL_CONTEXT_KEY)
+    specific_output[ADDITIONAL_CONTEXT_KEY] = CONTEXT_SECTION_SEPARATOR.join(
+        _non_empty_sections(
+            [existing_context if isinstance(existing_context, str) else "", catch_up_context]
+        )
+    )
+    hook_output[HOOK_SPECIFIC_OUTPUT_KEY] = specific_output
+    return HookVerdict(0, json.dumps(hook_output), verdict.stderr_text)
+
+
 def forward_nested_hooks(
     session_directory: Path, payload_text: str, forward_siblings: bool = False
 ) -> HookVerdict:
@@ -343,9 +504,12 @@ def forward_nested_hooks(
     )
     with time_budget(ALL_RUN_BUDGET_SECONDS_BY_EVENT[event_name]):
         all_results = _completed_results(all_nested_hooks, payload_text)
+        all_catch_up_results = catch_up_session_start(session_directory, payload, forward_siblings)
     if event_name == PRE_TOOL_USE_EVENT:
-        return pre_tool_use_verdict(all_results)
-    return additional_context_verdict(all_results, event_name)
+        verdict = pre_tool_use_verdict(all_results)
+    else:
+        verdict = additional_context_verdict(all_results, event_name)
+    return _with_catch_up_context(verdict, all_catch_up_results, event_name)
 
 
 def main() -> None:

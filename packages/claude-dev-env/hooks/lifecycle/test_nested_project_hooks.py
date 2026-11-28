@@ -639,3 +639,75 @@ def test_should_not_forward_a_sibling_outside_a_cloud_session(
     )
 
     assert (completed_process.returncode, completed_process.stdout) == (0, "")
+
+
+def _run_hook_with_home(
+    session_directory: pathlib.Path, payload: dict[str, object], home_directory: pathlib.Path
+) -> subprocess.CompletedProcess[str]:
+    hook_environment = dict(os.environ)
+    hook_environment["CLAUDE_PROJECT_DIR"] = str(session_directory)
+    hook_environment["HOME"] = str(home_directory)
+    hook_environment.pop("CLAUDE_ENV_FILE", None)
+    return subprocess.run(
+        [sys.executable, str(HOOK_SCRIPT_PATH)],
+        input=json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=hook_environment,
+        check=False,
+        timeout=60,
+    )
+
+
+def test_should_run_start_hooks_once_for_a_checkout_attached_after_session_start(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = tmp_path / "session"
+    home_directory = tmp_path / "home"
+    record_path = tmp_path / "record.txt"
+    start_command = f'echo "$(basename "$CLAUDE_PROJECT_DIR") $CLAUDE_ENV_FILE" >> "{record_path}"'
+    _make_checkout(
+        session_directory, "alpha", {"SessionStart": [_command_group("startup", start_command)]}
+    )
+    start_payload = {**_session_start_payload(), "session_id": "session-one"}
+    _run_hook_with_home(session_directory, start_payload, home_directory)
+    _make_checkout(
+        session_directory, "beta", {"SessionStart": [_command_group("startup", start_command)]}
+    )
+    tool_payload = {**_pre_tool_use_payload("Bash"), "session_id": "session-one"}
+
+    first_call = _run_hook_with_home(session_directory, tool_payload, home_directory)
+    _run_hook_with_home(session_directory, tool_payload, home_directory)
+
+    assert first_call.returncode == 0
+    all_record_lines = record_path.read_text(encoding="utf-8").splitlines()
+    expected_env_file = (
+        home_directory / ".claude" / "session-env" / "session-one" / "sessionstart-nested-beta.sh"
+    )
+    assert all_record_lines == ["alpha ", f"beta {expected_env_file}"]
+
+
+def test_should_carry_late_start_hook_output_as_tool_call_context(
+    tmp_path: pathlib.Path,
+) -> None:
+    session_directory = tmp_path / "session"
+    home_directory = tmp_path / "home"
+    session_directory.mkdir()
+    _run_hook_with_home(
+        session_directory,
+        {**_session_start_payload(), "session_id": "session-two"},
+        home_directory,
+    )
+    _make_checkout(
+        session_directory, "beta", {"SessionStart": [_command_group("", "echo beta is ready")]}
+    )
+
+    completed_process = _run_hook_with_home(
+        session_directory,
+        {**_pre_tool_use_payload("Bash"), "session_id": "session-two"},
+        home_directory,
+    )
+
+    hook_output = json.loads(completed_process.stdout)
+    assert hook_output["hookSpecificOutput"]["additionalContext"] == "beta is ready"
+    assert hook_output["hookSpecificOutput"]["hookEventName"] == "PreToolUse"

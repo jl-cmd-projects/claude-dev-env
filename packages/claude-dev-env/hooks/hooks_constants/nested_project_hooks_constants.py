@@ -46,3 +46,13 @@ ASK_PERMISSION_DECISION: str = "ask"
 ALL_FORWARDED_PERMISSION_DECISIONS: tuple[str, ...] = (DENY_PERMISSION_DECISION, ASK_PERMISSION_DECISION)
 ADDITIONAL_CONTEXT_KEY: str = "additionalContext"
 CONTEXT_SECTION_SEPARATOR: str = "\n\n"
+
+SESSION_ID_KEY: str = "session_id"
+SOURCE_KEY: str = "source"
+CWD_KEY: str = "cwd"
+CATCH_UP_SESSION_START_SOURCE: str = "startup"
+ALL_STARTED_STATE_PATH_PARTS: tuple[str, ...] = (".claude", "state", "nested-project-hooks")
+STARTED_STATE_FILE_SUFFIX: str = ".json"
+SESSION_ENV_FILE_VARIABLE: str = "CLAUDE_ENV_FILE"
+ALL_SESSION_ENV_PATH_PARTS: tuple[str, ...] = (".claude", "session-env")
+CATCH_UP_ENV_FILE_TEMPLATE: str = "sessionstart-nested-{checkout}.sh"
