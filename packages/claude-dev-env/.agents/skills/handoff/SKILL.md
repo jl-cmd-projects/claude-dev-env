@@ -12,7 +12,7 @@ Then write one handoff, in the first person, as if I wrote it. It must be comple
 ## Structure
 
 1. **The goal.** The one bar the work must reach, and the constraints that hold whatever route is taken.
-2. **Open route.** The next session may reach the goal any way that works. Use the world as your oyster. It is free to rebuild, replace or question anything I built. What I built is a starting point, not the plan.
+2. **Open route.** The next session may reach the goal any way that works. Use the world as your oyster. It is free to rebuild, replace or question anything I built. What I built is a starting point.
 3. **Where it stands.** Current measured results, with links to the runs.
 4. **What I built and tried.** Every pull request and branch, with links, bases, heads and status, and the specific steps tried and what each measured.
 5. **Done when.** Concrete, checkable finish lines.
