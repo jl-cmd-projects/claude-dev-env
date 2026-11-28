@@ -1,5 +1,12 @@
 # Changelog
 
+## [8.139.2](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.139.1...claude-dev-env-v8.139.2) (2026-11-27)
+
+
+### Performance
+
+* **pii:** scan only the lines that can hold a home path ([#2514](https://github.com/jl-cmd-projects/claude-dev-env/issues/2514)) ([a128d70](https://github.com/jl-cmd-projects/claude-dev-env/commit/a128d705023a6cc1d0e68d97db1aea88bd09985d))
+
 ## [8.139.1](https://github.com/jl-cmd-projects/claude-dev-env/compare/claude-dev-env-v8.139.0...claude-dev-env-v8.139.1) (2026-11-27)
 
 
