@@ -19,7 +19,7 @@ from hooks_constants.closing_question_round_gate_constants import CLOSING_ROUND_
 
 FIRST_SESSION_ID = "s-first"
 SECOND_SESSION_ID = "s-second"
-DEFERRAL_LINE = "I deferred the backoff setting to a later change."
+DEFERRAL_LINE = "The backoff setting is your call, so I left it for you."
 OFF_CONTEXT = "Question-card stop gate is now OFF"
 ON_CONTEXT = "Question-card stop gate is now ON"
 

@@ -85,6 +85,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     FILE_NAME_PATTERN,
     INDENTED_CODE_LINE_PATTERN,
     LIST_ITEM_LINE_PATTERN,
+    NEEDS_YOU_HEADING_PATTERN,
     MINIMUM_PATH_SEGMENT_COUNT,
     HYPHEN_CHARACTER,
     MARKER_SCAN_LOOKAHEAD_CHARACTERS,
@@ -97,6 +98,7 @@ from hooks_constants.closing_question_round_gate_constants import (
     PATH_REACH_CHARACTERS,
     PATH_BREAK_PATTERN,
     SEPARATOR_RUN_PATTERN,
+    USER_DIRECTED_LINE_PATTERN,
 )
 from hooks_constants.final_reply_gate_constants import QUESTION_MARK, TRAILING_MARKUP_CHARACTERS
 from hooks_constants.open_tasks_stop_gate_constants import WORD_SEPARATOR
@@ -315,6 +317,92 @@ def marked_open_lines(all_assistant_texts: list[str], deadline_at: float) -> lis
         for each_line in _marked_lines(each_text, deadline_at)
     )
     return list(dict.fromkeys(all_marked_lines))
+
+
+def user_open_lines(all_assistant_texts: list[str], deadline_at: float) -> list[str]:
+    """Return the open-item lines that need the user: a decision, an approval, or a step only they can take.
+
+    ::
+
+        "I deferred the backoff setting."                    -> [], the agent's own step
+        "Next I will log the bug and clean up the branch."   -> []
+        "The deploy waits on you to approve it."             -> ["The deploy waits on you to approve it."]
+        "Is the 64-entry cache limit right?"                 -> ["Is the 64-entry cache limit right?"]
+        "It is your call whether the retry stays deferred."  -> the line, it names your call
+
+    The lines are those ``marked_open_lines`` finds. A line stays when it
+    ends with a question mark, or holds a wording that addresses the user:
+    open question, you may want to, your call, your judgment, up to you,
+    needs your decision, judgment, approval, input, or review, I need you to,
+    needs you to, you need to, you have to, awaiting or waiting for your
+    decision, approval, input, or review, waiting on you, left it for you, or
+    for you to decide. A line that holds only the agent's own markers, such
+    as deferred, pending, blocked, skipped, or untested, is dropped.
+
+    Args:
+        all_assistant_texts: The assistant text blocks to read.
+        deadline_at: The monotonic clock reading at which the scan gives up.
+
+    Returns:
+        The open-item lines that address the user, without repeats.
+
+    Raises:
+        TimeoutError: The deadline passed before the scan ended.
+    """
+    return [
+        each_line
+        for each_line in marked_open_lines(all_assistant_texts, deadline_at)
+        if each_line.rstrip(TRAILING_MARKUP_CHARACTERS).endswith(QUESTION_MARK)
+        or USER_DIRECTED_LINE_PATTERN.search(each_line) is not None
+    ]
+
+
+def _heads_a_list(all_lines: list[str], heading_position: int, next_paragraph: str) -> bool:
+    if heading_position + 1 < len(all_lines):
+        return LIST_ITEM_LINE_PATTERN.match(all_lines[heading_position + 1]) is not None
+    return LIST_ITEM_LINE_PATTERN.match(next_paragraph) is not None
+
+
+def lists_items_for_user(closing_reply: str, deadline_at: float) -> bool:
+    """Return True when the reply already lists its open items for the user under ``Needs you:``.
+
+    ::
+
+        "Done.\\n\\nNeeds you:\\n- Approve the deploy."    -> True
+        "Done.\\n\\n**Needs you:**\\n\\n- Pick a size."   -> True, a blank line may follow
+        "Needs you:"                                       -> False, no list item
+        "`Needs you:`\\n- Approve it."                     -> False, a code span
+
+    The heading is a line that holds only ``Needs you:``, ``Needs from you:``,
+    ``What I need from you:``, ``Waiting on you:``, or ``Your turn:``, alone
+    or in one bold mark, in any letter case. A ``-``, ``*``, ``+``, or numbered
+    list item must follow it, on the next line or after one blank line. The
+    reply is masked as ``marked_open_lines`` masks it. A reply over 2 MiB
+    never lists.
+
+    Args:
+        closing_reply: The reply to read.
+        deadline_at: The monotonic clock reading at which the scan gives up.
+
+    Returns:
+        Whether a ``Needs you:`` list stands in the reply.
+
+    Raises:
+        TimeoutError: The deadline passed before the scan ended.
+    """
+    if not is_within_scan_cap(closing_reply):
+        return False
+    all_paragraphs = _prose_paragraphs(closing_reply, deadline_at)
+    for each_position, each_paragraph in enumerate(all_paragraphs):
+        all_lines = each_paragraph.split(LINE_BREAK)
+        next_paragraph = all_paragraphs[each_position + 1] if each_position + 1 < len(all_paragraphs) else ""
+        if any(
+            NEEDS_YOU_HEADING_PATTERN.fullmatch(each_line.strip()) is not None
+            and _heads_a_list(all_lines, each_line_position, next_paragraph)
+            for each_line_position, each_line in enumerate(all_lines)
+        ):
+            return True
+    return False
 
 
 def declares_no_open_items(closing_reply: str, deadline_at: float) -> bool:

@@ -6,6 +6,6 @@ One question per item, no chat list: two or three choices, each a label and sent
 
 Question and choices go in the tool: Claude `AskUserQuestion`, Codex `request_user_input_async` or `request_user_input`. Honor mode rules; if unusable, ask in chat.
 
-End a user-started session with a card per open item; after work, while a task or job runs, a plain-words `In progress:` list, resent on change. A hook enforces it.
+End a user-started session with a card per open item that needs the user: a decision, an approval, or a step only they take. Your own steps (logging, review rounds, branch cleanup) are no items. A closing reply that already lists those items under `Needs you:` needs no second brief and no cards; after work, while a task or job runs, a plain-words `In progress:` list, resent on change. A hook enforces it.
 
 **Full text:** [`~/.claude/docs/rule-guides/question-presentation.md`](../docs/rule-guides/question-presentation.md); read it for handovers, option cards, Codex visuals.

@@ -193,11 +193,11 @@ def test_should_allow_a_chat_only_turn_with_no_footer(
 def test_should_hold_a_marker_line_above_the_footer_and_read_none_inside_it(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    closing_reply = f"The retry path is untested.\n\n{FOOTER}"
+    closing_reply = f"The retry path is your call.\n\n{FOOTER}"
     all_records = [typed_prompt_record(), *edit_records(), reply_record(closing_reply)]
     reason = str(held_reason(monkeypatch, capsys, tmp_path, all_records))
     assert reason.startswith(CLOSING_ROUND_REASON_LEAD)
-    assert '"The retry path is untested."' in reason
+    assert '"The retry path is your call."' in reason
     all_records[-1] = reply_record(f"Done.\n\n{FOOTER} The docs change is blocked and pending.")
     assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None
 
@@ -298,7 +298,7 @@ def test_should_skip_the_open_item_round_while_background_work_runs(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     background_fields = {"background_tasks": [{"id": "task-1"}]}
-    all_records = [typed_prompt_record(), reply_record(f"The jitter option is parked.\n\n{FOOTER}")]
+    all_records = [typed_prompt_record(), reply_record(f"The jitter option is your call.\n\n{FOOTER}")]
     assert held_reason(monkeypatch, capsys, tmp_path, all_records, background_fields) is None
 
 
@@ -320,7 +320,7 @@ def test_should_count_both_reasons_toward_the_cap_of_two(
         *edit_records(),
         reply_record("Done."),
         stop_feedback_record(FOOTER_FEEDBACK_TEXT),
-        reply_record("The jitter option is parked."),
+        reply_record("The jitter option is your call."),
     ]
     assert held_reason(monkeypatch, capsys, tmp_path, all_records) is not None
     all_records += [stop_feedback_record(), reply_record("Done again.")]
@@ -381,17 +381,17 @@ def test_should_reset_the_cap_on_a_prompt_of_a_host_with_no_turn_origin(
 def test_should_hold_a_marker_in_an_indented_list_continuation(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    closing_reply = "- The flag is in place.\n\n    - The retry path is untested."
+    closing_reply = "- The flag is in place.\n\n    - The retry path is your call."
     reason = held_reason(
         monkeypatch, capsys, tmp_path, [typed_prompt_record(), reply_record(closing_reply)]
     )
-    assert '"- The retry path is untested."' in str(reason)
+    assert '"- The retry path is your call."' in str(reason)
 
 
 def test_should_skip_a_transcript_line_and_a_closing_reply_over_sixteen_mebibytes(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    oversized_text = "The retry path is untested. " + "x" * MAXIMUM_SCANNED_BYTES
+    oversized_text = "The retry path is your call. " + "x" * MAXIMUM_SCANNED_BYTES
     all_records = [typed_prompt_record(), reply_record(oversized_text)]
     assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None
     all_records = [typed_prompt_record(), reply_record("The flag is in place.")]
@@ -404,9 +404,9 @@ def test_should_skip_a_transcript_line_and_a_closing_reply_over_sixteen_mebibyte
     all_records = [
         typed_prompt_record(),
         reply_record(oversized_text),
-        reply_record("The retry path is untested."),
+        reply_record("The retry path is your call."),
     ]
-    assert '"The retry path is untested."' in str(
+    assert '"The retry path is your call."' in str(
         held_reason(monkeypatch, capsys, tmp_path, all_records)
     )
 
@@ -440,19 +440,17 @@ def test_should_hold_new_work_after_a_turn_that_ended_with_the_footer(
     )
 
 
-def test_should_keep_a_marker_line_written_before_a_footer(
+def test_should_not_read_a_marker_line_written_before_a_later_typed_prompt(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     all_records = [
         typed_prompt_record(),
         *edit_records(),
-        reply_record(f"The retry path is untested.\n\n{FOOTER}"),
+        reply_record(f"The retry path is your call.\n\n{FOOTER}"),
         typed_prompt_record(),
         reply_record("Yes."),
     ]
-    assert '"The retry path is untested."' in str(
-        held_reason(monkeypatch, capsys, tmp_path, all_records)
-    )
+    assert held_reason(monkeypatch, capsys, tmp_path, all_records) is None
 
 
 def test_should_read_no_marker_inside_a_footer_of_an_earlier_turn(
@@ -474,7 +472,7 @@ def test_should_read_no_marker_inside_a_footer_of_an_earlier_turn(
     [
         "- I am fixing the list reader. Should I also raise the timeout?",
         "- I am fixing the list reader. I need your input on the timeout.",
-        "- I am fixing the list reader. I deferred the backoff setting to a later change.",
+        "- I am fixing the list reader. The backoff setting is your call, so I left it for you.",
     ],
 )
 def test_should_hold_a_question_inside_the_footer(
@@ -831,7 +829,7 @@ def test_should_still_read_open_items_beside_an_assistant_record_with_no_text(
         typed_prompt_record(),
         thinking_record,
         *edit_records(),
-        reply_record("I deferred the backoff setting to a later change."),
+        reply_record("The backoff setting is your call, so I left it for you."),
     ]
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records)).startswith(CLOSING_ROUND_REASON_LEAD)
 
@@ -1468,8 +1466,8 @@ def test_should_read_a_status_marker_in_a_split_footer_as_status(
 def test_should_read_a_payload_that_joins_two_paragraphs_into_an_open_item(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    all_records = [typed_prompt_record(), *edit_records(), reply_record("The rename is done. This is out of\n\nscope.")]
-    joined_fields = {"last_assistant_message": "The rename is done. This is out of\nscope."}
+    all_records = [typed_prompt_record(), *edit_records(), reply_record("The rename is done. This is up to\n\nyou.")]
+    joined_fields = {"last_assistant_message": "The rename is done. This is up to\nyou."}
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, joined_fields)).startswith(CLOSING_ROUND_REASON_LEAD)
 
 
@@ -1477,7 +1475,7 @@ def test_should_find_a_short_open_item_in_a_message_too_large_to_scan_whole(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
     large_block = "word " * (1024 * 1024 // 5)
-    all_blocks = [{"type": "text", "text": large_block}, {"type": "text", "text": large_block}, {"type": "text", "text": "TODO: write docs"}]
+    all_blocks = [{"type": "text", "text": large_block}, {"type": "text", "text": large_block}, {"type": "text", "text": "It is your call: write docs"}]
     large_record = {"type": "assistant", "message": {"role": "assistant", "content": all_blocks}}
     all_records = [typed_prompt_record(), *edit_records(), large_record]
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, {})).startswith(CLOSING_ROUND_REASON_LEAD)
@@ -1498,15 +1496,15 @@ def test_should_scan_a_question_line_inside_a_split_footer_item(
 def test_should_scan_an_indented_code_block_written_as_its_own_record_as_code(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    all_records = [typed_prompt_record(), *edit_records(), *split_reply_records("Run this:", "    echo TODO: write docs")]
-    code_fields = {"last_assistant_message": "Run this:\n\n    echo TODO: write docs"}
+    all_records = [typed_prompt_record(), *edit_records(), *split_reply_records("Run this:", "    echo It is your call: write docs")]
+    code_fields = {"last_assistant_message": "Run this:\n\n    echo It is your call: write docs"}
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, code_fields)).startswith(FOOTER_MISSING_REASON_LEAD)
     all_prose_records = [
         typed_prompt_record(),
         *edit_records(),
-        *split_reply_records("Notes:\n  a wrapped line", "    echo TODO: write docs"),
+        *split_reply_records("Notes:\n  a wrapped line", "    echo It is your call: write docs"),
     ]
-    prose_fields = {"last_assistant_message": "Notes:\n  a wrapped line\n\n    echo TODO: write docs"}
+    prose_fields = {"last_assistant_message": "Notes:\n  a wrapped line\n\n    echo It is your call: write docs"}
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_prose_records, prose_fields)).startswith(
         FOOTER_MISSING_REASON_LEAD
     )

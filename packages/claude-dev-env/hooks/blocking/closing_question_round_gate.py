@@ -3,8 +3,10 @@
 
 The gate holds the stop for these shapes, and only in a session it covers::
 
-    hold:  "I deferred the backoff setting."        no question card after it
-    hold:  "Nothing is deferred."                   a marker line; negation does not cancel it
+    hold:  "The backoff setting is your call."      no question card after it
+    allow: "I deferred the backoff setting."        the agent's own step, no item for the user
+    allow: "Needs you:" then "- Approve the deploy."   the reply is the brief
+    hold:  "Is the cache limit right?"              a question for the user
     allow: a marker line, then an answered AskUserQuestion call
     allow: an Edit call, then "Done."               nothing in progress, no closing line owed
     hold:  an Edit call, then "Done."               task #28 in_progress: the footer is owed
@@ -14,15 +16,21 @@ The gate holds the stop for these shapes, and only in a session it covers::
     hold:  "Open items: none." beside task #28 in_progress
     hold:  an Edit call, then any reply   a later plan list dropped in_progress "Run the rerun"
 
-The stretch is every top-level record after the last question call that
-reached the user, then the payload's closing reply. The closing reply is the
+The stretch is every top-level record after the later of the last typed
+prompt and the last question call that reached the user, then the payload's
+closing reply. A marker line that already stood in a record before the
+stretch is not held again, even when a later reply repeats it. A marker line
+is one that needs the user, as ``closing_question_round_open_items.user_open_lines``
+reads it. A closing reply that already lists its items under a ``Needs you:``
+heading, as ``lists_items_for_user`` reads it, is the brief, so the marker
+check does not hold it. The closing reply is the
 newest text after the last work call. Each reply's In progress footer, as
 ``closing_question_round_footer.split_footer`` reads it, is scanned with the
 status markers "pending", "blocked", "not done", and "not run" left out, so a
 footer may say where work stands while a question, a deferral, or an ask of
 the user in it still counts. A marker line is a prose
-line ``closing_question_round_open_items`` finds in the texts: a marker word or
-a line that ends with a question mark. Work is any tool call that is no
+line ``closing_question_round_open_items`` finds in the texts: a wording that
+addresses the user or a line that ends with a question mark. Work is any tool call that is no
 question call and that sits in the stretch after the last record whose final
 text ends with the footer, in a record with no work call of its own. Work is
 in progress when the session's task list, as ``closing_question_round_tasks``
@@ -114,7 +122,7 @@ if blocking_directory not in sys.path:
 from closing_question_gate_flag import is_bypass_on
 from closing_question_round_footer import footer_reason, left_out_tasks, split_footer
 from closing_question_round_lines import is_within_scan_cap, transcript_lines
-from closing_question_round_open_items import declares_no_open_items, marked_open_lines
+from closing_question_round_open_items import declares_no_open_items, lists_items_for_user, user_open_lines
 from closing_question_round_tasks import SessionTasks, carried_tasks_reason, session_tasks
 from closing_question_round_transcript import (
     _message_id,
@@ -329,6 +337,7 @@ class CoveredSession(NamedTuple):
         count_start: The transcript line where footer counting starts.
         written_reply: The reply the transcript ends with, or None when a prompt or work comes after it.
         all_wake_counts: How many prompts came before each counted record, then the total.
+        all_earlier_records: The top-level records before the counted ones, which the user already saw.
     """
 
     all_payload_texts: list[str]
@@ -338,6 +347,7 @@ class CoveredSession(NamedTuple):
     count_start: int
     written_reply: str | None
     all_wake_counts: list[int]
+    all_earlier_records: list[dict[str, object]]
 
 
 def _assistant_messages(all_records: list[dict[str, object]]) -> list[tuple[int, str, bool]]:
@@ -732,6 +742,7 @@ def _covered_session(
         count_start,
         written_reply,
         all_wake_counts,
+        top_level_records(all_lines[:count_start], deadline_at),
     )
 
 
@@ -1081,7 +1092,7 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
     covered_session = _covered_session(all_hook_input_fields, deadline_at)
     if covered_session is None:
         return None
-    all_payload_texts, all_stretch_records, all_counted_records, newest_footer, _, written_reply, all_wake_counts = (
+    all_payload_texts, all_stretch_records, all_counted_records, newest_footer, _, written_reply, all_wake_counts, all_earlier_records = (
         covered_session
     )
     if prior_hold_count(all_counted_records) >= MAXIMUM_HOLD_COUNT:
@@ -1117,10 +1128,22 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         )
     all_texts = [
         _scanned_text(each_text)
-        for each_text in [*_open_item_texts(all_stretch_records), *all_payload_texts]
+        for each_text in [*_open_item_texts(all_counted_records), *all_payload_texts]
     ]
-    if not has_background_work(all_hook_input_fields):
-        all_open_item_lines = marked_open_lines(all_texts, deadline_at)
+    if not has_background_work(all_hook_input_fields) and not _lists_user_items(
+        all_closing_texts, deadline_at
+    ):
+        all_seen_lines = set(
+            user_open_lines(
+                [_scanned_text(each_text) for each_text in _open_item_texts(all_earlier_records)],
+                deadline_at,
+            )
+        )
+        all_open_item_lines = [
+            each_line
+            for each_line in user_open_lines(all_texts, deadline_at)
+            if each_line not in all_seen_lines
+        ]
         if all_open_item_lines:
             return closing_round_reason(all_open_item_lines)
     return footer_hold_reason(
@@ -1133,6 +1156,10 @@ def _hold_reason(all_hook_input_fields: dict[str, object], deadline_at: float) -
         all_counted_records,
         all_wake_counts,
     )
+
+
+def _lists_user_items(all_closing_texts: list[str], deadline_at: float) -> bool:
+    return any(lists_items_for_user(each_text, deadline_at) for each_text in all_closing_texts)
 
 
 def _open_item_texts(all_stretch_records: list[dict[str, object]]) -> list[str]:

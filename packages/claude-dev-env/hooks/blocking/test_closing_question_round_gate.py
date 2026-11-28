@@ -23,7 +23,7 @@ from hooks_constants.closing_question_round_gate_constants import (
 
 GATE_PATH = Path(closing_question_round_gate.__file__)
 SESSION_ID = "s-123"
-DEFERRAL_LINE = "I deferred the backoff setting to a later change."
+DEFERRAL_LINE = "The backoff setting is your call, so I left it for you."
 FEEDBACK_TEXT = f'Stop hook feedback:\n{CLOSING_ROUND_REASON_LEAD}\nThe lines:\n"{DEFERRAL_LINE}"'
 
 
@@ -194,7 +194,7 @@ def test_should_hold_for_an_open_item_line_written_after_the_cards(
         reply_record(DEFERRAL_LINE),
         tool_call_record("AskUserQuestion"),
         tool_result_record("AskUserQuestion", "The user chose Add it now."),
-        reply_record("The jitter option is out of scope for this change."),
+        reply_record("The jitter option is up to you."),
     ]
     reason = held_reason(monkeypatch, capsys, tmp_path, all_records)
     assert reason is not None
@@ -248,19 +248,54 @@ def test_should_start_the_stretch_after_the_last_call_that_reached_the_user(
         reply_record(DEFERRAL_LINE),
         tool_call_record("AskUserQuestion", tool_use_id="id-first"),
         tool_result_record("AskUserQuestion", "The user chose Leave it.", tool_use_id="id-first"),
-        reply_record("The jitter option is parked."),
+        reply_record("The jitter option is your call."),
         tool_call_record("AskUserQuestion", tool_use_id="id-second"),
         tool_result_record(
             "AskUserQuestion", "Question refused.", is_error=True, tool_use_id="id-second"
         ),
     ]
     reason = held_reason(monkeypatch, capsys, tmp_path, all_records)
-    assert '"The jitter option is parked."' in str(reason)
+    assert '"The jitter option is your call."' in str(reason)
     assert DEFERRAL_LINE not in str(reason)
 
 
 @pytest.mark.parametrize(
     "open_line",
+    [
+        "One open question is the cache size.",
+        "The cache size is your call.",
+        "The cache size is up to you.",
+        "The cache size needs your decision.",
+        "The cache size needs your input.",
+        "The cache size and the TTL need your input.",
+        "I need you to pick the cache size.",
+        "I left it for you.",
+        "I left these for you.",
+        "The cache size is for you to decide.",
+        "The cache size is waiting on you.",
+        "The cache size waits on you.",
+        "Should the cache hold 64 entries?",
+        "- Should the cache hold 64 entries?**",
+        "You may want to decide on the timeout.",
+        "The cache size rests on your judgment.",
+        "No open questions remain.",
+    ],
+)
+def test_should_hold_for_each_marker_of_an_open_item(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    open_line: str,
+) -> None:
+    reason = held_reason(
+        monkeypatch, capsys, tmp_path, [typed_prompt_record(), reply_record(open_line)]
+    )
+    assert reason is not None
+    assert f'"{open_line}"' in reason
+
+
+@pytest.mark.parametrize(
+    "own_step_line",
     [
         "This defers the cleanup.",
         "I will send the cleanup as a follow-up.",
@@ -271,7 +306,6 @@ def test_should_start_the_stretch_after_the_last_call_that_reached_the_user(
         "The cleanup goes in a later pull request.",
         "One known gap is the cleanup.",
         "That is a known limitation.",
-        "One open question is the cache size.",
         "The cache size is unresolved.",
         "The cache size is uncertain.",
         "I am not sure the cache is warm.",
@@ -288,9 +322,6 @@ def test_should_start_the_stretch_after_the_last_call_that_reached_the_user(
         "The cache path is untested.",
         "The cache path is not tested.",
         "The cache size was a judgment call.",
-        "The cache size is your call.",
-        "The cache size is up to you.",
-        "The cache size needs your decision.",
         "THE CACHE SIZE IS DEFERRED.",
         "No follow-up is needed except the retry fix.",
         "Nothing deferred except the backoff setting.",
@@ -315,20 +346,9 @@ def test_should_start_the_stretch_after_the_last_call_that_reached_the_user(
         "One deferral is the cache size.",
         "Two deferrals remain.",
         "One uncertainty is the cache size.",
-        "The cache size needs your input.",
-        "The cache size and the TTL need your input.",
-        "I need you to pick the cache size.",
         "We assumed the cache holds 64 entries.",
         "I assume the cache holds 64 entries.",
         "We assume the cache holds 64 entries.",
-        "I left it for you.",
-        "I left these for you.",
-        "The cache size is for you to decide.",
-        "The cache size is waiting on you.",
-        "The cache size waits on you.",
-        "Should the cache hold 64 entries?",
-        "- Should the cache hold 64 entries?**",
-        "You may want to decide on the timeout.",
         "I didn't test the retry path.",
         "I did not test the retry path.",
         "I'll do the docs in a separate PR.",
@@ -337,26 +357,25 @@ def test_should_start_the_stretch_after_the_last_call_that_reached_the_user(
         "I couldn't confirm the cache size.",
         "I was unable to confirm the cache size.",
         "The cache warm-up is not yet implemented.",
-        "The cache size rests on your judgment.",
         "Nothing deferred, except the backoff setting.",
         "Nothing is deferred.",
         "No follow-up is needed.",
-        "No open questions remain.",
         "The cleanup is not deferred.",
         "Nothing is out of scope.",
     ],
 )
-def test_should_hold_for_each_marker_of_an_open_item(
+def test_should_allow_a_line_that_only_names_the_agents_own_step(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
-    open_line: str,
+    own_step_line: str,
 ) -> None:
-    reason = held_reason(
-        monkeypatch, capsys, tmp_path, [typed_prompt_record(), reply_record(open_line)]
+    assert (
+        held_reason(
+            monkeypatch, capsys, tmp_path, [typed_prompt_record(), reply_record(own_step_line)]
+        )
+        is None
     )
-    assert reason is not None
-    assert f'"{open_line}"' in reason
 
 
 @pytest.mark.parametrize(
@@ -386,7 +405,7 @@ def test_should_allow_a_line_with_no_marker_and_no_work(
 def test_should_hold_for_a_marker_that_sits_beside_a_negated_one(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    open_line = "Nothing is deferred, but the retry path is untested."
+    open_line = "Nothing is deferred, but the retry path is your call."
     reason = held_reason(
         monkeypatch, capsys, tmp_path, [typed_prompt_record(), reply_record(open_line)]
     )
@@ -432,11 +451,11 @@ def test_should_read_assistant_text_blocks_only(
     }
     sidechain_record = {**reply_record("The second caller is unverified."), "isSidechain": True}
     all_records = [
-        typed_prompt_record("Note that the backoff setting is deferred."),
+        typed_prompt_record("Note that the backoff setting is your call."),
         thinking_record,
         sidechain_record,
         tool_call_record(
-            "Write", {"file_path": "notes.md", "content": "The backoff setting is deferred."}
+            "Write", {"file_path": "notes.md", "content": "The backoff setting is your call."}
         ),
         tool_result_record("Write", "The backoff setting is deferred and untested."),
         reply_record("The note is written.\n\nOpen items: none."),
@@ -523,9 +542,9 @@ def test_should_hold_an_agent_seeded_session_a_person_later_typed_into(
         machine_prompt_record("task_notification"),
         reply_record("The retry flag is in place."),
         typed_prompt_record("Add the backoff setting too."),
-        reply_record("The jitter option is parked."),
+        reply_record("The jitter option is your call."),
     ]
-    assert '"The jitter option is parked."' in str(
+    assert '"The jitter option is your call."' in str(
         held_reason(monkeypatch, capsys, tmp_path, all_records)
     )
 
@@ -560,9 +579,9 @@ def test_should_start_a_new_hold_count_after_a_question_card(
         stop_feedback_record(),
         tool_call_record("AskUserQuestion"),
         tool_result_record("AskUserQuestion", "The user chose Add it now."),
-        reply_record("The jitter option is parked."),
+        reply_record("The jitter option is your call."),
     ]
-    assert '"The jitter option is parked."' in str(
+    assert '"The jitter option is your call."' in str(
         held_reason(monkeypatch, capsys, tmp_path, all_records)
     )
 
@@ -586,8 +605,8 @@ def test_should_not_count_feedback_from_another_gate_or_an_assistant_quote_as_a_
 def test_should_quote_at_most_eight_trimmed_lines_and_count_the_rest(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    long_line = "The cache path is untested " + "and slow " * 40
-    all_open_item_lines = [f"Step {each_number} is deferred." for each_number in range(1, 11)]
+    long_line = "The cache path is your call " + "and slow " * 40
+    all_open_item_lines = [f"Step {each_number} is your call." for each_number in range(1, 11)]
     reason = held_reason(
         monkeypatch,
         capsys,
@@ -601,9 +620,9 @@ def test_should_quote_at_most_eight_trimmed_lines_and_count_the_rest(
     assert reason is not None
     all_quoted_lines = [each_line for each_line in reason.split("\n") if each_line.startswith('"')]
     assert len(all_quoted_lines) == MAXIMUM_QUOTED_LINE_COUNT
-    assert all_quoted_lines[0] == '"Step 4 is deferred."'
+    assert all_quoted_lines[0] == '"Step 4 is your call."'
     assert len(all_quoted_lines[-1]) == MAXIMUM_QUOTED_LINE_LENGTH + len('""')
-    assert "Step 3 is deferred." not in reason
+    assert "Step 3 is your call." not in reason
     assert "Earlier lines left out here: 3." in reason
 
 
@@ -709,14 +728,13 @@ def test_closing_round_reason_leads_with_the_fixed_sentence_and_ends_with_the_in
     assert all_reason_lines[2:4] == ['"The cleanup is parked."', '"The cache is unverified."']
     assert "lines left out here" not in reason
     assert "at most four questions in one call" in all_reason_lines[-1]
+    assert "Needs you:" in all_reason_lines[-1]
     assert "refuses a question past 450 words or 15 items" in all_reason_lines[-1]
     assert "a refused question starts a new count" in all_reason_lines[-1]
     assert "write a link in a card as a bare URL" in all_reason_lines[-1]
     assert "end the reply with the In progress footer" in all_reason_lines[-1]
     assert "Open items: none." not in all_reason_lines[-1]
-    assert all_reason_lines[-1].endswith(
-        "send one question that says so and lets the user add an item."
-    )
+    assert "send one question that says so and lets the user add an item." in all_reason_lines[-1]
 
 
 def write_session_tasks(tmp_path: Path, all_task_entries: list[dict[str, str]]) -> None:
@@ -791,11 +809,11 @@ def test_should_read_the_closing_reply_from_the_payload(
         tool_call_record("AskUserQuestion"),
         tool_result_record("AskUserQuestion", "The user chose Leave it."),
     ]
-    closing_reply = "The backoff setting stays.\n\nThe jitter option is parked."
+    closing_reply = "The backoff setting stays.\n\nThe jitter option is your call."
     reason = held_reason(
         monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": closing_reply}
     )
-    assert '"The jitter option is parked."' in str(reason)
+    assert '"The jitter option is your call."' in str(reason)
     assert DEFERRAL_LINE not in str(reason)
     assert (
         held_reason(monkeypatch, capsys, tmp_path, all_records, {"last_assistant_message": 7})
@@ -806,23 +824,23 @@ def test_should_read_the_closing_reply_from_the_payload(
 def test_should_not_count_a_closing_reply_the_transcript_already_holds_twice(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    closing_reply = "\n".join(f"Step {each_number} is deferred." for each_number in range(1, 9))
+    closing_reply = "\n".join(f"Step {each_number} is your call." for each_number in range(1, 9))
     reason = held_reason(
         monkeypatch,
         capsys,
         tmp_path,
-        [typed_prompt_record(), reply_record("Step 0 is deferred."), reply_record(closing_reply)],
+        [typed_prompt_record(), reply_record("Step 0 is your call."), reply_record(closing_reply)],
         {"last_assistant_message": closing_reply},
     )
     assert "Earlier lines left out here: 1." in str(reason)
-    assert '"Step 1 is deferred."' in str(reason)
+    assert '"Step 1 is your call."' in str(reason)
 
 
 def test_should_scan_a_payload_that_writes_as_prose_what_the_transcript_holds_as_code(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], tmp_path: Path
 ) -> None:
-    all_records = [typed_prompt_record(), reply_record("    TODO: add the flag.")]
-    prose_fields = {"last_assistant_message": "TODO: add the flag."}
+    all_records = [typed_prompt_record(), reply_record("    It is your call: add the flag.")]
+    prose_fields = {"last_assistant_message": "It is your call: add the flag."}
     assert str(held_reason(monkeypatch, capsys, tmp_path, all_records, prose_fields)).startswith(
         CLOSING_ROUND_REASON_LEAD
     )
@@ -849,10 +867,10 @@ def test_should_not_reread_a_closing_reply_written_before_the_cards(
     ("wrapped_reply", "quoted_text"),
     [
         (
-            "The cleanup is out of\nscope for this change.",
-            "The cleanup is out of scope for this change.",
+            "The cleanup is up\nto you for this change.",
+            "The cleanup is up to you for this change.",
         ),
-        ("The retry path is not\ntested yet.", "The retry path is not tested yet."),
+        ("The retry path is waiting\non you now.", "The retry path is waiting on you now."),
     ],
 )
 def test_should_find_a_marker_split_across_a_soft_line_break(
@@ -925,7 +943,7 @@ def test_should_allow_with_no_output_when_an_internal_step_raises(
         tmp_path / "s.jsonl", [typed_prompt_record(), reply_record(DEFERRAL_LINE)]
     )
     assert run_gate(monkeypatch, capsys, transcript_path)["decision"] == "block"
-    monkeypatch.setattr(closing_question_round_gate, "marked_open_lines", raise_type_error)
+    monkeypatch.setattr(closing_question_round_gate, "user_open_lines", raise_type_error)
     assert run_gate(monkeypatch, capsys, transcript_path) == {}
 
 

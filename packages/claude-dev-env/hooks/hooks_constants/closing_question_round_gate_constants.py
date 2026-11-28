@@ -193,6 +193,28 @@ OPEN_ITEM_MARKER_PATTERN = re.compile(
     r")(?![^\W_])(?!_{1,3}[^\W_])",
     re.IGNORECASE,
 )
+USER_DIRECTED_LINE_PATTERN = re.compile(
+    r"(?<![^\W_])(?:"
+    r"open\s+questions?"
+    r"|you\s+may\s+want\s+to"
+    r"|your\s+(?:call|judge?ment)"
+    r"|up\s+to\s+you"
+    r"|needs?\s+your\s+(?:decision|judge?ment|approval|input|review)"
+    r"|(?:i|we)\s+need\s+you\s+to"
+    r"|needs\s+you\s+to"
+    r"|you\s+(?:need|have)\s+to"
+    r"|(?:awaiting|waiting\s+for)\s+your\s+(?:decision|judge?ment|approval|input|review)"
+    r"|(?:waiting|waits)\s+(?:on|for)\s+you"
+    r"|left\s+(?:it|this|that|them|these)\s+for\s+you"
+    r"|for\s+you\s+to\s+decide"
+    r")(?![^\W_])",
+    re.IGNORECASE,
+)
+NEEDS_YOU_HEADING = "Needs you:"
+NEEDS_YOU_HEADING_PATTERN = re.compile(
+    r"(?P<mark>\*\*|__|)(?:needs\s+you|needs\s+from\s+you|what\s+i\s+need\s+from\s+you|waiting\s+on\s+you|your\s+turn):(?P=mark)",
+    re.IGNORECASE,
+)
 INDENTED_CODE_LINE_PATTERN = re.compile(r"^(?: {4}|\t)")
 LIST_ITEM_LINE_PATTERN = re.compile(r"^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]+\S")
 PATH_JOINING_CHARACTERS = "./\\"
@@ -276,7 +298,9 @@ CARD_INSTRUCTION = (
 )
 CLOSING_ROUND_INSTRUCTION = (
     f"{READ_ITEMS_INSTRUCTION} {CARD_INSTRUCTION} When the lines name nothing that is still open,"
-    " send one question that says so and lets the user add an item."
+    " send one question that says so and lets the user add an item. A closing reply that already"
+    f" ends its items for the user under a {NEEDS_YOU_HEADING!r} heading, one list item each, needs no"
+    " second brief and no cards; list only a decision, an approval, or a step the user takes, and none of your own steps."
 )
 FOOTER_HEADING = "In progress:"
 FOOTER_HEADING_PATTERN = re.compile(

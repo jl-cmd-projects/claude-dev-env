@@ -3,7 +3,9 @@ import pytest
 from closing_question_round_open_items import (
     declares_no_open_items,
     indented_code_masked,
+    lists_items_for_user,
     marked_open_lines,
+    user_open_lines,
 )
 from hooks_constants.closing_question_round_gate_constants import (
     MARKER_SCAN_WINDOW_CHARACTERS,
@@ -236,3 +238,35 @@ def test_marked_open_lines_should_quote_the_lines_of_a_marker_beside_long_space_
     assert marked_open_lines([reply_text], NO_DEADLINE) == [
         "The   cleanup  is out  of scope   now."
     ]
+
+
+@pytest.mark.parametrize(
+    ("reply_text", "expected_lines"),
+    [
+        ("I deferred the backoff setting.", []),
+        ("Next I will log the bug and clean up the branch. The review is pending.", []),
+        ("The deploy waits on you to approve it.", ["The deploy waits on you to approve it."]),
+        ("Is the cache limit right?", ["Is the cache limit right?"]),
+        ("It is your call whether the retry stays deferred.", ["It is your call whether the retry stays deferred."]),
+    ],
+)
+def test_user_open_lines_keeps_only_lines_that_need_the_user(
+    reply_text: str, expected_lines: list[str]
+) -> None:
+    assert user_open_lines([reply_text], NO_DEADLINE) == expected_lines
+
+
+@pytest.mark.parametrize(
+    ("reply_text", "expected_result"),
+    [
+        ("Done.\n\nNeeds you:\n- Approve the deploy.", True),
+        ("Done.\n\n**Needs you:**\n\n- Pick a size.", True),
+        ("Needs you:", False),
+        ("`Needs you:`\n- Approve it.", False),
+        ("Needs you soon:\n- Approve it.", False),
+    ],
+)
+def test_lists_items_for_user_reads_the_needs_you_heading(
+    reply_text: str, expected_result: bool
+) -> None:
+    assert lists_items_for_user(reply_text, NO_DEADLINE) is expected_result
